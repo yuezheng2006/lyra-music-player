@@ -14,6 +14,7 @@ import type {
     MonetBackgroundTuning,
     MonetPortraitImage,
     MonetTuning,
+    Interactive3dSceneTuning,
     PartitaTuning,
     PlaybackContext,
     PlayerState,
@@ -79,6 +80,7 @@ type UseObsBrowserSourcePublisherOptions = {
     cappellaCustomAvatarImages?: CappellaAvatarImage[];
     tiltTuning?: TiltTuning;
     monetBackgroundTuning?: MonetBackgroundTuning;
+    interactive3dSceneTuning?: Interactive3dSceneTuning;
     monetTuning?: MonetTuning;
     monetBackgroundImage?: MonetBackgroundImage | null;
     monetPortraitImage?: MonetPortraitImage | null;
@@ -141,6 +143,7 @@ export const useObsBrowserSourcePublisher = ({
     cappellaCustomAvatarImages,
     tiltTuning,
     monetBackgroundTuning,
+    interactive3dSceneTuning,
     monetTuning,
     monetBackgroundImage,
     monetPortraitImage,
@@ -205,6 +208,7 @@ export const useObsBrowserSourcePublisher = ({
         cappellaCustomAvatarImages,
         tiltTuning,
         monetBackgroundTuning,
+        interactive3dSceneTuning,
         monetTuning,
         monetBackgroundImage,
         monetPortraitImage,
@@ -232,6 +236,7 @@ export const useObsBrowserSourcePublisher = ({
         lyricsFontScale,
         monetBackgroundImage,
         monetBackgroundTuning,
+        interactive3dSceneTuning,
         monetPortraitImage,
         monetTuning,
         partitaTuning,

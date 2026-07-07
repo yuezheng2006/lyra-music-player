@@ -250,11 +250,14 @@ export const compressConfig = (config: any): string => {
     if (config.cappellaTuning) minified.cpt = compressCappella(config.cappellaTuning);
     if (config.tiltTuning) minified.tt = compressTilt(config.tiltTuning);
     if (config.monetBackgroundTuning) minified.mbt = compressMonetBackground(config.monetBackgroundTuning);
+    if (config.interactive3dSceneTuning) minified.i3st = config.interactive3dSceneTuning;
     if (config.monetTuning) minified.mt = compressMonet(config.monetTuning);
     if (config.urlBackgroundList) minified.ubl = config.urlBackgroundList;
     if (config.urlBackgroundSelectedId) minified.ubid = config.urlBackgroundSelectedId;
     if (config.songThemeAutoSwitchEnabled !== undefined) minified.stas = config.songThemeAutoSwitchEnabled;
     if (config.songThemeAutoGenerateEnabled !== undefined) minified.stag = config.songThemeAutoGenerateEnabled;
+    if (config.enableSmartAtmosphere !== undefined) minified.esa = config.enableSmartAtmosphere;
+    if (config.enable3dInteractiveBackground !== undefined) minified.e3ib = config.enable3dInteractiveBackground;
 
     const jsonStr = JSON.stringify(minified);
     const bytes = new TextEncoder().encode(jsonStr);
@@ -283,7 +286,7 @@ export const decompressConfig = (str: string): any => {
         throw new Error('Invalid format');
     }
 
-    const isMinified = parsed.t !== undefined || parsed.vm !== undefined || parsed.ct !== undefined || parsed.cat !== undefined || parsed.hpts !== undefined || parsed.sst !== undefined;
+    const isMinified = parsed.t !== undefined || parsed.vm !== undefined || parsed.ct !== undefined || parsed.cat !== undefined || parsed.hpts !== undefined || parsed.sst !== undefined || parsed.esa !== undefined || parsed.e3ib !== undefined;
     if (isMinified) {
         const decompressed: any = {};
         if (parsed.t) {
@@ -309,11 +312,14 @@ export const decompressConfig = (str: string): any => {
         if (parsed.cpt) decompressed.cappellaTuning = decompressCappella(parsed.cpt);
         if (parsed.tt) decompressed.tiltTuning = decompressTilt(parsed.tt);
         if (parsed.mbt) decompressed.monetBackgroundTuning = decompressMonetBackground(parsed.mbt);
+        if (parsed.i3st) decompressed.interactive3dSceneTuning = parsed.i3st;
         if (parsed.mt) decompressed.monetTuning = decompressMonet(parsed.mt);
         if (parsed.ubl) decompressed.urlBackgroundList = parsed.ubl;
         if (parsed.ubid) decompressed.urlBackgroundSelectedId = parsed.ubid;
         if (parsed.stas !== undefined) decompressed.songThemeAutoSwitchEnabled = parsed.stas;
         if (parsed.stag !== undefined) decompressed.songThemeAutoGenerateEnabled = parsed.stag;
+        if (parsed.esa !== undefined) decompressed.enableSmartAtmosphere = parsed.esa;
+        if (parsed.e3ib !== undefined) decompressed.enable3dInteractiveBackground = parsed.e3ib;
 
         return decompressed;
     } else {
@@ -322,9 +328,10 @@ export const decompressConfig = (str: string): any => {
             'visualizerOpacity', 'hidePlayerTranslationSubtitle', 'showSubtitleTranslation',
             'lyricsFontStyle', 'lyricsFontScale', 'classicTuning',
             'cadenzaTuning', 'partitaTuning', 'fumeTuning', 'claddaghTuning', 'cappellaTuning',
-            'tiltTuning', 'monetBackgroundTuning', 'monetTuning',
+            'tiltTuning', 'monetBackgroundTuning', 'interactive3dSceneTuning', 'monetTuning',
             'urlBackgroundList', 'urlBackgroundSelectedId',
             'songThemeAutoSwitchEnabled', 'songThemeAutoGenerateEnabled',
+            'enableSmartAtmosphere', 'enable3dInteractiveBackground',
         ];
         const hasValidKey = validKeys.some(k => parsed[k] !== undefined);
         if (!hasValidKey) {
@@ -420,9 +427,12 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         cappellaTuning: state.cappellaTuning,
         tiltTuning: state.tiltTuning,
         monetBackgroundTuning: state.monetBackgroundTuning,
+        interactive3dSceneTuning: state.interactive3dSceneTuning,
         monetTuning: state.monetTuning,
         urlBackgroundList: state.urlBackgroundList,
         urlBackgroundSelectedId: state.urlBackgroundSelectedId,
+        enableSmartAtmosphere: state.enableSmartAtmosphere,
+        enable3dInteractiveBackground: state.enable3dInteractiveBackground,
 
         handleSetVisualizerMode: state.handleSetVisualizerMode,
         handleSetVisualizerBackgroundMode: state.handleSetVisualizerBackgroundMode,
@@ -440,11 +450,14 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         handleSetCappellaTuning: state.handleSetCappellaTuning,
         handleSetTiltTuning: state.handleSetTiltTuning,
         handleSetMonetBackgroundTuning: state.handleSetMonetBackgroundTuning,
+        handleSetInteractive3dSceneTuning: state.handleSetInteractive3dSceneTuning,
         handleSetMonetTuning: state.handleSetMonetTuning,
         handleAddUrlBackgroundItem: state.handleAddUrlBackgroundItem,
         handleUpdateUrlBackgroundItem: state.handleUpdateUrlBackgroundItem,
         handleSetUrlBackgroundList: state.handleSetUrlBackgroundList,
         handleSetUrlBackgroundSelectedId: state.handleSetUrlBackgroundSelectedId,
+        handleToggleEnableSmartAtmosphere: state.handleToggleEnableSmartAtmosphere,
+        handleToggleEnable3dInteractiveBackground: state.handleToggleEnable3dInteractiveBackground,
     })));
 
     const getAccentOptionStyle = (selected: boolean) => (
@@ -485,11 +498,14 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             cappellaTuning: store.cappellaTuning,
             tiltTuning: store.tiltTuning,
             monetBackgroundTuning: store.monetBackgroundTuning,
+            interactive3dSceneTuning: store.interactive3dSceneTuning,
             monetTuning: store.monetTuning,
             urlBackgroundList: store.urlBackgroundList,
             urlBackgroundSelectedId: store.urlBackgroundSelectedId,
             songThemeAutoSwitchEnabled,
             songThemeAutoGenerateEnabled,
+            enableSmartAtmosphere: store.enableSmartAtmosphere,
+            enable3dInteractiveBackground: store.enable3dInteractiveBackground,
         };
     };
 
@@ -581,6 +597,9 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             if (config.monetBackgroundTuning) {
                 store.handleSetMonetBackgroundTuning(config.monetBackgroundTuning);
             }
+            if (config.interactive3dSceneTuning) {
+                store.handleSetInteractive3dSceneTuning(config.interactive3dSceneTuning);
+            }
             if (config.monetTuning) {
                 store.handleSetMonetTuning(config.monetTuning);
             }
@@ -619,6 +638,12 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             }
             if (config.songThemeAutoGenerateEnabled !== undefined) {
                 onToggleSongThemeAutoGenerate(Boolean(config.songThemeAutoGenerateEnabled));
+            }
+            if (config.enableSmartAtmosphere !== undefined) {
+                store.handleToggleEnableSmartAtmosphere(Boolean(config.enableSmartAtmosphere));
+            }
+            if (config.enable3dInteractiveBackground !== undefined) {
+                store.handleToggleEnable3dInteractiveBackground(Boolean(config.enable3dInteractiveBackground));
             }
 
             store.statusSetter?.({ type: 'success', text: t('options.importSuccess') || '配置导入成功！' });

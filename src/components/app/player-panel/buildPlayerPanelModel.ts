@@ -99,6 +99,15 @@ type BuildPlayerPanelModelParams = {
     handleToggleCoverColorBg: LegacyUnifiedPanelProps['account']['onToggleCoverColorBg'];
     isDaylight: LegacyUnifiedPanelProps['account']['isDaylight'];
     handleToggleDaylight: () => void;
+    visualizerBackgroundMode: LegacyUnifiedPanelProps['playback']['visualizerBackgroundMode'];
+    interactive3dSceneTuning: LegacyUnifiedPanelProps['playback']['interactive3dSceneTuning'];
+    enableSmartAtmosphere: LegacyUnifiedPanelProps['playback']['enableSmartAtmosphere'];
+    disableVisualizerVignette: LegacyUnifiedPanelProps['playback']['disableVisualizerVignette'];
+    handleSetVisualizerBackgroundMode: LegacyUnifiedPanelProps['playback']['onVisualizerBackgroundModeChange'];
+    handleSetInteractive3dSceneTuning: LegacyUnifiedPanelProps['playback']['onInteractive3dSceneTuningChange'];
+    handleToggleEnableSmartAtmosphere: LegacyUnifiedPanelProps['playback']['onToggleEnableSmartAtmosphere'];
+    handleToggleDisableVisualizerVignette: LegacyUnifiedPanelProps['playback']['onToggleDisableVisualizerVignette'];
+    openAdvancedBackgroundSettings: LegacyUnifiedPanelProps['playback']['onOpenAdvancedBackgroundSettings'];
 };
 
 // Builds the player panel model from raw app state and actions so App.tsx no longer assembles nested props inline.
@@ -191,6 +200,15 @@ export const buildPlayerPanelModel = ({
     handleToggleCoverColorBg,
     isDaylight,
     handleToggleDaylight,
+    visualizerBackgroundMode,
+    interactive3dSceneTuning,
+    enableSmartAtmosphere,
+    disableVisualizerVignette,
+    handleSetVisualizerBackgroundMode,
+    handleSetInteractive3dSceneTuning,
+    handleToggleEnableSmartAtmosphere,
+    handleToggleDisableVisualizerVignette,
+    openAdvancedBackgroundSettings,
 }: BuildPlayerPanelModelParams): PlayerPanelViewModel => ({
     legacyProps: {
         playback: {
@@ -255,6 +273,15 @@ export const buildPlayerPanelModel = ({
             },
             onOpenCommandPalette: openCommandPalette,
             isCommandPaletteOpen,
+            visualizerBackgroundMode,
+            interactive3dSceneTuning,
+            enableSmartAtmosphere,
+            disableVisualizerVignette,
+            onVisualizerBackgroundModeChange: handleSetVisualizerBackgroundMode,
+            onInteractive3dSceneTuningChange: handleSetInteractive3dSceneTuning,
+            onToggleEnableSmartAtmosphere: handleToggleEnableSmartAtmosphere,
+            onToggleDisableVisualizerVignette: handleToggleDisableVisualizerVignette,
+            onOpenAdvancedBackgroundSettings: openAdvancedBackgroundSettings,
         },
         queue: {
             playQueue,

@@ -63,6 +63,7 @@ type UseElectronPlaybackBridgeOptions = {
 const emptyPlaybackSyncBridgeStatus = (): ElectronPlaybackSyncBridgeStatus => ({
     remoteControlOpen: false,
     discordPresenceEnabled: false,
+    desktopLyricsOpen: false,
 });
 
 export const useElectronPlaybackBridge = ({

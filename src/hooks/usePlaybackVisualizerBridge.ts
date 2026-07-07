@@ -43,6 +43,12 @@ type UsePlaybackVisualizerBridgeParams = {
     syncNowPlayingClock: (progressSec: number, durationSec: number, paused: boolean) => void;
     lyricTimelineOffsetMs: number;
     lyricCurrentTime: MotionValue<number>;
+    onAtmosphereTick?: (params: {
+        analyser: AnalyserNode;
+        audioElement: HTMLAudioElement;
+        sampleRate: number;
+        dt: number;
+    }) => void;
 };
 
 // Runs the requestAnimationFrame loop for audio-reactive visuals and lyric timing.
@@ -70,12 +76,19 @@ export function usePlaybackVisualizerBridge({
     syncNowPlayingClock,
     lyricTimelineOffsetMs,
     lyricCurrentTime,
+    onAtmosphereTick,
 }: UsePlaybackVisualizerBridgeParams) {
     const currentLineIndexRef = useRef(-1);
+    const lastLoopTimeRef = useRef<number | null>(null);
 
     const updateLoop = useCallback(() => {
         const audioElement = audioRef.current;
         const isActuallyPlaying = Boolean(audioElement && !audioElement.paused && !audioElement.ended);
+        const now = performance.now();
+        const dt = lastLoopTimeRef.current == null
+            ? 0.016
+            : Math.max(0.001, Math.min(0.08, (now - lastLoopTimeRef.current) / 1000));
+        lastLoopTimeRef.current = now;
 
         if (isActuallyPlaying && analyserRef.current) {
             const bufferLength = analyserRef.current.frequencyBinCount;
@@ -111,6 +124,15 @@ export function usePlaybackVisualizerBridge({
             audioBands.mid.set(process(mid, 2));
             audioBands.vocal.set(process(vocal, 1.5));
             audioBands.treble.set(process(treble, 2));
+
+            if (onAtmosphereTick && audioElement) {
+                onAtmosphereTick({
+                    analyser: analyserRef.current,
+                    audioElement,
+                    sampleRate: analyserRef.current.context.sampleRate,
+                    dt,
+                });
+            }
         } else {
             const time = Date.now() / 2000;
             const breath = (Math.sin(time) + 1) * 20;
@@ -227,6 +249,7 @@ export function usePlaybackVisualizerBridge({
         syncStageLyricsClock,
         lyricTimelineOffsetMs,
         lyricCurrentTime,
+        onAtmosphereTick,
     ]);
 
     useEffect(() => {

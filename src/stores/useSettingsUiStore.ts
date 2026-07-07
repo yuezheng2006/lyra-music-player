@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type React from 'react';
-import { DEFAULT_CADENZA_TUNING, DEFAULT_CAPPELLA_TUNING, DEFAULT_CLASSIC_TUNING, DEFAULT_CLADDAGH_TUNING, DEFAULT_FUME_TUNING, DEFAULT_MONET_BACKGROUND_TUNING, DEFAULT_MONET_TUNING, DEFAULT_PARTITA_TUNING, DEFAULT_TILT_TUNING, type CadenzaTuning, type CappellaAvatarImage, type CappellaAvatarSource, type CappellaEmojiImage, type CappellaTuning, type ClassicTuning, type CladdaghTuning, type FumeTuning, type LyricProviderSource, type MonetBackgroundImage, type MonetBackgroundLayout, type MonetBackgroundSource, type MonetBackgroundTuning, type MonetBackgroundWashColorMode, type MonetPortraitImage, type MonetPortraitSource, type MonetTuning, type PartitaTuning, type QueueAddBehavior, type StatusMessage, type StoredCappellaAvatarImage, type StoredCappellaEmojiImage, type StoredCustomLyricsFont, type StoredMonetBackgroundImage, type StoredMonetPortraitImage, type Theme, type TiltTuning, type UrlBackgroundItem, type VisualizerBackgroundMode, type VisualizerFrameRate, type VisualizerMode } from '../types';
+import { DEFAULT_CADENZA_TUNING, DEFAULT_CAPPELLA_TUNING, DEFAULT_CLASSIC_TUNING, DEFAULT_CLADDAGH_TUNING, DEFAULT_FUME_TUNING, DEFAULT_INTERACTIVE3D_SCENE_TUNING, DEFAULT_MONET_BACKGROUND_TUNING, DEFAULT_MONET_TUNING, DEFAULT_PARTITA_TUNING, DEFAULT_TILT_TUNING, type CadenzaTuning, type CappellaAvatarImage, type CappellaAvatarSource, type CappellaEmojiImage, type CappellaTuning, type ClassicTuning, type CladdaghTuning, type FumeTuning, type Interactive3dSceneTuning, type LyricProviderSource, type MonetBackgroundImage, type MonetBackgroundLayout, type MonetBackgroundSource, type MonetBackgroundTuning, type MonetBackgroundWashColorMode, type MonetPortraitImage, type MonetPortraitSource, type MonetTuning, type PartitaTuning, type QueueAddBehavior, type StatusMessage, type StoredCappellaAvatarImage, type StoredCappellaEmojiImage, type StoredCustomLyricsFont, type StoredMonetBackgroundImage, type StoredMonetPortraitImage, type Theme, type TiltTuning, type UrlBackgroundItem, type VisualizerBackgroundMode, type VisualizerFrameRate, type VisualizerMode } from '../types';
+import { resolveStoredInteractive3dSceneTuning } from '../components/visualizer/geometric/interactive3dSceneRegistry';
 import { DEFAULT_VISUALIZER_MODE, getVisualizerRegistryEntry, hasVisualizerMode } from '../components/visualizer/registry';
 import { getLyricFilterError } from '../utils/lyrics/filtering';
 import { buildStoredCappellaEmojiPack, clearCustomCappellaEmojiPack, isSupportedCappellaEmojiFile, saveCustomCappellaEmojiPack } from '../services/cappellaEmojiPack';
@@ -36,6 +37,11 @@ export const OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY = 'open_player_on_launch';
 export const SUBTITLE_OVERLAY_OPACITY_STORAGE_KEY = 'subtitle_overlay_opacity';
 export const SHOW_SUBTITLE_TRANSLATION_STORAGE_KEY = 'show_subtitle_translation';
 export const VISUALIZER_OPACITY_STORAGE_KEY = 'visualizer_opacity';
+export const ENABLE_SMART_ATMOSPHERE_STORAGE_KEY = 'enable_smart_atmosphere';
+export const INTERACTIVE_3D_SCENE_TUNING_STORAGE_KEY = 'interactive_3d_scene_tuning';
+export const ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY = 'enable_3d_interactive_background';
+
+const DEFAULT_DAYLIGHT_PREFERENCE = true;
 
 const getStoredBoolean = (key: string, fallback: boolean) => {
     if (typeof window === 'undefined') {
@@ -45,6 +51,10 @@ const getStoredBoolean = (key: string, fallback: boolean) => {
     const saved = localStorage.getItem(key);
     return saved !== null ? saved === 'true' : fallback;
 };
+
+export const readDefaultDaylightPreference = (): boolean => (
+    getStoredBoolean('default_theme_daylight', DEFAULT_DAYLIGHT_PREFERENCE)
+);
 
 const setStoredBoolean = (key: string, value: boolean) => {
     if (typeof window !== 'undefined') {
@@ -459,13 +469,31 @@ const resolveMonetPortraitSource = (value: MonetPortraitSource | undefined): Mon
     value === 'custom' ? 'custom' : DEFAULT_MONET_TUNING.portraitSource
 );
 
+const VISUALIZER_BACKGROUND_MODES: VisualizerBackgroundMode[] = [
+    'common',
+    'interactive3d',
+    'monet',
+    'url',
+    'sora',
+];
+
 const readStoredVisualizerBackgroundMode = (): VisualizerBackgroundMode | null => {
     if (typeof window === 'undefined') {
         return null;
     }
 
     const saved = localStorage.getItem('visualizer_background_mode');
-    return saved === 'common' || saved === 'monet' || saved === 'url' || saved === 'sora' ? saved : null;
+    if (saved && VISUALIZER_BACKGROUND_MODES.includes(saved as VisualizerBackgroundMode)) {
+        return saved as VisualizerBackgroundMode;
+    }
+
+    if (getStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, false)) {
+        localStorage.setItem('visualizer_background_mode', 'interactive3d');
+        localStorage.removeItem(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY);
+        return 'interactive3d';
+    }
+
+    return null;
 };
 
 const readStoredUrlBackgroundList = (): UrlBackgroundItem[] => {
@@ -489,7 +517,19 @@ const readStoredUrlBackgroundSelectedId = (): string | null => {
 export const resolveVisualizerBackgroundMode = (
     storedMode: VisualizerBackgroundMode | null | undefined,
     visualizerMode: VisualizerMode,
-): VisualizerBackgroundMode => storedMode ?? (visualizerMode === 'monet' ? 'monet' : 'common');
+): VisualizerBackgroundMode => storedMode ?? (visualizerMode === 'monet' ? 'monet' : 'interactive3d');
+
+const bootstrapVisualizerBackgroundMode = (): VisualizerBackgroundMode => {
+    const visualizerMode = readStoredVisualizerMode();
+    const storedMode = readStoredVisualizerBackgroundMode();
+    const resolvedMode = resolveVisualizerBackgroundMode(storedMode, visualizerMode);
+
+    if (typeof window !== 'undefined' && !storedMode) {
+        localStorage.setItem('visualizer_background_mode', resolvedMode);
+    }
+
+    return resolvedMode;
+};
 
 type StoredMonetBackgroundTuningInput = Partial<MonetBackgroundTuning> & {
     backgroundCropMode?: unknown;
@@ -560,6 +600,22 @@ const readStoredMonetBackgroundTuning = (): MonetBackgroundTuning => {
         return resolveStoredMonetBackgroundTuning(parsed);
     } catch {
         return DEFAULT_MONET_BACKGROUND_TUNING;
+    }
+};
+
+const readStoredInteractive3dSceneTuning = (): Interactive3dSceneTuning => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_INTERACTIVE3D_SCENE_TUNING;
+    }
+
+    const saved = localStorage.getItem(INTERACTIVE_3D_SCENE_TUNING_STORAGE_KEY);
+    if (!saved) return DEFAULT_INTERACTIVE3D_SCENE_TUNING;
+
+    try {
+        const parsed = JSON.parse(saved) as Partial<Interactive3dSceneTuning>;
+        return resolveStoredInteractive3dSceneTuning(parsed);
+    } catch {
+        return DEFAULT_INTERACTIVE3D_SCENE_TUNING;
     }
 };
 
@@ -734,7 +790,8 @@ type SettingsUiState = {
     enablePlayerPageNativeBlur: boolean;
     autoHidePlayerChrome: boolean;
     disableVisualizerVignette: boolean;
-    disableVisualizerGeometricBackground: boolean;
+    enableSmartAtmosphere: boolean;
+    enable3dInteractiveBackground: boolean;
     minimizeToTray: boolean;
     hideTaskbarIcon: boolean;
     openPlayerOnLaunch: boolean;
@@ -756,6 +813,7 @@ type SettingsUiState = {
     cappellaTuning: CappellaTuning;
     tiltTuning: TiltTuning;
     monetBackgroundTuning: MonetBackgroundTuning;
+    interactive3dSceneTuning: Interactive3dSceneTuning;
     monetTuning: MonetTuning;
     storedCappellaEmojiPack: StoredCappellaEmojiImage[];
     cappellaCustomEmojiImages: CappellaEmojiImage[];
@@ -825,7 +883,8 @@ type SettingsUiState = {
     handleToggleTransparentPlayerBackground: (enable: boolean) => void;
     handleToggleAutoHidePlayerChrome: (enable: boolean) => void;
     handleToggleDisableVisualizerVignette: (disable: boolean) => void;
-    handleToggleDisableVisualizerGeometricBackground: (disable: boolean) => void;
+    handleToggleEnableSmartAtmosphere: (enable: boolean) => void;
+    handleToggleEnable3dInteractiveBackground: (enable: boolean) => void;
     handleToggleMinimizeToTray: (enable: boolean) => void;
     handleToggleHideTaskbarIcon: (enable: boolean) => void;
     handleToggleOpenPlayerOnLaunch: (enable: boolean) => void;
@@ -859,6 +918,8 @@ type SettingsUiState = {
     handleResetTiltTuning: () => void;
     handleSetMonetBackgroundTuning: (patch: Partial<MonetBackgroundTuning>) => void;
     handleResetMonetBackgroundTuning: () => void;
+    handleSetInteractive3dSceneTuning: (patch: Partial<Interactive3dSceneTuning>) => void;
+    handleResetInteractive3dSceneTuning: () => void;
     handleSetMonetTuning: (patch: Partial<MonetTuning>) => void;
     handleResetMonetTuning: () => void;
     handleUploadMonetBackgroundImage: (files: File[]) => Promise<{ ok: boolean; error?: string; }>;
@@ -907,7 +968,8 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     enablePlayerPageNativeBlur: getStoredBoolean('enable_player_page_native_blur', false),
     autoHidePlayerChrome: getStoredBoolean('auto_hide_player_chrome', false),
     disableVisualizerVignette: getStoredBoolean('disable_visualizer_vignette', false),
-    disableVisualizerGeometricBackground: getStoredBoolean('disable_visualizer_geometric_background', false),
+    enableSmartAtmosphere: getStoredBoolean(ENABLE_SMART_ATMOSPHERE_STORAGE_KEY, true),
+    enable3dInteractiveBackground: getStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, true),
     minimizeToTray: getStoredBoolean(MINIMIZE_TO_TRAY_STORAGE_KEY, false),
     hideTaskbarIcon: getStoredBoolean(HIDE_TASKBAR_ICON_STORAGE_KEY, false),
     openPlayerOnLaunch: getStoredBoolean(OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY, false),
@@ -915,11 +977,11 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     backgroundOpacity: readStoredBackgroundOpacity(),
     subtitleOverlayOpacity: readStoredSubtitleOverlayOpacity(),
     visualizerOpacity: readStoredVisualizerOpacity(),
-    visualizerBackgroundMode: readStoredVisualizerBackgroundMode(),
+    visualizerBackgroundMode: bootstrapVisualizerBackgroundMode(),
     urlBackgroundList: readStoredUrlBackgroundList(),
     urlBackgroundSelectedId: readStoredUrlBackgroundSelectedId(),
     visualizerFrameRate: readStoredVisualizerFrameRate(),
-    isDaylight: getStoredBoolean('default_theme_daylight', false),
+    isDaylight: readDefaultDaylightPreference(),
     visualizerMode: readStoredVisualizerMode(),
     classicTuning: readStoredClassicTuning(),
     cadenzaTuning: readStoredCadenzaTuning(),
@@ -929,6 +991,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     cappellaTuning: readStoredCappellaTuning(),
     tiltTuning: readStoredTiltTuning(),
     monetBackgroundTuning: readStoredMonetBackgroundTuning(),
+    interactive3dSceneTuning: readStoredInteractive3dSceneTuning(),
     monetTuning: readStoredMonetTuning(),
     storedCappellaEmojiPack: [],
     cappellaCustomEmojiImages: [],
@@ -1138,12 +1201,20 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             text: disable ? '播放页暗角效果已关闭' : '播放页暗角效果已开启',
         });
     },
-    handleToggleDisableVisualizerGeometricBackground: (disable) => {
-        setStoredBoolean('disable_visualizer_geometric_background', disable);
-        set({ disableVisualizerGeometricBackground: disable });
+    handleToggleEnableSmartAtmosphere: (enable) => {
+        setStoredBoolean(ENABLE_SMART_ATMOSPHERE_STORAGE_KEY, enable);
+        set({ enableSmartAtmosphere: enable });
         notify(get, {
             type: 'info',
-            text: disable ? '通用几何背景已隐藏' : '通用几何背景已显示',
+            text: enable ? '智能氛围已开启' : '智能氛围已关闭',
+        });
+    },
+    handleToggleEnable3dInteractiveBackground: (enable) => {
+        setStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, enable);
+        set({ enable3dInteractiveBackground: enable });
+        notify(get, {
+            type: 'info',
+            text: enable ? '3D 交互背景已开启' : '3D 交互背景已关闭',
         });
     },
     handleToggleMinimizeToTray: (enable) => {
@@ -1201,16 +1272,22 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         set({ visualizerOpacity: next });
     },
     handleSetVisualizerBackgroundMode: (mode) => {
+        const enable3dInteractiveBackground = mode === 'interactive3d';
         if (typeof window !== 'undefined') {
             localStorage.setItem('visualizer_background_mode', mode);
+            setStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, enable3dInteractiveBackground);
         }
-        set({ visualizerBackgroundMode: mode });
+        set({ visualizerBackgroundMode: mode, enable3dInteractiveBackground });
     },
     handleResetVisualizerBackgroundMode: () => {
+        const visualizerMode = get().visualizerMode;
+        const resolvedMode = resolveVisualizerBackgroundMode(null, visualizerMode);
+        const enable3dInteractiveBackground = resolvedMode === 'interactive3d';
         if (typeof window !== 'undefined') {
-            localStorage.removeItem('visualizer_background_mode');
+            localStorage.setItem('visualizer_background_mode', resolvedMode);
+            setStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, enable3dInteractiveBackground);
         }
-        set({ visualizerBackgroundMode: null });
+        set({ visualizerBackgroundMode: resolvedMode, enable3dInteractiveBackground });
     },
     handleAddUrlBackgroundItem: (item) => {
         const sanitized = sanitizeUrlBackgroundItem(item);
@@ -1469,6 +1546,31 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         }
         set({ monetBackgroundTuning: DEFAULT_MONET_BACKGROUND_TUNING });
         notify(get, { type: 'info', text: '莫奈背景参数已重置' });
+    },
+    handleSetInteractive3dSceneTuning: (patch) => {
+        const prev = get().interactive3dSceneTuning;
+        const touchesLayer = Object.keys(patch).some((key) =>
+            key.startsWith('enable') || key === 'bloomStrength' || key === 'cinemaShake' || key === 'rhythmIntensity',
+        );
+        const next = resolveStoredInteractive3dSceneTuning({
+            ...prev,
+            ...patch,
+            visualPreset: patch.visualPreset ?? (touchesLayer ? 'custom' : prev.visualPreset),
+        });
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(INTERACTIVE_3D_SCENE_TUNING_STORAGE_KEY, JSON.stringify(next));
+        }
+        set({ interactive3dSceneTuning: next });
+    },
+    handleResetInteractive3dSceneTuning: () => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(
+                INTERACTIVE_3D_SCENE_TUNING_STORAGE_KEY,
+                JSON.stringify(DEFAULT_INTERACTIVE3D_SCENE_TUNING),
+            );
+        }
+        set({ interactive3dSceneTuning: DEFAULT_INTERACTIVE3D_SCENE_TUNING });
+        notify(get, { type: 'info', text: '3D 场景参数已重置' });
     },
     handleSetMonetTuning: (patch) => {
         const prev = get().monetTuning;
@@ -1810,7 +1912,8 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     transparentPlayerBackground: state.transparentPlayerBackground,
     autoHidePlayerChrome: state.autoHidePlayerChrome,
     disableVisualizerVignette: state.disableVisualizerVignette,
-    disableVisualizerGeometricBackground: state.disableVisualizerGeometricBackground,
+    enableSmartAtmosphere: state.enableSmartAtmosphere,
+    enable3dInteractiveBackground: state.enable3dInteractiveBackground,
     minimizeToTray: state.minimizeToTray,
     hideTaskbarIcon: state.hideTaskbarIcon,
     openPlayerOnLaunch: state.openPlayerOnLaunch,
@@ -1840,6 +1943,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     cappellaTuning: state.cappellaTuning,
     tiltTuning: state.tiltTuning,
     monetBackgroundTuning: state.monetBackgroundTuning,
+    interactive3dSceneTuning: state.interactive3dSceneTuning,
     monetTuning: state.monetTuning,
     cappellaCustomEmojiImages: state.cappellaCustomEmojiImages,
     isLoadingCappellaCustomEmojiPack: state.isLoadingCappellaCustomEmojiPack,
@@ -1873,7 +1977,8 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleTogglePlayerPageNativeBlur: state.handleTogglePlayerPageNativeBlur,
     handleToggleAutoHidePlayerChrome: state.handleToggleAutoHidePlayerChrome,
     handleToggleDisableVisualizerVignette: state.handleToggleDisableVisualizerVignette,
-    handleToggleDisableVisualizerGeometricBackground: state.handleToggleDisableVisualizerGeometricBackground,
+    handleToggleEnableSmartAtmosphere: state.handleToggleEnableSmartAtmosphere,
+    handleToggleEnable3dInteractiveBackground: state.handleToggleEnable3dInteractiveBackground,
     handleToggleMinimizeToTray: state.handleToggleMinimizeToTray,
     handleToggleHideTaskbarIcon: state.handleToggleHideTaskbarIcon,
     handleToggleOpenPlayerOnLaunch: state.handleToggleOpenPlayerOnLaunch,
@@ -1909,6 +2014,8 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleResetTiltTuning: state.handleResetTiltTuning,
     handleSetMonetBackgroundTuning: state.handleSetMonetBackgroundTuning,
     handleResetMonetBackgroundTuning: state.handleResetMonetBackgroundTuning,
+    handleSetInteractive3dSceneTuning: state.handleSetInteractive3dSceneTuning,
+    handleResetInteractive3dSceneTuning: state.handleResetInteractive3dSceneTuning,
     handleSetMonetTuning: state.handleSetMonetTuning,
     handleResetMonetTuning: state.handleResetMonetTuning,
     handleUploadMonetBackgroundImage: state.handleUploadMonetBackgroundImage,

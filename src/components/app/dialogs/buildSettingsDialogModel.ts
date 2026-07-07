@@ -10,6 +10,7 @@ import type {
 import type { useThemeController } from '../../../hooks/useThemeController';
 import { type SettingsModalState, useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import type { ObsBrowserSourceStatus } from '../../../types/obsBrowserSource';
+import type { DesktopLyricsStatus } from '../../../types/desktopLyrics';
 
 // src/components/app/dialogs/buildSettingsDialogModel.ts
 
@@ -38,6 +39,9 @@ type BuildSettingsDialogModelParams = {
     onToggleTransparentPlayerBackground: (enabled: boolean) => Promise<void> | void;
     obsBrowserSourceStatus?: ObsBrowserSourceStatus | null;
     refreshObsBrowserSourceStatus?: () => Promise<ObsBrowserSourceStatus>;
+    desktopLyricsStatus?: DesktopLyricsStatus;
+    onToggleDesktopLyrics?: () => Promise<boolean>;
+    onSetDesktopLyricsLocked?: (locked: boolean) => Promise<boolean>;
 };
 
 // Builds the global settings dialog props without tying the modal to Home.
@@ -63,6 +67,9 @@ export const buildSettingsDialogModel = ({
     onToggleTransparentPlayerBackground,
     obsBrowserSourceStatus,
     refreshObsBrowserSourceStatus,
+    desktopLyricsStatus,
+    onToggleDesktopLyrics,
+    onSetDesktopLyricsLocked,
 }: BuildSettingsDialogModelParams): SettingsDialogProps | null => {
     if (!state.isOpen) {
         return null;
@@ -153,5 +160,8 @@ export const buildSettingsDialogModel = ({
         },
         aiTheme: themeController.aiTheme,
         customTheme: themeController.customTheme,
+        desktopLyricsStatus,
+        onToggleDesktopLyrics,
+        onSetDesktopLyricsLocked,
     };
 };

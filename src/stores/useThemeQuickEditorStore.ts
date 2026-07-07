@@ -58,7 +58,7 @@ export const useThemeQuickEditorStore = create<ThemeQuickEditorState>((set, get)
     bgMode: 'default',
     coverUrl: null,
     songKey: null,
-    isDaylight: false,
+    isDaylight: true,
     promptSourceText: null,
     isPureMusic: false,
     songTitle: undefined,

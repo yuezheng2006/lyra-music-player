@@ -136,7 +136,13 @@ declare global {
   interface ElectronPlaybackSyncBridgeStatus {
     remoteControlOpen: boolean;
     discordPresenceEnabled: boolean;
+    desktopLyricsOpen: boolean;
   }
+
+  type ElectronDesktopLyricsStatus = import('./types/desktopLyrics').DesktopLyricsStatus;
+  type ElectronDesktopLyricsState = import('./types/desktopLyrics').DesktopLyricsState;
+  type ElectronDesktopLyricsLockState = import('./types/desktopLyrics').DesktopLyricsLockState;
+  type ElectronDesktopLyricsEnabledState = import('./types/desktopLyrics').DesktopLyricsEnabledState;
 
   interface ElectronDiscordPresenceSnapshot {
     hasTrack: boolean;
@@ -514,6 +520,12 @@ declare global {
       sendRemoteControlCommand: (command: ElectronRemoteControlCommand) => Promise<boolean>;
       onRemoteControlCommand: (callback: (command: ElectronRemoteControlCommand) => void) => () => void;
       onRemoteControlSnapshot: (callback: (snapshot: ElectronRemoteControlSnapshot) => void) => () => void;
+      setDesktopLyricsEnabled: (enabled: boolean, payload?: ElectronDesktopLyricsState) => Promise<ElectronDesktopLyricsStatus>;
+      updateDesktopLyrics: (payload: ElectronDesktopLyricsState) => Promise<ElectronDesktopLyricsStatus>;
+      getDesktopLyricsStatus: () => Promise<ElectronDesktopLyricsStatus>;
+      setDesktopLyricsLockState: (locked: boolean) => Promise<{ ok: boolean; locked?: boolean; error?: string }>;
+      onDesktopLyricsLockStateChanged: (callback: (state: ElectronDesktopLyricsLockState) => void) => () => void;
+      onDesktopLyricsEnabledStateChanged: (callback: (state: ElectronDesktopLyricsEnabledState) => void) => () => void;
       chooseVideoExportPath: (
         defaultName?: string,
         extension?: 'mp4' | 'webm',
@@ -536,6 +548,21 @@ declare global {
       onStageExternalPlayRequest: (callback: (request: StageExternalPlayRequest) => void) => () => void;
       onStagePlayerControlRequest: (callback: (request: StagePlayerControlRequest) => void) => () => void;
       onStagePlayerQueueRequest: (callback: (request: StagePlayerQueueRequest) => void) => () => void;
+      setDesktopLyricsEnabled: (
+        enabled: boolean,
+        payload?: import('./types/desktopLyrics').DesktopLyricsState,
+      ) => Promise<{ enabled: boolean; error?: string }>;
+      updateDesktopLyrics: (
+        payload: import('./types/desktopLyrics').DesktopLyricsState,
+      ) => Promise<boolean>;
+      getDesktopLyricsStatus: () => Promise<import('./types/desktopLyrics').DesktopLyricsStatus>;
+      setDesktopLyricsLockState: (locked: boolean) => Promise<import('./types/desktopLyrics').DesktopLyricsLockState>;
+      onDesktopLyricsLockStateChanged: (
+        callback: (state: import('./types/desktopLyrics').DesktopLyricsLockState) => void,
+      ) => () => void;
+      onDesktopLyricsEnabledStateChanged: (
+        callback: (state: import('./types/desktopLyrics').DesktopLyricsEnabledState) => void,
+      ) => () => void;
     };
   }
 }

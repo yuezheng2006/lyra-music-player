@@ -9,6 +9,7 @@ import {
     type ClassicTuning,
     type CladdaghTuning,
     type FumeTuning,
+    type Interactive3dSceneTuning,
     type Line,
     type MonetBackgroundImage,
     type MonetBackgroundTuning,
@@ -69,12 +70,26 @@ export interface VisualizerSharedProps {
     cappellaCustomAvatarImages?: CappellaAvatarImage[];
     tiltTuning?: TiltTuning;
     monetBackgroundTuning?: MonetBackgroundTuning;
+    interactive3dSceneTuning?: Interactive3dSceneTuning;
     monetTuning?: MonetTuning;
     monetBackgroundImage?: MonetBackgroundImage | null;
     monetPortraitImage?: MonetPortraitImage | null;
     urlBackgroundList?: UrlBackgroundItem[];
     urlBackgroundSelectedId?: string | null;
     onMonetTuningChange?: (patch: Partial<MonetTuning>) => void;
+    beatPulse?: import('framer-motion').MotionValue<number>;
+    cinemaScale?: import('framer-motion').MotionValue<number>;
+    atmosphereEnergy?: import('framer-motion').MotionValue<number>;
+    atmosphereGroove?: import('framer-motion').MotionValue<number>;
+    cameraPunch?: import('framer-motion').MotionValue<number>;
+    sceneParallaxX?: import('framer-motion').MotionValue<number>;
+    sceneParallaxY?: import('framer-motion').MotionValue<number>;
+    sceneRoll?: import('framer-motion').MotionValue<number>;
+    enableAtmosphereLayer?: boolean;
+    enableBeatBursts?: boolean;
+    playlistShelfItems?: import('./geometric/shelf/shelfTypes').PlaylistShelfItem[];
+    visualizerMode?: VisualizerMode;
+    mineradioStageActive?: boolean;
 }
 
 export interface VisualizerSettingsPanelProps {
@@ -111,6 +126,8 @@ export interface VisualizerSettingsPanelProps {
     monetBackgroundImage?: MonetBackgroundImage | null;
     monetBackgroundTuning?: MonetBackgroundTuning;
     onMonetBackgroundTuningChange?: (patch: Partial<MonetBackgroundTuning>) => void;
+    interactive3dSceneTuning?: import('../../types').Interactive3dSceneTuning;
+    onInteractive3dSceneTuningChange?: (patch: Partial<import('../../types').Interactive3dSceneTuning>) => void;
     onUploadMonetBackgroundImage?: (files: File[]) => Promise<{ ok: boolean; error?: string; }>;
     onClearMonetBackgroundImage?: () => Promise<void> | void;
     isLoadingMonetBackgroundImage?: boolean;

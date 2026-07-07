@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { createStageApi } = require('./stageApi.cjs');
 const { createWindowPlaybackHandoffStore } = require('./windowPlaybackHandoff.cjs');
 const { DEFAULT_DISCORD_APPLICATION_ID, createDiscordPresenceController } = require('./discordPresence.cjs');
+const { createDesktopLyricsController } = require('./desktopLyrics.cjs');
 const { sanitizeDualTheme: sanitizeGeneratedDualTheme } = require('../shared/themeSanitizer.cjs');
 const useLinuxGraphicsDebugMode = process.env.ELECTRON_LINUX_PACKAGED_GRAPHICS === 'true';
 const isAppImageRuntime =
@@ -290,10 +291,19 @@ const discordPresence = createDiscordPresenceController({
   },
 });
 
+const desktopLyrics = createDesktopLyricsController({
+  getMainWindow: () => mainWindow,
+  getStore: () => store,
+  isDevRuntime: isElectronDevRuntime,
+  isTrustedSender: (sender) => isTrustedMainWindowContents(sender),
+});
+desktopLyrics.registerIpcHandlers(ipcMain);
+
 function buildPlaybackSyncBridgeStatus() {
   return {
     remoteControlOpen: Boolean(remoteControlWindow && !remoteControlWindow.isDestroyed()),
     discordPresenceEnabled: readStoredBoolean(DISCORD_RICH_PRESENCE_ENABLED_SETTING_KEY, false),
+    desktopLyricsOpen: desktopLyrics.getStatus().enabled,
   };
 }
 
@@ -2580,6 +2590,7 @@ function createWindow(options = {}) {
       if (remoteControlWindow && !remoteControlWindow.isDestroyed()) {
         remoteControlWindow.close();
       }
+      desktopLyrics.destroy();
       refreshTrayMenu();
     }
   });
@@ -2678,6 +2689,10 @@ app.whenReady().then(async () => {
   }
   ensureTray();
   createWindow();
+  desktopLyrics.restoreEnabledFromStore();
+  screen.on('display-metrics-changed', () => {
+    desktopLyrics.handleDisplayMetricsChanged();
+  });
   focusMainWindow();
   scheduleStartupUpdateCheck();
 
@@ -2699,6 +2714,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   clearPendingWindowPlaybackHandoffRequests();
+  desktopLyrics.destroy();
   void discordPresence.destroy();
 });
 

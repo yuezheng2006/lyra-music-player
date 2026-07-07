@@ -78,4 +78,8 @@ export type CommandPaletteContext = {
     setIsUserGuideModalOpen: (isOpen: boolean) => void;
     openThemeQuickEditor: () => void;
     canOpenThemeQuickEditor: boolean;
+    toggleDesktopLyrics: () => Promise<boolean>;
+    setDesktopLyricsLocked: (locked: boolean) => Promise<boolean>;
+    desktopLyricsEnabled: boolean;
+    desktopLyricsLocked: boolean;
 };

@@ -1,11 +1,13 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Repeat, Repeat1, RepeatOff, Heart, Sparkles, RotateCcw, Cone, Sun, Moon, Volume2, Volume1, VolumeX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Theme, ThemeMode, VisualizerMode } from '../../types';
+import { Theme, ThemeMode, VisualizerMode, type Interactive3dSceneTuning, type VisualizerBackgroundMode } from '../../types';
 import type { ThemeSourceModel } from '../../hooks/themeControllerState';
 import { getVisualizerModeLabel, VISUALIZER_REGISTRY } from '../visualizer/registry';
 import { useThemeQuickEditorStore } from '../../stores/useThemeQuickEditorStore';
+import ControlsTabPlayerBackgroundSection from './ControlsTabPlayerBackgroundSection';
+import { getControlsTabOptionButtonClass, getControlsTabOptionStyles } from './controlsTabOptionStyles';
 
 // Controls tab keeps the visualizer picker local so it can expand into a full-tab overlay
 // without changing the rest of the player state flow.
@@ -39,6 +41,15 @@ interface ControlsTabProps {
     onVolumeChange: (val: number) => void;
     onToggleMute: () => void;
     loopToggleDisabled?: boolean;
+    visualizerBackgroundMode?: VisualizerBackgroundMode | null;
+    interactive3dSceneTuning?: Interactive3dSceneTuning;
+    enableSmartAtmosphere?: boolean;
+    disableVisualizerVignette?: boolean;
+    onVisualizerBackgroundModeChange?: (mode: VisualizerBackgroundMode) => void;
+    onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
+    onToggleEnableSmartAtmosphere?: (enabled: boolean) => void;
+    onToggleDisableVisualizerVignette?: (disabled: boolean) => void;
+    onOpenAdvancedBackgroundSettings?: () => void;
 }
 
 const ControlsTab: React.FC<ControlsTabProps> = ({
@@ -70,15 +81,23 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
     onVolumeChange,
     onToggleMute,
     loopToggleDisabled = false,
+    visualizerBackgroundMode = null,
+    interactive3dSceneTuning,
+    enableSmartAtmosphere = true,
+    disableVisualizerVignette = false,
+    onVisualizerBackgroundModeChange,
+    onInteractive3dSceneTuningChange,
+    onToggleEnableSmartAtmosphere,
+    onToggleDisableVisualizerVignette,
+    onOpenAdvancedBackgroundSettings,
 }) => {
     const { t } = useTranslation();
     const openThemeQuickEditor = useThemeQuickEditorStore(state => state.openEditor);
     const [sliderVolume, setSliderVolume] = useState(isMuted ? 0 : volume);
-    const [isVisualizerOverlayOpen, setIsVisualizerOverlayOpen] = useState(false);
     const isDraggingRef = useRef(false);
     const pendingVolumeRef = useRef(sliderVolume);
-    const visualizerTriggerRef = useRef<HTMLButtonElement>(null);
-    const [visualizerOverlayLeft, setVisualizerOverlayLeft] = useState(0);
+    const optionStyles = getControlsTabOptionStyles(isDaylight);
+    const animationIntensityModes: Array<'calm' | 'normal' | 'chaotic'> = ['calm', 'normal', 'chaotic'];
 
     useEffect(() => {
         if (!isDraggingRef.current) {
@@ -88,57 +107,9 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
         }
     }, [volume, isMuted]);
 
-    useLayoutEffect(() => {
-        if (!isVisualizerOverlayOpen) {
-            return undefined;
-        }
-
-        const syncOverlayPosition = () => {
-            const trigger = visualizerTriggerRef.current;
-            const parent = trigger?.offsetParent as HTMLElement | null;
-            if (!trigger || !parent) {
-                return;
-            }
-
-            const triggerRect = trigger.getBoundingClientRect();
-            const parentRect = parent.getBoundingClientRect();
-            setVisualizerOverlayLeft(triggerRect.left - parentRect.left + triggerRect.width / 2);
-        };
-
-        syncOverlayPosition();
-        window.addEventListener('resize', syncOverlayPosition);
-        return () => window.removeEventListener('resize', syncOverlayPosition);
-    }, [isVisualizerOverlayOpen]);
-
-    useEffect(() => {
-        if (!isVisualizerOverlayOpen) {
-            return undefined;
-        }
-
-        const handlePointerDown = (event: PointerEvent) => {
-            if (!(event.target instanceof Node)) {
-                return;
-            }
-
-            const target = event.target as HTMLElement;
-            const isInsidePanel = target.closest('[data-visualizer-panel="true"]');
-            const isTrigger = target.closest('[data-visualizer-trigger="true"]');
-
-            if (!isInsidePanel && !isTrigger) {
-                setIsVisualizerOverlayOpen(false);
-            }
-        };
-
-        document.addEventListener('pointerdown', handlePointerDown);
-        return () => document.removeEventListener('pointerdown', handlePointerDown);
-    }, [isVisualizerOverlayOpen]);
-
     const loopButtonBg = isDaylight ? 'bg-black/5 hover:bg-zinc-300/85' : 'bg-white/5 hover:bg-white/10';
     const buttonBg = isDaylight ? 'bg-black/5 hover:bg-black/10' : 'bg-white/5 hover:bg-white/10';
-    const wellBg = isDaylight ? 'bg-black/5' : 'bg-black/20';
-    const activeOptionBg = isDaylight ? 'bg-white shadow-sm hover:bg-white/90' : 'bg-white/20 shadow-sm hover:bg-white/30';
-    const overlaySurfaceClass = isDaylight ? 'text-black border-black/[0.08]' : 'text-white border-white/[0.08]';
-    const overlayBodyTextClass = isDaylight ? 'text-black/82' : 'text-white/84';
+    const { wellBg, sectionHintClass } = optionStyles;
 
     const handleSliderInput = (nextVolume: number) => {
         isDraggingRef.current = true;
@@ -155,16 +126,12 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
         onVolumeChange(pendingVolumeRef.current);
     };
 
-    const toggleAnimationIntensity = () => {
-        const modes: ('calm' | 'normal' | 'chaotic')[] = ['calm', 'normal', 'chaotic'];
-        const currentIndex = modes.indexOf(theme.animationIntensity);
-        const nextIndex = (currentIndex + 1) % modes.length;
-        onThemeChange({ ...theme, animationIntensity: modes[nextIndex] });
+    const toggleAnimationIntensity = (mode: 'calm' | 'normal' | 'chaotic') => {
+        onThemeChange({ ...theme, animationIntensity: mode });
     };
 
     const handleVisualizerSelect = (mode: VisualizerMode) => {
         onVisualizerModeChange(mode);
-        setIsVisualizerOverlayOpen(false);
     };
 
     const formatThemeDisplayName = (name: string) => {
@@ -259,78 +226,125 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                            {t('ui.animationMode') || '动画模式'}
-                        </label>
-                        <div className="flex items-center gap-2">
-                            <button
-                                ref={visualizerTriggerRef}
-                                onClick={() => setIsVisualizerOverlayOpen(prev => !prev)}
-                                data-visualizer-trigger="true"
-                                className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${activeOptionBg}`}
-                                style={isVisualizerOverlayOpen ? { color: theme.primaryColor } : undefined}
-                            >
-                                {getVisualizerModeLabel(visualizerMode, t)}
-                            </button>
-
-                            <button
-                                onClick={toggleAnimationIntensity}
-                                className={`px-3 py-1 text-[10px] font-bold capitalize rounded-lg transition-all ${activeOptionBg}`}
-                            >
-                                {t(`animation.${theme.animationIntensity}`)}
-                            </button>
+                    <div className="space-y-2" data-testid="controls-lyrics-animation-section">
+                        <div>
+                            <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                                {t('ui.lyricsAnimationStyle') || t('ui.visualizer') || '歌词样式'}
+                            </label>
+                            <p className={`mt-1 text-[9px] leading-snug ${sectionHintClass}`}>
+                                {t('ui.lyricsAnimationStyleDesc') || '播放页歌词的排版与动效模式'}
+                            </p>
+                        </div>
+                        <div className={`grid grid-cols-4 gap-1 ${wellBg} p-1 rounded-xl`} data-testid="controls-visualizer-mode-group">
+                            {VISUALIZER_REGISTRY.map((entry) => {
+                                const isActive = entry.mode === visualizerMode;
+                                return (
+                                    <button
+                                        key={entry.mode}
+                                        type="button"
+                                        data-testid={`controls-visualizer-mode-${entry.mode}`}
+                                        onClick={() => handleVisualizerSelect(entry.mode)}
+                                        className={`px-1 py-1.5 ${getControlsTabOptionButtonClass(isActive, optionStyles)}`}
+                                    >
+                                        {getVisualizerModeLabel(entry.mode, t)}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    <div>
-                        <div className="flex items-center justify-between mb-2">
-                            <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                                {t('ui.background')}
-                            </label>
-                            <div className="flex items-center gap-1">
+                    <div className="space-y-2" data-testid="controls-animation-intensity-section">
+                        <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                            {t('ui.animationIntensity') || '动画强度'}
+                        </label>
+                        <div className={`grid grid-cols-3 gap-1 ${wellBg} p-1 rounded-xl`} data-testid="controls-animation-intensity-group">
+                            {animationIntensityModes.map((mode) => {
+                                const isActive = theme.animationIntensity === mode;
+                                return (
+                                    <button
+                                        key={mode}
+                                        type="button"
+                                        data-testid={`controls-animation-intensity-${mode}`}
+                                        onClick={() => toggleAnimationIntensity(mode)}
+                                        className={`py-1.5 capitalize ${getControlsTabOptionButtonClass(isActive, optionStyles)}`}
+                                    >
+                                        {t(`animation.${mode}`)}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="space-y-2" data-testid="controls-panel-theme-section">
+                        <div className="flex items-start justify-between gap-2">
+                            <div>
+                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                                    {t('ui.panelTheme') || t('ui.background') || '界面配色'}
+                                </label>
+                                <p className={`mt-1 text-[9px] leading-snug ${sectionHintClass}`}>
+                                    {t('ui.panelThemeDesc') || '面板与控件的日/夜配色方案'}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
                                 <button
                                     onClick={onToggleDaylight}
-                                    className={`p-1 rounded-md transition-all ${isDaylight ? 'text-amber-500' : 'text-blue-300'}`}
+                                    className={`flex flex-col items-center gap-0.5 rounded-md px-1 py-0.5 transition-all ${isDaylight ? 'text-amber-500' : 'text-blue-300'}`}
                                     title={isDaylight ? t('theme.switchToDark') : t('theme.switchToLight')}
+                                    aria-label={t('ui.appearanceToggle') || '日/夜'}
                                 >
                                     {isDaylight ? <Sun size={14} /> : <Moon size={14} />}
                                 </button>
                                 <button
                                     onClick={() => onToggleCoverColorBg(!useCoverColorBg)}
-                                    className={`p-1 rounded-md transition-all ${useCoverColorBg ? 'text-blue-400' : 'opacity-40 hover:opacity-100'}`}
+                                    className={`flex flex-col items-center gap-0.5 rounded-md px-1 py-0.5 transition-all ${useCoverColorBg ? 'text-blue-500' : `${sectionHintClass} hover:opacity-100`}`}
                                     title={useCoverColorBg ? t('theme.addCoverColor') : t('theme.useDefaultColor')}
+                                    aria-label={t('ui.coverColorTint') || '封面取色'}
                                 >
                                     <Cone size={14} />
                                 </button>
                             </div>
                         </div>
-                        <div className={`flex ${wellBg} p-1 rounded-xl`}>
+                        <div className={`grid ${hasCustomTheme ? 'grid-cols-3' : 'grid-cols-2'} gap-1 ${wellBg} p-1 rounded-xl`} data-testid="controls-panel-theme-group">
                             <button
+                                type="button"
                                 onClick={() => onBgModeChange('default')}
-                                className={`flex-1 py-1.5 flex items-center justify-center gap-2 text-[10px] font-medium rounded-lg transition-all ${themeSourceModel.activeSource === 'default' ? activeOptionBg : 'opacity-40 hover:opacity-100'}`}
+                                className={`py-1.5 flex items-center justify-center gap-2 ${getControlsTabOptionButtonClass(themeSourceModel.activeSource === 'default', optionStyles)}`}
                             >
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: isDaylight ? daylightTheme.backgroundColor : defaultTheme.backgroundColor }}></div>
+                                <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: isDaylight ? daylightTheme.backgroundColor : defaultTheme.backgroundColor }} />
                                 {t('ui.default')}
                             </button>
                             <button
+                                type="button"
                                 onClick={() => aiThemeSource.available && onBgModeChange('ai')}
                                 disabled={!aiThemeSource.available}
-                                className={`flex-1 py-1.5 flex items-center justify-center gap-2 text-[10px] font-medium rounded-lg transition-all ${themeSourceModel.activeSource === 'ai' ? activeOptionBg : aiThemeSource.available ? 'opacity-40 hover:opacity-100' : 'opacity-25 cursor-not-allowed'}`}
+                                className={`py-1.5 flex items-center justify-center gap-2 ${getControlsTabOptionButtonClass(themeSourceModel.activeSource === 'ai', optionStyles, !aiThemeSource.available)}`}
                             >
-                                <div className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: aiSwatchColor }}></div>
+                                <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: aiSwatchColor }} />
                                 {t('ui.aiTheme')}
                             </button>
                             {hasCustomTheme && (
                                 <button
+                                    type="button"
                                     onClick={() => onBgModeChange('custom')}
-                                    className={`flex-1 py-1.5 flex items-center justify-center gap-2 text-[10px] font-medium rounded-lg transition-all ${themeSourceModel.activeSource === 'custom' ? activeOptionBg : 'opacity-40 hover:opacity-100'}`}
+                                    className={`py-1.5 flex items-center justify-center gap-2 ${getControlsTabOptionButtonClass(themeSourceModel.activeSource === 'custom', optionStyles)}`}
                                 >
-                                    <div className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: customSwatchColor }}></div>
+                                    <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: customSwatchColor }} />
                                     {t('options.customTheme') || 'Custom'}
                                 </button>
                             )}
                         </div>
+
+                        <ControlsTabPlayerBackgroundSection
+                            visualizerMode={visualizerMode}
+                            visualizerBackgroundMode={visualizerBackgroundMode}
+                            interactive3dSceneTuning={interactive3dSceneTuning}
+                            enableSmartAtmosphere={enableSmartAtmosphere}
+                            isDaylight={isDaylight}
+                            onVisualizerBackgroundModeChange={onVisualizerBackgroundModeChange ?? (() => undefined)}
+                            onInteractive3dSceneTuningChange={onInteractive3dSceneTuningChange ?? (() => undefined)}
+                            onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere ?? (() => undefined)}
+                            onOpenAdvancedBackgroundSettings={onOpenAdvancedBackgroundSettings}
+                        />
                     </div>
                 </div>
 
@@ -364,74 +378,6 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                     </div>
                 </div>
             </div>
-
-            <AnimatePresence initial={false}>
-                {isVisualizerOverlayOpen && (
-                    <motion.div
-                        key="visualizer-overlay"
-                        initial={{ opacity: 0, scale: 0.92, x: -12, y: -10 }}
-                        animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.97, x: -8, y: -6 }}
-                        transition={{ duration: 0.18, ease: 'easeOut' }}
-                        className="absolute top-[4.45rem] z-20 w-[7.25rem] -translate-x-1/2"
-                        style={{ left: visualizerOverlayLeft }}
-                        onClick={() => setIsVisualizerOverlayOpen(false)}
-                    >
-                        <motion.div
-                            layout
-                            data-visualizer-panel="true"
-                            className={`relative max-h-[11.25rem] overflow-hidden rounded-[1.15rem] border shadow-2xl ${overlaySurfaceClass}`}
-                            style={{
-                                boxShadow: isDaylight
-                                    ? '0 18px 44px rgba(15, 23, 42, 0.14)'
-                                    : '0 22px 60px rgba(0, 0, 0, 0.42)',
-                                backgroundColor: isDaylight ? 'rgba(255, 255, 255, 0.96)' : 'rgba(0, 0, 0, 0.94)',
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div 
-                                className="visualizer-overlay-scrollbar max-h-[11.25rem] overflow-y-auto px-1.5 py-1.5 pr-1.5"
-                                style={{
-                                    ['--scrollbar-thumb-color' as any]: isDaylight ? 'rgba(0, 0, 0, 0.16)' : 'rgba(255, 255, 255, 0.22)',
-                                    ['--scrollbar-thumb-hover-color' as any]: isDaylight ? 'rgba(0, 0, 0, 0.28)' : 'rgba(255, 255, 255, 0.35)',
-                                }}
-                            >
-                                <div className="relative space-y-0.5">
-                                    {VISUALIZER_REGISTRY.map((entry) => {
-                                        const isActive = entry.mode === visualizerMode;
-                                        return (
-                                            <button
-                                                key={entry.mode}
-                                                onClick={() => handleVisualizerSelect(entry.mode)}
-                                                className={`relative flex w-full items-center justify-center rounded-[0.85rem] px-2 text-center transition-all ${isActive ? 'py-1.5' : `py-2.5 ${isDaylight ? 'hover:bg-black/[0.04]' : 'hover:bg-white/[0.04]'}`}`}
-                                                style={isActive ? {
-                                                    backgroundColor: isDaylight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.12)',
-                                                    color: theme.primaryColor,
-                                                } : undefined}
-                                            >
-                                                {isActive && (
-                                                    <div
-                                                        className="absolute left-2 h-1.5 w-1.5 rounded-full"
-                                                        style={{
-                                                            backgroundColor: isDaylight ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.88)',
-                                                            boxShadow: isDaylight
-                                                                ? '0 0 0 1px rgba(255,255,255,0.55)'
-                                                                : '0 0 0 1px rgba(255,255,255,0.18)',
-                                                        }}
-                                                    />
-                                                )}
-                                                <span className={`text-[9px] ${isActive ? 'font-medium' : 'font-normal'} tracking-[0.01em] ${overlayBodyTextClass}`} style={{ color: theme.primaryColor }}>
-                                                    {getVisualizerModeLabel(entry.mode, t)}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </motion.div>
     );
 };

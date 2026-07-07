@@ -4,12 +4,14 @@ import { ChevronLeft, Loader2, Search, Sparkles, Upload, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next';
 import { List, useListRef } from 'react-window';
 import VisualizerRenderer from './VisualizerRenderer';
+import { resolveVisualizerBackgroundMode } from '../../stores/useSettingsUiStore';
 import {
     DEFAULT_CADENZA_TUNING,
     DEFAULT_CAPPELLA_TUNING,
     DEFAULT_CLASSIC_TUNING,
     DEFAULT_CLADDAGH_TUNING,
     DEFAULT_FUME_TUNING,
+    DEFAULT_INTERACTIVE3D_SCENE_TUNING,
     DEFAULT_MONET_BACKGROUND_TUNING,
     DEFAULT_MONET_TUNING,
     DEFAULT_PARTITA_TUNING,
@@ -22,6 +24,7 @@ import {
     type ClassicTuning,
     type CladdaghTuning,
     type FumeTuning,
+    type Interactive3dSceneTuning,
     type MonetBackgroundImage,
     type MonetBackgroundTuning,
     type MonetPortraitImage,
@@ -57,7 +60,8 @@ interface VisPlaygroundProps {
     staticMode?: boolean;
     transparentPlayerBackground?: boolean;
     disableVisualizerVignette?: boolean;
-    disableVisualizerGeometricBackground?: boolean;
+    enableSmartAtmosphere?: boolean;
+    enable3dInteractiveBackground?: boolean;
     visualizerBackgroundMode?: VisualizerBackgroundMode | null;
     hideTranslationSubtitle?: boolean;
     showSubtitleTranslation?: boolean;
@@ -70,6 +74,7 @@ interface VisPlaygroundProps {
     cappellaTuning?: CappellaTuning;
     tiltTuning?: TiltTuning;
     monetBackgroundTuning?: MonetBackgroundTuning;
+    interactive3dSceneTuning?: Interactive3dSceneTuning;
     monetTuning?: MonetTuning;
     cappellaCustomEmojiImages?: CappellaEmojiImage[];
     cappellaCustomAvatarImages?: CappellaAvatarImage[];
@@ -90,7 +95,8 @@ interface VisPlaygroundProps {
     onVisualizerOpacityChange?: (opacity: number) => void;
     onToggleCoverColorBg?: (enabled: boolean) => void;
     onToggleDisableVisualizerVignette?: (disabled: boolean) => void;
-    onToggleDisableVisualizerGeometricBackground?: (disabled: boolean) => void;
+    onToggleEnableSmartAtmosphere?: (enabled: boolean) => void;
+    onToggleEnable3dInteractiveBackground?: (enabled: boolean) => void;
     onVisualizerBackgroundModeChange?: (mode: VisualizerBackgroundMode) => void;
     onResetVisualizerBackgroundMode?: () => void;
     onToggleHideTranslationSubtitle?: (hidden: boolean) => void;
@@ -110,6 +116,8 @@ interface VisPlaygroundProps {
     onResetTiltTuning?: () => void;
     onMonetBackgroundTuningChange?: (patch: Partial<MonetBackgroundTuning>) => void;
     onResetMonetBackgroundTuning?: () => void;
+    onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
+    onResetInteractive3dSceneTuning?: () => void;
     onMonetTuningChange?: (patch: Partial<MonetTuning>) => void;
     onResetMonetTuning?: () => void;
     onUploadMonetBackgroundImage?: (files: File[]) => Promise<{ ok: boolean; error?: string; }>;
@@ -263,7 +271,8 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     staticMode = false,
     transparentPlayerBackground = false,
     disableVisualizerVignette = false,
-    disableVisualizerGeometricBackground = false,
+    enableSmartAtmosphere = true,
+    enable3dInteractiveBackground = true,
     visualizerBackgroundMode = null,
     hideTranslationSubtitle = false,
     showSubtitleTranslation = true,
@@ -276,6 +285,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     cappellaTuning = DEFAULT_CAPPELLA_TUNING,
     tiltTuning = DEFAULT_TILT_TUNING,
     monetBackgroundTuning = DEFAULT_MONET_BACKGROUND_TUNING,
+    interactive3dSceneTuning = DEFAULT_INTERACTIVE3D_SCENE_TUNING,
     monetTuning = DEFAULT_MONET_TUNING,
     cappellaCustomEmojiImages = [],
     cappellaCustomAvatarImages = [],
@@ -294,7 +304,8 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     onVisualizerOpacityChange,
     onToggleCoverColorBg,
     onToggleDisableVisualizerVignette,
-    onToggleDisableVisualizerGeometricBackground,
+    onToggleEnableSmartAtmosphere,
+    onToggleEnable3dInteractiveBackground,
     onVisualizerBackgroundModeChange,
     onResetVisualizerBackgroundMode,
     onToggleHideTranslationSubtitle,
@@ -314,6 +325,8 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     onResetTiltTuning,
     onMonetBackgroundTuningChange,
     onResetMonetBackgroundTuning,
+    onInteractive3dSceneTuningChange,
+    onResetInteractive3dSceneTuning,
     onMonetTuningChange,
     onResetMonetTuning,
     onUploadMonetBackgroundImage,
@@ -363,6 +376,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     const [draftCladdaghTuning, setDraftCladdaghTuning] = useState<CladdaghTuning>(claddaghTuning);
     const [draftTiltTuning, setDraftTiltTuning] = useState<TiltTuning>(tiltTuning);
     const [draftMonetBackgroundTuning, setDraftMonetBackgroundTuning] = useState<MonetBackgroundTuning>(monetBackgroundTuning);
+    const [draftInteractive3dSceneTuning, setDraftInteractive3dSceneTuning] = useState<Interactive3dSceneTuning>(interactive3dSceneTuning);
     const [draftMonetTuning, setDraftMonetTuning] = useState<MonetTuning>(monetTuning);
     const [activeEditSection, setActiveEditSection] = useState<VisPlaygroundEditSection>('common');
     const fontListRef = React.useRef<HTMLDivElement>(null);
@@ -452,6 +466,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     useEffect(() => { setDraftCladdaghTuning(claddaghTuning); }, [claddaghTuning]);
     useEffect(() => { setDraftTiltTuning(tiltTuning); }, [tiltTuning]);
     useEffect(() => { setDraftMonetBackgroundTuning(monetBackgroundTuning); }, [monetBackgroundTuning]);
+    useEffect(() => { setDraftInteractive3dSceneTuning(interactive3dSceneTuning); }, [interactive3dSceneTuning]);
     useEffect(() => { setDraftMonetTuning(monetTuning); }, [monetTuning]);
 
     useEffect(() => {
@@ -499,6 +514,10 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     });
 
     const visualizerEntry = getVisualizerRegistryEntry(visualizerMode);
+    const resolvedVisualizerBackgroundMode = useMemo(
+        () => resolveVisualizerBackgroundMode(visualizerBackgroundMode, visualizerMode),
+        [visualizerBackgroundMode, visualizerMode],
+    );
     const modeLabel = getVisualizerModeLabel(visualizerMode, t);
     const hotspotLabels = useMemo<Record<Exclude<VisPlaygroundEditSection, 'common'>, string>>(() => ({
         background: t('options.previewBackgroundHotspot') || '背景设置',
@@ -776,6 +795,16 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
         }
     };
 
+    const handleInteractive3dSceneTuningDraft = (patch: Partial<Interactive3dSceneTuning>) => {
+        const next = { ...draftInteractive3dSceneTuning, ...patch };
+        setDraftInteractive3dSceneTuning(next);
+        if (!isDraggingSlider.current) {
+            onInteractive3dSceneTuningChange?.(patch);
+        } else {
+            pendingCommitRef.current = () => onInteractive3dSceneTuningChange?.(patch);
+        }
+    };
+
     const handleMonetTuningDraft = (patch: Partial<MonetTuning>) => {
         const next = { ...draftMonetTuning, ...patch };
         setDraftMonetTuning(next);
@@ -791,10 +820,13 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
         onBackgroundOpacityChange?.(0.75);
         onToggleCoverColorBg?.(false);
         onToggleDisableVisualizerVignette?.(false);
-        onToggleDisableVisualizerGeometricBackground?.(false);
+        onToggleEnableSmartAtmosphere?.(true);
+        onToggleEnable3dInteractiveBackground?.(true);
         onResetVisualizerBackgroundMode?.();
         setDraftMonetBackgroundTuning(DEFAULT_MONET_BACKGROUND_TUNING);
         onResetMonetBackgroundTuning?.();
+        setDraftInteractive3dSceneTuning(DEFAULT_INTERACTIVE3D_SCENE_TUNING);
+        onResetInteractive3dSceneTuning?.();
     };
 
     const handleResetSubtitleSettings = () => {
@@ -892,7 +924,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                                 useCoverColorBg={useCoverColorBg}
                                 transparentBackground={transparentPlayerBackground}
                                 disableVignette={disableVisualizerVignette}
-                                disableGeometricBackground={disableVisualizerGeometricBackground}
+                                disableGeometricBackground={resolvedVisualizerBackgroundMode !== 'interactive3d'}
                                 visualizerBackgroundMode={visualizerBackgroundMode}
                                 lyricsFontScale={normalizedFontScale}
                                 subtitleOverlayOpacity={draftSubtitleOverlayOpacity}
@@ -906,6 +938,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                                 cappellaTuning={cappellaTuning}
                                 tiltTuning={draftTiltTuning}
                                 monetBackgroundTuning={draftMonetBackgroundTuning}
+                                interactive3dSceneTuning={draftInteractive3dSceneTuning}
                                 monetTuning={draftMonetTuning}
                                 onMonetTuningChange={handleMonetTuningDraft}
                                 cappellaCustomEmojiImages={cappellaCustomEmojiImages}
@@ -945,8 +978,10 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                         onToggleCoverColorBg={onToggleCoverColorBg}
                         disableVisualizerVignette={disableVisualizerVignette}
                         onToggleDisableVisualizerVignette={onToggleDisableVisualizerVignette}
-                        disableVisualizerGeometricBackground={disableVisualizerGeometricBackground}
-                        onToggleDisableVisualizerGeometricBackground={onToggleDisableVisualizerGeometricBackground}
+                        enableSmartAtmosphere={enableSmartAtmosphere}
+                        onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere}
+                        enable3dInteractiveBackground={enable3dInteractiveBackground}
+                        onToggleEnable3dInteractiveBackground={onToggleEnable3dInteractiveBackground}
                         visualizerBackgroundMode={visualizerBackgroundMode}
                         onVisualizerBackgroundModeChange={onVisualizerBackgroundModeChange}
                         onResetBackgroundSettings={handleResetBackgroundSettings}
@@ -979,6 +1014,9 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                         onTiltTuningChange={handleTiltTuningDraft}
                         monetBackgroundTuning={draftMonetBackgroundTuning}
                         onMonetBackgroundTuningChange={handleMonetBackgroundTuningDraft}
+                        interactive3dSceneTuning={draftInteractive3dSceneTuning}
+                        onInteractive3dSceneTuningChange={handleInteractive3dSceneTuningDraft}
+                        onResetInteractive3dSceneTuning={onResetInteractive3dSceneTuning}
                         monetTuning={draftMonetTuning}
                         onMonetTuningChange={handleMonetTuningDraft}
                         onResetMonetTuning={onResetMonetTuning}

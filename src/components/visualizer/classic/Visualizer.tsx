@@ -297,6 +297,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         hideTranslationSubtitle = false,
         showSubtitleTranslation = true,
         classicTuning,
+        mineradioStageActive = false,
     } = props;
     const { t } = useTranslation();
     const resolvedClassicTuning = useMemo(() => resolveClassicTuning(classicTuning), [classicTuning]);
@@ -639,7 +640,6 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         return {
             animate: {
                 y: [0, -scaledDistance, 0, scaledDistance * 0.45, 0],
-                scale: [1, 1 + 0.01 * multiplier, 1, 1 - 0.005 * multiplier, 1]
             },
             transition: {
                 duration,

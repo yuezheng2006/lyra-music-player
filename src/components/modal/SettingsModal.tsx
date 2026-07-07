@@ -23,6 +23,7 @@ import type { LyricData } from '../../types';
 import { selectSettingsUiSnapshot, type SettingsSubviewId, useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import { useShallow } from 'zustand/react/shallow';
 import type { ObsBrowserSourceStatus } from '../../types/obsBrowserSource';
+import type { DesktopLyricsStatus } from '../../types/desktopLyrics';
 
 
 interface SettingsModalProps {
@@ -61,6 +62,9 @@ interface SettingsModalProps {
     onToggleTransparentPlayerBackground?: (enabled: boolean) => Promise<void> | void;
     aiTheme?: DualTheme | null;
     customTheme?: DualTheme | null;
+    desktopLyricsStatus?: DesktopLyricsStatus;
+    onToggleDesktopLyrics?: () => Promise<boolean>;
+    onSetDesktopLyricsLocked?: (locked: boolean) => Promise<boolean>;
 }
 
 const QUARK_DOWNLOAD_URL = 'https://pan.quark.cn/s/6e4c6fa3bc6f';
@@ -101,6 +105,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     onToggleTransparentPlayerBackground,
     aiTheme,
     customTheme,
+    desktopLyricsStatus,
+    onToggleDesktopLyrics,
+    onSetDesktopLyricsLocked,
 }) => {
     const { t } = useTranslation();
     const {
@@ -114,7 +121,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         transparentPlayerBackground,
         autoHidePlayerChrome,
         disableVisualizerVignette,
-        disableVisualizerGeometricBackground,
+        enableSmartAtmosphere,
+        enable3dInteractiveBackground,
         minimizeToTray,
         hideTaskbarIcon,
         openPlayerOnLaunch,
@@ -135,6 +143,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         cappellaTuning,
         tiltTuning,
         monetBackgroundTuning,
+        interactive3dSceneTuning,
         monetTuning,
         cappellaCustomEmojiImages,
         isLoadingCappellaCustomEmojiPack,
@@ -163,7 +172,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         handleToggleTransparentPlayerBackground: onToggleTransparentPlayerBackgroundFromStore,
         handleToggleAutoHidePlayerChrome: onToggleAutoHidePlayerChrome,
         handleToggleDisableVisualizerVignette: onToggleDisableVisualizerVignette,
-        handleToggleDisableVisualizerGeometricBackground: onToggleDisableVisualizerGeometricBackground,
+        handleToggleEnableSmartAtmosphere: onToggleEnableSmartAtmosphere,
+        handleToggleEnable3dInteractiveBackground: onToggleEnable3dInteractiveBackground,
         handleToggleMinimizeToTray: onToggleMinimizeToTray,
         handleToggleHideTaskbarIcon: onToggleHideTaskbarIcon,
         handleToggleOpenPlayerOnLaunch: onToggleOpenPlayerOnLaunch,
@@ -188,6 +198,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         handleResetTiltTuning: onResetTiltTuning,
         handleSetMonetBackgroundTuning: onMonetBackgroundTuningChange,
         handleResetMonetBackgroundTuning: onResetMonetBackgroundTuning,
+        handleSetInteractive3dSceneTuning: onInteractive3dSceneTuningChange,
+        handleResetInteractive3dSceneTuning: onResetInteractive3dSceneTuning,
         handleSetMonetTuning: onMonetTuningChange,
         handleResetMonetTuning: onResetMonetTuning,
         handleUploadMonetBackgroundImage: onUploadMonetBackgroundImage,
@@ -2207,7 +2219,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         staticMode={staticMode}
                         transparentPlayerBackground={transparentPlayerBackground}
                         disableVisualizerVignette={disableVisualizerVignette}
-                        disableVisualizerGeometricBackground={disableVisualizerGeometricBackground}
+                        enableSmartAtmosphere={enableSmartAtmosphere}
+                        enable3dInteractiveBackground={enable3dInteractiveBackground}
                         hideTranslationSubtitle={hidePlayerTranslationSubtitle}
                         showSubtitleTranslation={showSubtitleTranslation}
                         subtitleOverlayOpacity={subtitleOverlayOpacity}
@@ -2219,6 +2232,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         cappellaTuning={cappellaTuning}
                         tiltTuning={tiltTuning}
                         monetBackgroundTuning={monetBackgroundTuning}
+                        interactive3dSceneTuning={interactive3dSceneTuning}
                         monetTuning={monetTuning}
                         cappellaCustomEmojiImages={cappellaCustomEmojiImages}
                         cappellaCustomAvatarImages={cappellaCustomAvatarImages}
@@ -2237,7 +2251,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         onVisualizerOpacityChange={setVisualizerOpacity}
                         onToggleCoverColorBg={onToggleCoverColorBg}
                         onToggleDisableVisualizerVignette={onToggleDisableVisualizerVignette}
-                        onToggleDisableVisualizerGeometricBackground={onToggleDisableVisualizerGeometricBackground}
+                        onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere}
+                        onToggleEnable3dInteractiveBackground={onToggleEnable3dInteractiveBackground}
                         onVisualizerBackgroundModeChange={onVisualizerBackgroundModeChange}
                         onResetVisualizerBackgroundMode={onResetVisualizerBackgroundMode}
                         onToggleHideTranslationSubtitle={onToggleHidePlayerTranslationSubtitle}
@@ -2257,6 +2272,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         onResetTiltTuning={onResetTiltTuning}
                         onMonetBackgroundTuningChange={onMonetBackgroundTuningChange}
                         onResetMonetBackgroundTuning={onResetMonetBackgroundTuning}
+                        onInteractive3dSceneTuningChange={onInteractive3dSceneTuningChange}
+                        onResetInteractive3dSceneTuning={onResetInteractive3dSceneTuning}
                         onMonetTuningChange={onMonetTuningChange}
                         onResetMonetTuning={onResetMonetTuning}
                         onUploadMonetBackgroundImage={onUploadMonetBackgroundImage}
@@ -2514,6 +2531,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             onToggleMinimizeToTray,
                             onToggleOpenPlayerOnLaunch,
                             openPlayerOnLaunch,
+                            desktopLyricsEnabled: desktopLyricsStatus?.enabled ?? false,
+                            desktopLyricsLocked: desktopLyricsStatus?.locked ?? true,
+                            desktopLyricsMiddleClickPoller: desktopLyricsStatus?.middleClickPoller ?? false,
+                            onToggleDesktopLyrics: () => onToggleDesktopLyrics?.() ?? Promise.resolve(false),
+                            onToggleDesktopLyricsLock: () => onSetDesktopLyricsLocked?.(!desktopLyricsStatus?.locked) ?? Promise.resolve(false),
                         }}
                     />
                 ),

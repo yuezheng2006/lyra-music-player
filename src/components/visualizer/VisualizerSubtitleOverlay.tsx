@@ -2,6 +2,10 @@ import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Line, Theme } from '../../types';
 import { resolveThemeTranslationFontStack } from '../../utils/fontStacks';
+import { resolveUpcomingLyricPresentation, resolveVisualizerBottomSubtitlePresentation } from './resolveUpcomingLyricPresentation';
+
+// src/components/visualizer/VisualizerSubtitleOverlay.tsx
+// Shared bottom subtitle / upcoming-line overlay for visualizer modes.
 
 interface VisualizerSubtitleOverlayProps {
     showText: boolean;
@@ -40,7 +44,7 @@ export const resolveVisualizerSubtitleOverlayContent = ({
     return {
         shouldRenderOverlay: true,
         translationText,
-        upcomingLines: translationText ? [] : activeLine ? nextLines : [],
+        upcomingLines: translationText ? [] : nextLines,
     };
 };
 
@@ -67,6 +71,9 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
         showSubtitleTranslation,
     });
     const resolvedOpacity = subtitleOverlayOpacity ?? opacity;
+    const upcomingPresentation = resolveUpcomingLyricPresentation(theme, resolvedOpacity);
+    const translationPresentation = resolveVisualizerBottomSubtitlePresentation(theme, resolvedOpacity);
+    const showUpcomingLines = upcomingLines.length > 0;
 
     return (
         <AnimatePresence>
@@ -74,7 +81,7 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{
-                        opacity: resolvedOpacity,
+                        opacity: translationText ? resolvedOpacity : 1,
                         y: 0,
                         bottom: isPlayerChromeHidden ? 32 : 112,
                     }}
@@ -95,21 +102,26 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
                             data-font-debug-target="visualizer-translation"
                             className="font-medium max-w-4xl mx-auto"
                             style={{
-                                color: theme.secondaryColor,
+                                color: translationPresentation.color,
                                 fontSize: translationFontSize,
                                 fontFamily: resolveThemeTranslationFontStack(theme),
+                                textShadow: translationPresentation.textShadow,
+                                opacity: translationPresentation.opacity,
                             }}
                         >
                             {translationText}
                         </motion.div>
-                    ) : activeLine ? (
+                    ) : showUpcomingLines ? (
                         upcomingLines.map((line, index) => (
                             <p
                                 key={index}
-                                className="truncate max-w-2xl mx-auto transition-all duration-500 blur-[1px]"
+                                data-testid={`visualizer-upcoming-line-${index}`}
+                                className="truncate max-w-2xl mx-auto font-medium transition-all duration-500"
                                 style={{
-                                    color: theme.secondaryColor,
+                                    color: upcomingPresentation.color,
                                     fontSize: upcomingFontSize,
+                                    opacity: upcomingPresentation.lineOpacity,
+                                    textShadow: upcomingPresentation.textShadow,
                                 }}
                             >
                                 {line.fullText}

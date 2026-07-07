@@ -15,6 +15,7 @@ import {
     Monitor,
     RefreshCw,
     ShieldAlert,
+    Type,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Theme } from '../../../types';
@@ -52,6 +53,11 @@ export type DesktopSettingsPreferences = {
     onToggleMinimizeToTray: (enabled: boolean) => void;
     onToggleOpenPlayerOnLaunch: (enabled: boolean) => void;
     openPlayerOnLaunch: boolean;
+    desktopLyricsEnabled: boolean;
+    desktopLyricsLocked: boolean;
+    desktopLyricsMiddleClickPoller: boolean;
+    onToggleDesktopLyrics: () => Promise<boolean> | void;
+    onToggleDesktopLyricsLock: () => Promise<boolean> | void;
 };
 
 export type DesktopSettingsModel = {
@@ -100,6 +106,11 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
         onToggleMinimizeToTray,
         onToggleOpenPlayerOnLaunch,
         openPlayerOnLaunch,
+        desktopLyricsEnabled,
+        desktopLyricsLocked,
+        desktopLyricsMiddleClickPoller,
+        onToggleDesktopLyrics,
+        onToggleDesktopLyricsLock,
     } = preferences;
     const {
         canDownloadUpdate,
@@ -218,6 +229,55 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                         </div>
                     </motion.div>
                 )}
+            </section>
+
+            <section className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2 opacity-60" style={{ color: 'var(--text-secondary)' }}>
+                    <Type size={14} className="opacity-70" /> {t('options.desktopLyrics') || 'Desktop lyrics'}
+                </h3>
+                <div className={`border rounded-2xl overflow-hidden ${borderColor} ${settingsCardClass}`}>
+                    <div className={`p-4 bg-black/[0.04] dark:bg-white/[0.02] border-b ${borderColor}`}>
+                        <p className="text-xs opacity-60 leading-relaxed text-left" style={{ color: 'var(--text-secondary)' }}>
+                            {t('options.desktopLyricsDesc') || 'Show an always-on-top transparent lyrics overlay. Locked mode is click-through; unlock to drag or close.'}
+                        </p>
+                    </div>
+
+                    <div className={`flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors border-b ${borderColor}`}>
+                        <div className="flex items-start gap-3 min-w-0">
+                            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
+                                <Type size={16} />
+                            </div>
+                            <div className="space-y-0.5 text-left">
+                                <h4 className="text-sm font-semibold leading-none" style={{ color: 'var(--text-primary)' }}>
+                                    {t('options.enableDesktopLyrics') || 'Enable desktop lyrics'}
+                                </h4>
+                                <p className="text-xs opacity-50 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                    {t('options.enableDesktopLyricsDesc') || 'Opens a frameless overlay that follows the current lyric line and theme colors.'}
+                                </p>
+                            </div>
+                        </div>
+                        {renderToggle(desktopLyricsEnabled, () => { void onToggleDesktopLyrics(); })}
+                    </div>
+
+                    <div className={`flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors`}>
+                        <div className="flex items-start gap-3 min-w-0">
+                            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
+                                <ShieldAlert size={16} />
+                            </div>
+                            <div className="space-y-0.5 text-left">
+                                <h4 className="text-sm font-semibold leading-none" style={{ color: 'var(--text-primary)' }}>
+                                    {t('options.lockDesktopLyrics') || 'Lock desktop lyrics'}
+                                </h4>
+                                <p className="text-xs opacity-50 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                    {desktopLyricsMiddleClickPoller
+                                        ? (t('options.lockDesktopLyricsDescWindows') || 'Locked overlays ignore mouse input. Middle-click the lyric area to toggle lock.')
+                                        : (t('options.lockDesktopLyricsDescMac') || 'Locked overlays ignore mouse input. Use the command palette or this toggle to unlock on macOS.')}
+                                </p>
+                            </div>
+                        </div>
+                        {renderToggle(desktopLyricsLocked, () => { void onToggleDesktopLyricsLock(); }, !desktopLyricsEnabled)}
+                    </div>
+                </div>
             </section>
 
             <section className="space-y-4">

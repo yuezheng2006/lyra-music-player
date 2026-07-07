@@ -487,7 +487,7 @@ export type MonetBackgroundLayout = 'full-overlay' | 'half-pane-gradient';
 export type MonetBackgroundWashColorMode = 'theme' | 'custom';
 export type MonetAudioStyle = 'bar' | 'line';
 export type MonetPortraitSource = 'cover' | 'custom';
-export type VisualizerBackgroundMode = 'common' | 'monet' | 'url' | 'sora';
+export type VisualizerBackgroundMode = 'common' | 'interactive3d' | 'monet' | 'url' | 'sora';
 
 export interface UrlBackgroundItem {
   id: string;
@@ -518,6 +518,67 @@ export interface MonetTuning {
   portraitStyle?: 'square' | 'rectangular';
   showPortraitDragHanger?: boolean;
 }
+
+export type Interactive3dQualityTier = 'auto' | 'high' | 'balanced' | 'lite';
+
+/** Mineradio 交互 3D 背景镜头模式。 */
+export type Interactive3dCameraControlMode = 'auto' | 'orbit' | 'wasd' | 'gesture';
+
+/** Interactive 3D visual preset ids (cover + two popular WebGL styles). */
+export type MineradioVisualPresetId =
+  | 'emily'
+  | 'starfield'
+  | 'tunnel';
+
+export interface Interactive3dSceneTuning {
+  qualityTier: Interactive3dQualityTier;
+  visualPreset: MineradioVisualPresetId;
+  /** Mineradio fx.intensity — overall rhythm response (0–1). */
+  rhythmIntensity: number;
+  /** Mineradio fx.cinemaShake — idle camera drift strength (0–1.8). */
+  cinemaShake: number;
+  /** Mineradio fx.bloomStrength when bloom layer is enabled (0–1.6). */
+  bloomStrength: number;
+  enableBackgroundWash: boolean;
+  enableOrbitField: boolean;
+  enableBassRipples: boolean;
+  enableBeatBursts: boolean;
+  enableLyricFocusAura: boolean;
+  enableDomShapes: boolean;
+  enableBloomParticles: boolean;
+  enableFloatingParticles: boolean;
+  /** Mineradio Three.js cover/skull particle WebGL layer. */
+  enableCoverParticles: boolean;
+  /** 3D 歌单架模式：关闭 / 侧栏 / 舞台。 */
+  shelfMode: 'off' | 'sidebar' | 'stage';
+  /** 歌单架显示策略：自动隐藏 / 常驻。 */
+  shelfPresence: 'auto' | 'always';
+  /** 歌单架镜头：动态跟随 / 静态绑定封面。 */
+  shelfCameraMode: 'dynamic' | 'static';
+  /** 3D 场景相机控制：自动 / 轨道拖拽 / WASD / 手势。 */
+  cameraControl: Interactive3dCameraControlMode;
+}
+
+export const DEFAULT_INTERACTIVE3D_SCENE_TUNING: Interactive3dSceneTuning = {
+  qualityTier: 'auto',
+  visualPreset: 'emily',
+  rhythmIntensity: 0.85,
+  cinemaShake: 0.5,
+  bloomStrength: 0.62,
+  shelfMode: 'off',
+  shelfPresence: 'auto',
+  shelfCameraMode: 'dynamic',
+  enableBackgroundWash: true,
+  enableOrbitField: false,
+  enableBassRipples: true,
+  enableBeatBursts: false,
+  enableLyricFocusAura: true,
+  enableDomShapes: false,
+  enableBloomParticles: false,
+  enableFloatingParticles: false,
+  enableCoverParticles: true,
+  cameraControl: 'auto',
+};
 
 export const DEFAULT_MONET_BACKGROUND_TUNING: MonetBackgroundTuning = {
   backgroundSource: 'cover-derived',

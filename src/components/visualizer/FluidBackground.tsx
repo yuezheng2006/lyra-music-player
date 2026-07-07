@@ -1,9 +1,12 @@
 import React, { memo, useEffect, useMemo, useState } from 'react';
+import { motion, useMotionValue, useTransform, type MotionValue } from 'framer-motion';
 import { Theme } from '../../types';
 
 interface FluidBackgroundProps {
     coverUrl?: string | null;
     theme: Theme;
+    cinemaScale?: import('framer-motion').MotionValue<number>;
+    atmosphereEnergy?: import('framer-motion').MotionValue<number>;
 }
 
 const IOS_SOFT_FOCUS_SAMPLE_SIZE = 24;
@@ -115,7 +118,12 @@ const buildSoftFocusCover = (coverUrl: string): Promise<string | null> => new Pr
     img.src = coverUrl;
 });
 
-const FluidBackground: React.FC<FluidBackgroundProps> = memo(({ coverUrl, theme }) => {
+const FluidBackground: React.FC<FluidBackgroundProps> = memo(({
+    coverUrl,
+    theme,
+    cinemaScale,
+    atmosphereEnergy,
+}) => {
     const isIOSSafari = useMemo(detectIOSSafari, []);
     const [softFocusCoverUrl, setSoftFocusCoverUrl] = useState<string | null>(null);
 
@@ -142,12 +150,23 @@ const FluidBackground: React.FC<FluidBackgroundProps> = memo(({ coverUrl, theme 
         };
     }, [coverUrl, isIOSSafari]);
 
+    const defaultCinemaScale = useMotionValue(0.82);
+    const defaultAtmosphereEnergy = useMotionValue(0.42);
     const iosDisplayCoverUrl = isIOSSafari ? (softFocusCoverUrl ?? coverUrl ?? null) : null;
     const isSoftFocusReady = isIOSSafari && Boolean(softFocusCoverUrl);
+    const coverScale = useTransform(
+        cinemaScale ?? defaultCinemaScale,
+        [0.28, 1.12],
+        isIOSSafari ? [1.18, 1.38] : [1.42, 1.68],
+    );
+    const coverOpacity = useTransform(
+        atmosphereEnergy ?? defaultAtmosphereEnergy,
+        [0.15, 0.95],
+        [0.82, 1],
+    );
     const coverLayerStyle = useMemo<React.CSSProperties>(() => {
         if (isIOSSafari) {
             return {
-                transform: `scale(${isSoftFocusReady ? 1.28 : 1.2}) translateZ(0)`,
                 opacity: isSoftFocusReady ? 0.94 : 0.3,
                 willChange: 'transform, opacity',
                 backfaceVisibility: 'hidden',
@@ -157,8 +176,6 @@ const FluidBackground: React.FC<FluidBackgroundProps> = memo(({ coverUrl, theme 
 
         return {
             filter: 'blur(40px)',
-            transform: 'scale(1.5) translateZ(0)',
-            opacity: 1,
             willChange: 'transform, opacity, filter',
             backfaceVisibility: 'hidden',
             WebkitBackfaceVisibility: 'hidden',
@@ -177,14 +194,18 @@ const FluidBackground: React.FC<FluidBackgroundProps> = memo(({ coverUrl, theme 
             {/* Background Image / Fallback */}
             {coverUrl ? (
                 <>
-                    <img
+                    <motion.img
                         src={iosDisplayCoverUrl ?? coverUrl}
                         alt=""
                         aria-hidden="true"
                         draggable={false}
                         decoding="async"
                         className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-out"
-                        style={coverLayerStyle}
+                        style={{
+                            ...coverLayerStyle,
+                            scale: coverScale,
+                            opacity: coverOpacity,
+                        }}
                     />
 
                     {isIOSSafari && (
@@ -249,6 +270,8 @@ const FluidBackground: React.FC<FluidBackgroundProps> = memo(({ coverUrl, theme 
 }, (prevProps, nextProps) => {
     // Custom comparison function for React.memo
     if (prevProps.coverUrl !== nextProps.coverUrl) return false;
+    if (prevProps.cinemaScale !== nextProps.cinemaScale) return false;
+    if (prevProps.atmosphereEnergy !== nextProps.atmosphereEnergy) return false;
 
     const pTheme = prevProps.theme;
     const nTheme = nextProps.theme;

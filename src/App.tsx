@@ -6,6 +6,7 @@ import { loadCachedOrFetchCover } from './services/coverCache';
 import VisualizerRenderer from './components/visualizer/VisualizerRenderer';
 import CommandPalette from './components/command-palette/CommandPalette';
 import { useCommandPalette } from './components/command-palette/useCommandPalette';
+import { buildPlaylistShelfItems } from './components/visualizer/geometric/shelf/buildPlaylistShelfItems';
 import AppShell from './components/app/AppShell';
 import Home from './components/app/Home';
 import PlayerPanel from './components/app/PlayerPanel';
@@ -39,8 +40,10 @@ import { isSongMarkedUnavailable, neteaseApi } from './services/netease';
 import { isNavidromeEnabled } from './services/navidromeService';
 import { useAppNavigation } from './hooks/useAppNavigation';
 import { useNeteaseLibrary } from './hooks/useNeteaseLibrary';
-import { useAppPreferences } from './hooks/useAppPreferences';
+import { resolvePlayerGeometricBackgroundDisabled } from './components/visualizer/resolveInteractive3dFumeLayering';
+import { resolveVisualizerBackgroundMode, useAppPreferences } from './hooks/useAppPreferences';
 import { useElectronPlaybackBridge } from './hooks/useElectronPlaybackBridge';
+import { useElectronDesktopLyrics } from './hooks/useElectronDesktopLyrics';
 import { useElectronNeteaseApiStatus } from './hooks/useElectronNeteaseApiStatus';
 import { useElectronVideoExportController } from './hooks/useElectronVideoExportController';
 import { useElectronWindowPlaybackHandoff } from './hooks/useElectronWindowPlaybackHandoff';
@@ -53,6 +56,7 @@ import { useNavidromeScrobbleReporter } from './hooks/useNavidromeScrobbleReport
 import { usePlaybackQueueController } from './hooks/usePlaybackQueueController';
 import { usePlaybackTransportController } from './hooks/usePlaybackTransportController';
 import { usePlaybackVisualizerBridge } from './hooks/usePlaybackVisualizerBridge';
+import { getAtmosphereSongKey, useAtmosphereEngine } from './hooks/useAtmosphereEngine';
 import { useObsBrowserSourcePublisher } from './hooks/useObsBrowserSourcePublisher';
 import { ObsBrowserSourceLyrics } from './components/obs/ObsBrowserSourceLyrics';
 import { useSessionRestoreController } from './hooks/useSessionRestoreController';
@@ -65,6 +69,7 @@ import { useSettingsUiStore } from './stores/useSettingsUiStore';
 import { useShallow } from 'zustand/react/shallow';
 import { clampMediaVolume } from './utils/appPlaybackHelpers';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong, resolveNavidromePlaybackCarrier } from './utils/appPlaybackGuards';
+import { resolveAtmosphereTrackHints } from './utils/atmosphere/resolveAtmosphereTrackHints';
 import { FALLBACK_AI_DUAL_THEME } from './services/themeSanitizer';
 
 const LOCAL_MUSIC_UPDATED_EVENT = 'folia-local-music-updated';
@@ -300,7 +305,8 @@ export default function App() {
         enablePlayerPageNativeBlur,
         autoHidePlayerChrome,
         disableVisualizerVignette,
-        disableVisualizerGeometricBackground,
+        enableSmartAtmosphere,
+        enable3dInteractiveBackground,
         minimizeToTray,
         hideTaskbarIcon,
         openPlayerOnLaunch,
@@ -319,6 +325,7 @@ export default function App() {
         cappellaTuning,
         tiltTuning,
         monetBackgroundTuning,
+        interactive3dSceneTuning,
         monetTuning,
         cappellaCustomEmojiImages,
         isLoadingCappellaCustomEmojiPack,
@@ -346,7 +353,8 @@ export default function App() {
         handleToggleHidePlayerRightPanelButton,
         handleToggleTransparentPlayerBackground,
         handleToggleDisableVisualizerVignette,
-        handleToggleDisableVisualizerGeometricBackground,
+        handleToggleEnableSmartAtmosphere,
+        handleToggleEnable3dInteractiveBackground,
         handleToggleMinimizeToTray,
         handleToggleHideTaskbarIcon,
         handleToggleOpenPlayerOnLaunch,
@@ -356,6 +364,7 @@ export default function App() {
         handleSetVisualizerMode,
         handleSetVisualizerBackgroundMode,
         handleSetMonetBackgroundTuning,
+        handleSetInteractive3dSceneTuning,
         handleSetMonetTuning,
         handleSetCadenzaTuning,
         handleResetCadenzaTuning,
@@ -967,6 +976,15 @@ export default function App() {
         currentOnlineAudioUrlFetchedAtRef,
     });
 
+    const playlistShelfItems = useMemo(
+        () => buildPlaylistShelfItems({
+            playQueue,
+            localPlaylists,
+            neteasePlaylists: playlists,
+        }),
+        [localPlaylists, playQueue, playlists],
+    );
+
     useSessionRestoreController({
         audioQuality,
         userId: user?.userId,
@@ -1279,6 +1297,21 @@ export default function App() {
         onLike: handleLike,
     });
 
+    const atmosphereSongKey = getAtmosphereSongKey(currentSong?.id ?? null, audioSrc);
+    const atmosphereTrackHints = useMemo(
+        () => resolveAtmosphereTrackHints(currentSong),
+        [currentSong],
+    );
+    const atmosphereEngine = useAtmosphereEngine({
+        enabled: enableSmartAtmosphere && !staticMode,
+        audioSrc,
+        songKey: atmosphereSongKey,
+        audioContextRef,
+        durationSec: duration,
+        contentType: atmosphereTrackHints.contentType,
+        precomputedBeatMap: atmosphereTrackHints.precomputedBeatMap,
+    });
+
     usePlaybackVisualizerBridge({
         audioRef,
         analyserRef,
@@ -1303,6 +1336,7 @@ export default function App() {
         syncNowPlayingClock,
         lyricTimelineOffsetMs,
         lyricCurrentTime,
+        onAtmosphereTick: atmosphereEngine.tick,
     });
 
     const {
@@ -1358,6 +1392,28 @@ export default function App() {
         currentSongId: currentSong?.id,
         visualizerMode,
     }), [appStyle, currentSong?.id, lyricsCustomFontFamily, lyricsFontStyle, theme, visualizerMode]);
+    const {
+        desktopLyricsStatus,
+        setDesktopLyricsEnabled,
+        toggleDesktopLyrics,
+        setDesktopLyricsLocked,
+    } = useElectronDesktopLyrics({
+        isElectronWindow,
+        audioRef,
+        lyrics,
+        currentLineIndex,
+        lyricOffsetMs: lyricTimelineOffsetMs,
+        durationSec: duration,
+        playerState,
+        currentSong,
+        theme: visualizerTheme,
+        lyricsFontScale,
+        lyricsCustomFontFamily,
+    });
+    const resolvedVisualizerBackgroundMode = useMemo(
+        () => resolveVisualizerBackgroundMode(visualizerBackgroundMode, visualizerMode),
+        [visualizerBackgroundMode, visualizerMode],
+    );
     const isNowPlayingControlDisabled = isNowPlayingStageActive;
 
     useEffect(() => {
@@ -1568,7 +1624,7 @@ export default function App() {
         transparentBackground: isPlayerPageTransparent,
         useCoverColorBg,
         staticMode,
-        disableGeometricBackground: disableVisualizerGeometricBackground,
+        disableGeometricBackground: resolvedVisualizerBackgroundMode !== 'interactive3d',
         disableVignette: disableVisualizerVignette,
         hideTranslationSubtitle: shouldHidePlayerTranslationSubtitle,
         showSubtitleTranslation,
@@ -1585,6 +1641,7 @@ export default function App() {
         cappellaCustomAvatarImages,
         tiltTuning,
         monetBackgroundTuning,
+        interactive3dSceneTuning,
         monetTuning,
         monetBackgroundImage,
         monetPortraitImage,
@@ -1679,6 +1736,10 @@ export default function App() {
         setIsUserGuideModalOpen,
         openThemeQuickEditor,
         canOpenThemeQuickEditor,
+        toggleDesktopLyrics: () => toggleDesktopLyrics(),
+        setDesktopLyricsLocked: (locked: boolean) => setDesktopLyricsLocked(locked),
+        desktopLyricsEnabled: desktopLyricsStatus.enabled,
+        desktopLyricsLocked: desktopLyricsStatus.locked,
     }), [
         enableAlternativeLyricSources,
         enablePlayerPageNativeBlur,
@@ -1719,6 +1780,10 @@ export default function App() {
         setIsUserGuideModalOpen,
         openThemeQuickEditor,
         canOpenThemeQuickEditor,
+        desktopLyricsStatus.enabled,
+        desktopLyricsStatus.locked,
+        setDesktopLyricsLocked,
+        toggleDesktopLyrics,
     ]);
     const commandPalette = useCommandPalette({
         currentView,
@@ -1981,7 +2046,8 @@ export default function App() {
         cloudPlaylist,
         currentSong,
         disableVisualizerVignette,
-        disableVisualizerGeometricBackground,
+        enableSmartAtmosphere,
+        enable3dInteractiveBackground,
         disableHomeDynamicBackground,
         enableMediaCache,
         enableNowPlayingStage,
@@ -2017,7 +2083,8 @@ export default function App() {
         handleToggleHidePlayerTranslationSubtitle,
         handleToggleTransparentPlayerBackground,
         handleToggleDisableVisualizerVignette,
-        handleToggleDisableVisualizerGeometricBackground,
+        handleToggleEnableSmartAtmosphere,
+        handleToggleEnable3dInteractiveBackground,
         handleToggleMinimizeToTray,
         handleToggleHideTaskbarIcon,
         handleToggleOpenPlayerOnLaunch,
@@ -2287,6 +2354,15 @@ export default function App() {
         handleToggleCoverColorBg,
         isDaylight,
         handleToggleDaylight: toggleDaylightMode,
+        visualizerBackgroundMode,
+        interactive3dSceneTuning,
+        enableSmartAtmosphere,
+        disableVisualizerVignette,
+        handleSetVisualizerBackgroundMode,
+        handleSetInteractive3dSceneTuning,
+        handleToggleEnableSmartAtmosphere,
+        handleToggleDisableVisualizerVignette,
+        openAdvancedBackgroundSettings: () => openSettings('options', 'visualizer'),
     }), [
         activePlaybackContext,
         addCurrentSongToLocalPlaylist,
@@ -2325,6 +2401,10 @@ export default function App() {
         handleToggleCoverColorBg,
         handleToggleMute,
         handleToggleDaylight,
+        handleToggleEnableSmartAtmosphere,
+        handleToggleDisableVisualizerVignette,
+        handleSetVisualizerBackgroundMode,
+        handleSetInteractive3dSceneTuning,
         handleUpdateLocalLyrics,
         hasCustomTheme,
         isDaylight,
@@ -2365,6 +2445,10 @@ export default function App() {
         togglePlay,
         t,
         useCoverColorBg,
+        visualizerBackgroundMode,
+        interactive3dSceneTuning,
+        enableSmartAtmosphere,
+        disableVisualizerVignette,
         user,
         visualizerMode,
         volume,
@@ -2496,6 +2580,9 @@ export default function App() {
         refreshObsBrowserSourceStatus,
         onAudioOutputDeviceChange: handleAudioOutputDeviceChange,
         onToggleTransparentPlayerBackground: toggleTransparentModeWithHandoff,
+        desktopLyricsStatus,
+        onToggleDesktopLyrics: toggleDesktopLyrics,
+        onSetDesktopLyricsLocked: setDesktopLyricsLocked,
     }), [
         activePlaybackContext,
         clearPersistedStagePlaybackCache,
@@ -2517,6 +2604,9 @@ export default function App() {
         themeController,
         themeParkSeedTheme,
         toggleTransparentModeWithHandoff,
+        desktopLyricsStatus,
+        toggleDesktopLyrics,
+        setDesktopLyricsLocked,
     ]);
     const appDialogsModel = useMemo(() => buildAppDialogsModel({
         statusMsg,
@@ -2800,6 +2890,14 @@ export default function App() {
                         isDaylight={isDaylight}
                         audioPower={audioPower}
                         audioBands={audioBands}
+                        beatPulse={atmosphereEngine.beatPulse}
+                        cinemaScale={atmosphereEngine.cinemaScale}
+                        atmosphereEnergy={atmosphereEngine.atmosphereEnergy}
+                        atmosphereGroove={atmosphereEngine.atmosphereGroove}
+                        cameraPunch={atmosphereEngine.cameraPunch}
+                        sceneParallaxX={atmosphereEngine.sceneParallaxX}
+                        sceneParallaxY={atmosphereEngine.sceneParallaxY}
+                        sceneRoll={atmosphereEngine.sceneRoll}
                         songTitle={currentSong?.name}
                         songArtist={currentSongArtist}
                         songAlbum={currentSongAlbum}
@@ -2812,7 +2910,12 @@ export default function App() {
                         backgroundOpacity={backgroundOpacity}
                         visualizerOpacity={visualizerOpacity}
                         transparentBackground={currentView === 'player' && isPlayerPageTransparent && !isSettingsModalOpen}
-                        disableGeometricBackground={disableVisualizerGeometricBackground || isSettingsSubviewOpen}
+                        disableGeometricBackground={resolvePlayerGeometricBackgroundDisabled(
+                            resolvedVisualizerBackgroundMode,
+                            isSettingsSubviewOpen,
+                        )}
+                        enableAtmosphereLayer={enableSmartAtmosphere && !staticMode}
+                        enableBeatBursts={enableSmartAtmosphere && !staticMode}
                         disableVignette={disableVisualizerVignette}
                         visualizerBackgroundMode={visualizerBackgroundMode}
                         lyricsFontScale={lyricsFontScale}
@@ -2828,6 +2931,8 @@ export default function App() {
                         cappellaTuning={cappellaTuning}
                         tiltTuning={tiltTuning}
                         monetBackgroundTuning={monetBackgroundTuning}
+                        interactive3dSceneTuning={interactive3dSceneTuning}
+                        playlistShelfItems={playlistShelfItems}
                         monetTuning={monetTuning}
                         onMonetTuningChange={handleSetMonetTuning}
                         cappellaCustomEmojiImages={cappellaCustomEmojiImages}

@@ -105,6 +105,20 @@ contextBridge.exposeInMainWorld('electron', {
         ipcRenderer.on('remote-control-snapshot', listener);
         return () => ipcRenderer.removeListener('remote-control-snapshot', listener);
     },
+    setDesktopLyricsEnabled: (enabled, payload) => ipcRenderer.invoke('folia-desktop-lyrics-set-enabled', !!enabled, payload || {}),
+    updateDesktopLyrics: (payload) => ipcRenderer.invoke('folia-desktop-lyrics-update', payload || {}),
+    getDesktopLyricsStatus: () => ipcRenderer.invoke('folia-desktop-lyrics-get-status'),
+    setDesktopLyricsLockState: (locked) => ipcRenderer.invoke('folia-desktop-lyrics-set-lock-state', !!locked),
+    onDesktopLyricsLockStateChanged: (callback) => {
+        const listener = (_event, state) => callback(state);
+        ipcRenderer.on('folia-desktop-lyrics-lock-state', listener);
+        return () => ipcRenderer.removeListener('folia-desktop-lyrics-lock-state', listener);
+    },
+    onDesktopLyricsEnabledStateChanged: (callback) => {
+        const listener = (_event, state) => callback(state);
+        ipcRenderer.on('folia-desktop-lyrics-enabled-state', listener);
+        return () => ipcRenderer.removeListener('folia-desktop-lyrics-enabled-state', listener);
+    },
     chooseVideoExportPath: (defaultName, extension, displayName) => ipcRenderer.invoke('video-export-choose-path', defaultName, extension, displayName),
     getMainWindowCaptureSource: () => ipcRenderer.invoke('video-export-get-main-window-source'),
     prepareVideoExportWindow: (size) => ipcRenderer.invoke('video-export-prepare-window', size),

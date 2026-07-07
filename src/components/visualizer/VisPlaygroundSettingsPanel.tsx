@@ -2,12 +2,14 @@ import React, { useMemo } from 'react';
 import { CaptionsOff, Languages, Monitor, RotateCcw, type LucideIcon } from 'lucide-react';
 import {
     DEFAULT_MONET_BACKGROUND_TUNING,
+    DEFAULT_INTERACTIVE3D_SCENE_TUNING,
     type CappellaAvatarImage,
     type CappellaEmojiImage,
     type CappellaTuning,
     type ClassicTuning,
     type CladdaghTuning,
     type FumeTuning,
+    type Interactive3dSceneTuning,
     type MonetBackgroundImage,
     type MonetBackgroundTuning,
     type MonetPortraitImage,
@@ -21,6 +23,7 @@ import {
 } from '../../types';
 import { colorWithAlpha } from './colorMix';
 import { MonetBackgroundSettingsCard } from './MonetBackgroundSettingsCard';
+import { Interactive3dBackgroundSettingsCard } from './backgrounds/Interactive3dBackgroundSettingsCard';
 import { UrlBackgroundSettingsCard } from './backgrounds/UrlBackgroundSettingsCard';
 import { VISUALIZER_REGISTRY, getVisualizerModeLabel, type VisualizerRegistryEntry } from './registry';
 import { type VisPlaygroundEditSection } from './VisPlaygroundPreviewHotspots';
@@ -71,8 +74,10 @@ interface VisPlaygroundSettingsPanelProps {
     onToggleCoverColorBg?: (enabled: boolean) => void;
     disableVisualizerVignette: boolean;
     onToggleDisableVisualizerVignette?: (disabled: boolean) => void;
-    disableVisualizerGeometricBackground: boolean;
-    onToggleDisableVisualizerGeometricBackground?: (disabled: boolean) => void;
+    enableSmartAtmosphere: boolean;
+    onToggleEnableSmartAtmosphere?: (enabled: boolean) => void;
+    enable3dInteractiveBackground: boolean;
+    onToggleEnable3dInteractiveBackground?: (enabled: boolean) => void;
     visualizerBackgroundMode?: VisualizerBackgroundMode | null;
     onVisualizerBackgroundModeChange?: (mode: VisualizerBackgroundMode) => void;
     onResetBackgroundSettings?: () => void;
@@ -105,6 +110,9 @@ interface VisPlaygroundSettingsPanelProps {
     onTiltTuningChange?: (patch: Partial<TiltTuning>) => void;
     monetBackgroundTuning?: MonetBackgroundTuning;
     onMonetBackgroundTuningChange?: (patch: Partial<MonetBackgroundTuning>) => void;
+    interactive3dSceneTuning?: Interactive3dSceneTuning;
+    onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
+    onResetInteractive3dSceneTuning?: () => void;
     monetTuning: MonetTuning;
     onMonetTuningChange?: (patch: Partial<MonetTuning>) => void;
     onResetMonetTuning?: () => void;
@@ -299,8 +307,10 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
         onToggleCoverColorBg,
         disableVisualizerVignette,
         onToggleDisableVisualizerVignette,
-        disableVisualizerGeometricBackground,
-        onToggleDisableVisualizerGeometricBackground,
+        enableSmartAtmosphere,
+        onToggleEnableSmartAtmosphere,
+        enable3dInteractiveBackground,
+        onToggleEnable3dInteractiveBackground,
         visualizerBackgroundMode,
         onVisualizerBackgroundModeChange,
         onResetBackgroundSettings,
@@ -333,6 +343,9 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
         onTiltTuningChange,
         monetBackgroundTuning = DEFAULT_MONET_BACKGROUND_TUNING,
         onMonetBackgroundTuningChange,
+        interactive3dSceneTuning = DEFAULT_INTERACTIVE3D_SCENE_TUNING,
+        onInteractive3dSceneTuningChange,
+        onResetInteractive3dSceneTuning,
         monetTuning,
         onMonetTuningChange,
         monetBackgroundImage,
@@ -366,9 +379,10 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
             value: entry.mode,
         }))
     ), [t]);
-    const resolvedBackgroundMode: VisualizerBackgroundMode = visualizerBackgroundMode ?? (visualizerMode === 'monet' ? 'monet' : 'common');
+    const resolvedBackgroundMode: VisualizerBackgroundMode = visualizerBackgroundMode ?? (visualizerMode === 'monet' ? 'monet' : 'interactive3d');
     const backgroundModeOptions = useMemo<PresetOption<VisualizerBackgroundMode>[]>(() => ([
         { value: 'common', label: t('options.visualizerBackgroundModeCommon') || '通用' },
+        { value: 'interactive3d', label: t('options.visualizerBackgroundModeInteractive3d') || '3D 交互' },
         { value: 'monet', label: t('options.visualizerBackgroundModeMonet') || '莫奈' },
         { value: 'url', label: t('options.visualizerBackgroundModeUrl') || 'URL' },
         { value: 'sora', label: t('options.visualizerBackgroundModeSora') || '空' },
@@ -497,17 +511,10 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
                             <>
                                 <div className="rounded-[24px] border p-4 space-y-4" style={{ backgroundColor: controlCardBg, borderColor: colorWithAlpha(theme.secondaryColor, 0.16) }}>
                                     <ToggleRow
-                                        label={t('options.disableVisualizerVignette') || '禁用暗角'}
-                                        description={t('options.disableVisualizerVignetteDesc') || '关闭几何背景自带的边缘暗角。'}
-                                        checked={disableVisualizerVignette}
-                                        onChange={onToggleDisableVisualizerVignette}
-                                        theme={theme}
-                                    />
-                                    <ToggleRow
-                                        label={t('options.disableVisualizerGeometricBackground') || '隐藏通用几何背景'}
-                                        description={t('options.disableVisualizerGeometricBackgroundDesc') || '隐藏播放页的通用几何背景图形。'}
-                                        checked={disableVisualizerGeometricBackground}
-                                        onChange={onToggleDisableVisualizerGeometricBackground}
+                                        label={t('options.enableSmartAtmosphere') || '智能氛围'}
+                                        description={t('options.enableSmartAtmosphereDesc') || '根据节拍与歌曲情绪驱动背景呼吸、粒子和电影感缩放。'}
+                                        checked={enableSmartAtmosphere}
+                                        onChange={onToggleEnableSmartAtmosphere}
                                         theme={theme}
                                     />
                                 </div>
@@ -549,6 +556,20 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
                                     </div>
                                 </div>
                             </>
+                        ) : resolvedBackgroundMode === 'interactive3d' ? (
+                            <Interactive3dBackgroundSettingsCard
+                                t={t}
+                                theme={theme}
+                                controlCardBg={controlCardBg}
+                                isDaylight={isDaylight}
+                                tuning={interactive3dSceneTuning}
+                                onTuningChange={onInteractive3dSceneTuningChange}
+                                onResetTuning={onResetInteractive3dSceneTuning}
+                                enableSmartAtmosphere={enableSmartAtmosphere}
+                                onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere}
+                                disableVisualizerVignette={disableVisualizerVignette}
+                                onToggleDisableVisualizerVignette={onToggleDisableVisualizerVignette}
+                            />
                         ) : resolvedBackgroundMode === 'url' ? (
                             <UrlBackgroundSettingsCard
                                 t={t}

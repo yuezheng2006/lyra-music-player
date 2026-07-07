@@ -258,6 +258,31 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createSettingsCommand('settings-obs-browser-source', 'OBS browser source', 'Open OBS browser source settings', ['obs', 'browser source', 'live source', '直播源', '浏览器源', 'zhiboyuan', 'liulanqiyuan', 'zby', 'llqy'], 'options', 'integration'),
     createSettingsCommand('settings-storage', 'Storage settings', 'Open cache and storage settings', ['storage', 'cache', '存储', '缓存', 'cunchu', 'huancun', 'cc', 'hc'], 'options', 'storage'),
     createSettingsCommand('settings-desktop', 'Desktop settings', 'Open desktop app settings', ['desktop', 'electron', '桌面', '桌面端', 'zhuomian', 'zhuomianduan', 'zm', 'zmd'], 'options', 'desktop'),
+    {
+        id: 'desktop-lyrics-toggle',
+        group: 'settings',
+        title: 'Toggle desktop lyrics',
+        description: 'Show or hide the always-on-top desktop lyrics overlay',
+        keywords: ['desktop lyrics', 'overlay lyrics', '桌面歌词', '悬浮歌词', 'zhuomiangedci', 'xuanfugeci', 'zmgc', 'xfgc'],
+        execute: async (_input, context) => {
+            await context.toggleDesktopLyrics();
+            return true;
+        },
+    },
+    {
+        id: 'desktop-lyrics-lock-toggle',
+        group: 'settings',
+        title: 'Toggle desktop lyrics lock',
+        description: 'Lock or unlock the desktop lyrics overlay click-through mode',
+        keywords: ['desktop lyrics lock', 'lock desktop lyrics', 'unlock desktop lyrics', '桌面歌词锁定', '锁定桌面歌词', 'suodingzhuomiangedci', 'sdzmgc'],
+        execute: async (_input, context) => {
+            if (!context.desktopLyricsEnabled) {
+                await context.toggleDesktopLyrics();
+            }
+            await context.setDesktopLyricsLocked(!context.desktopLyricsLocked);
+            return true;
+        },
+    },
     createSettingsCommand('settings-lab', 'Lab settings', 'Open experimental settings', ['lab', 'experimental', '实验', '实验室', 'shiyan', 'shiyanshi', 'sy', 'sys'], 'options', 'lab'),
     createSettingsCommand('settings-visualizer', 'Visualizer settings', 'Open lyrics animation workbench', ['visualizer settings', 'visualizer workbench', '可视化', '歌词动画', 'keshihua', 'gecidonghua', 'ksh', 'gcdh'], 'options', 'visualizer'),
     createSettingsCommand('settings-theme-park', 'Color', 'Open theme editor', ['color', 'theme park', 'theme', '配色', '主题', '主题公园', 'peise', 'zhuti', 'zhutigongyuan', 'ps', 'zt', 'ztgy'], 'options', 'themePark'),
@@ -448,6 +473,17 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         },
     },
     {
+        id: 'background-interactive3d',
+        group: 'visualizer',
+        title: 'Background: 3D Interactive',
+        description: 'Switch background to beat-reactive 3D interactive scene',
+        keywords: ['background 3d', 'interactive background', '3d background', '3d 交互背景', '3djh', 'jh', '背景切换到 3D 交互', '背景切换到3D交互'],
+        execute: (_input, context) => {
+            context.setVisualizerBackgroundMode('interactive3d');
+            return true;
+        },
+    },
+    {
         id: 'background-common',
         group: 'visualizer',
         title: 'Background: Common',
@@ -631,6 +667,14 @@ export const getCommandPaletteMatches = (
 
     const filteredCommands = COMMAND_PALETTE_COMMANDS.filter(command => {
         if (command.id === 'settings-desktop') {
+            const isWebBrowser = typeof window !== 'undefined';
+            const isElectron = isWebBrowser && Boolean((window as any).electron);
+            if (isWebBrowser && !isElectron) {
+                return false;
+            }
+        }
+
+        if (command.id === 'desktop-lyrics-toggle' || command.id === 'desktop-lyrics-lock-toggle') {
             const isWebBrowser = typeof window !== 'undefined';
             const isElectron = isWebBrowser && Boolean((window as any).electron);
             if (isWebBrowser && !isElectron) {

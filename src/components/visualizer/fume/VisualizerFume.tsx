@@ -10,6 +10,8 @@ import { colorWithAlpha, mixColors } from '../colorMix';
 import { type VisualizerSharedProps } from '../definition';
 import { buildFumeBackgroundScene, drawFumeBackground, type FumeBackgroundAudioLevels } from '../FumeBackground';
 import { getRecentCompletedLine, getUpcomingLines } from '../runtime';
+import { resolveShellGeometricBackgroundDisabled } from '../resolveShellGeometricBackground';
+import { shouldDrawFumeCanvasBackground } from '../resolveInteractive3dFumeLayering';
 import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { resolveWordColor } from '../wordColoring';
@@ -1856,6 +1858,7 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
         hideTranslationSubtitle = false,
         showSubtitleTranslation = true,
         paused = false,
+        resolvedVisualizerBackgroundMode,
     } = props;
     const viewportRef = useRef<HTMLDivElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -2072,6 +2075,11 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
         setHasPrintedContent(false);
     }, [article]);
 
+    const drawFumeCanvasBackground = shouldDrawFumeCanvasBackground(
+        resolvedVisualizerBackgroundMode,
+        staticMode,
+    );
+
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) {
@@ -2157,7 +2165,7 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
             };
 
             if (!article) {
-                if (!staticMode) {
+                if (drawFumeCanvasBackground) {
                     context.save();
                     context.translate(viewportCenterX, viewportCenterY);
                     context.translate(-backgroundScene.width * 0.5, -backgroundScene.height * 0.5);
@@ -2457,7 +2465,7 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
 
             const screenScale = cameraRef.current.scale;
 
-            if (!staticMode) {
+            if (!staticMode && drawFumeCanvasBackground) {
                 const backgroundCenterX = backgroundScene.width * 0.5;
                 const backgroundCenterY = backgroundScene.height * 0.5;
                 const backgroundVerticalOffset = clamp(
@@ -2958,6 +2966,7 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
         theme,
         viewport.height,
         viewport.width,
+        drawFumeCanvasBackground,
     ]);
 
     return (
@@ -2967,11 +2976,15 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
             audioBands={audioBands}
             sharedProps={{
                 ...props,
-                disableGeometricBackground: disableGeometricBackground || resolvedFumeTuning.disableGeometricBackground,
+                disableGeometricBackground: resolveShellGeometricBackgroundDisabled(
+                    disableGeometricBackground,
+                    props.resolvedVisualizerBackgroundMode,
+                    resolvedFumeTuning.disableGeometricBackground,
+                ),
             }}
         >
             <div ref={viewportRef} className="relative z-10 h-full w-full pointer-events-none">
-                {(article || lines.length === 0) && (
+                {showText && (
                     <motion.div
                         initial={false}
                         animate={{

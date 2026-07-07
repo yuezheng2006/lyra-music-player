@@ -11,6 +11,7 @@ import type {
     MonetBackgroundTuning,
     MonetPortraitImage,
     MonetTuning,
+    Interactive3dSceneTuning,
     PartitaTuning,
     PlayerState,
     SongResult,
@@ -68,6 +69,7 @@ export interface ObsBrowserSourceConfig {
     cappellaCustomAvatarImages?: CappellaAvatarImage[];
     tiltTuning?: TiltTuning;
     monetBackgroundTuning?: MonetBackgroundTuning;
+    interactive3dSceneTuning?: Interactive3dSceneTuning;
     monetTuning?: MonetTuning;
     monetBackgroundImage?: MonetBackgroundImage | null;
     monetPortraitImage?: MonetPortraitImage | null;

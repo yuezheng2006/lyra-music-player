@@ -42,6 +42,10 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     canOpenThemeQuickEditor: true,
     playQueue: [],
     playSong: vi.fn(),
+    toggleDesktopLyrics: vi.fn(async () => true),
+    setDesktopLyricsLocked: vi.fn(async () => true),
+    desktopLyricsEnabled: false,
+    desktopLyricsLocked: true,
     ...overrides,
 });
 

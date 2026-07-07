@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, Settings2, X, Disc, SlidersHorizontal, ListMusic, User as UserIcon, Home as HomeIcon, FileAudio, FileText, Radio, Cloud, Star, Command, ChevronLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { SongResult, Theme, PlayerState, ReplayGainMode, LocalPlaylist, NeteasePlaylist, ThemeMode, VisualizerMode } from '../types';
+import { SongResult, Theme, PlayerState, ReplayGainMode, LocalPlaylist, NeteasePlaylist, ThemeMode, VisualizerMode, type Interactive3dSceneTuning, type VisualizerBackgroundMode } from '../types';
 import CoverTab from './panelTab/CoverTab';
 import ControlsTab from './panelTab/ControlsTab';
 import QueueTab from './panelTab/QueueTab';
@@ -78,6 +78,15 @@ type UnifiedPanelPlaybackProps = {
     onOpenSettings?: () => void;
     onOpenCommandPalette?: () => void;
     isCommandPaletteOpen?: boolean;
+    visualizerBackgroundMode?: VisualizerBackgroundMode | null;
+    interactive3dSceneTuning?: Interactive3dSceneTuning;
+    enableSmartAtmosphere?: boolean;
+    disableVisualizerVignette?: boolean;
+    onVisualizerBackgroundModeChange?: (mode: VisualizerBackgroundMode) => void;
+    onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
+    onToggleEnableSmartAtmosphere?: (enabled: boolean) => void;
+    onToggleDisableVisualizerVignette?: (disabled: boolean) => void;
+    onOpenAdvancedBackgroundSettings?: () => void;
 };
 
 type UnifiedPanelQueueProps = {
@@ -192,6 +201,15 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
         onOpenSettings,
         onOpenCommandPalette,
         isCommandPaletteOpen = false,
+        visualizerBackgroundMode = null,
+        interactive3dSceneTuning,
+        enableSmartAtmosphere = true,
+        disableVisualizerVignette = false,
+        onVisualizerBackgroundModeChange,
+        onInteractive3dSceneTuningChange,
+        onToggleEnableSmartAtmosphere,
+        onToggleDisableVisualizerVignette,
+        onOpenAdvancedBackgroundSettings,
     } = playback;
     const { playQueue, onPlaySong, queueScrollRef, onShuffle } = queue;
     const {
@@ -800,6 +818,15 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                             onVolumeChange={onVolumeChange}
                                             onToggleMute={onToggleMute}
                                             loopToggleDisabled={playbackControlsDisabled}
+                                            visualizerBackgroundMode={visualizerBackgroundMode}
+                                            interactive3dSceneTuning={interactive3dSceneTuning}
+                                            enableSmartAtmosphere={enableSmartAtmosphere}
+                                            disableVisualizerVignette={disableVisualizerVignette}
+                                            onVisualizerBackgroundModeChange={onVisualizerBackgroundModeChange}
+                                            onInteractive3dSceneTuningChange={onInteractive3dSceneTuningChange}
+                                            onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere}
+                                            onToggleDisableVisualizerVignette={onToggleDisableVisualizerVignette}
+                                            onOpenAdvancedBackgroundSettings={onOpenAdvancedBackgroundSettings}
                                         />
                                     )}
                                     {currentTab === 'queue' && (
