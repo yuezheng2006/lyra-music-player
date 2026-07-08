@@ -1,13 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Repeat, Repeat1, RepeatOff, Heart, Sparkles, RotateCcw, Cone, Sun, Moon, Volume2, Volume1, VolumeX } from 'lucide-react';
+import { Repeat, Repeat1, RepeatOff, Heart, Sparkles, RotateCcw, Sun, Moon, Volume2, Volume1, VolumeX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Theme, ThemeMode, VisualizerMode, type Interactive3dSceneTuning, type VisualizerBackgroundMode } from '../../types';
 import type { ThemeSourceModel } from '../../hooks/themeControllerState';
 import { getVisualizerModeLabel, VISUALIZER_REGISTRY } from '../visualizer/registry';
 import { useThemeQuickEditorStore } from '../../stores/useThemeQuickEditorStore';
+import { resolveVisualizerBackgroundMode } from '../../stores/useSettingsUiStore';
 import ControlsTabPlayerBackgroundSection from './ControlsTabPlayerBackgroundSection';
 import { getControlsTabOptionButtonClass, getControlsTabOptionStyles } from './controlsTabOptionStyles';
+import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
+import type { LyricColorPresetId } from '../../utils/theme/lyricColorPresets';
 
 // Controls tab keeps the visualizer picker local so it can expand into a full-tab overlay
 // without changing the rest of the player state flow.
@@ -50,6 +53,7 @@ interface ControlsTabProps {
     onToggleEnableSmartAtmosphere?: (enabled: boolean) => void;
     onToggleDisableVisualizerVignette?: (disabled: boolean) => void;
     onOpenAdvancedBackgroundSettings?: () => void;
+    onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
 }
 
 const ControlsTab: React.FC<ControlsTabProps> = ({
@@ -90,6 +94,7 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
     onToggleEnableSmartAtmosphere,
     onToggleDisableVisualizerVignette,
     onOpenAdvancedBackgroundSettings,
+    onApplyLyricColorPreset,
 }) => {
     const { t } = useTranslation();
     const openThemeQuickEditor = useThemeQuickEditorStore(state => state.openEditor);
@@ -148,6 +153,8 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
     const customThemeSource = themeSourceModel.options.custom;
     const currentEditableSource = themeSourceModel.editableSource;
     const themeDisplayName = formatThemeDisplayName(activeThemeSource.label || theme.name);
+    const resolvedPlayerBackgroundMode = resolveVisualizerBackgroundMode(visualizerBackgroundMode, visualizerMode);
+    const coverColorTintApplies = resolvedPlayerBackgroundMode === 'common';
     const aiSwatchColor = aiThemeSource.theme?.backgroundColor ?? 'rgba(114,119,134,0.4)';
     const customSwatchColor = customThemeSource.theme?.accentColor ?? 'rgba(114,119,134,0.4)';
     const openCurrentThemeQuickEditor = () => {
@@ -276,33 +283,13 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                     </div>
 
                     <div className="space-y-2" data-testid="controls-panel-theme-section">
-                        <div className="flex items-start justify-between gap-2">
-                            <div>
-                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                                    {t('ui.panelTheme') || t('ui.background') || '界面配色'}
-                                </label>
-                                <p className={`mt-1 text-[9px] leading-snug ${sectionHintClass}`}>
-                                    {t('ui.panelThemeDesc') || '面板与控件的日/夜配色方案'}
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                                <button
-                                    onClick={onToggleDaylight}
-                                    className={`flex flex-col items-center gap-0.5 rounded-md px-1 py-0.5 transition-all ${isDaylight ? 'text-amber-500' : 'text-blue-300'}`}
-                                    title={isDaylight ? t('theme.switchToDark') : t('theme.switchToLight')}
-                                    aria-label={t('ui.appearanceToggle') || '日/夜'}
-                                >
-                                    {isDaylight ? <Sun size={14} /> : <Moon size={14} />}
-                                </button>
-                                <button
-                                    onClick={() => onToggleCoverColorBg(!useCoverColorBg)}
-                                    className={`flex flex-col items-center gap-0.5 rounded-md px-1 py-0.5 transition-all ${useCoverColorBg ? 'text-blue-500' : `${sectionHintClass} hover:opacity-100`}`}
-                                    title={useCoverColorBg ? t('theme.addCoverColor') : t('theme.useDefaultColor')}
-                                    aria-label={t('ui.coverColorTint') || '封面取色'}
-                                >
-                                    <Cone size={14} />
-                                </button>
-                            </div>
+                        <div>
+                            <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                                {t('ui.panelTheme') || t('ui.background') || '界面配色'}
+                            </label>
+                            <p className={`mt-1 text-[9px] leading-snug ${sectionHintClass}`}>
+                                {t('ui.panelThemeDesc') || '面板与控件的日/夜配色方案'}
+                            </p>
                         </div>
                         <div className={`grid ${hasCustomTheme ? 'grid-cols-3' : 'grid-cols-2'} gap-1 ${wellBg} p-1 rounded-xl`} data-testid="controls-panel-theme-group">
                             <button
@@ -334,6 +321,66 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                             )}
                         </div>
 
+                        <div className={`grid grid-cols-2 gap-1 ${wellBg} p-1 rounded-xl`} data-testid="controls-panel-appearance-group">
+                            <button
+                                type="button"
+                                data-testid="controls-appearance-light"
+                                onClick={() => { if (!isDaylight) onToggleDaylight(); }}
+                                className={`py-1.5 flex items-center justify-center gap-1.5 ${getControlsTabOptionButtonClass(isDaylight, optionStyles)}`}
+                            >
+                                <Sun size={12} />
+                                {t('ui.appearanceLight') || '浅色'}
+                            </button>
+                            <button
+                                type="button"
+                                data-testid="controls-appearance-dark"
+                                onClick={() => { if (isDaylight) onToggleDaylight(); }}
+                                className={`py-1.5 flex items-center justify-center gap-1.5 ${getControlsTabOptionButtonClass(!isDaylight, optionStyles)}`}
+                            >
+                                <Moon size={12} />
+                                {t('ui.appearanceDark') || '深色'}
+                            </button>
+                            {coverColorTintApplies && (
+                                <>
+                                    <button
+                                        type="button"
+                                        data-testid="controls-cover-color-tint-off"
+                                        onClick={() => onToggleCoverColorBg(false)}
+                                        className={`py-1.5 ${getControlsTabOptionButtonClass(!useCoverColorBg, optionStyles)}`}
+                                    >
+                                        {t('ui.coverColorTintOff') || '默认色'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        data-testid="controls-cover-color-tint-on"
+                                        onClick={() => onToggleCoverColorBg(true)}
+                                        className={`py-1.5 ${getControlsTabOptionButtonClass(useCoverColorBg, optionStyles)}`}
+                                    >
+                                        {t('ui.coverColorTintOn') || '封面取色'}
+                                    </button>
+                                </>
+                            )}
+                        </div>
+
+                        {onApplyLyricColorPreset && (
+                            <div className="space-y-1" data-testid="controls-lyric-color-presets">
+                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                                    {t('options.lyricColorPresetTitle') || '流行歌词色'}
+                                </label>
+                                <p className={`text-[9px] leading-snug ${sectionHintClass}`}>
+                                    {t('options.lyricColorPresetDesc') || '高对比动态歌词配色，强调当前字高亮。'}
+                                </p>
+                                <div className={`${wellBg} p-1 rounded-xl`}>
+                                    <LyricColorPresetGrid
+                                        onSelect={onApplyLyricColorPreset}
+                                        inactiveButtonClassName={optionStyles.inactiveOptionClass}
+                                        activeButtonClassName={optionStyles.activeOptionClass}
+                                        buttonClassName="w-full"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         <ControlsTabPlayerBackgroundSection
                             visualizerMode={visualizerMode}
                             visualizerBackgroundMode={visualizerBackgroundMode}
@@ -345,36 +392,6 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                             onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere ?? (() => undefined)}
                             onOpenAdvancedBackgroundSettings={onOpenAdvancedBackgroundSettings}
                         />
-                    </div>
-                </div>
-
-                <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        {currentEditableSource ? (
-                            <button
-                                type="button"
-                                onClick={openCurrentThemeQuickEditor}
-                                className={`max-w-[120px] truncate rounded-md px-1.5 py-1 text-left text-xs font-bold transition-colors ${isDaylight ? 'hover:bg-black/10' : 'hover:bg-white/10'}`}
-                                title={currentEditableSource === 'custom'
-                                    ? (t('options.customThemeQuickEditTitle') || 'Edit Custom Theme')
-                                    : (t('options.aiThemeQuickEditTitle') || 'Edit AI Theme')}
-                            >
-                                {themeDisplayName}
-                            </button>
-                        ) : (
-                            <span className="text-xs font-bold truncate max-w-[120px]">
-                                {themeDisplayName}
-                            </span>
-                        )}
-                        {themeSourceModel.activeSource !== 'default' && (
-                            <button
-                                onClick={onResetTheme}
-                                className={`p-1 rounded-full ${isDaylight ? 'hover:bg-black/10' : 'hover:bg-white/10'} transition-colors`}
-                                title={t('ui.resetToDefaultTheme')}
-                            >
-                                <RotateCcw size={12} />
-                            </button>
-                        )}
                     </div>
                 </div>
             </div>

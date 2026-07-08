@@ -5,7 +5,7 @@ import {
 } from '../../../types';
 
 // src/components/visualizer/geometric/mineradioVisualPresets.ts
-// Interactive 3D visual preset bundles (cover + starfield + tunnel).
+// Interactive 3D visual preset bundles (cover + vinyl + lightflow).
 
 export const INTERACTIVE3D_VISUAL_PRESET_OPTIONS: MineradioVisualPresetId[] = [
     'emily',
@@ -18,7 +18,7 @@ export const MINERADIO_VISUAL_PRESET_OPTIONS = INTERACTIVE3D_VISUAL_PRESET_OPTIO
 
 const LEGACY_VISUAL_PRESET_MAP: Record<string, MineradioVisualPresetId> = {
     void: 'emily',
-    vinyl: 'tunnel',
+    vinyl: 'starfield',
     requiem: 'emily',
     custom: 'emily',
 };
@@ -54,12 +54,12 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableFloatingParticles: false,
         enableCoverParticles: true,
     },
-    /** 星河：螺旋星带 warp，偏环境粒子，关闭额外 canvas 层以控性能。 */
+    /** 唱片：圆形封面唱片和节拍沟槽，保留强音乐语义。 */
     starfield: {
         visualPreset: 'starfield',
         rhythmIntensity: 0.92,
-        cinemaShake: 0.35,
-        bloomStrength: 0.78,
+        cinemaShake: 0.34,
+        bloomStrength: 0.76,
         enableBackgroundWash: true,
         enableOrbitField: false,
         enableBassRipples: false,
@@ -70,12 +70,12 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableFloatingParticles: false,
         enableCoverParticles: true,
     },
-    /** 隧道：滚筒纵深，中等律动，无 Emily 涟漪。 */
+    /** 光流：移植 Mineradio 启动页线场质感，偏舞台光束和电流。 */
     tunnel: {
         visualPreset: 'tunnel',
-        rhythmIntensity: 0.96,
-        cinemaShake: 0.48,
-        bloomStrength: 0.58,
+        rhythmIntensity: 1.02,
+        cinemaShake: 0.44,
+        bloomStrength: 0.9,
         enableBackgroundWash: true,
         enableOrbitField: false,
         enableBassRipples: false,
@@ -107,9 +107,9 @@ export const getMineradioPresetLabelFallback = (preset: MineradioVisualPresetId)
         case 'emily':
             return '封面';
         case 'starfield':
-            return '星河';
+            return '唱片';
         case 'tunnel':
-            return '隧道';
+            return '光流';
         default:
             return '封面';
     }

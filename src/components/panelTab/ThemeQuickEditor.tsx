@@ -9,7 +9,13 @@ import type { ThemeCacheSongKey } from '../../services/themeCache';
 import { FALLBACK_AI_DUAL_THEME, normalizeThemeHexColor, sanitizeDualTheme } from '../../services/themeSanitizer';
 import { extractColors } from '../../utils/colorExtractor';
 import { THEME_GENERATION_PROMPT_PREFIX, buildThemeSourcePrompt, parseAiThemeJsonInput } from '../../utils/aiThemePrompts';
-import { useThemeQuickEditorStore, type ThemeQuickEditorKind } from '../../stores/useThemeQuickEditorStore';
+import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
+import {
+    applyLyricColorPresetToDualTheme,
+    getLyricColorPresetById,
+    type LyricColorPresetId,
+} from '../../utils/theme/lyricColorPresets';
+import { useThemeQuickEditorStore } from '../../stores/useThemeQuickEditorStore';
 
 // src/components/panelTab/ThemeQuickEditor.tsx
 // Lightweight theme color editor launched from the player controls tab.
@@ -220,6 +226,14 @@ const ThemeQuickEditor: React.FC<ThemeQuickEditorProps> = ({
                 [activeKey]: color,
             },
         }));
+    };
+
+    const applyLyricColorPreset = (presetId: LyricColorPresetId) => {
+        const preset = getLyricColorPresetById(presetId);
+        if (!preset) {
+            return;
+        }
+        setDraftTheme(previous => applyLyricColorPresetToDualTheme(previous, preset));
     };
 
     const handleSave = () => {
@@ -511,6 +525,20 @@ const ThemeQuickEditor: React.FC<ThemeQuickEditorProps> = ({
                             </div>
 
                             <div className="flex min-w-0 flex-col gap-4">
+                                <div className={`rounded-3xl border p-4 ${themeTransitionClass}`} style={{ borderColor, backgroundColor: softBg }}>
+                                    <div className={`text-xs font-bold mb-1 ${themeTransitionClass}`} style={{ color: textColor }}>
+                                        {t('options.lyricColorPresetTitle') || '流行歌词色'}
+                                    </div>
+                                    <p className={`mb-3 text-[10px] leading-snug ${themeTransitionClass}`} style={{ color: mutedTextColor }}>
+                                        {t('options.lyricColorPresetDesc') || '一键套用抖音 / 小红书常见字幕配色（主文本 + 强调色）。'}
+                                    </p>
+                                    <LyricColorPresetGrid
+                                        onSelect={applyLyricColorPreset}
+                                        inactiveButtonClassName={`opacity-85 hover:opacity-100 ${allTransitionClass}`}
+                                        buttonClassName={allTransitionClass}
+                                    />
+                                </div>
+
                                 {/* Recommended Colors */}
                                 <div className={`rounded-3xl border p-4 ${themeTransitionClass}`} style={{ borderColor, backgroundColor: softBg }}>
                                     <div className={`text-xs font-bold mb-3 ${themeTransitionClass}`} style={{ color: textColor }}>

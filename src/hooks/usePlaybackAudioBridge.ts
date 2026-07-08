@@ -203,32 +203,49 @@ export function usePlaybackAudioBridge({
     }, [audioRef, audioSrc]);
 
     useEffect(() => {
-        if (audioSrc && audioRef.current) {
-            if (shouldAutoPlayRef.current && !isLyricsLoading) {
-                shouldAutoPlayRef.current = false;
-                syncOutputGain(getTargetPlaybackVolume(), 0);
-                const playPromise = audioRef.current.play();
-                if (playPromise !== undefined) {
-                    playPromise
-                        .then(() => {
-                            setPlayerState(PlayerState.PLAYING);
-                            setupAudioAnalyzer();
-                        })
-                        .catch(error => {
-                            if (audioRef.current && !audioRef.current.paused && !audioRef.current.ended) {
-                                setPlayerState(PlayerState.PLAYING);
-                                return;
-                            }
+        const audioElement = audioRef.current;
+        if (!audioElement || !audioSrc) return undefined;
 
-                            if (error.name === 'NotAllowedError') {
-                                setStatusMsg({ type: 'info', text: t('status.clickToPlay') });
-                                setPlayerState(PlayerState.PAUSED);
-                            }
-                        });
-                }
-            }
-        }
-    }, [audioRef, audioSrc, getTargetPlaybackVolume, isLyricsLoading, setPlayerState, setStatusMsg, setupAudioAnalyzer, shouldAutoPlayRef, syncOutputGain, t]);
+        const attemptAutoPlay = () => {
+            if (!shouldAutoPlayRef.current) return;
+
+            syncOutputGain(getTargetPlaybackVolume(), 0);
+            const playPromise = audioElement.play();
+            if (playPromise === undefined) return;
+
+            playPromise
+                .then(() => {
+                    shouldAutoPlayRef.current = false;
+                    setPlayerState(PlayerState.PLAYING);
+                    setupAudioAnalyzer();
+                })
+                .catch(error => {
+                    if (audioElement && !audioElement.paused && !audioElement.ended) {
+                        shouldAutoPlayRef.current = false;
+                        setPlayerState(PlayerState.PLAYING);
+                        setupAudioAnalyzer();
+                        return;
+                    }
+
+                    if (error instanceof DOMException && error.name === 'NotAllowedError') {
+                        shouldAutoPlayRef.current = false;
+                        setStatusMsg({ type: 'info', text: t('status.clickToPlay') });
+                        setPlayerState(PlayerState.PAUSED);
+                    }
+                });
+        };
+
+        attemptAutoPlay();
+
+        const handlePlaybackReady = () => attemptAutoPlay();
+        audioElement.addEventListener('canplay', handlePlaybackReady);
+        audioElement.addEventListener('loadeddata', handlePlaybackReady);
+
+        return () => {
+            audioElement.removeEventListener('canplay', handlePlaybackReady);
+            audioElement.removeEventListener('loadeddata', handlePlaybackReady);
+        };
+    }, [audioRef, audioSrc, getTargetPlaybackVolume, setPlayerState, setStatusMsg, setupAudioAnalyzer, shouldAutoPlayRef, syncOutputGain, t]);
 
     return {
         setupAudioAnalyzer,

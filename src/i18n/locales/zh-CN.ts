@@ -175,7 +175,11 @@ export default {
     "panelThemeDesc": "面板与控件的日/夜配色方案",
     "playerPageBackgroundDesc": "歌词下方的动态背景层",
     "appearanceToggle": "日/夜",
+    "appearanceLight": "浅色",
+    "appearanceDark": "深色",
     "coverColorTint": "封面取色",
+    "coverColorTintOn": "封面取色",
+    "coverColorTintOff": "默认色",
     "visualizer": "歌词动画",
     "visualizerWorkbench": "歌词动画实验台",
     "visualizerTemporary": "临时工作台",
@@ -245,7 +249,23 @@ export default {
     "loadMore": "加载更多",
     "headerTitle": "标题",
     "headerTime": "时长",
-    "loading": "加载中"
+    "loading": "加载中",
+    "play": "播放",
+    "expandInfo": "歌单信息",
+    "collapseInfo": "收起信息",
+    "viewTracks": "曲目列表"
+  },
+  "player": {
+    "play": "播放",
+    "pause": "暂停",
+    "showLyrics": "显示歌词",
+    "hideLyrics": "隐藏歌词",
+    "lyricsEnabled": "歌词已开启",
+    "lyricsDisabled": "歌词已关闭"
+  },
+  "gridView": {
+    "layoutNeat": "整齐布局",
+    "layoutCasual": "随意布局"
   },
   "home": {
     "welcome": "欢迎使用 Folia",
@@ -461,8 +481,8 @@ export default {
     "mineradioVisualPreset": "视觉风格",
     "mineradioPreset": {
       "emily": "封面",
-      "starfield": "星河",
-      "tunnel": "隧道"
+      "starfield": "唱片",
+      "tunnel": "光流"
     },
     "enable3dInteractiveBackground": "3D 交互背景",
     "enable3dInteractiveBackgroundDesc": "显示播放页随音频节拍缩放的几何图形背景。",
@@ -670,6 +690,19 @@ export default {
     "aiThemeQuickEditAccent": "强调色",
     "aiThemeQuickEditSecondary": "辅助色",
     "aiThemeQuickEditRecommendedColors": "推荐色",
+    "lyricColorPresetTitle": "流行歌词色",
+    "lyricColorPresetDesc": "高对比动态歌词配色；部分预设会同步字体与动效（主文本 + 强调色）。",
+    "lyricColorPreset": {
+      "douyinNeon": "抖音霓虹",
+      "douyinPurple": "抖音紫电",
+      "douyinGold": "抖音金黄",
+      "xhsCream": "小红书奶油",
+      "xhsMorandi": "小红书莫兰迪",
+      "xhsWine": "小红书酒红",
+      "xhsNoteRed": "笔记红字",
+      "xhsMatcha": "小红书抹茶",
+      "dazibaoRed": "大字报红"
+    },
     "aiThemeQuickEditSave": "保存 AI 主题",
     "customThemeQuickEditSave": "保存自定义主题",
     "invalidJsonFormat": "无效的 JSON 格式",

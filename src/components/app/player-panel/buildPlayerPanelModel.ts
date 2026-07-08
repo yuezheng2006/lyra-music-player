@@ -108,6 +108,7 @@ type BuildPlayerPanelModelParams = {
     handleToggleEnableSmartAtmosphere: LegacyUnifiedPanelProps['playback']['onToggleEnableSmartAtmosphere'];
     handleToggleDisableVisualizerVignette: LegacyUnifiedPanelProps['playback']['onToggleDisableVisualizerVignette'];
     openAdvancedBackgroundSettings: LegacyUnifiedPanelProps['playback']['onOpenAdvancedBackgroundSettings'];
+    onApplyLyricColorPreset: LegacyUnifiedPanelProps['playback']['onApplyLyricColorPreset'];
 };
 
 // Builds the player panel model from raw app state and actions so App.tsx no longer assembles nested props inline.
@@ -209,6 +210,7 @@ export const buildPlayerPanelModel = ({
     handleToggleEnableSmartAtmosphere,
     handleToggleDisableVisualizerVignette,
     openAdvancedBackgroundSettings,
+    onApplyLyricColorPreset,
 }: BuildPlayerPanelModelParams): PlayerPanelViewModel => ({
     legacyProps: {
         playback: {
@@ -282,6 +284,7 @@ export const buildPlayerPanelModel = ({
             onToggleEnableSmartAtmosphere: handleToggleEnableSmartAtmosphere,
             onToggleDisableVisualizerVignette: handleToggleDisableVisualizerVignette,
             onOpenAdvancedBackgroundSettings: openAdvancedBackgroundSettings,
+            onApplyLyricColorPreset,
         },
         queue: {
             playQueue,

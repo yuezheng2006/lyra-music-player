@@ -605,33 +605,28 @@ export function usePlaybackQueueController({
         }
         setAudioSrc(audioResult.audioSrc);
 
-        try {
-            await loadOnlineSongLyrics(song, prefetched, userId, {
-                isCurrent: () => currentSongRef.current === song.id,
-                onLyrics: resolvedLyrics => setLyrics(resolvedLyrics),
-                onPureMusicChange: isPureMusic => {
-                    setCurrentSong(prev => prev?.id === song.id ? { ...prev, isPureMusic } : prev);
-                },
-                onStateChange: state => {
-                    setCurrentSong(prev => prev?.id === song.id ? { ...prev, onlineLyricsState: state ?? undefined } : prev);
-                },
-                onAutoMatchStart: () => {
-                    setStatusMsg({ type: 'info', text: t('status.matchingBestLyrics') });
-                },
-                onDone: () => setIsLyricsLoading(false),
-            });
-        } catch (error) {
+        void loadOnlineSongLyrics(song, prefetched, userId, {
+            isCurrent: () => currentSongRef.current === song.id,
+            onLyrics: resolvedLyrics => setLyrics(resolvedLyrics),
+            onPureMusicChange: isPureMusic => {
+                setCurrentSong(prev => prev?.id === song.id ? { ...prev, isPureMusic } : prev);
+            },
+            onStateChange: state => {
+                setCurrentSong(prev => prev?.id === song.id ? { ...prev, onlineLyricsState: state ?? undefined } : prev);
+            },
+            onAutoMatchStart: () => {
+                setStatusMsg({ type: 'info', text: t('status.matchingBestLyrics') });
+            },
+            onDone: () => setIsLyricsLoading(false),
+        }).catch(error => {
             console.warn('[App] Lyric fetch failed', error);
             setLyrics(null);
             setIsLyricsLoading(false);
-        }
+        });
 
-        try {
-            await restoreCachedThemeForSong(song.id);
-            if (currentSongRef.current !== song.id) return;
-        } catch (error) {
+        void restoreCachedThemeForSong(song.id).catch(error => {
             console.warn('Theme load error', error);
-        }
+        });
 
         if (newQueue.length > 1) {
             prefetchNearbySongs(song.id, newQueue, audioQuality, userId);

@@ -3,25 +3,15 @@ import { useTranslation } from 'react-i18next';
 import {
     DEFAULT_INTERACTIVE3D_SCENE_TUNING,
     type Interactive3dSceneTuning,
-    type MineradioVisualPresetId,
     type VisualizerBackgroundMode,
     type VisualizerMode,
 } from '../../types';
-import {
-    applyMineradioVisualPreset,
-    getMineradioPresetLabelFallback,
-    INTERACTIVE3D_VISUAL_PRESET_OPTIONS,
-} from '../visualizer/geometric/mineradioVisualPresets';
 import { resolveVisualizerBackgroundMode } from '../../stores/useSettingsUiStore';
+import ControlsTabInteractive3dScenePanel from './ControlsTabInteractive3dScenePanel';
 import { getControlsTabOptionButtonClass, getControlsTabOptionStyles } from './controlsTabOptionStyles';
 
 // src/components/panelTab/ControlsTabPlayerBackgroundSection.tsx
 // Compact player-panel controls for visualizer background mode and 3D presets.
-
-const getMineradioPresetLabel = (
-    preset: MineradioVisualPresetId,
-    t: (key: string) => string,
-) => t(`options.mineradioPreset.${preset}`) || getMineradioPresetLabelFallback(preset);
 
 const PLAYER_BACKGROUND_MODES: VisualizerBackgroundMode[] = ['interactive3d', 'common', 'monet'];
 
@@ -122,44 +112,15 @@ const ControlsTabPlayerBackgroundSection: React.FC<ControlsTabPlayerBackgroundSe
             )}
 
             {isInteractive3d && (
-                <div className={`${wellBg} rounded-xl p-2 space-y-2`} data-testid="controls-interactive3d-scene-panel">
-                    <div className="flex items-center justify-between gap-2">
-                        <span className={`text-[10px] font-medium ${isDaylight ? 'text-stone-700' : 'text-white/75'}`}>
-                            {t('options.enableSmartAtmosphere') || '智能氛围'}
-                        </span>
-                        <button
-                            type="button"
-                            data-testid="controls-interactive3d-toggle-smart-atmosphere"
-                            aria-pressed={enableSmartAtmosphere}
-                            onClick={() => onToggleEnableSmartAtmosphere(!enableSmartAtmosphere)}
-                            className={`w-10 h-5 rounded-full p-0.5 transition-colors ${enableSmartAtmosphere ? (isDaylight ? 'bg-stone-400' : 'bg-white/30') : (isDaylight ? 'bg-stone-300/70' : 'bg-white/10')}`}
-                        >
-                            <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${enableSmartAtmosphere ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
-                    </div>
-
-                    <div className="space-y-1" data-testid="controls-interactive3d-mineradio-presets">
-                        <span className={`text-[10px] font-medium ${sectionHintClass}`}>
-                            {t('options.mineradioVisualPreset') || '视觉风格'}
-                        </span>
-                        <div className="grid grid-cols-3 gap-1">
-                            {INTERACTIVE3D_VISUAL_PRESET_OPTIONS.map(preset => (
-                                <button
-                                    key={preset}
-                                    type="button"
-                                    data-testid={`controls-interactive3d-preset-${preset}`}
-                                    onClick={() => onInteractive3dSceneTuningChange(applyMineradioVisualPreset(preset, interactive3dSceneTuning))}
-                                    className={`px-1.5 py-1 ${getControlsTabOptionButtonClass(
-                                        interactive3dSceneTuning.visualPreset === preset,
-                                        optionStyles,
-                                    )}`}
-                                >
-                                    {getMineradioPresetLabel(preset, t)}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                <ControlsTabInteractive3dScenePanel
+                    t={t}
+                    interactive3dSceneTuning={interactive3dSceneTuning}
+                    enableSmartAtmosphere={enableSmartAtmosphere}
+                    isDaylight={isDaylight}
+                    optionStyles={optionStyles}
+                    onInteractive3dSceneTuningChange={onInteractive3dSceneTuningChange}
+                    onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere}
+                />
             )}
         </div>
     );

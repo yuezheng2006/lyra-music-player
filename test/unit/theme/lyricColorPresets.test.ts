@@ -1,0 +1,62 @@
+import { describe, expect, it } from 'vitest';
+import {
+    applyLyricColorPresetToDualTheme,
+    getLyricColorPresetById,
+    LYRIC_COLOR_PRESETS,
+} from '@/utils/theme/lyricColorPresets';
+
+const baseDualTheme = {
+    light: {
+        name: 'Light',
+        backgroundColor: '#f5f5f4',
+        primaryColor: '#1c1917',
+        accentColor: '#ea580c',
+        secondaryColor: '#44403c',
+        fontStyle: 'sans' as const,
+        animationIntensity: 'normal' as const,
+    },
+    dark: {
+        name: 'Dark',
+        backgroundColor: '#09090b',
+        primaryColor: '#f4f4f5',
+        accentColor: '#f4f4f5',
+        secondaryColor: '#71717a',
+        fontStyle: 'sans' as const,
+        animationIntensity: 'normal' as const,
+    },
+};
+
+describe('lyricColorPresets', () => {
+    it('includes Douyin and Xiaohongshu inspired presets', () => {
+        expect(LYRIC_COLOR_PRESETS.length).toBeGreaterThanOrEqual(8);
+        expect(getLyricColorPresetById('douyin-neon')?.light.accentColor).toBe('#fe2c55');
+        expect(getLyricColorPresetById('douyin-neon')?.dark.accentColor).toBe('#00f5ff');
+        expect(getLyricColorPresetById('xhs-note-red')?.light.accentColor).toBe('#ff2442');
+    });
+
+    it('patches lyric colors on both modes while preserving backgrounds', () => {
+        const preset = getLyricColorPresetById('xhs-cream');
+        expect(preset).toBeDefined();
+
+        const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset!);
+
+        expect(next.light.backgroundColor).toBe('#f5f5f4');
+        expect(next.dark.backgroundColor).toBe('#09090b');
+        expect(next.light.primaryColor).toBe('#2d1f18');
+        expect(next.dark.accentColor).toBe('#ff7043');
+    });
+
+    it('applies poster-style motion profile for dazibao red preset', () => {
+        const preset = getLyricColorPresetById('dazibao-red');
+        expect(preset).toBeDefined();
+
+        const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset!);
+
+        expect(next.light.accentColor).toBe('#de2910');
+        expect(next.light.animationIntensity).toBe('chaotic');
+        expect(next.light.fontStyle).toBe('sans');
+        expect(next.light.lyricRhythmScaleMultiplier).toBe(1.35);
+        expect(next.light.lyricGlowUsesAccent).toBe(true);
+        expect(next.dark.primaryColor).toBe('#faf3e8');
+    });
+});

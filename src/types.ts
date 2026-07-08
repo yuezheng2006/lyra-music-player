@@ -84,6 +84,10 @@ export interface Theme {
   fontStyle: 'sans' | 'serif' | 'mono';
   fontFamily?: string;
   animationIntensity: 'calm' | 'normal' | 'chaotic';
+  /** Optional beat-sync scale boost multiplier for lyric rhythm staging. */
+  lyricRhythmScaleMultiplier?: number;
+  /** When true, lyric rhythm glow uses accentColor instead of neutral white. */
+  lyricGlowUsesAccent?: boolean;
   wordColors?: { word: string; color: string; }[];
   lyricsIcons?: string[];
   provider?: string;
@@ -115,6 +119,7 @@ export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'radio
 export type PlaybackContext = 'main' | 'stage';
 export type StageSource = 'stage-api' | 'now-playing';
 export type StageLoopMode = 'off' | 'all' | 'one';
+export type GridViewCardLayout = 'neat' | 'casual';
 export type QueueAddBehavior = 'append' | 'next';
 export type StageActiveEntryKind = 'lyrics' | 'media';
 
@@ -595,7 +600,7 @@ export const DEFAULT_MONET_BACKGROUND_TUNING: MonetBackgroundTuning = {
 
 export const DEFAULT_MONET_TUNING: MonetTuning = {
   keywordColoringEnabled: true,
-  showDescription: true,
+  showDescription: false,
   audioStyle: 'bar',
   fontScale: 1.2,
   portraitSource: 'cover',

@@ -17,6 +17,7 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
     audioBands,
     beatPulse,
     atmosphereEnergy,
+    enableBeatBursts = true,
     interactive3dSceneTuning,
     seed,
     disableVignette = false,
@@ -74,6 +75,7 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                     audioBands={audioBands}
                     beatPulse={beatPulse ?? fallbackMotion}
                     atmosphereEnergy={atmosphereEnergy ?? fallbackMotion}
+                    smartAtmosphereEnabled={enableBeatBursts}
                     pointerX={pointerX}
                     pointerY={pointerY}
                     currentTime={currentTime}

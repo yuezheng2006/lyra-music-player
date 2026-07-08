@@ -15,6 +15,7 @@ import PlaylistSelectionDialog from './shared/PlaylistSelectionDialog';
 import TextInputDialog from './shared/TextInputDialog';
 import type { OnlineLyricsState } from '../types';
 import type { ThemeSourceModel } from '../hooks/themeControllerState';
+import type { LyricColorPresetId } from '../../utils/theme/lyricColorPresets';
 
 export type PanelTab = 'cover' | 'controls' | 'queue' | 'account' | 'local' | 'navi' | 'onlineLyrics';
 
@@ -87,6 +88,7 @@ type UnifiedPanelPlaybackProps = {
     onToggleEnableSmartAtmosphere?: (enabled: boolean) => void;
     onToggleDisableVisualizerVignette?: (disabled: boolean) => void;
     onOpenAdvancedBackgroundSettings?: () => void;
+    onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
 };
 
 type UnifiedPanelQueueProps = {
@@ -210,6 +212,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
         onToggleEnableSmartAtmosphere,
         onToggleDisableVisualizerVignette,
         onOpenAdvancedBackgroundSettings,
+        onApplyLyricColorPreset,
     } = playback;
     const { playQueue, onPlaySong, queueScrollRef, onShuffle } = queue;
     const {
@@ -827,6 +830,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                             onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere}
                                             onToggleDisableVisualizerVignette={onToggleDisableVisualizerVignette}
                                             onOpenAdvancedBackgroundSettings={onOpenAdvancedBackgroundSettings}
+                                            onApplyLyricColorPreset={onApplyLyricColorPreset}
                                         />
                                     )}
                                     {currentTab === 'queue' && (

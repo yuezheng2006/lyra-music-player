@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+    buildGridViewCardCoords,
+    buildNeatGridCoords,
     forEachCubeInRadius,
     pixelToCubeCenter,
+    resolveVisibleGridIndexes,
     resolveVisibleHexIndexes,
     roundCube,
     toCubeKey,
@@ -73,6 +76,53 @@ describe('hexViewport', () => {
         for (const index of indexes) {
             const coord = coords[index]!;
             expect(coord.baseX * coord.baseX + coord.baseY * coord.baseY).toBeLessThanOrEqual(330 * 330);
+        }
+    });
+
+    it('builds a centered row/column grid that maximizes cards per row', () => {
+        const viewportWidth = 1440;
+        const cardWidth = 220;
+        const cardHeight = 330;
+        const coords = buildNeatGridCoords(10, viewportWidth, cardWidth, cardHeight);
+        const spacingX = cardWidth + 12;
+        const expectedColumns = Math.max(1, Math.floor(viewportWidth / spacingX));
+
+        expect(coords).toHaveLength(10);
+        expect(expectedColumns).toBeGreaterThan(1);
+
+        for (let index = 0; index < coords.length; index++) {
+            const coord = coords[index]!;
+            const col = index % expectedColumns;
+            const row = Math.floor(index / expectedColumns);
+            const rows = Math.ceil(10 / expectedColumns);
+            const gridWidth = (expectedColumns - 1) * spacingX;
+            const gridHeight = (rows - 1) * (cardHeight + 16);
+            const expectedX = -gridWidth / 2 + col * spacingX;
+            const expectedY = -gridHeight / 2 + row * (cardHeight + 16);
+
+            expect(coord.baseX).toBeCloseTo(expectedX, 4);
+            expect(coord.baseY).toBeCloseTo(expectedY, 4);
+            expect(coord.rotationDeg).toBeUndefined();
+        }
+    });
+
+    it('uses neat grid layout and casual scatter layout in buildGridViewCardCoords', () => {
+        const neat = buildGridViewCardCoords(8, 250, 320, 'neat', 1200, 220, 330);
+        const casual = buildGridViewCardCoords(8, 250, 320, 'casual');
+
+        expect(neat[0]?.rotationDeg).toBeUndefined();
+        expect(casual.some((coord) => coord.rotationDeg !== undefined)).toBe(true);
+        expect(neat[1]?.baseX).not.toBe(casual[1]?.baseX);
+    });
+
+    it('resolves visible grid indexes within the pixel radius', () => {
+        const coords = buildNeatGridCoords(12, 1200, 220, 330);
+        const indexes = resolveVisibleGridIndexes(coords, 0, 0, 360);
+
+        expect(indexes.length).toBeGreaterThan(0);
+        for (const index of indexes) {
+            const coord = coords[index]!;
+            expect(coord.baseX * coord.baseX + coord.baseY * coord.baseY).toBeLessThanOrEqual(360 * 360);
         }
     });
 });

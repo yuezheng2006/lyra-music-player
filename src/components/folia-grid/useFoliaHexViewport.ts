@@ -3,6 +3,7 @@ import {
     areIndexListsEqual,
     buildHexGridCoords,
     pixelToCubeCenter,
+    resolveVisibleGridIndexes,
     resolveVisibleHexIndexes,
     toCubeKey,
 } from './hexViewport';
@@ -17,6 +18,7 @@ export interface UseFoliaHexViewportOptions {
     renderRing: number;
     fallbackIndexRef?: RefObject<number>;
     coords?: HexGridCoord[];
+    layoutMode?: 'hex' | 'grid';
 }
 
 export const useFoliaHexViewport = ({
@@ -27,6 +29,7 @@ export const useFoliaHexViewport = ({
     renderRing,
     fallbackIndexRef,
     coords: customCoords,
+    layoutMode = 'hex',
 }: UseFoliaHexViewportOptions) => {
     const coords = useMemo<HexGridCoord[]>(
         () => customCoords || buildHexGridCoords(itemCount, spacingX, spacingY),
@@ -56,19 +59,22 @@ export const useFoliaHexViewport = ({
 
         const worldX = -dx;
         const worldY = -dy;
-        const centerCube = pixelToCubeCenter(worldX, worldY, spacingX, spacingY);
-        const centerKey = toCubeKey(centerCube);
+        const centerKey = layoutMode === 'grid'
+            ? `${Math.round(worldX / 48)}:${Math.round(worldY / 48)}`
+            : toCubeKey(pixelToCubeCenter(worldX, worldY, spacingX, spacingY));
         if (!force && centerKey === lastVisibleCenterKeyRef.current) return;
 
-        const nextIndexes = resolveVisibleHexIndexes(
-            centerCube,
-            renderRing,
-            coordByKey,
-            coords,
-            worldX,
-            worldY,
-            renderRadius
-        );
+        const nextIndexes = layoutMode === 'grid'
+            ? resolveVisibleGridIndexes(coords, worldX, worldY, renderRadius)
+            : resolveVisibleHexIndexes(
+                pixelToCubeCenter(worldX, worldY, spacingX, spacingY),
+                renderRing,
+                coordByKey,
+                coords,
+                worldX,
+                worldY,
+                renderRadius
+            );
 
         const fallbackIndex = fallbackIndexRef?.current ?? 0;
         if (nextIndexes.length === 0 && fallbackIndex >= 0 && fallbackIndex < coords.length) {
@@ -85,7 +91,7 @@ export const useFoliaHexViewport = ({
         startTransition(() => {
             setRenderedIndexes(nextIndexes);
         });
-    }, [coordByKey, coords, fallbackIndexRef, renderRadius, renderRing, spacingX, spacingY]);
+    }, [coordByKey, coords, fallbackIndexRef, layoutMode, renderRadius, renderRing, spacingX, spacingY]);
 
     return {
         coords,

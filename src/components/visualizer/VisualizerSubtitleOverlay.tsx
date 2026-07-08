@@ -91,7 +91,7 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
                         opacity: { duration: 0.24, ease: 'easeOut' },
                         y: { duration: 0.24, ease: 'easeOut' },
                     }}
-                    className="absolute left-0 right-0 text-center space-y-2 px-4 z-20 pointer-events-none"
+                    className="absolute left-0 right-0 text-center space-y-2 px-4 z-30 pointer-events-none"
                 >
                     {translationText ? (
                         <motion.div

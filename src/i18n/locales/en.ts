@@ -174,7 +174,11 @@ export default {
     "panelThemeDesc": "Day/night color scheme for panel and player chrome",
     "playerPageBackgroundDesc": "Dynamic background layer behind the lyrics",
     "appearanceToggle": "Day/Night",
+    "appearanceLight": "Light",
+    "appearanceDark": "Dark",
     "coverColorTint": "Cover Tint",
+    "coverColorTintOn": "Cover Tint",
+    "coverColorTintOff": "Default",
     "visualizer": "Lyrics Animation",
     "visualizerWorkbench": "Lyrics Animation Lab",
     "visualizerTemporary": "Temporary Workbench",
@@ -244,7 +248,23 @@ export default {
     "loadMore": "Load More",
     "headerTitle": "Title",
     "headerTime": "Time",
-    "loading": "Loading"
+    "loading": "Loading",
+    "play": "Play",
+    "expandInfo": "Playlist info",
+    "collapseInfo": "Collapse info",
+    "viewTracks": "Track list"
+  },
+  "player": {
+    "play": "Play",
+    "pause": "Pause",
+    "showLyrics": "Show lyrics",
+    "hideLyrics": "Hide lyrics",
+    "lyricsEnabled": "Lyrics on",
+    "lyricsDisabled": "Lyrics off"
+  },
+  "gridView": {
+    "layoutNeat": "Neat layout",
+    "layoutCasual": "Casual layout"
   },
   "home": {
     "welcome": "Welcome to Folia",
@@ -460,8 +480,8 @@ export default {
     "mineradioVisualPreset": "Visual Style",
     "mineradioPreset": {
       "emily": "Cover",
-      "starfield": "Starfield",
-      "tunnel": "Tunnel"
+      "starfield": "Vinyl",
+      "tunnel": "Lightflow"
     },
     "enable3dInteractiveBackground": "3D interactive background",
     "enable3dInteractiveBackgroundDesc": "Show the player-page geometric background that scales with audio beats.",
@@ -667,6 +687,19 @@ export default {
     "aiThemeQuickEditAccent": "Accent",
     "aiThemeQuickEditSecondary": "Secondary",
     "aiThemeQuickEditRecommendedColors": "Recommended colors",
+    "lyricColorPresetTitle": "Trending lyric colors",
+    "lyricColorPresetDesc": "High-contrast dynamic lyric colors; some presets also sync font and motion.",
+    "lyricColorPreset": {
+      "douyinNeon": "Douyin Neon",
+      "douyinPurple": "Douyin Purple",
+      "douyinGold": "Douyin Gold",
+      "xhsCream": "XHS Cream",
+      "xhsMorandi": "XHS Morandi",
+      "xhsWine": "XHS Wine",
+      "xhsNoteRed": "Note Red",
+      "xhsMatcha": "XHS Matcha",
+      "dazibaoRed": "Poster Red"
+    },
     "aiThemeQuickEditSave": "Save AI Theme",
     "customThemeQuickEditSave": "Save Custom Theme",
     "invalidJsonFormat": "Invalid JSON format",

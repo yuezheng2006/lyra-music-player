@@ -8,7 +8,7 @@ import { CoverParticleRuntime } from '../webgl/coverParticleRuntime';
 import { isMusicSpectrumActive } from '../webgl/coverParticleAudioUniforms';
 
 // src/components/visualizer/geometric/mineradio/useMineradioPlaybackRuntime.ts
-// Mounts Mineradio cover particle WebGL runtime on a container ref.
+// Mounts Mineradio WebGL particle runtime on a container ref.
 
 interface UseMineradioPlaybackRuntimeOptions {
     containerRef: React.RefObject<HTMLElement | null>;
@@ -20,6 +20,7 @@ interface UseMineradioPlaybackRuntimeOptions {
     audioBands?: AudioBands;
     beatPulse?: MotionValue<number>;
     atmosphereEnergy?: MotionValue<number>;
+    smartAtmosphereEnabled?: boolean;
     pointerX: MotionValue<number>;
     pointerY: MotionValue<number>;
     currentTime?: MotionValue<number>;
@@ -40,6 +41,7 @@ export const useMineradioPlaybackRuntime = ({
     audioBands,
     beatPulse,
     atmosphereEnergy,
+    smartAtmosphereEnabled = true,
     pointerX,
     pointerY,
     currentTime,
@@ -49,7 +51,7 @@ export const useMineradioPlaybackRuntime = ({
     paused = false,
     cameraSnapshotRef,
 }: UseMineradioPlaybackRuntimeOptions) => {
-    const runtimeRef = useRef<CoverParticleRuntime | null>(null);
+    const coverRuntimeRef = useRef<CoverParticleRuntime | null>(null);
     const audioBandsRef = useRef(audioBands);
     const pausedRef = useRef(paused);
     const themeRef = useRef(theme);
@@ -68,14 +70,15 @@ export const useMineradioPlaybackRuntime = ({
         if (!enabled || !container) return undefined;
 
         const runtime = new CoverParticleRuntime();
-        runtimeRef.current = runtime;
+        coverRuntimeRef.current = runtime;
         runtime.mount(container);
         runtime.configure(coverUrl ?? null, sceneTuning, qualityProfile);
-        runtime.setLyricStageEnabled(false);
+        runtime.setLyricStageEnabled(showLyricsRef.current);
         runtime.setInputProvider(() => ({
             audioBands: audioBandsRef.current,
-            beat: beatPulse?.get() ?? 0,
-            atmosphereEnergy: atmosphereEnergy?.get() ?? 0,
+            beat: smartAtmosphereEnabled ? (beatPulse?.get() ?? 0) : 0,
+            atmosphereEnergy: smartAtmosphereEnabled ? (atmosphereEnergy?.get() ?? 0) : 0,
+            smartAtmosphereEnabled,
             musicActive: isMusicSpectrumActive(audioBandsRef.current),
             pointerX: pointerX.get(),
             pointerY: pointerY.get(),
@@ -87,7 +90,7 @@ export const useMineradioPlaybackRuntime = ({
             lines: linesRef.current,
             currentTimeSec: currentTime?.get() ?? 0,
             playing: playingRef.current,
-            showLyrics: false,
+            showLyrics: showLyricsRef.current,
             palette: LyricStageRuntime.paletteFromTheme(themeRef.current),
         }));
         runtime.start();
@@ -95,14 +98,14 @@ export const useMineradioPlaybackRuntime = ({
         const observer = new ResizeObserver((entries) => {
             const entry = entries[0];
             if (!entry) return;
-            runtime.resize(entry.contentRect.width, entry.contentRect.height);
+            coverRuntimeRef.current?.resize(entry.contentRect.width, entry.contentRect.height);
         });
         observer.observe(container);
 
         return () => {
             observer.disconnect();
-            runtime.dispose();
-            runtimeRef.current = null;
+            coverRuntimeRef.current?.dispose();
+            coverRuntimeRef.current = null;
         };
     }, [
         enabled,
@@ -113,6 +116,7 @@ export const useMineradioPlaybackRuntime = ({
         containerRef,
         beatPulse,
         atmosphereEnergy,
+        smartAtmosphereEnabled,
         pointerX,
         pointerY,
         currentTime,
@@ -120,7 +124,7 @@ export const useMineradioPlaybackRuntime = ({
     ]);
 
     useEffect(() => {
-        runtimeRef.current?.configure(coverUrl ?? null, sceneTuning, qualityProfile);
+        coverRuntimeRef.current?.configure(coverUrl ?? null, sceneTuning, qualityProfile);
     }, [
         coverUrl,
         qualityProfile,
@@ -130,4 +134,8 @@ export const useMineradioPlaybackRuntime = ({
         sceneTuning?.bloomStrength,
         sceneTuning?.enableBassRipples,
     ]);
+
+    useEffect(() => {
+        coverRuntimeRef.current?.setLyricStageEnabled(showLyrics);
+    }, [showLyrics]);
 };

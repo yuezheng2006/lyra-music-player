@@ -224,7 +224,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                                 />
                             </motion.div>
 
-                            {monetTuning.showDescription && (
+                            {monetTuning.showDescription && isPreviewMode && (
                                 <motion.div
                                     key={`desc-${introKey}`}
                                     initial={{ opacity: 0, scale: 0.9, y: 10 }}
@@ -248,7 +248,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                         </div>
                     )}
 
-                    {showText ? (
+                    {showText && isPreviewMode ? (
                         <motion.div
                             key={`portrait-${introKey}`}
                             initial={{ opacity: 0, x: 50, scale: 0.95, rotate: 1 }}

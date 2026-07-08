@@ -1,5 +1,5 @@
 // src/components/visualizer/geometric/webgl/coverParticleShaders.ts
-// Mineradio cover particle GLSL (Emily / Tunnel / Vinyl / Starfield presets).
+// Mineradio cover particle GLSL (cover / vinyl / lightflow presets).
 
 export const COVER_PARTICLE_VERTEX_SHADER = `
 precision highp float;
@@ -136,96 +136,75 @@ void main(){
       if (md < 1.0) pos.z += pow(1.0 - md, 2.0) * 0.55;
     }
   } else if (uPreset < 1.5) {
-    float spin = t * (0.12 + uBeat * 0.04);
-    float angle = aUv.x * 2.0 * PI + spin;
-    float flow = aUv.y - t * 0.08 * (1.0 + uBass * 0.55 + uBurstAmt * 0.18);
-    flow = fract(flow);
-    float zPos = (flow - 0.5) * 9.0;
-    float baseR = 2.0 - uBass * 0.28 * K;
-    float ripG = sin(angle * 5.0 + zPos * 1.4 + t * 2.2) * 0.10 * (uMid + uTreble) * K;
-    float r = baseR + ripG;
-    pos.x = cos(angle) * r;
-    pos.y = sin(angle) * r;
-    pos.z = zPos;
+    float bassDrive = smoothstep(0.08, 0.78, uBass + uBeat * 0.82);
+    float highDrive = smoothstep(0.05, 0.46, uTreble);
+    vec2 p = (aUv - 0.5) * 5.12;
+    float spin = t * (0.26 + uBass * 0.05);
+    float cs = cos(spin);
+    float sn = sin(spin);
+    vec2 rp = mat2(cs, -sn, sn, cs) * p;
+    float d = length(p);
+    float angle0 = atan(p.y, p.x);
+    float recordR = 2.46;
+    float coverR = 1.18;
+    float recordAlpha = 1.0 - smoothstep(recordR - 0.02, recordR + 0.05, d);
+    float coverMask = 1.0 - smoothstep(coverR - 0.012, coverR + 0.018, d);
+    float border = exp(-pow((d - coverR) / 0.064, 2.0));
+    float outerRim = exp(-pow((d - (recordR - 0.050)) / 0.055, 2.0));
+    float vinylN = clamp((d - coverR) / max(0.001, recordR - coverR), 0.0, 1.0);
 
-    sampleUv = clamp(vec2(aUv.x, flow), vec2(0.0012), vec2(0.9988));
-    newCol = texture2D(uCoverTex, sampleUv).rgb;
-    prevCol = samplePrevCoverColor(sampleUv);
-    coverColor = mix(prevCol, newCol, clamp(uColorMixT, 0.0, 1.0));
-    vColor = mix(defaultColor, coverColor, uHasCover);
+    pos = vec3(rp * (1.0 + bassDrive * 0.012 + uBeat * 0.026), 0.0);
+    vAlpha = recordAlpha;
 
-    float depthFade = smoothstep(-4.5, 4.5, zPos);
-    vColor *= 0.4 + depthFade * 0.7;
-    maxRippleAmp = max(maxRippleAmp, abs(ripG) * 2.5 + uBeat * 0.12);
-  } else {
-    float bassGlow = smoothstep(0.07, 0.78, uBass) * 0.34 + uBeat * 0.014;
-    float midGlow = smoothstep(0.07, 0.62, uMid) * 0.42;
-    float highGlow = smoothstep(0.04, 0.46, uTreble) * 0.46;
-    float lane = aUv.y;
-    float transition = clamp(uBurstAmt, 0.0, 1.0);
-
-    if (lane < 0.80) {
-      float laneWarp = snoise(vec3(aUv.x * 0.42, lane * 1.7, t * 0.026)) * 0.11 + (hash11(aRand * 73.1) - 0.5) * 0.045;
-      float warpedLane = clamp(lane + laneWarp, 0.0, 0.80);
-      float bandCoord = warpedLane / 0.80 * 5.65 + snoise(vec3(aUv.x * 0.82, lane * 2.25, t * 0.032)) * 0.62;
-      float band = floor(bandCoord);
-      float local = fract(bandCoord + hash11(band * 9.13 + aRand * 2.4) * 0.18);
-      float bandN = clamp((band + 0.5) / 5.65, 0.0, 1.0);
-      float seed = hash11(band * 19.17 + aRand * 31.0);
-      float flow = fract(aUv.x + t * (0.0034 + bandN * 0.0038 + seed * 0.0022) + seed * 0.53);
-      float arc = (flow - 0.5) * PI * (1.35 + bandN * 0.72 + seed * 0.24);
-      float armCurve = sin(arc + bandN * 2.2 + seed * 5.3);
-      float spiralRadius = 9.2 + bandN * 11.8 + seed * 6.0 + local * 2.9;
-      float x = cos(arc * 0.72 + bandN * 0.92 + seed * 1.3) * spiralRadius + (flow - 0.5) * (13.5 + bandN * 9.5);
-      float ribbonPhase = flow * PI * 2.0 * (0.55 + bandN * 0.24 + seed * 0.10) + t * (0.010 + bandN * 0.007) + seed * 5.7;
-      float broadWave = sin(ribbonPhase) * 0.92;
-      float fineWave = sin(ribbonPhase * (1.36 + seed * 0.62) - t * 0.044 + seed * 5.0) * 0.045;
-      float yBase = (bandN - 0.5) * 13.2 + armCurve * (2.3 + bandN * 1.6) + (seed - 0.5) * 1.85 + snoise(vec3(bandN * 2.0, flow * 0.62, seed)) * 0.92;
-      float ridgeCenter = 0.43 + (seed - 0.5) * 0.18;
-      float ridge = exp(-pow((local - ridgeCenter) / (0.25 + seed * 0.04), 2.0));
-      float softMask = smoothstep(0.010, 0.12, lane) * (1.0 - smoothstep(0.72, 0.81, lane));
-      float ribbonNoise = snoise(vec3(flow * 1.18 + seed, bandN * 2.0, t * 0.018)) * 0.74;
-      float zLayer = mix(-23.5, 15.5, bandN) + (seed - 0.5) * 6.0;
-
-      pos.x = x + ribbonNoise * 1.40 + sin(t * 0.012 + seed * 8.0) * 0.22;
-      pos.y = yBase + broadWave + fineWave + (local - 0.5) * (0.58 + ridge * 0.14);
-      pos.z = zLayer + broadWave * 1.35 + ribbonNoise * 1.85;
-
-      float pulseLine = 0.5 + 0.5 * sin(ribbonPhase * (1.7 + seed * 0.9) - t * 0.32 + seed * 6.0);
-      vec3 aurora = mix(vec3(0.52, 0.86, 1.0), vec3(0.70, 0.58, 1.0), bandN);
-      aurora = mix(aurora, vec3(0.96, 0.98, 0.92), bassGlow * 0.05);
-      vAlpha = (0.18 + ridge * 0.78 + pulseLine * highGlow * 0.035 + bassGlow * 0.025) * softMask * (0.96 + transition * 0.02);
-      vColor = mix(coverColor, aurora, 0.62 + ridge * 0.22) * (0.76 + ridge * 0.86 + pulseLine * highGlow * 0.05 + bassGlow * 0.04);
-      maxRippleAmp = max(maxRippleAmp, ridge * (0.12 + midGlow * 0.05) + pulseLine * highGlow * 0.045 + bassGlow * 0.030);
+    if (coverMask > 0.02) {
+      vec2 coverUv = clamp(p / (coverR * 2.0) + 0.5, vec2(0.0012), vec2(0.9988));
+      newCol = texture2D(uCoverTex, coverUv).rgb;
+      prevCol = samplePrevCoverColor(coverUv);
+      coverColor = mix(prevCol, newCol, clamp(uColorMixT, 0.0, 1.0));
+      vColor = mix(defaultColor, coverColor, uHasCover);
+      vColor *= 1.02 + 0.10 * (1.0 - smoothstep(0.0, coverR, d));
+      vColor = mix(vColor, vec3(1.0), border * 0.54);
+      pos.z = 0.040 + border * 0.026 + uBeat * 0.018;
+      maxRippleAmp = max(maxRippleAmp, border * 0.30 + bassDrive * 0.075 + uBeat * 0.075);
     } else {
-      float q = (lane - 0.80) / 0.20;
-      float seed = hash11(aRand * 917.0 + floor(q * 130.0));
-      float depth = mix(-32.0, 18.0, seed);
-      float drift = fract(aUv.x + t * (0.0014 + seed * 0.0048) + seed * 0.63);
-      float cluster = snoise(vec3(seed * 2.0, q * 3.2, t * 0.007));
-      float x = (drift - 0.5) * (45.0 + seed * 22.0) + cluster * 3.4;
-      float y = (hash11(aRand * 331.0 + seed * 5.0) - 0.5) * 22.0 + sin(t * (0.018 + seed * 0.028) + seed * 7.0) * 0.86;
-      float z = depth + sin(t * (0.020 + seed * 0.032) + aRand * 8.0) * 1.05;
-      float twinkle = pow(0.5 + 0.5 * sin(t * (0.24 + seed * 0.42) + aRand * 17.0), 5.0);
-      float dust = smoothstep(0.22, 0.98, hash11(aRand * 661.0 + floor(q * 160.0)));
-
-      pos = vec3(x, y, z);
-      vAlpha = dust * (0.16 + twinkle * 0.46 + highGlow * 0.025 + bassGlow * 0.018) * (1.0 - q * 0.06);
-      vColor = mix(coverColor, vec3(0.92, 0.97, 1.0), 0.62 + twinkle * 0.14) * (0.72 + twinkle * 0.62 + bassGlow * 0.025);
-      maxRippleAmp = max(maxRippleAmp, twinkle * highGlow * 0.055 + dust * bassGlow * 0.030);
+      float groove = 0.5 + 0.5 * sin((d - coverR) * 98.0);
+      float fineGroove = 0.5 + 0.5 * sin((d - coverR) * 170.0 + aRand * 3.0);
+      float tick = smoothstep(0.82, 0.995, hash11(floor((angle0 + PI) * 38.0) + floor(d * 72.0) * 2.1));
+      vec3 vinyl = vec3(0.052, 0.054, 0.058) + vec3(0.052) * groove + vec3(0.026) * fineGroove;
+      vinyl = mix(vinyl, coverColor * 0.32, 0.18 * (1.0 - vinylN));
+      float whiteRing = max(border * 0.92, outerRim * 0.26);
+      vColor = mix(vinyl, vec3(0.92, 0.94, 0.94), whiteRing);
+      vColor = mix(vColor, vec3(1.0), tick * highDrive * (0.06 + border * 0.12));
+      pos.z = groove * 0.010 + border * 0.024 + bassDrive * vinylN * 0.016 * K + tick * highDrive * 0.010;
+      maxRippleAmp = max(maxRippleAmp, border * 0.32 + outerRim * 0.12 + bassDrive * vinylN * 0.11 + tick * highDrive * 0.10 + uBeat * vinylN * 0.08);
     }
+  } else {
+    vec2 p = (aUv - 0.5) * vec2(10.8, 6.2);
+    float lane = p.x * 0.86 - p.y * 0.50;
+    float crossLane = p.x * 0.50 + p.y * 0.86;
+    float channel = floor(aUv.y * 9.0);
+    float seed = hash11(channel * 41.0 + aRand * 13.0);
+    float flow = fract(aUv.x + t * (0.030 + seed * 0.014 + uEnergy * 0.010) + seed);
+    float thread = sin(crossLane * (3.6 + seed * 3.2) + lane * 1.4 - t * (1.8 + uMid * 0.8) + seed * 6.0);
+    float sharp = pow(0.5 + 0.5 * thread, 7.0);
+    float centerBand = exp(-pow((crossLane + sin(lane * 0.42 + t * 0.4) * 0.32) / (0.38 + seed * 0.18), 2.0));
+    float blade = exp(-abs(p.y + sin(t * 1.6 + seed) * 0.04) * 4.8) * smoothstep(-5.0, -0.2, p.x) * (1.0 - smoothstep(0.2, 5.0, p.x));
+    float drift = (flow - 0.5) * (9.0 + seed * 2.2);
+    float wobble = snoise(vec3(flow * 2.8 + seed, channel * 0.4, t * 0.20));
 
-    if (transition > 0.001) {
-      float bloom = smoothstep(0.0, 1.0, transition);
-      vec2 burstVec = pos.xy + vec2(hash11(aRand * 31.0) - 0.5, hash11(aRand * 47.0) - 0.5) * 0.75;
-      vec2 burstDir = burstVec / max(length(burstVec), 0.001);
-      pos.xy += burstDir * bloom * 0.026;
-      pos.xy += vec2(snoise(vec3(aRand, t * 0.014, 1.0)), snoise(vec3(aRand, t * 0.014, 5.0))) * bloom * 0.06;
-      pos.xy *= 1.0 + bloom * 0.014;
-      pos.z += (hash11(aRand * 123.0) - 0.5) * bloom * 0.18;
-      vAlpha *= 0.86 + bloom * 0.22;
-      maxRippleAmp = max(maxRippleAmp, bloom * 0.10);
-    }
+    pos.x = drift + lane * 0.22 + wobble * 0.42;
+    pos.y = crossLane * 0.56 + thread * (0.34 + uMid * 0.35) + sin(t * 0.7 + seed * 7.0) * 0.12;
+    pos.z = -3.0 + channel * 0.62 + wobble * 1.1 + sharp * (0.75 + uBeat * 0.45);
+
+    float pulse = uBeat * 0.40 + uBurstAmt * 0.25 + uBass * 0.18;
+    vec3 ch1 = vec3(1.00, 0.13, 0.31);
+    vec3 ch2 = vec3(0.16, 1.00, 0.86);
+    vec3 ch3 = vec3(1.00, 0.76, 0.28);
+    vec3 lightflow = mix(ch1, ch2, smoothstep(-2.8, 2.8, crossLane));
+    lightflow = mix(lightflow, ch3, sharp * 0.35 + uBass * 0.12);
+    vAlpha = (0.10 + centerBand * 0.52 + sharp * 0.70 + blade * 0.34) * (0.72 + uEnergy * 0.28);
+    vColor = mix(coverColor, lightflow, 0.78 + sharp * 0.16) * (0.82 + sharp * 1.08 + pulse * 0.18);
+    maxRippleAmp = max(maxRippleAmp, sharp * (0.16 + uTreble * 0.18) + blade * (0.08 + uBass * 0.10) + pulse * 0.08);
   }
 
   float edgeBoostFinal = edge.g * uHasDepth;
@@ -237,7 +216,7 @@ void main(){
   if (uPreset > 4.5) {
     vBright = 0.94 + maxRippleAmp * 0.34 + uBass * 0.020 + uEnergy * 0.026 + uBurstAmt * 0.025 + uBeat * 0.08;
   } else if (uPreset > 0.5 && uPreset < 1.5) {
-    vBright = 0.78 + uBass * 0.16 + uBeat * 0.28 + maxRippleAmp * 1.8 + uEnergy * 0.08 + uBurstAmt * 0.22;
+    vBright = 0.84 + uBass * 0.12 + uBeat * 0.16 + maxRippleAmp * 1.35 + uEnergy * 0.14 + uBurstAmt * 0.12;
   }
 
   vRipple = clamp(maxRippleAmp * 1.5, 0.0, 1.0);
@@ -251,8 +230,8 @@ void main(){
     float flowDrive = uBass * 0.070 + uMid * 0.046 + uTreble * 0.060 + uBurstAmt * 0.090 + uBeat * 0.055;
     sz = clamp(depthSize * (1.05 + flowDrive), 1.00, 5.45);
   } else if (uPreset > 0.5 && uPreset < 1.5) {
-    float tunnelDrive = uBass * 0.22 + uMid * 0.14 + uTreble * 0.12 + uBeat * 0.35 + maxRippleAmp * 0.40;
-    sz = clamp(depthSize * (0.95 + tunnelDrive * 0.55), 1.05, 5.20);
+    float vinylDrive = uBass * 0.12 + uMid * 0.16 + uTreble * 0.24 + uBeat * 0.18 + maxRippleAmp * 0.52;
+    sz = clamp(depthSize * (1.02 + vinylDrive * 0.48), 1.05, 5.35);
   }
   gl_PointSize = sz * uPixel * uPointScale;
   gl_Position = projectionMatrix * mvPos;

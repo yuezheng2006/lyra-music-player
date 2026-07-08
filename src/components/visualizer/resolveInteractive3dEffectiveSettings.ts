@@ -150,7 +150,7 @@ export const resolveInteractive3dSettingsConflicts = (
             conflicts.push({
                 id: 'bass-ripples-preset-mismatch',
                 severity: 'info',
-                messageFallback: 'Bass 涟漪仅对「封面」视觉风格生效，星河/隧道会忽略该开关。',
+                messageFallback: 'Bass 涟漪仅对「封面」视觉风格生效，唱片/光流会忽略该开关。',
             });
         }
     }

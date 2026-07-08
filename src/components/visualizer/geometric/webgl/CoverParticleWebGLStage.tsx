@@ -50,7 +50,7 @@ const CoverParticleWebGLStage: React.FC<CoverParticleWebGLStageProps> = (props) 
     return (
         <div
             ref={handleContainerRef}
-            className="absolute inset-0 overflow-hidden z-0"
+            className="absolute inset-0 overflow-hidden z-0 isolate"
             data-testid="interactive3d-cover-webgl-stage"
             aria-hidden
         />

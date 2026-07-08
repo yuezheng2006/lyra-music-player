@@ -1,4 +1,5 @@
 import { useMotionValue, useTransform, type MotionValue } from 'framer-motion';
+import { colorWithAlpha } from '../../components/visualizer/colorMix';
 import {
     buildRhythmPresentation,
     mapRhythmGlow,
@@ -15,6 +16,8 @@ type UseLyricRhythmMotionParams = {
     cameraPunch?: MotionValue<number>;
     cinemaScale?: MotionValue<number>;
     atmosphereEnergy?: MotionValue<number>;
+    scaleMultiplier?: number;
+    glowColor?: string | null;
 };
 
 export const useLyricRhythmMotion = ({
@@ -23,6 +26,8 @@ export const useLyricRhythmMotion = ({
     cameraPunch,
     cinemaScale,
     atmosphereEnergy,
+    scaleMultiplier = 1,
+    glowColor = null,
 }: UseLyricRhythmMotionParams) => {
     const zero = useMotionValue(0);
     const defaultCinema = useMotionValue(0.82);
@@ -39,7 +44,7 @@ export const useLyricRhythmMotion = ({
             cameraPunch: beatPulse ? (punch || 0) : 0,
             cinemaScale: beatPulse ? (cinema || 0.82) : 0.82,
             atmosphereEnergy: beatPulse ? (energy || 0.42) : 0.42,
-        }),
+        }) * scaleMultiplier,
     );
 
     const glowShadow = useTransform(
@@ -54,7 +59,11 @@ export const useLyricRhythmMotion = ({
                 cinemaScale: 0.82,
                 atmosphereEnergy: beatPulse ? (energy || 0.42) : 0.42,
             });
-            return `drop-shadow(0 0 ${8 + glow * 24}px rgba(255,255,255,${0.08 + glow * 0.12}))`;
+            const glowAlpha = 0.12 + glow * 0.28;
+            const shadowColor = glowColor
+                ? colorWithAlpha(glowColor, glowAlpha)
+                : `rgba(255,255,255,${0.08 + glow * 0.12})`;
+            return `drop-shadow(0 0 ${8 + glow * 24}px ${shadowColor})`;
         },
     );
 

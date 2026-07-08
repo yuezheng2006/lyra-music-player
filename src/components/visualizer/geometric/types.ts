@@ -16,6 +16,7 @@ export interface GeometricBackgroundProps {
     sceneParallaxY?: MotionValue<number>;
     sceneRoll?: MotionValue<number>;
     atmosphereEnergy?: MotionValue<number>;
+    /** Whether the beat-map / atmosphere director layer should drive WebGL rhythm. */
     enableBeatBursts?: boolean;
     interactive3dSceneTuning?: Interactive3dSceneTuning;
     seed?: string | number;

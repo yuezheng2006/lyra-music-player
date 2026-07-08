@@ -115,14 +115,28 @@ const normalizeLyricsIcons = (value: unknown): string[] => {
         .slice(0, 12);
 };
 
+const normalizeOptionalPositiveNumber = (value: unknown): number | undefined => {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+        return undefined;
+    }
+
+    return value;
+};
+
 export const sanitizeTheme = (
     value: unknown,
     fallbackTheme: Theme,
 ): Theme => {
     const source = isRecord(value) ? value : {};
     const accentColor = normalizeThemeHexColor(source.accentColor, fallbackTheme.accentColor);
+    const lyricRhythmScaleMultiplier = source.lyricRhythmScaleMultiplier === undefined
+        ? fallbackTheme.lyricRhythmScaleMultiplier
+        : normalizeOptionalPositiveNumber(source.lyricRhythmScaleMultiplier);
+    const lyricGlowUsesAccent = source.lyricGlowUsesAccent === undefined
+        ? fallbackTheme.lyricGlowUsesAccent
+        : source.lyricGlowUsesAccent === true;
 
-    return {
+    const sanitized: Theme = {
         ...fallbackTheme,
         name: typeof source.name === 'string' && source.name.trim()
             ? source.name.trim()
@@ -146,6 +160,20 @@ export const sanitizeTheme = (
             ? source.provider.trim()
             : fallbackTheme.provider,
     };
+
+    if (lyricRhythmScaleMultiplier !== undefined) {
+        sanitized.lyricRhythmScaleMultiplier = lyricRhythmScaleMultiplier;
+    } else {
+        delete sanitized.lyricRhythmScaleMultiplier;
+    }
+
+    if (lyricGlowUsesAccent) {
+        sanitized.lyricGlowUsesAccent = true;
+    } else {
+        delete sanitized.lyricGlowUsesAccent;
+    }
+
+    return sanitized;
 };
 
 export const sanitizeDualTheme = (

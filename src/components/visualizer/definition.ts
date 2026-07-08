@@ -56,6 +56,8 @@ export interface VisualizerSharedProps {
     hideTranslationSubtitle?: boolean;
     showSubtitleTranslation?: boolean;
     paused?: boolean;
+    /** Whether main audio is actively playing (drives WebGL lyric stage). */
+    audioPlaying?: boolean;
     onBack?: () => void;
     onLyricLineSeek?: (lyricTimeSec: number) => void;
     isPreviewMode?: boolean;

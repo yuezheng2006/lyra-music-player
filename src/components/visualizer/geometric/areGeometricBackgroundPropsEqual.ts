@@ -16,11 +16,18 @@ export const areGeometricBackgroundPropsEqual = (
     if (prevProps.sceneParallaxX !== nextProps.sceneParallaxX) return false;
     if (prevProps.sceneParallaxY !== nextProps.sceneParallaxY) return false;
     if (prevProps.sceneRoll !== nextProps.sceneRoll) return false;
+    if (prevProps.enableBeatBursts !== nextProps.enableBeatBursts) return false;
     if (prevProps.hideShapes !== nextProps.hideShapes) return false;
     if (prevProps.disableVignette !== nextProps.disableVignette) return false;
     if (prevProps.paused !== nextProps.paused) return false;
+    if (prevProps.staticMode !== nextProps.staticMode) return false;
     if (prevProps.coverUrl !== nextProps.coverUrl) return false;
     if (prevProps.visualizerMode !== nextProps.visualizerMode) return false;
+    if (prevProps.currentTime !== nextProps.currentTime) return false;
+    if (prevProps.lines !== nextProps.lines) return false;
+    if (prevProps.showLyrics !== nextProps.showLyrics) return false;
+    if (prevProps.playing !== nextProps.playing) return false;
+    if (prevProps.atmosphereEnergy !== nextProps.atmosphereEnergy) return false;
 
     const prevShelfSignature = buildPlaylistShelfSignature(prevProps.playlistShelfItems ?? []);
     const nextShelfSignature = buildPlaylistShelfSignature(nextProps.playlistShelfItems ?? []);

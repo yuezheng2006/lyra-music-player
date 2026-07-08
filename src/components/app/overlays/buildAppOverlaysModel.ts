@@ -62,6 +62,8 @@ type BuildAppOverlaysModelParams = {
     playerState: PlayerState;
     duration: number;
     effectiveLoopMode: 'off' | 'all' | 'one';
+    playerLyricsVisible: boolean;
+    playQueueLength: number;
     audioSrc: string | null;
     canToggleCurrentPlayback: boolean;
     isNowPlayingControlDisabled: boolean;
@@ -73,12 +75,18 @@ type BuildAppOverlaysModelParams = {
     setPlayerState: React.Dispatch<React.SetStateAction<PlayerState>>;
     togglePlay: FloatingControlsProps['onTogglePlay'];
     toggleLoop: FloatingControlsProps['onToggleLoop'];
+    onPrevTrack: () => void;
+    onNextTrack: () => void;
+    onTogglePlayerLyricsVisible: () => void;
     navigateToPlayer: () => void;
     isPlayerChromeHidden: boolean;
     shouldHidePlayerProgressBar: boolean;
     onSeekMainAudio: (time: number) => void;
     onStagePlayerSeek: () => Promise<unknown>;
     noTrackText: string;
+    showLyricsLabel: string;
+    hideLyricsLabel: string;
+    coverUrl?: string | null;
 };
 
 // Builds the full overlay model, including detail overlays and floating playback controls.
@@ -115,6 +123,8 @@ export const buildAppOverlaysModel = ({
     playerState,
     duration,
     effectiveLoopMode,
+    playerLyricsVisible,
+    playQueueLength,
     audioSrc,
     canToggleCurrentPlayback,
     isNowPlayingControlDisabled,
@@ -126,12 +136,18 @@ export const buildAppOverlaysModel = ({
     setPlayerState,
     togglePlay,
     toggleLoop,
+    onPrevTrack,
+    onNextTrack,
+    onTogglePlayerLyricsVisible,
     navigateToPlayer,
     isPlayerChromeHidden,
     shouldHidePlayerProgressBar,
     onSeekMainAudio,
     onStagePlayerSeek,
     noTrackText,
+    showLyricsLabel,
+    hideLyricsLabel,
+    coverUrl,
 }: BuildAppOverlaysModelParams): AppOverlaysModel => ({
     searchOverlay: currentView === 'home'
         ? {
@@ -222,9 +238,11 @@ export const buildAppOverlaysModel = ({
             lyricCurrentTime,
             duration,
             loopMode: effectiveLoopMode,
+            playerLyricsVisible,
             currentView,
             audioSrc,
             canTogglePlay: canToggleCurrentPlayback,
+            canSkipTracks: Boolean(currentSong && playQueueLength > 1),
             controlsDisabled: isNowPlayingControlDisabled,
             lyrics,
             onSeek: (time) => {
@@ -245,9 +263,15 @@ export const buildAppOverlaysModel = ({
             },
             onTogglePlay: togglePlay,
             onToggleLoop: toggleLoop,
+            onPrevTrack,
+            onNextTrack,
+            onTogglePlayerLyricsVisible,
             onNavigateToPlayer: navigateToPlayer,
-            noTrackText,
-            primaryColor: 'var(--text-primary)',
+    noTrackText,
+    showLyricsLabel,
+    hideLyricsLabel,
+    coverUrl,
+    primaryColor: 'var(--text-primary)',
             secondaryColor: 'var(--text-secondary)',
             theme,
             isDaylight,

@@ -33,6 +33,7 @@ export interface CoverParticleRuntimeInputs {
     audioBands?: AudioBands;
     beat: number;
     atmosphereEnergy?: number;
+    smartAtmosphereEnabled?: boolean;
     musicActive: boolean;
     pointerX: number;
     pointerY: number;
@@ -223,6 +224,7 @@ export class CoverParticleRuntime {
         canvas.style.width = '100%';
         canvas.style.height = '100%';
         canvas.style.pointerEvents = 'none';
+        canvas.style.zIndex = '0';
         this.camera.position.set(0, 0, 5.2);
         this.camera.fov = 45;
         this.camera.updateProjectionMatrix();
@@ -296,7 +298,7 @@ export class CoverParticleRuntime {
 
         if (nextMode === 'cover') {
             if (this.loadedVisualPreset !== preset) {
-                this.burstSmoother.trigger(preset === 'starfield' ? 0.22 : 0.16);
+                this.burstSmoother.trigger(preset === 'tunnel' ? 0.24 : 0.14);
                 this.loadedVisualPreset = preset;
             }
             this.uniforms.uPreset.value = resolveWebGLPresetIndex(preset);
@@ -452,8 +454,11 @@ export class CoverParticleRuntime {
     private renderFrame() {
         if (!this.renderer || !this.container) return;
 
-        const { audioBands, beat, atmosphereEnergy, musicActive, pointerX, pointerY, pointerActive, paused } = this.latestInputs;
-        const intensity = this.tuning?.rhythmIntensity ?? 0.85;
+        const { audioBands, beat, atmosphereEnergy, smartAtmosphereEnabled = true, musicActive, pointerX, pointerY, pointerActive, paused } = this.latestInputs;
+        const baseIntensity = this.tuning?.rhythmIntensity ?? 0.85;
+        const intensity = smartAtmosphereEnabled ? baseIntensity : baseIntensity * 0.34;
+        const directedBeat = smartAtmosphereEnabled ? beat : 0;
+        const directedAtmosphereEnergy = smartAtmosphereEnabled ? (atmosphereEnergy ?? 0) : 0;
         const elapsed = this.clock.getElapsedTime();
         const dt = Math.min(this.clock.getDelta(), 0.05);
 
@@ -463,7 +468,7 @@ export class CoverParticleRuntime {
         if (this.lyricStageEnabled) {
             this.lyricStage.tick({
                 ...this.latestLyricInputs,
-                beatPulse: beat,
+                beatPulse: directedBeat,
                 dt,
             });
         }
@@ -478,11 +483,11 @@ export class CoverParticleRuntime {
             const presetProfile = resolveCoverParticlePresetRuntime(preset);
             const audioUniforms = this.audioSmoother.tick(
                 audioBands,
-                beat,
+                directedBeat,
                 intensity,
                 dt,
                 musicActive,
-                atmosphereEnergy ?? 0,
+                directedAtmosphereEnergy,
             );
             const burstAmt = this.burstSmoother.tick(audioUniforms.beat, dt);
             const emilyPreset = preset === 'emily';
@@ -490,17 +495,17 @@ export class CoverParticleRuntime {
                 dt,
                 elapsed,
                 audioUniforms.bass,
-                emilyPreset && (this.tuning?.enableBassRipples ?? true),
+                smartAtmosphereEnabled && emilyPreset && (this.tuning?.enableBassRipples ?? true),
                 !musicActive,
             );
-            const bloomStrength = this.tuning?.bloomStrength ?? 0.62;
+            const bloomStrength = (this.tuning?.bloomStrength ?? 0.62) * (smartAtmosphereEnabled ? 1 : 0.38);
             uniforms.uBloomStrength.value = bloomStrength;
             if (this.bloomPoints) {
                 this.bloomPoints.visible = bloomStrength > 0.01;
             }
             uniforms.uRippleCount.value = rippleCount;
             uniforms.uTime.value = elapsed;
-            uniforms.uSpeed.value = (0.85 + intensity * 0.35) * presetProfile.speedMul;
+            uniforms.uSpeed.value = (smartAtmosphereEnabled ? 0.85 + intensity * 0.35 : 0.34 + intensity * 0.18) * presetProfile.speedMul;
             uniforms.uIntensity.value = intensity;
             uniforms.uBass.value = audioUniforms.bass;
             uniforms.uMid.value = audioUniforms.mid;
@@ -511,15 +516,17 @@ export class CoverParticleRuntime {
             uniforms.uPointScale.value = presetProfile.pointScale;
             uniforms.uMouseXY.value.set(pointerX * 2.1, pointerY * 2.1);
             uniforms.uMouseActive.value = pointerActive ? 1 : 0;
-            uniforms.uAlpha.value = 0.88 + bloomStrength * 0.22;
+            uniforms.uAlpha.value = smartAtmosphereEnabled ? 0.88 + bloomStrength * 0.22 : 0.58 + bloomStrength * 0.12;
 
-            const bassPulse = audioUniforms.bass * 0.55 + audioUniforms.beat * 0.35;
+            const bassPulse = smartAtmosphereEnabled
+                ? audioUniforms.bass * 0.55 + audioUniforms.beat * 0.35
+                : audioUniforms.bass * 0.12;
             this.applyInteractiveCamera(
                 this.latestInputs.camera,
                 bassPulse,
                 presetProfile,
-                this.tuning?.cinemaShake ?? 0.5,
-                atmosphereEnergy ?? 0,
+                smartAtmosphereEnabled ? (this.tuning?.cinemaShake ?? 0.5) : 0.06,
+                directedAtmosphereEnergy,
                 dt,
                 audioUniforms.beat,
             );

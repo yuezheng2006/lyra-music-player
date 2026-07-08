@@ -1,8 +1,10 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useMotionValue, animate, AnimatePresence, useDragControls } from 'framer-motion';
-import { ChevronLeft, Disc, Play, Plus, Loader2, Heart, ListPlus, Pencil, Search, X, RefreshCw, Trash2, Star, List } from 'lucide-react';
+import { ChevronLeft, Disc, Play, Plus, Check, Loader2, Heart, ListPlus, Pencil, Search, X, RefreshCw, Trash2, Star, List, Rows3, Orbit } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import { SongResult, Theme } from '../types';
+import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import { isSongMarkedUnavailable, getSongUnavailableTagText, neteaseApi } from '../services/netease';
 import { getNavidromeConfig, navidromeApi } from '../services/navidromeService';
 import { formatSongName } from '../utils/songNameFormatter';
@@ -16,6 +18,7 @@ import {
     createHexCardFrameStyleCache,
     type HexCardFrameStyleCache,
 } from './folia-grid/hexCardTransform';
+import { buildGridViewCardCoords } from './folia-grid/hexViewport';
 import PlaylistSelectionDialog from './shared/PlaylistSelectionDialog';
 import TextInputDialog from './shared/TextInputDialog';
 import { SidePanelList, TrackListItem } from './shared/SidePanelList';
@@ -140,6 +143,48 @@ export const PolaroidCard = React.memo<{
             ? getSongUnavailableTagText(item.rawTrack, t('status.songUnavailableTag'))
             : '';
 
+        const [coverPlayPulse, setCoverPlayPulse] = useState(false);
+        const [queueAddedPulse, setQueueAddedPulse] = useState(false);
+        const coverPulseTimeoutRef = useRef<number | null>(null);
+        const queuePulseTimeoutRef = useRef<number | null>(null);
+
+        useEffect(() => () => {
+            if (coverPulseTimeoutRef.current) window.clearTimeout(coverPulseTimeoutRef.current);
+            if (queuePulseTimeoutRef.current) window.clearTimeout(queuePulseTimeoutRef.current);
+        }, []);
+
+        const triggerCoverPlayFeedback = useCallback(() => {
+            setCoverPlayPulse(true);
+            if (coverPulseTimeoutRef.current) window.clearTimeout(coverPulseTimeoutRef.current);
+            coverPulseTimeoutRef.current = window.setTimeout(() => setCoverPlayPulse(false), 420);
+        }, []);
+
+        const triggerQueueAddedFeedback = useCallback(() => {
+            setQueueAddedPulse(true);
+            if (queuePulseTimeoutRef.current) window.clearTimeout(queuePulseTimeoutRef.current);
+            queuePulseTimeoutRef.current = window.setTimeout(() => setQueueAddedPulse(false), 700);
+        }, []);
+
+        const handleCoverActivate = useCallback((event: React.MouseEvent) => {
+            event.stopPropagation();
+            if (isEditMode || isUnavailable) return;
+            if (mode === 'tracks') {
+                triggerCoverPlayFeedback();
+                onSelect();
+                return;
+            }
+            if (mode === 'collection') {
+                onSelect();
+            }
+        }, [isEditMode, isUnavailable, mode, onSelect, triggerCoverPlayFeedback]);
+
+        const handleAddQueueClick = useCallback((event: React.MouseEvent) => {
+            event.stopPropagation();
+            if (!onAddQueue) return;
+            triggerQueueAddedFeedback();
+            onAddQueue();
+        }, [onAddQueue, triggerQueueAddedFeedback]);
+
         const textLength = useMemo(() => {
             let len = 0;
             if (typeof item.name === 'string') {
@@ -170,11 +215,15 @@ export const PolaroidCard = React.memo<{
 
         return (
             <div
-                className="rounded-xl p-3 flex flex-col items-center border transition-shadow duration-300 shadow-lg hover:shadow-2xl theme-polaroid-card"
+                className={`rounded-xl p-3 flex flex-col items-center border transition-all duration-300 theme-polaroid-card ${isFocused ? 'shadow-2xl' : 'shadow-lg hover:shadow-2xl'}`}
                 style={{
                     width: dynamicWidth,
                     minHeight: dynamicHeight,
                     height: 'auto',
+                    transform: isFocused ? 'translateY(-4px) scale(1.02)' : undefined,
+                    boxShadow: isFocused
+                        ? `0 24px 48px rgba(0,0,0,0.18), 0 0 0 2px color-mix(in srgb, ${theme.accentColor || theme.primaryColor} 70%, transparent)`
+                        : undefined,
                 }}
                 onClick={(e) => {
                     if (isEditMode) {
@@ -188,8 +237,13 @@ export const PolaroidCard = React.memo<{
                     onCenter();
                 }}
             >
-                {/* Square Polaroid Photo Area */}
-                <div className="w-full aspect-square rounded-lg overflow-hidden bg-zinc-200/60 dark:bg-zinc-800/60 relative shadow-inner flex items-center justify-center shrink-0">
+                {/* Square Polaroid Photo Area — click cover to play */}
+                <div
+                    className={`w-full aspect-square rounded-lg overflow-hidden bg-zinc-200/60 dark:bg-zinc-800/60 relative shadow-inner flex items-center justify-center shrink-0 ${
+                        !isEditMode && !isUnavailable ? 'cursor-pointer group/cover' : ''
+                    }`}
+                    onClick={handleCoverActivate}
+                >
                     {item.coverUrl ? (
                         <>
                             <img
@@ -230,12 +284,48 @@ export const PolaroidCard = React.memo<{
                         </div>
                     )}
 
+                    {!isEditMode && !isUnavailable && mode === 'tracks' && (
+                        <>
+                            <div className="absolute inset-0 z-[5] bg-black/0 transition-colors duration-200 group-hover/cover:bg-black/30 pointer-events-none" />
+                            <div className="absolute inset-0 z-[6] flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover/cover:opacity-100 pointer-events-none">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/45 text-white shadow-lg backdrop-blur-sm">
+                                    <Play size={22} fill="currentColor" className="ml-0.5" />
+                                </div>
+                            </div>
+                            <AnimatePresence>
+                                {coverPlayPulse && (
+                                    <motion.div
+                                        key="cover-play-pulse"
+                                        initial={{ opacity: 0.55, scale: 0.92 }}
+                                        animate={{ opacity: 0, scale: 1.08 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+                                        className="absolute inset-0 z-[7] rounded-lg ring-2 ring-white/80 pointer-events-none"
+                                    />
+                                )}
+                            </AnimatePresence>
+                        </>
+                    )}
+
                     {/* Unavailable Mask/Badge */}
                     {isUnavailable && (
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-2 text-center z-10">
                             <span className="text-[10px] bg-red-500/80 text-white font-bold px-2 py-1 rounded-full uppercase tracking-wider">
                                 {unavailableTagText || 'UNAVAILABLE'}
                             </span>
+                        </div>
+                    )}
+
+                    {isFocused && mode === 'tracks' && !isUnavailable && (
+                        <div
+                            className="absolute top-2 left-2 z-20 rounded-full px-2 py-0.5 text-[9px] font-bold tracking-[0.16em] uppercase backdrop-blur-md"
+                            style={{
+                                backgroundColor: 'color-mix(in srgb, var(--text-accent) 24%, transparent)',
+                                color: 'var(--text-primary)',
+                                boxShadow: '0 8px 20px rgba(0,0,0,0.18)',
+                            }}
+                        >
+                            NOW
                         </div>
                     )}
 
@@ -346,15 +436,16 @@ export const PolaroidCard = React.memo<{
                             )}
                             {mode === 'tracks' && onAddQueue && !isUnavailable && !isEditMode && (
                                 <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onAddQueue();
-                                    }}
+                                    onClick={handleAddQueueClick}
                                     style={{ opacity: 'var(--queue-opacity, 1)' as any, pointerEvents: 'var(--queue-pe, auto)' as any }}
-                                    className="w-9 h-9 rounded-full bg-zinc-800/10 dark:bg-zinc-100/10 hover:bg-zinc-900 hover:text-zinc-100 dark:hover:bg-zinc-100 dark:hover:text-zinc-900 text-current flex items-center justify-center transition-colors shadow-sm pointer-events-auto"
+                                    className={`w-9 h-9 rounded-full flex items-center justify-center shadow-sm pointer-events-auto transition-all duration-200 active:scale-90 ${
+                                        queueAddedPulse
+                                            ? 'bg-emerald-500 text-white scale-105'
+                                            : 'bg-zinc-800/10 dark:bg-zinc-100/10 hover:bg-zinc-900 hover:text-zinc-100 dark:hover:bg-zinc-100 dark:hover:text-zinc-900 text-current'
+                                    }`}
                                     title={t('navidrome.addToQueue') || 'Add to Queue'}
                                 >
-                                    <Plus size={15} />
+                                    {queueAddedPulse ? <Check size={15} strokeWidth={3} /> : <Plus size={15} />}
                                 </button>
                             )}
                         </div>
@@ -442,6 +533,10 @@ export const GridView: React.FC<GridViewProps> = ({
     sourceActions,
 }) => {
     const { t } = useTranslation();
+    const { gridViewCardLayout, handleSetGridViewCardLayout } = useSettingsUiStore(useShallow(state => ({
+        gridViewCardLayout: state.gridViewCardLayout,
+        handleSetGridViewCardLayout: state.handleSetGridViewCardLayout,
+    })));
     const containerRef = useRef<HTMLDivElement>(null);
     const dragControls = useDragControls();
     const [focusedIndex, setFocusedIndex] = useState(0);
@@ -1148,6 +1243,27 @@ export const GridView: React.FC<GridViewProps> = ({
         };
     }, [dragX, dragY]);
 
+    const layoutCoords = useMemo(
+        () => buildGridViewCardCoords(
+            gridItems.length,
+            layoutConfig.spacingX,
+            layoutConfig.spacingY,
+            gridViewCardLayout,
+            containerSize.width,
+            layoutConfig.cardWidth,
+            layoutConfig.cardHeight,
+        ),
+        [
+            gridItems.length,
+            layoutConfig.spacingX,
+            layoutConfig.spacingY,
+            layoutConfig.cardWidth,
+            layoutConfig.cardHeight,
+            containerSize.width,
+            gridViewCardLayout,
+        ],
+    );
+
     const {
         coords: baseCoords,
         renderedIndexes,
@@ -1160,6 +1276,8 @@ export const GridView: React.FC<GridViewProps> = ({
         renderRadius,
         renderRing,
         fallbackIndexRef: focusedIndexRef,
+        coords: layoutCoords,
+        layoutMode: gridViewCardLayout === 'neat' ? 'grid' : 'hex',
     });
 
     const dragBounds = useMemo(() => {
@@ -1428,6 +1546,7 @@ export const GridView: React.FC<GridViewProps> = ({
                                 onAddTrackToQueue(item.rawTrack);
                             }
                         }}
+                        isFocused={idx === focusedIndex}
                     />
                 </div>
             );
@@ -1451,7 +1570,8 @@ export const GridView: React.FC<GridViewProps> = ({
         onSelectAlbum,
         onAddTrackToQueue,
         handleRemoveTrack,
-        persistNavigationState
+        persistNavigationState,
+        focusedIndex,
     ]);
 
     // Refs for direct DOM manipulation — eliminates per-card useTransform subscriptions
@@ -1632,12 +1752,72 @@ export const GridView: React.FC<GridViewProps> = ({
                     {neteaseAlbumInfo?.name || title}
                     {mode === 'tracks' && collection && (
                         <span className="text-[9px] bg-zinc-500/20 text-current px-1.5 py-0.5 rounded-full font-normal opacity-60">
-                            {showCutInPanel ? '收起信息' : '歌单信息'}
+                            {showCutInPanel ? (t('playlist.collapseInfo') || '收起信息') : (t('playlist.expandInfo') || '歌单信息')}
                         </span>
                     )}
                 </h2>
+                {mode === 'tracks' && gridItems.length > 0 && (
+                    <p className="text-[10px] font-mono opacity-45 mt-1 tracking-[0.18em] uppercase">
+                        {(focusedIndex + 1).toString().padStart(2, '0')} / {gridItems.length.toString().padStart(2, '0')}
+                    </p>
+                )}
                 {subtitle && <p className="text-xs opacity-50 mt-0.5">{subtitle}</p>}
             </div>
+
+            {mode === 'tracks' && (
+                <div className="absolute right-6 top-5 z-[70] flex items-center gap-2 pointer-events-auto">
+                    <div
+                        className="flex items-center rounded-full border p-1 backdrop-blur-md shadow-lg"
+                        style={{
+                            backgroundColor: isDaylight ? 'rgba(255,255,255,0.72)' : 'rgba(0,0,0,0.42)',
+                            borderColor: isDaylight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)',
+                        }}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => handleSetGridViewCardLayout('neat')}
+                            className={`rounded-full p-2 transition-all ${gridViewCardLayout === 'neat' ? 'shadow-sm' : 'opacity-45 hover:opacity-90'}`}
+                            style={{
+                                backgroundColor: gridViewCardLayout === 'neat'
+                                    ? (isDaylight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.12)')
+                                    : 'transparent',
+                                color: 'var(--text-primary)',
+                            }}
+                            title={t('gridView.layoutNeat') || '整齐布局'}
+                        >
+                            <Rows3 size={16} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleSetGridViewCardLayout('casual')}
+                            className={`rounded-full p-2 transition-all ${gridViewCardLayout === 'casual' ? 'shadow-sm' : 'opacity-45 hover:opacity-90'}`}
+                            style={{
+                                backgroundColor: gridViewCardLayout === 'casual'
+                                    ? (isDaylight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.12)')
+                                    : 'transparent',
+                                color: 'var(--text-primary)',
+                            }}
+                            title={t('gridView.layoutCasual') || '随意布局'}
+                        >
+                            <Orbit size={16} />
+                        </button>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowSearchPanel(true)}
+                        className="w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg hover:scale-105 active:scale-95 border"
+                        style={{
+                            backgroundColor: isDaylight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.5)',
+                            backdropFilter: 'blur(12px)',
+                            borderColor: isDaylight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
+                            color: 'var(--text-primary)',
+                        }}
+                        title={t('home.gridSearchPlaceholder') || '搜索歌曲'}
+                    >
+                        <Search size={18} />
+                    </button>
+                </div>
+            )}
 
             {/* Honeycomb Drag/Viewport Canvas Area */}
             <div

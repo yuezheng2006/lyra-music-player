@@ -103,10 +103,11 @@ function devLyricProxyPlugin() {
           }
 
           const hasBody = ['POST', 'PUT', 'PATCH'].includes(req.method ?? '');
+          const requestBody = hasBody ? await readDevRequestBody(req) : undefined;
           const response = await fetch(targetUrl.toString(), {
             method: req.method,
             headers,
-            body: hasBody ? await readDevRequestBody(req) : undefined,
+            body: requestBody ? Uint8Array.from(requestBody) : undefined,
           });
 
           setLyricProxyCorsHeaders(res);

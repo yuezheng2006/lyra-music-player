@@ -5,8 +5,8 @@ import type { MineradioVisualPresetId } from '../../../../types';
 
 export const INTERACTIVE3D_WEBGL_PRESET_INDEX: Record<MineradioVisualPresetId, number> = {
     emily: 0,
-    tunnel: 1,
-    starfield: 5,
+    starfield: 1,
+    tunnel: 5,
 };
 
 /** @deprecated use INTERACTIVE3D_WEBGL_PRESET_INDEX */

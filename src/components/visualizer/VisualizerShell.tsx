@@ -49,6 +49,7 @@ type VisualizerShellSharedProps = Pick<
     | 'currentTime'
     | 'lines'
     | 'showText'
+    | 'audioPlaying'
 >;
 
 interface VisualizerShellProps {
@@ -129,7 +130,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const resolvedCurrentTime = sharedProps?.currentTime;
     const resolvedLines = sharedProps?.lines ?? [];
     const resolvedShowText = sharedProps?.showText ?? true;
-    const resolvedPlaying = !resolvedPaused;
+    const resolvedAudioPlaying = sharedProps?.audioPlaying ?? !resolvedPaused;
     const shouldRenderCommonBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'common';
     const shouldRenderInteractive3dBackground = !resolvedTransparentBackground
         && resolvedBackgroundMode === 'interactive3d'
@@ -224,7 +225,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                         className="absolute inset-0 z-0 transition-all duration-1000"
                         style={{ backgroundColor: theme.backgroundColor, opacity: 0.22 }}
                     />
-                    <div className="absolute inset-0 z-0 pointer-events-none">
+                    <div className="absolute inset-0 z-0 isolate pointer-events-none">
                         <GeometricInteractiveBackground
                             theme={theme}
                             audioPower={audioPower}
@@ -246,8 +247,8 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                             visualizerMode={resolvedVisualizerMode}
                             currentTime={resolvedCurrentTime}
                             lines={resolvedLines}
-                            showLyrics={false}
-                            playing={resolvedPlaying}
+                            showLyrics={resolvedShowText}
+                            playing={resolvedAudioPlaying}
                         />
                     </div>
                 </>
@@ -281,7 +282,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 </div>
             )}
 
-            <div className="relative z-10 w-full h-full pointer-events-none">
+            <div className="relative z-30 isolate w-full h-full pointer-events-none">
                 {shouldRenderInteractive3dBackground ? (
                     <LyricRhythmStage
                         audioPower={audioPower}
@@ -289,6 +290,8 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                         cameraPunch={resolvedCameraPunch}
                         cinemaScale={resolvedCinemaScale}
                         atmosphereEnergy={resolvedAtmosphereEnergy}
+                        scaleMultiplier={theme.lyricRhythmScaleMultiplier}
+                        glowColor={theme.lyricGlowUsesAccent ? theme.accentColor : null}
                         className="w-full h-full"
                     >
                         {children}

@@ -7,7 +7,7 @@ import { shouldShowCoverParticleWebGL } from '../webgl/CoverParticleWebGLStage';
 import { useMineradioPlaybackRuntime } from './useMineradioPlaybackRuntime';
 
 // src/components/visualizer/geometric/mineradio/MineradioPlaybackStage.tsx
-// Mineradio WebGL cover particle backdrop (Emily / Tunnel / Vinyl / Starfield).
+// Mineradio WebGL cover particle backdrop (cover / vinyl / lightflow).
 
 interface MineradioPlaybackStageProps {
     theme: Theme;
@@ -17,6 +17,7 @@ interface MineradioPlaybackStageProps {
     audioBands?: AudioBands;
     beatPulse?: MotionValue<number>;
     atmosphereEnergy?: MotionValue<number>;
+    smartAtmosphereEnabled?: boolean;
     pointerX: MotionValue<number>;
     pointerY: MotionValue<number>;
     currentTime?: MotionValue<number>;
@@ -35,6 +36,7 @@ const MineradioPlaybackStage: React.FC<MineradioPlaybackStageProps> = ({
     audioBands,
     beatPulse,
     atmosphereEnergy,
+    smartAtmosphereEnabled = true,
     pointerX,
     pointerY,
     currentTime,
@@ -57,6 +59,7 @@ const MineradioPlaybackStage: React.FC<MineradioPlaybackStageProps> = ({
         audioBands,
         beatPulse,
         atmosphereEnergy,
+        smartAtmosphereEnabled,
         pointerX,
         pointerY,
         currentTime,
@@ -72,7 +75,7 @@ const MineradioPlaybackStage: React.FC<MineradioPlaybackStageProps> = ({
     return (
         <div
             ref={containerRef}
-            className="absolute inset-0 overflow-hidden z-0"
+            className="absolute inset-0 overflow-hidden z-0 isolate"
             data-testid="mineradio-playback-stage"
             aria-hidden
         />

@@ -21,17 +21,17 @@ const PROFILES: Record<MineradioVisualPresetId, CoverParticlePresetRuntimeProfil
     },
     tunnel: {
         speedMul: 1.12,
-        pointScale: 1.14,
-        cameraZ: 4.35,
-        fov: 58,
-        bassCameraPunch: 0.42,
+        pointScale: 1.18,
+        cameraZ: 5.9,
+        fov: 50,
+        bassCameraPunch: 0.24,
     },
     starfield: {
-        speedMul: 1.18,
+        speedMul: 0.84,
         pointScale: 1.08,
-        cameraZ: 5.85,
-        fov: 50,
-        bassCameraPunch: 0.18,
+        cameraZ: 5.8,
+        fov: 47,
+        bassCameraPunch: 0.12,
     },
 };
 

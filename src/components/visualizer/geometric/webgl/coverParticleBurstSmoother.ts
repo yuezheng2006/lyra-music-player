@@ -1,7 +1,7 @@
 import { clamp01 } from '../../../../utils/atmosphere/math';
 
 // src/components/visualizer/geometric/webgl/coverParticleBurstSmoother.ts
-// Beat-triggered burst envelope for tunnel/starfield shader uBurstAmt.
+// Beat-triggered burst envelope for vinyl/lightflow shader uBurstAmt.
 
 export class CoverParticleBurstSmoother {
     private burst = 0;

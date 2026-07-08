@@ -54,9 +54,11 @@ const formatNumber = (value: number, precision = 4): string => {
 
 const formatOpacity = (value: number): string => formatNumber(Math.max(0, Math.min(1, value)), 3);
 
-const buildTransform = (coord: HexGridCoord, scale: number): string => (
-    `translate3d(${formatNumber(coord.baseX, 3)}px, ${formatNumber(coord.baseY, 3)}px, 0) scale(${formatNumber(scale)})`
-);
+const buildTransform = (coord: HexGridCoord, scale: number): string => {
+    const translate = `translate3d(${formatNumber(coord.baseX, 3)}px, ${formatNumber(coord.baseY, 3)}px, 0)`;
+    const rotate = coord.rotationDeg ? ` rotate(${formatNumber(coord.rotationDeg, 2)}deg)` : '';
+    return `${translate}${rotate} scale(${formatNumber(scale)})`;
+};
 
 // Resolves visual state for one card without touching React or the DOM.
 export const computeHexCardFrame = (

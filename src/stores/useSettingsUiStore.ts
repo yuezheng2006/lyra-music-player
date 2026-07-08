@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type React from 'react';
-import { DEFAULT_CADENZA_TUNING, DEFAULT_CAPPELLA_TUNING, DEFAULT_CLASSIC_TUNING, DEFAULT_CLADDAGH_TUNING, DEFAULT_FUME_TUNING, DEFAULT_INTERACTIVE3D_SCENE_TUNING, DEFAULT_MONET_BACKGROUND_TUNING, DEFAULT_MONET_TUNING, DEFAULT_PARTITA_TUNING, DEFAULT_TILT_TUNING, type CadenzaTuning, type CappellaAvatarImage, type CappellaAvatarSource, type CappellaEmojiImage, type CappellaTuning, type ClassicTuning, type CladdaghTuning, type FumeTuning, type Interactive3dSceneTuning, type LyricProviderSource, type MonetBackgroundImage, type MonetBackgroundLayout, type MonetBackgroundSource, type MonetBackgroundTuning, type MonetBackgroundWashColorMode, type MonetPortraitImage, type MonetPortraitSource, type MonetTuning, type PartitaTuning, type QueueAddBehavior, type StatusMessage, type StoredCappellaAvatarImage, type StoredCappellaEmojiImage, type StoredCustomLyricsFont, type StoredMonetBackgroundImage, type StoredMonetPortraitImage, type Theme, type TiltTuning, type UrlBackgroundItem, type VisualizerBackgroundMode, type VisualizerFrameRate, type VisualizerMode } from '../types';
+import { DEFAULT_CADENZA_TUNING, DEFAULT_CAPPELLA_TUNING, DEFAULT_CLASSIC_TUNING, DEFAULT_CLADDAGH_TUNING, DEFAULT_FUME_TUNING, DEFAULT_INTERACTIVE3D_SCENE_TUNING, DEFAULT_MONET_BACKGROUND_TUNING, DEFAULT_MONET_TUNING, DEFAULT_PARTITA_TUNING, DEFAULT_TILT_TUNING, type CadenzaTuning, type CappellaAvatarImage, type CappellaAvatarSource, type CappellaEmojiImage, type CappellaTuning, type ClassicTuning, type CladdaghTuning, type FumeTuning, type GridViewCardLayout, type Interactive3dSceneTuning, type LyricProviderSource, type MonetBackgroundImage, type MonetBackgroundLayout, type MonetBackgroundSource, type MonetBackgroundTuning, type MonetBackgroundWashColorMode, type MonetPortraitImage, type MonetPortraitSource, type MonetTuning, type PartitaTuning, type QueueAddBehavior, type StatusMessage, type StoredCappellaAvatarImage, type StoredCappellaEmojiImage, type StoredCustomLyricsFont, type StoredMonetBackgroundImage, type StoredMonetPortraitImage, type Theme, type TiltTuning, type UrlBackgroundItem, type VisualizerBackgroundMode, type VisualizerFrameRate, type VisualizerMode } from '../types';
 import { resolveStoredInteractive3dSceneTuning } from '../components/visualizer/geometric/interactive3dSceneRegistry';
 import { DEFAULT_VISUALIZER_MODE, getVisualizerRegistryEntry, hasVisualizerMode } from '../components/visualizer/registry';
 import { getLyricFilterError } from '../utils/lyrics/filtering';
@@ -717,6 +717,23 @@ const readStoredLoopMode = (): 'off' | 'all' | 'one' => {
     return saved === 'all' || saved === 'one' ? saved : 'off';
 };
 
+const readStoredGridViewCardLayout = (): GridViewCardLayout => {
+    if (typeof window === 'undefined') {
+        return 'neat';
+    }
+
+    const saved = localStorage.getItem('grid_view_card_layout');
+    return saved === 'casual' ? 'casual' : 'neat';
+};
+
+const readStoredPlayerLyricsVisible = (): boolean => {
+    if (typeof window === 'undefined') {
+        return true;
+    }
+
+    return localStorage.getItem('player_lyrics_visible') !== 'false';
+};
+
 const readStoredQueueAddBehavior = (): QueueAddBehavior => {
     if (typeof window === 'undefined') {
         return 'append';
@@ -839,6 +856,8 @@ type SettingsUiState = {
     volume: number;
     isMuted: boolean;
     loopMode: 'off' | 'all' | 'one';
+    gridViewCardLayout: GridViewCardLayout;
+    playerLyricsVisible: boolean;
     homeLayoutStyle: 'carousel' | 'grid';
     grid3dCardStyle: 'image' | 'card';
     activeGridViewCollection: any | null;
@@ -943,6 +962,8 @@ type SettingsUiState = {
     handleSetVolume: (val: number) => void;
     handleToggleMute: () => void;
     handleToggleLoopMode: () => void;
+    handleSetGridViewCardLayout: (layout: GridViewCardLayout) => void;
+    handleTogglePlayerLyricsVisible: (visible: boolean) => void;
     handleSetHomeLayoutStyle: (style: 'carousel' | 'grid') => void;
     handleSetGrid3dCardStyle: (style: 'image' | 'card') => void;
 };
@@ -1017,6 +1038,8 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     volume: readStoredVolume(),
     isMuted: getStoredBoolean('player_is_muted', false),
     loopMode: readStoredLoopMode(),
+    gridViewCardLayout: readStoredGridViewCardLayout(),
+    playerLyricsVisible: readStoredPlayerLyricsVisible(),
     homeLayoutStyle: readStoredHomeLayoutStyle(),
     grid3dCardStyle: readStoredGrid3dCardStyle(),
     activeGridViewCollection: null,
@@ -1877,6 +1900,18 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         }
         set({ loopMode: next });
     },
+    handleSetGridViewCardLayout: (layout) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('grid_view_card_layout', layout);
+        }
+        set({ gridViewCardLayout: layout });
+    },
+    handleTogglePlayerLyricsVisible: (visible) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('player_lyrics_visible', String(visible));
+        }
+        set({ playerLyricsVisible: visible });
+    },
     handleSetHomeLayoutStyle: (style) => {
         if (typeof window !== 'undefined') {
             localStorage.setItem('home_layout_style', style);
@@ -1965,6 +2000,8 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     queueAddBehavior: state.queueAddBehavior,
     audioOutputDeviceId: state.audioOutputDeviceId,
     loopMode: state.loopMode,
+    gridViewCardLayout: state.gridViewCardLayout,
+    playerLyricsVisible: state.playerLyricsVisible,
     handleToggleCoverColorBg: state.handleToggleCoverColorBg,
     handleToggleStaticMode: state.handleToggleStaticMode,
     handleToggleDisableHomeDynamicBackground: state.handleToggleDisableHomeDynamicBackground,
@@ -2041,6 +2078,8 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleSetVolume: state.handleSetVolume,
     handleToggleMute: state.handleToggleMute,
     handleToggleLoopMode: state.handleToggleLoopMode,
+    handleSetGridViewCardLayout: state.handleSetGridViewCardLayout,
+    handleTogglePlayerLyricsVisible: state.handleTogglePlayerLyricsVisible,
 });
 
 if (typeof window !== 'undefined' && window.electron?.setNativeTheme) {

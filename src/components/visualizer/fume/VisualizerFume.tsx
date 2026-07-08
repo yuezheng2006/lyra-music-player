@@ -2983,7 +2983,7 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
                 ),
             }}
         >
-            <div ref={viewportRef} className="relative z-10 h-full w-full pointer-events-none">
+            <div ref={viewportRef} className="relative isolate z-10 h-full w-full pointer-events-none">
                 {showText && (
                     <motion.div
                         initial={false}
@@ -2992,13 +2992,13 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
                             scale: article && showText ? (hasPrintedContent ? 1 : 0.985) : 1,
                         }}
                         transition={{ duration: 0.45, ease: 'easeOut' }}
-                        className="absolute left-1/2 top-0 -translate-x-1/2"
+                        className="absolute left-1/2 top-0 z-[1] -translate-x-1/2"
                         style={{
                             width: viewport.width,
                             height: viewport.height,
                         }}
                     >
-                        <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+                        <canvas ref={canvasRef} className="absolute inset-0 z-[2] h-full w-full" />
                     </motion.div>
                 )}
 

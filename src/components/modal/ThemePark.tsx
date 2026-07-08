@@ -41,6 +41,12 @@ import {
 } from '../visualizer/PreviewPlaceholder';
 import { getVisualizerModeLabel, getVisualizerScopedSeed } from '../visualizer/registry';
 import { normalizeThemeHexColor, sanitizeDualTheme } from '../../services/themeSanitizer';
+import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
+import {
+    applyLyricColorPresetToDualTheme,
+    getLyricColorPresetById,
+    type LyricColorPresetId,
+} from '../../utils/theme/lyricColorPresets';
 
 interface ThemeParkProps {
     initialTheme: DualTheme;
@@ -547,6 +553,14 @@ const ThemePark: React.FC<ThemeParkProps> = ({
         onSaveTheme(normalizeThemeParkDualTheme(draftTheme, normalizedInitialTheme));
     };
 
+    const applyLyricColorPreset = (presetId: LyricColorPresetId) => {
+        const preset = getLyricColorPresetById(presetId);
+        if (!preset) {
+            return;
+        }
+        setDraftTheme(previous => applyLyricColorPresetToDualTheme(previous, preset));
+    };
+
     // 仅当 mouse down 和 click 都在 overlay 元素本身发生时才触发关闭，
     // 避免在调色板拖拽鼠标至外部松开时误触关闭。
     const handleOverlayMouseDown = (event: React.MouseEvent) => {
@@ -693,6 +707,20 @@ const ThemePark: React.FC<ThemeParkProps> = ({
                                 >
                                     {t('options.darkTheme') || '暗色'}
                                 </button>
+                            </div>
+
+                            <div className="space-y-2 rounded-[20px] border border-white/10 p-3">
+                                <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                    {t('options.lyricColorPresetTitle') || '流行歌词色'}
+                                </div>
+                                <div className="text-xs opacity-50" style={{ color: 'var(--text-secondary)' }}>
+                                    {t('options.lyricColorPresetDesc') || '一键套用抖音 / 小红书常见字幕配色。'}
+                                </div>
+                                <LyricColorPresetGrid
+                                    onSelect={applyLyricColorPreset}
+                                    inactiveButtonClassName={isDaylight ? 'text-stone-700 hover:bg-black/[0.04]' : 'text-white/70 hover:bg-white/[0.06]'}
+                                    activeButtonClassName={isDaylight ? 'bg-white text-stone-900 shadow-sm' : 'bg-white/15 text-white shadow-sm'}
+                                />
                             </div>
 
                             <div className="space-y-3">

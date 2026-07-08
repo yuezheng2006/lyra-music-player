@@ -1,29 +1,28 @@
 import React from 'react';
-import { Monitor, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import {
     DEFAULT_INTERACTIVE3D_SCENE_TUNING,
-    type Interactive3dCameraControlMode,
-    type Interactive3dQualityTier,
     type Interactive3dSceneTuning,
     type Theme,
 } from '../../../types';
 import { colorWithAlpha } from '../colorMix';
 import {
-    INTERACTIVE3D_CAMERA_CONTROL_OPTIONS,
-    INTERACTIVE3D_QUALITY_TIER_OPTIONS,
     INTERACTIVE3D_SCENE_EFFECTS,
 } from '../geometric/interactive3dSceneRegistry';
-import {
-    applyMineradioVisualPreset,
-    getMineradioPresetLabelFallback,
-    INTERACTIVE3D_VISUAL_PRESET_OPTIONS,
-} from '../geometric/mineradioVisualPresets';
 import {
     isInteractive3dWebGLOnlyPath,
     resolveInteractive3dEffectiveSettings,
     shouldShowInteractive3dSceneLayerToggle,
 } from '../resolveInteractive3dEffectiveSettings';
+import { Interactive3dCameraControlSelector } from './Interactive3dCameraControlSelector';
+import { Interactive3dQualityTierSelector } from './Interactive3dQualityTierSelector';
+import {
+    Interactive3dSectionLabel,
+    Interactive3dToggleRow,
+} from './Interactive3dSettingsPrimitives';
+import { Interactive3dSmartAtmosphereControl } from './Interactive3dSmartAtmosphereControl';
 import Interactive3dShelfSettingsSection from './Interactive3dShelfSettingsSection';
+import { Interactive3dVisualPresetDeck } from './Interactive3dVisualPresetDeck';
 
 // src/components/visualizer/backgrounds/Interactive3dBackgroundSettingsCard.tsx
 // Settings card for interactive 3D background scene layers and quality tier.
@@ -41,95 +40,6 @@ interface Interactive3dBackgroundSettingsCardProps {
     disableVisualizerVignette: boolean;
     onToggleDisableVisualizerVignette?: (disabled: boolean) => void;
 }
-
-interface ToggleRowProps {
-    label: string;
-    description?: string;
-    checked: boolean;
-    onChange?: (checked: boolean) => void;
-    theme: Theme;
-    testId?: string;
-}
-
-const SectionLabel: React.FC<{ children: React.ReactNode; theme: Theme; }> = ({ children, theme }) => (
-    <div className="text-xs font-medium uppercase tracking-[0.24em] opacity-45" style={{ color: theme.secondaryColor }}>
-        {children}
-    </div>
-);
-
-const ToggleRow: React.FC<ToggleRowProps> = ({
-    label,
-    description,
-    checked,
-    onChange,
-    theme,
-    testId,
-}) => (
-    <div className="flex items-center justify-between gap-4" data-testid={testId}>
-        <div className="space-y-1">
-            <div className="text-sm font-medium flex items-center gap-2" style={{ color: theme.primaryColor }}>
-                <Monitor size={14} />
-                {label}
-            </div>
-            {description && (
-                <div className="text-xs opacity-70 max-w-[320px]" style={{ color: theme.secondaryColor }}>
-                    {description}
-                </div>
-            )}
-        </div>
-        <button
-            type="button"
-            aria-pressed={checked}
-            onClick={() => onChange?.(!checked)}
-            className="w-12 h-6 rounded-full p-1 transition-colors shrink-0 disabled:opacity-45"
-            disabled={!onChange}
-            style={{
-                backgroundColor: checked ? theme.secondaryColor : colorWithAlpha(theme.secondaryColor, 0.18),
-            }}
-        >
-            <div
-                className={`w-4 h-4 rounded-full shadow-sm transition-transform ${checked ? 'translate-x-6' : 'translate-x-0'}`}
-                style={{ backgroundColor: theme.backgroundColor }}
-            />
-        </button>
-    </div>
-);
-
-const getQualityTierLabel = (
-    tier: Interactive3dQualityTier,
-    t: (key: string) => string,
-) => {
-    switch (tier) {
-        case 'auto':
-            return t('options.interactive3dQualityAuto') || '自动';
-        case 'high':
-            return t('options.interactive3dQualityHigh') || '高';
-        case 'balanced':
-            return t('options.interactive3dQualityBalanced') || '均衡';
-        case 'lite':
-            return t('options.interactive3dQualityLite') || '轻量';
-        default:
-            return tier;
-    }
-};
-
-const getCameraControlLabel = (
-    mode: Interactive3dCameraControlMode,
-    t: (key: string) => string,
-) => {
-    switch (mode) {
-        case 'auto':
-            return t('options.interactive3dCameraControlAuto') || '自动';
-        case 'orbit':
-            return t('options.interactive3dCameraControlOrbit') || '轨道拖拽';
-        case 'wasd':
-            return t('options.interactive3dCameraControlWasd') || 'WASD 自由';
-        case 'gesture':
-            return t('options.interactive3dCameraControlGesture') || '手势旋转';
-        default:
-            return mode;
-    }
-};
 
 export const Interactive3dBackgroundSettingsCard: React.FC<Interactive3dBackgroundSettingsCardProps> = ({
     t,
@@ -190,110 +100,37 @@ export const Interactive3dBackgroundSettingsCard: React.FC<Interactive3dBackgrou
             </button>
         </div>
 
-        <ToggleRow
+        <Interactive3dSmartAtmosphereControl
             label={t('options.enableSmartAtmosphere') || '智能氛围'}
             description={t('options.enableSmartAtmosphereDesc') || '根据节拍与歌曲情绪驱动 3D 背景粒子、涟漪和镜头 punch。'}
             checked={enableSmartAtmosphere}
             onChange={onToggleEnableSmartAtmosphere}
             theme={theme}
-            testId="interactive3d-toggle-smart-atmosphere"
         />
 
-        <div className="space-y-2.5">
-            <SectionLabel theme={theme}>
-                {t('options.mineradioVisualPreset') || '视觉风格'}
-            </SectionLabel>
-            <div className="flex flex-wrap gap-2" data-testid="interactive3d-mineradio-presets">
-                {INTERACTIVE3D_VISUAL_PRESET_OPTIONS.map(preset => {
-                    const isActive = tuning.visualPreset === preset;
-                    return (
-                        <button
-                            key={preset}
-                            type="button"
-                            data-testid={`interactive3d-preset-${preset}`}
-                            onClick={() => onTuningChange?.(applyMineradioVisualPreset(preset, tuning))}
-                            className="px-3 py-2 rounded-full text-sm transition-all border"
-                            style={{
-                                borderColor: isActive
-                                    ? colorWithAlpha(theme.secondaryColor, 0.45)
-                                    : colorWithAlpha(theme.secondaryColor, 0.16),
-                                backgroundColor: isActive
-                                    ? (isDaylight ? 'rgba(255,255,255,0.92)' : colorWithAlpha(theme.secondaryColor, 0.18))
-                                    : colorWithAlpha(theme.backgroundColor, 0.18),
-                                color: theme.primaryColor,
-                            }}
-                        >
-                            {t(`options.mineradioPreset.${preset}`) || getMineradioPresetLabelFallback(preset)}
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
+        <Interactive3dVisualPresetDeck
+            t={t}
+            theme={theme}
+            isDaylight={isDaylight}
+            tuning={tuning}
+            onTuningChange={onTuningChange}
+        />
 
-        <div className="space-y-2.5">
-            <SectionLabel theme={theme}>
-                {t('options.interactive3dQualityTier') || '渲染质量'}
-            </SectionLabel>
-            <div className="flex flex-wrap gap-2" data-testid="interactive3d-quality-tier-group">
-                {INTERACTIVE3D_QUALITY_TIER_OPTIONS.map(tier => {
-                    const isActive = tuning.qualityTier === tier;
-                    return (
-                        <button
-                            key={tier}
-                            type="button"
-                            data-testid={`interactive3d-quality-${tier}`}
-                            onClick={() => onTuningChange?.({ qualityTier: tier })}
-                            className="px-3 py-2 rounded-full text-sm transition-all border"
-                            style={{
-                                borderColor: isActive
-                                    ? colorWithAlpha(theme.secondaryColor, 0.45)
-                                    : colorWithAlpha(theme.secondaryColor, 0.16),
-                                backgroundColor: isActive
-                                    ? (isDaylight ? 'rgba(255,255,255,0.92)' : colorWithAlpha(theme.secondaryColor, 0.18))
-                                    : colorWithAlpha(theme.backgroundColor, 0.18),
-                                color: theme.primaryColor,
-                            }}
-                        >
-                            {getQualityTierLabel(tier, t)}
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
+        <Interactive3dQualityTierSelector
+            t={t}
+            theme={theme}
+            isDaylight={isDaylight}
+            tuning={tuning}
+            onTuningChange={onTuningChange}
+        />
 
-        <div className="space-y-2.5">
-            <SectionLabel theme={theme}>
-                {t('options.interactive3dCameraControl') || '镜头交互'}
-            </SectionLabel>
-            <div className="text-xs opacity-70 max-w-[360px]" style={{ color: theme.secondaryColor }}>
-                {t('options.interactive3dCameraControlDesc') || '控制 3D 背景的拖拽轨道、WASD 自由镜头或手势式粒子旋转。'}
-            </div>
-            <div className="flex flex-wrap gap-2" data-testid="interactive3d-camera-control-group">
-                {INTERACTIVE3D_CAMERA_CONTROL_OPTIONS.map(mode => {
-                    const isActive = tuning.cameraControl === mode;
-                    return (
-                        <button
-                            key={mode}
-                            type="button"
-                            data-testid={`interactive3d-camera-control-${mode}`}
-                            onClick={() => onTuningChange?.({ cameraControl: mode })}
-                            className="px-3 py-2 rounded-full text-sm transition-all border"
-                            style={{
-                                borderColor: isActive
-                                    ? colorWithAlpha(theme.secondaryColor, 0.45)
-                                    : colorWithAlpha(theme.secondaryColor, 0.16),
-                                backgroundColor: isActive
-                                    ? (isDaylight ? 'rgba(255,255,255,0.92)' : colorWithAlpha(theme.secondaryColor, 0.18))
-                                    : colorWithAlpha(theme.backgroundColor, 0.18),
-                                color: theme.primaryColor,
-                            }}
-                        >
-                            {getCameraControlLabel(mode, t)}
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
+        <Interactive3dCameraControlSelector
+            t={t}
+            theme={theme}
+            isDaylight={isDaylight}
+            tuning={tuning}
+            onTuningChange={onTuningChange}
+        />
 
         {!webglOnlyPath && (
             <Interactive3dShelfSettingsSection
@@ -307,12 +144,12 @@ export const Interactive3dBackgroundSettingsCard: React.FC<Interactive3dBackgrou
 
         {visibleSceneEffects.length > 0 && (
             <div className="space-y-3">
-                <SectionLabel theme={theme}>
+                <Interactive3dSectionLabel theme={theme}>
                     {t('options.interactive3dSceneLayers') || '场景组件'}
-                </SectionLabel>
+                </Interactive3dSectionLabel>
                 <div className="space-y-3" data-testid="interactive3d-scene-layers">
                     {visibleSceneEffects.map(effect => (
-                        <ToggleRow
+                        <Interactive3dToggleRow
                             key={effect.id}
                             label={t(effect.labelKey) || effect.labelFallback}
                             description={t(effect.descriptionKey) || effect.descriptionFallback}
@@ -343,7 +180,7 @@ export const Interactive3dBackgroundSettingsCard: React.FC<Interactive3dBackgrou
             </div>
         )}
 
-        <ToggleRow
+        <Interactive3dToggleRow
             label={t('options.disableVisualizerVignette') || '禁用暗角'}
             description={t('options.disableVisualizerVignetteDesc') || '关闭 3D 背景自带的边缘暗角。'}
             checked={disableVisualizerVignette}

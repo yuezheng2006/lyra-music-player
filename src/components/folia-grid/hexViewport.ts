@@ -9,6 +9,7 @@ export interface HexGridCoord {
     cube: CubeCoord;
     baseX: number;
     baseY: number;
+    rotationDeg?: number;
 }
 
 export const toCubeKey = (cube: CubeCoord): string => `${cube.x}:${cube.y}:${cube.z}`;
@@ -115,6 +116,93 @@ export const buildHexGridCoords = (
         baseX: cubic.x * spacingX + (cubic.z * spacingX) / 2,
         baseY: cubic.z * spacingY,
     }));
+};
+
+const NEAT_GRID_GAP_X = 12;
+const NEAT_GRID_GAP_Y = 16;
+
+// Builds a centered row/column grid that maximizes cards per row for the viewport width.
+export const buildNeatGridCoords = (
+    count: number,
+    viewportWidth: number,
+    cardWidth: number,
+    cardHeight: number,
+): HexGridCoord[] => {
+    if (count <= 0) return [];
+
+    const spacingX = cardWidth + NEAT_GRID_GAP_X;
+    const spacingY = cardHeight + NEAT_GRID_GAP_Y;
+    const columns = Math.max(1, Math.floor(Math.max(spacingX, viewportWidth) / spacingX));
+    const rows = Math.ceil(count / columns);
+    const gridWidth = (columns - 1) * spacingX;
+    const gridHeight = (rows - 1) * spacingY;
+    const originX = -gridWidth / 2;
+    const originY = -gridHeight / 2;
+
+    return Array.from({ length: count }, (_, index) => {
+        const col = index % columns;
+        const row = Math.floor(index / columns);
+        return {
+            index,
+            cube: { x: col, y: -row, z: row - col },
+            baseX: originX + col * spacingX,
+            baseY: originY + row * spacingY,
+        };
+    });
+};
+
+// Resolves visible card indexes for row/column grid layouts.
+export const resolveVisibleGridIndexes = (
+    coords: HexGridCoord[],
+    worldX: number,
+    worldY: number,
+    pixelRadius: number,
+): number[] => {
+    const radiusSq = pixelRadius * pixelRadius;
+    const indexes: number[] = [];
+
+    for (const coord of coords) {
+        const dx = coord.baseX - worldX;
+        const dy = coord.baseY - worldY;
+        if (dx * dx + dy * dy <= radiusSq) {
+            indexes.push(coord.index);
+        }
+    }
+
+    indexes.sort((left, right) => left - right);
+    return indexes;
+};
+
+// Builds card coordinates for GridView: neat row/column grid or casual hex scatter.
+export const buildGridViewCardCoords = (
+    count: number,
+    spacingX: number,
+    spacingY: number,
+    layout: 'neat' | 'casual',
+    viewportWidth?: number,
+    cardWidth?: number,
+    cardHeight?: number,
+): HexGridCoord[] => {
+    if (layout === 'neat') {
+        const resolvedWidth = viewportWidth ?? spacingX * 4;
+        const resolvedCardWidth = cardWidth ?? spacingX;
+        const resolvedCardHeight = cardHeight ?? spacingY;
+        return buildNeatGridCoords(count, resolvedWidth, resolvedCardWidth, resolvedCardHeight);
+    }
+
+    const base = buildHexGridCoords(count, spacingX, spacingY);
+    return base.map((coord, index) => {
+        const seed = index * 7919 + 17;
+        const jitterX = ((seed % 97) - 48) * 0.85;
+        const jitterY = (((seed * 5) % 89) - 44) * 0.85;
+        const rotationDeg = ((seed % 23) - 11) * 0.55;
+        return {
+            ...coord,
+            baseX: coord.baseX + jitterX,
+            baseY: coord.baseY + jitterY,
+            rotationDeg,
+        };
+    });
 };
 
 // Resolves mounted card indexes by combining hex-ring lookup with pixel-radius filtering.

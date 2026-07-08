@@ -11,6 +11,8 @@ interface LyricRhythmStageProps {
     cameraPunch?: MotionValue<number>;
     cinemaScale?: MotionValue<number>;
     atmosphereEnergy?: MotionValue<number>;
+    scaleMultiplier?: number;
+    glowColor?: string | null;
     className?: string;
     children: React.ReactNode;
 }
@@ -21,6 +23,8 @@ const LyricRhythmStage: React.FC<LyricRhythmStageProps> = ({
     cameraPunch,
     cinemaScale,
     atmosphereEnergy,
+    scaleMultiplier,
+    glowColor,
     className = '',
     children,
 }) => {
@@ -30,11 +34,13 @@ const LyricRhythmStage: React.FC<LyricRhythmStageProps> = ({
         cameraPunch,
         cinemaScale,
         atmosphereEnergy,
+        scaleMultiplier,
+        glowColor,
     });
 
     return (
         <motion.div
-            className={className}
+            className={`${className} relative isolate z-[1]`}
             style={{
                 scale,
                 filter: glowShadow,
