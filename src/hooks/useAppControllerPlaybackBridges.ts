@@ -313,6 +313,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         stageActiveEntryKind,
         isNowPlayingStageActive,
         isPanelOpen,
+        isPlayerChromeHidden,
         isFmMode,
         playerState,
         duration,

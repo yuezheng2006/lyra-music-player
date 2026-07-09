@@ -19,6 +19,7 @@ import { useAppPreferences } from '@/hooks/useAppPreferences';
 import { useElectronNeteaseApiStatus } from '@/hooks/useElectronNeteaseApiStatus';
 import { useAppControllerCoreIntegrations } from '@/hooks/useAppControllerCoreIntegrations';
 import { useThemeController } from '@/hooks/useThemeController';
+import { useAtmosphereThemeBridge } from '@/hooks/useAtmosphereThemeBridge';
 import { useThemeQuickEditorStore } from '@/stores/useThemeQuickEditorStore';
 import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
 import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
@@ -419,6 +420,13 @@ export function useAppControllerCore() {
             : null;
     }, [currentSong]);
 
+    const applyAtmosphereHintsFromTheme = useAtmosphereThemeBridge({
+        getCurrentTuning: () => useSettingsUiStore.getState().interactive3dSceneTuning,
+        onTuningChange: (patch) => {
+            useSettingsUiStore.getState().handleSetInteractive3dSceneTuning(patch);
+        },
+    });
+
     // Theme Controller
     // manages current theme, daylight mode, and related actions like generating AI themes 
     // and restoring cached themes for songs
@@ -430,6 +438,7 @@ export function useAppControllerCore() {
         setStatusMsg,
         coverUrl,
         t,
+        onAtmosphereHints: applyAtmosphereHintsFromTheme,
     });
     const {
         theme,
@@ -445,6 +454,7 @@ export function useAppControllerCore() {
         isGeneratingTheme,
         handleToggleDaylight,
         handleBgModeChange,
+        activateSmartTheme,
         handleResetTheme,
         applyDefaultTheme,
         restoreCachedThemeForSong,
@@ -452,6 +462,7 @@ export function useAppControllerCore() {
         getThemeParkSeedTheme,
         saveCustomDualTheme,
         saveEditedAiDualTheme,
+        saveLyricColorDualTheme,
         applyCustomTheme,
         handleCustomThemePreferenceChange,
         handleSongThemeAutoSwitchChange,
@@ -539,6 +550,8 @@ export function useAppControllerCore() {
         audioSrc,
         backgroundOpacity,
         bass,
+        applyCustomTheme,
+        applyDefaultTheme,
         autoHidePlayerChrome,
         bgMode,
         blobUrlRef,
@@ -550,6 +563,7 @@ export function useAppControllerCore() {
         cappellaTuning,
         classicTuning,
         claddaghTuning,
+        closeSettings,
         coverUrl,
         currentLineIndex,
         currentOnlineAudioUrlFetchedAtRef,
@@ -571,25 +585,38 @@ export function useAppControllerCore() {
         enableSmartAtmosphere,
         fumeTuning,
         gainNodeRef,
+        activateSmartTheme,
         generateAITheme,
         getCoverUrl,
         getTargetPlaybackVolume,
         getThemeParkSeedTheme,
         handleAudioOutputDeviceChange,
+        handleBgModeChange,
+        handleCustomThemePreferenceChange,
         handlePreviewVolume,
+        handleResetTheme,
         handleSetAppLanguagePreference,
         handleSetLyricFilterPattern,
+        handleSetInteractive3dSceneTuning,
         handleSetMonetBackgroundTuning,
         handleSetMonetTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
+        handleSetVolume,
+        handleSongThemeAutoGenerateChange,
+        handleSongThemeAutoSwitchChange,
         handleToggleAlternativeLyricSources,
+        handleToggleCoverColorBg,
         handleToggleDaylight,
+        handleToggleDisableVisualizerVignette,
+        handleToggleEnableSmartAtmosphere,
         handleToggleHidePlayerTranslationSubtitle,
         handleToggleLoopMode,
+        handleToggleMute,
         handleToggleNavidromeEnabled,
         handleTogglePlayerLyricsVisible,
         handleToggleShowSubtitleTranslation,
+        hasCustomTheme,
         hidePlayerProgressBar,
         hidePlayerRightPanelButton,
         hidePlayerTranslationSubtitle,
@@ -597,6 +624,7 @@ export function useAppControllerCore() {
         homeViewTab,
         interactive3dSceneTuning,
         isClickThroughToggleHotspotActive,
+        isCustomThemePreferred,
         isDaylight,
         isDev,
         isDevDebugOverlayVisible,
@@ -604,6 +632,7 @@ export function useAppControllerCore() {
         isFmMode,
         isGeneratingTheme,
         isLyricsLoading,
+        isMuted,
         isMainWindowClickThroughEnabled,
         isNowPlayingControlDisabledRef,
         isPanelOpen,
@@ -652,7 +681,9 @@ export function useAppControllerCore() {
         restoreCachedThemeForSong,
         saveCustomDualTheme,
         saveEditedAiDualTheme,
+        saveLyricColorDualTheme,
         setActiveGridViewCollection,
+        setAudioQuality,
         setAudioSrc,
         setCachedCoverUrl,
         setCurrentLineIndex,
@@ -669,6 +700,7 @@ export function useAppControllerCore() {
         setIsTitlebarRevealed,
         setIsUserGuideModalOpen,
         setLyrics,
+        setLyricTimelineOffsetMs,
         setPanelTab,
         setPlayQueue,
         setPlayerState,
@@ -676,10 +708,12 @@ export function useAppControllerCore() {
         setShowTransparentWindowBorder,
         setStarredNavidromeSongIds,
         setStatusMsg,
+        setTheme,
         setThemeQuickEditorContext,
         settingsModalState,
         shouldAutoPlay,
         shouldRefreshCurrentOnlineAudioSource,
+        showOpenPanelCloseButton,
         showSubtitleTranslation,
         showTransparentWindowBorder,
         songThemeAutoGenerateEnabled,
@@ -694,6 +728,7 @@ export function useAppControllerCore() {
         t,
         theme,
         themeController,
+        themeSourceModel,
         tiltTuning,
         transparentPlayerBackground,
         treble,
@@ -704,6 +739,7 @@ export function useAppControllerCore() {
         visualizerMode,
         visualizerOpacity,
         vocal,
+        volume,
         volumePreviewFrameRef,
         ...integrations,
     };

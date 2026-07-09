@@ -46,6 +46,7 @@ interface SettingsModalProps {
     onToggleNavidrome?: (enabled: boolean) => void;
     loadLyricFilterPreview: () => Promise<LyricData | null>;
     currentSongTitle?: string | null;
+    currentCoverUrl?: string | null;
     onSaveLyricFilterPattern: (pattern: string) => Promise<void> | void;
     stageStatus?: StageStatus | null;
     stageSource?: StageSource | null;
@@ -89,6 +90,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     onToggleNavidrome,
     loadLyricFilterPreview,
     currentSongTitle,
+    currentCoverUrl,
     onSaveLyricFilterPattern,
     stageStatus = null,
     stageSource = null,
@@ -967,7 +969,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             exit={{ opacity: 0 }}
             transition={shellTransition}
             data-folia-keyboard-window="true"
-            className="fixed inset-0 z-[100] flex items-center justify-center px-4 pt-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:pt-5 sm:pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
+            className="fixed inset-0 z-[100] flex items-center justify-center px-4 pt-4 pb-[calc(var(--app-player-bar-height,72px)+24px+env(safe-area-inset-bottom))] sm:px-5 sm:pt-5 sm:pb-[calc(var(--app-player-bar-height,72px)+24px+env(safe-area-inset-bottom))]"
             style={{ backgroundColor: overlayBackground }}
             onClick={(event) => handleBackdropClose(event, onClose)}
         >
@@ -2215,6 +2217,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         backgroundOpacity={backgroundOpacity}
                         visualizerOpacity={visualizerOpacity}
                         visualizerBackgroundMode={visualizerBackgroundMode}
+                        coverUrl={currentCoverUrl}
                         useCoverColorBg={useCoverColorBg}
                         staticMode={staticMode}
                         transparentPlayerBackground={transparentPlayerBackground}

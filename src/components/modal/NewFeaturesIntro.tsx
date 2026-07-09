@@ -36,7 +36,7 @@ export const NewFeaturesIntro: React.FC<NewFeaturesIntroProps> = ({ isDaylight, 
                     {...tipCardClasses}
                     icon={Sparkles}
                     iconClassName={isDaylight ? 'text-blue-500' : 'text-blue-400'}
-                    title={t('userGuide.title', '欢迎使用 Folia')}
+                    title={t('userGuide.title', '欢迎使用 Lyra')}
                     description="以下是新版本功能与改进"
                 />
             </div>

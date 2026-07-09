@@ -4,9 +4,15 @@ import type { MotionValue } from 'framer-motion';
 import type { TFunction } from 'i18next';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useNeteaseLibrary } from '@/hooks/useNeteaseLibrary';
+import { useQQMusicLibrary } from '@/hooks/useQQMusicLibrary';
+import { useOnlineGuestStore } from '@/stores/useOnlineGuestStore';
 import { useElectronWindowPlaybackHandoff } from '@/hooks/useElectronWindowPlaybackHandoff';
 import { useStagePlaybackController } from '@/hooks/useStagePlaybackController';
 import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
+import { useOnlineLibraryFilterStore } from '@/stores/useOnlineLibraryFilterStore';
+import { useAggregatedOnlinePlaylists } from '@/hooks/useAggregatedOnlinePlaylists';
+import { syncQQMusicAuthFromElectron, getQQMusicAuth } from '@/services/musicProviders/qqMusicAuth';
+import { hasNeteaseSession, hasQQMusicSession } from '@/utils/onlineLibraryAccess';
 import { useShallow } from 'zustand/react/shallow';
 import type { PlayerState, PlaybackContext, SongResult, LyricData, StatusMessage } from '@/types';
 import type { ThemeCacheSongKey } from '@/services/themeCache';
@@ -147,6 +153,11 @@ export function useAppControllerCoreIntegrations(params: AppControllerCoreIntegr
         }
     }, [currentView, isPanelOpen, setIsPanelOpen]);
 
+    useEffect(() => {
+        if (!isElectronWindow) return;
+        void syncQQMusicAuthFromElectron();
+    }, [isElectronWindow]);
+
     const {
         isSearchOpen,
         searchQuery,
@@ -166,10 +177,14 @@ export function useAppControllerCoreIntegrations(params: AppControllerCoreIntegr
         user,
         playlists,
         cloudPlaylist,
+        favoriteAlbums,
+        isFavoriteAlbumsLoading,
+        favoriteAlbumsLoadFailed,
         likedSongIds,
         isSyncing,
         cacheSize,
         refreshUserData,
+        refreshFavoriteAlbums,
         updateCacheSize,
         handleClearCache,
         handleSyncData,
@@ -181,6 +196,29 @@ export function useAppControllerCoreIntegrations(params: AppControllerCoreIntegr
         setStatusMsg,
         t,
     });
+
+    const onlineGuestEntered = useOnlineGuestStore(state => state.entered);
+    const neteaseSessionActive = hasNeteaseSession(user);
+    const qqSessionActive = hasQQMusicSession();
+    const playlistProviders = useOnlineLibraryFilterStore(state => state.playlistProviders);
+    const moduleFilter = useOnlineLibraryFilterStore(state => state.moduleFilter);
+    const { playlists: qqPlaylists } = useQQMusicLibrary({
+        enabled: qqSessionActive,
+    });
+    const activePlaylists = useAggregatedOnlinePlaylists({
+        neteasePlaylists: neteaseSessionActive ? playlists : [],
+        qqPlaylists,
+        cloudPlaylist: neteaseSessionActive ? cloudPlaylist : null,
+        enabledProviders: playlistProviders,
+        moduleFilter,
+    });
+    const activeUser = neteaseSessionActive ? user : null;
+
+    useEffect(() => {
+        if (neteaseSessionActive || qqSessionActive) {
+            useOnlineGuestStore.getState().enter();
+        }
+    }, [neteaseSessionActive, qqSessionActive]);
 
     const {
         stageStatus,
@@ -313,6 +351,8 @@ export function useAppControllerCoreIntegrations(params: AppControllerCoreIntegr
         closeSearchView,
         cloudPlaylist,
         currentView,
+        favoriteAlbums,
+        favoriteAlbumsLoadFailed,
         focusedFavoriteAlbumIndex,
         focusedPlaylistIndex,
         focusedRadioIndex,
@@ -330,6 +370,7 @@ export function useAppControllerCoreIntegrations(params: AppControllerCoreIntegr
         isNowPlayingStageActive,
         isOverlayVisible,
         isSearchOpen,
+        isFavoriteAlbumsLoading,
         isSyncing,
         leaveStagePlayback,
         likedSongIds,
@@ -354,8 +395,9 @@ export function useAppControllerCoreIntegrations(params: AppControllerCoreIntegr
         openStagePlayer,
         overlayStack,
         pendingNavidromeSelection,
-        playlists,
+        playlists: activePlaylists,
         popOverlay,
+        refreshFavoriteAlbums,
         refreshUserData,
         searchQuery,
         searchSourceTab,
@@ -379,7 +421,7 @@ export function useAppControllerCoreIntegrations(params: AppControllerCoreIntegr
         toggleTransparentModeWithHandoff,
         topOverlay,
         updateCacheSize,
-        user,
+        user: activeUser,
         windowPlaybackHandoffRestoreStatus,
     };
 }

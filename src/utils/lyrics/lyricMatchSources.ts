@@ -1,8 +1,8 @@
 import { neteaseApi } from '../../services/netease';
+import { getMusicProvider } from '../../services/musicProviders/registry';
 import type { AmllDbPlatform, LyricData, LyricProviderSource, SongResult } from '../../types';
 import { fetchNeteaseChorusRanges, processNeteaseLyrics } from './neteaseProcessing';
 import { calculateMatchScore, calculateMatchScoreDetails } from './matchScore';
-import { searchQQLyrics, fetchQQLyrics } from './providers/qqLyricProvider';
 import { searchKugouLyrics, fetchKugouLyrics } from './providers/kugouLyricProvider';
 import { fetchAmllDbLyrics } from './providers/amllDbProvider';
 import { applyNeteaseChorusByTime } from './chorusEffects';
@@ -66,14 +66,14 @@ export async function searchAmllDbLyricCandidates(
 ): Promise<SongResult[]> {
     const [neteaseResult, qqResult] = await Promise.allSettled([
         neteaseApi.cloudSearch(query, AMLL_DB_SEARCH_LIMIT_PER_SOURCE),
-        searchQQLyrics(query, 1, AMLL_DB_SEARCH_LIMIT_PER_SOURCE),
+        getMusicProvider('qq').search(query, { limit: AMLL_DB_SEARCH_LIMIT_PER_SOURCE, offset: 0 }),
     ]);
 
     const neteaseSongs = neteaseResult.status === 'fulfilled'
         ? (neteaseResult.value.result?.songs ?? []).map(song => withAmllDbPlatform(song, 'ncm'))
         : [];
     const qqSongs = qqResult.status === 'fulfilled'
-        ? qqResult.value.map(song => withAmllDbPlatform(song, 'qq'))
+        ? qqResult.value.songs.map(song => withAmllDbPlatform(song, 'qq'))
         : [];
 
     const seen = new Set<string>();
@@ -115,7 +115,8 @@ export async function searchLyricsByMatchSource(
         return sortByMatchScore(response.result?.songs ?? [], target);
     }
     if (source === 'qq') {
-        return sortByMatchScore(await searchQQLyrics(query), target);
+        const response = await getMusicProvider('qq').search(query, { limit: 30, offset: 0 });
+        return sortByMatchScore(response.songs, target);
     }
     if (source === 'kugou') {
         return sortByMatchScore(await searchKugouLyrics(query), target);
@@ -133,7 +134,7 @@ export async function fetchLyricsForMatchSource(
     }
     if (source === 'qq') {
         return {
-            lyrics: await fetchQQLyrics(selectedResult),
+            lyrics: await getMusicProvider('qq').getLyrics(selectedResult),
             isPureMusic: false,
         };
     }

@@ -1,5 +1,5 @@
 {
-  "name": "Folia",
-  "description": "A local music player that syncs with Netease Cloud Music lyrics, featuring AI-powered visual themes and kinetic typography effects.",
+  "name": "Lyra",
+  "description": "Lyra (天琴) is an immersive multi-source music player with 3D stage visuals and smart atmosphere — connecting online platforms, local libraries, and intelligent themes.",
   "requestFramePermissions": []
 }

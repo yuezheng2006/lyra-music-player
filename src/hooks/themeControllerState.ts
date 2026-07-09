@@ -400,9 +400,9 @@ export const buildBuiltinDualTheme = ({
         dark: {
             name: `${palette.name} Built-in`,
             backgroundColor: darkBackground,
-            primaryColor: ensureContrast('#f8fafc', darkBackground, 12, '#ffffff'),
+            primaryColor: ensureContrast('#fafafa', darkBackground, 12, '#ffffff'),
             accentColor: ensureContrast(mixColors(darkAccentBase, '#ffffff', 0.08), darkBackground, 3, '#7dd3fc'),
-            secondaryColor: ensureContrast(mixColors(darkSecondaryBase, '#f8fafc', 0.22), darkBackground, 4.5, '#cbd5e1'),
+            secondaryColor: ensureContrast(mixColors(darkSecondaryBase, '#fafafa', 0.38), darkBackground, 5.5, '#b8b8c2'),
             fontStyle: 'sans',
             animationIntensity: 'normal',
             wordColors: [],

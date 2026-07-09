@@ -41,7 +41,7 @@ export const ENABLE_SMART_ATMOSPHERE_STORAGE_KEY = 'enable_smart_atmosphere';
 export const INTERACTIVE_3D_SCENE_TUNING_STORAGE_KEY = 'interactive_3d_scene_tuning';
 export const ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY = 'enable_3d_interactive_background';
 
-const DEFAULT_DAYLIGHT_PREFERENCE = true;
+const DEFAULT_DAYLIGHT_PREFERENCE = false;
 
 const getStoredBoolean = (key: string, fallback: boolean) => {
     if (typeof window === 'undefined') {
@@ -514,15 +514,22 @@ const readStoredUrlBackgroundSelectedId = (): string | null => {
     return localStorage.getItem('url_background_selected_id') || null;
 };
 
+/** Default player background when nothing is stored. Independent of lyric visualizer mode. */
+export const DEFAULT_VISUALIZER_BACKGROUND_MODE: VisualizerBackgroundMode = 'interactive3d';
+
+/**
+ * Resolve player background mode.
+ * Lyric style (visualizerMode) must not change background — keep an explicit stored mode.
+ * `visualizerMode` is accepted for call-site compatibility only.
+ */
 export const resolveVisualizerBackgroundMode = (
     storedMode: VisualizerBackgroundMode | null | undefined,
-    visualizerMode: VisualizerMode,
-): VisualizerBackgroundMode => storedMode ?? (visualizerMode === 'monet' ? 'monet' : 'interactive3d');
+    _visualizerMode?: VisualizerMode,
+): VisualizerBackgroundMode => storedMode ?? DEFAULT_VISUALIZER_BACKGROUND_MODE;
 
 const bootstrapVisualizerBackgroundMode = (): VisualizerBackgroundMode => {
-    const visualizerMode = readStoredVisualizerMode();
     const storedMode = readStoredVisualizerBackgroundMode();
-    const resolvedMode = resolveVisualizerBackgroundMode(storedMode, visualizerMode);
+    const resolvedMode = resolveVisualizerBackgroundMode(storedMode);
 
     if (typeof window !== 'undefined' && !storedMode) {
         localStorage.setItem('visualizer_background_mode', resolvedMode);
@@ -1303,8 +1310,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         set({ visualizerBackgroundMode: mode, enable3dInteractiveBackground });
     },
     handleResetVisualizerBackgroundMode: () => {
-        const visualizerMode = get().visualizerMode;
-        const resolvedMode = resolveVisualizerBackgroundMode(null, visualizerMode);
+        const resolvedMode = DEFAULT_VISUALIZER_BACKGROUND_MODE;
         const enable3dInteractiveBackground = resolvedMode === 'interactive3d';
         if (typeof window !== 'undefined') {
             localStorage.setItem('visualizer_background_mode', resolvedMode);
@@ -1572,13 +1578,10 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     },
     handleSetInteractive3dSceneTuning: (patch) => {
         const prev = get().interactive3dSceneTuning;
-        const touchesLayer = Object.keys(patch).some((key) =>
-            key.startsWith('enable') || key === 'bloomStrength' || key === 'cinemaShake' || key === 'rhythmIntensity',
-        );
         const next = resolveStoredInteractive3dSceneTuning({
             ...prev,
             ...patch,
-            visualPreset: patch.visualPreset ?? (touchesLayer ? 'custom' : prev.visualPreset),
+            visualPreset: patch.visualPreset ?? prev.visualPreset,
         });
         if (typeof window !== 'undefined') {
             localStorage.setItem(INTERACTIVE_3D_SCENE_TUNING_STORAGE_KEY, JSON.stringify(next));

@@ -26,8 +26,15 @@ const baseInput = {
 };
 
 describe('interactive3d settings matrix', () => {
-    it('exposes exactly three visual preset options in shipped bundles', () => {
-        expect(INTERACTIVE3D_VISUAL_PRESET_OPTIONS).toEqual(['emily', 'starfield', 'tunnel']);
+    it('exposes the shipped WebGL visual preset options', () => {
+        expect(INTERACTIVE3D_VISUAL_PRESET_OPTIONS).toEqual([
+            'emily',
+            'quantumCube',
+            'mineradioTunnel',
+            'mineradioOrbit',
+            'mineradioVinyl',
+            'mineradioGalaxy',
+        ]);
     });
 
     it('uses WebGL cover renderer on player page with interactive3d background', () => {
@@ -72,11 +79,11 @@ describe('interactive3d settings matrix', () => {
         })).toBe('none');
     });
 
-    it('does not treat monet visualizer mode as interactive3d background by default', () => {
+    it('keeps the stored default interactive3d background when monet controls lyrics', () => {
         expect(resolveInteractive3dEffectiveSettings({
             visualizerBackgroundMode: null,
             visualizerMode: 'monet',
-        }).resolvedBackgroundMode).toBe('monet');
+        }).resolvedBackgroundMode).toBe('interactive3d');
     });
 
     it('allows monet lyrics with explicit interactive3d background selection', () => {

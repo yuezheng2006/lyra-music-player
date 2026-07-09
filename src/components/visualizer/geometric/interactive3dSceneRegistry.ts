@@ -35,6 +35,8 @@ type Interactive3dSceneBooleanKey = Exclude<
     | 'rhythmIntensity'
     | 'cinemaShake'
     | 'bloomStrength'
+    | 'atmosphereSensitivity'
+    | 'cameraPunchStrength'
     | 'shelfMode'
     | 'shelfPresence'
     | 'shelfCameraMode'
@@ -137,7 +139,7 @@ export const INTERACTIVE3D_SCENE_EFFECTS: Interactive3dSceneEffectDefinition[] =
         labelKey: 'options.interactive3dEffectCoverParticles',
         labelFallback: '封面 WebGL 粒子',
         descriptionKey: 'options.interactive3dEffectCoverParticlesDesc',
-        descriptionFallback: '封面/骷髅点云，作为 3D 场景主背景。',
+        descriptionFallback: '封面点云、量子盒、星云、声场和极光带粒子，作为 3D 场景主背景。',
         tuningKey: 'enableCoverParticles',
         testId: 'interactive3d-effect-cover-particles',
         renderLayer: 'canvas',
@@ -209,6 +211,18 @@ export const resolveStoredInteractive3dSceneTuning = (
         0,
         1.6,
         DEFAULT_INTERACTIVE3D_SCENE_TUNING.bloomStrength,
+    ),
+    atmosphereSensitivity: clampUnit(
+        parsed.atmosphereSensitivity ?? DEFAULT_INTERACTIVE3D_SCENE_TUNING.atmosphereSensitivity,
+        0,
+        1.5,
+        DEFAULT_INTERACTIVE3D_SCENE_TUNING.atmosphereSensitivity,
+    ),
+    cameraPunchStrength: clampUnit(
+        parsed.cameraPunchStrength ?? DEFAULT_INTERACTIVE3D_SCENE_TUNING.cameraPunchStrength,
+        0,
+        1.5,
+        DEFAULT_INTERACTIVE3D_SCENE_TUNING.cameraPunchStrength,
     ),
     shelfMode: SHELF_MODES.includes(parsed.shelfMode as typeof SHELF_MODES[number])
         ? (parsed.shelfMode as typeof SHELF_MODES[number])

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import VisualizerRenderer from '@/components/visualizer/VisualizerRenderer';
 import CommandPalette from '@/components/command-palette/CommandPalette';
 import AppShell from '@/components/app/AppShell';
+import AppSidebar from '@/components/app/chrome/AppSidebar';
 import Home from '@/components/app/Home';
 import PlayerPanel from '@/components/app/PlayerPanel';
 import ThemeQuickEditorHost from '@/components/panelTab/ThemeQuickEditor';
@@ -11,8 +12,13 @@ import AppOverlays from '@/components/app/overlays/AppOverlays';
 import { UserGuideModal } from '@/components/modal/UserGuideModal';
 import { ObsBrowserSourceLyrics } from '@/components/obs/ObsBrowserSourceLyrics';
 import { resolvePlayerGeometricBackgroundDisabled } from '@/components/visualizer/resolveInteractive3dFumeLayering';
+import { resolveFloatingPlayerBarReserve } from '@/components/floatingPlayerDockLayout';
+import { VISUALIZER_SUBTITLE_PORTAL_ROOT_ID } from '@/components/visualizer/visualizerSubtitlePortal';
 import type { AppControllerResult } from '@/hooks/useAppController';
 import { AppAudioElement } from '@/components/app/root/AppAudioElement';
+import { useAppSidebarCollapse } from '@/hooks/useAppSidebarCollapse';
+import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
+import type { AppSidebarActive } from '@/components/app/chrome/AppSidebar';
 
 interface AppRootViewProps {
     controller: AppControllerResult;
@@ -20,6 +26,8 @@ interface AppRootViewProps {
 
 export function AppRootView({ controller }: AppRootViewProps) {
     const { t } = useTranslation();
+    const homeViewTab = useSearchNavigationStore(state => state.homeViewTab);
+    const setHomeViewTab = useSearchNavigationStore(state => state.setHomeViewTab);
     const {
         activePlaybackContext,
         appDialogsModel,
@@ -77,10 +85,14 @@ export function AppRootView({ controller }: AppRootViewProps) {
         monetPortraitImage,
         monetTuning,
         navigateToHome,
+        navigateDirectHome,
+        navigateToPlayer,
+        openSettings,
         nowPlayingConnectionStatus,
         partitaTuning,
         pendingResumeTimeRef,
         playbackAutoSkipCountRef,
+        playerLyricsVisible,
         playerPanelModel,
         playerState,
         playlistShelfItems,
@@ -118,9 +130,21 @@ export function AppRootView({ controller }: AppRootViewProps) {
         visualizerTheme,
     } = controller;
 
+    // Immersive fullscreen: player canvas only — hide sidebar + docked bar.
+    const immersiveCanvas = currentView === 'player' && isPlayerChromeHidden;
+    const { collapsed: sidebarCollapsed, toggleCollapsed } = useAppSidebarCollapse({
+        forceCollapsed: immersiveCanvas,
+    });
+    const playerBarHeight = resolveFloatingPlayerBarReserve(immersiveCanvas);
+    const sidebarWidth = immersiveCanvas || sidebarCollapsed ? '0px' : '220px';
+
     return (
         <AppShell
-            appStyle={appStyle}
+            appStyle={{
+                ...appStyle,
+                ['--app-player-bar-height' as string]: playerBarHeight,
+                ['--app-sidebar-width' as string]: sidebarWidth,
+            }}
             isElectronWindow={isElectronWindow}
             usesCustomWindowChrome={usesCustomWindowChrome}
             useCustomWindowRadius={isElectronWindow && transparentPlayerBackground}
@@ -160,7 +184,37 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 skipAfterPlaybackFailure={skipAfterPlaybackFailure}
             />}
         >
+            <div className="relative flex min-h-0 flex-1 w-full">
+                {!immersiveCanvas ? (
+                    <AppSidebar
+                        active={((): AppSidebarActive => {
+                            if (currentView === 'player') return 'listening';
+                            if (homeViewTab === 'daily') return 'daily';
+                            if (homeViewTab === 'podcast') return 'podcast';
+                            return 'home';
+                        })()}
+                        isDaylight={isDaylight}
+                        hasCurrentSong={Boolean(currentSong)}
+                        collapsed={sidebarCollapsed}
+                        onToggleCollapsed={toggleCollapsed}
+                        onOpenHome={() => {
+                            setHomeViewTab('playlist');
+                            navigateDirectHome();
+                        }}
+                        onOpenDaily={() => {
+                            setHomeViewTab('daily');
+                            navigateDirectHome({ clearContext: false });
+                        }}
+                        onOpenPodcast={() => {
+                            setHomeViewTab('podcast');
+                            navigateDirectHome({ clearContext: false });
+                        }}
+                        onOpenListeningMode={navigateToPlayer}
+                        onOpenSettings={() => openSettings('options')}
+                    />
+                ) : null}
 
+                <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
             {/* Home Mount Point */}
             <div
                 className="absolute inset-0 z-10"
@@ -212,7 +266,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         songArtist={currentSongArtist}
                         songAlbum={currentSongAlbum}
                         coverUrl={getCoverUrl()}
-                        showText={currentView === 'player' && !isSettingsModalOpen}
+                        showText={currentView === 'player' && playerLyricsVisible && !isSettingsModalOpen}
                         useCoverColorBg={useCoverColorBg}
                         seed={visualizerGeometrySeed}
                         staticMode={staticMode}
@@ -296,6 +350,15 @@ export function AppRootView({ controller }: AppRootViewProps) {
             {currentView === 'player' && !showLyricMatchModal && (
                 <PlayerPanel model={playerPanelModel} />
             )}
+                </div>
+            </div>
+
+            {/* Fixed host so bottom subtitles escape visualizer overflow / rhythm scale clipping. */}
+            <div
+                id={VISUALIZER_SUBTITLE_PORTAL_ROOT_ID}
+                className="pointer-events-none fixed bottom-0 right-0 top-0 z-[120]"
+                style={{ left: 'var(--app-sidebar-width, 0px)' }}
+            />
 
             <ThemeQuickEditorHost onSaveAiTheme={saveEditedAiDualTheme} onSaveCustomTheme={saveCustomDualTheme} />
 

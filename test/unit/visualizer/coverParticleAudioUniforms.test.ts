@@ -27,9 +27,16 @@ describe('coverParticleAudioUniforms', () => {
         const smoother = new CoverParticleAudioSmoother();
         let uniforms = { bass: 0, mid: 0, treble: 0, beat: 0, energy: 0 };
 
+        const bands = {
+            bass: { get: () => 220 },
+            mid: { get: () => 140 },
+            treble: { get: () => 90 },
+            vocal: { get: () => 120 },
+        } as never;
+
         for (let frame = 0; frame < 30; frame += 1) {
             uniforms = smoother.tick(
-                { bass: 220, mid: 140, treble: 90, vocal: 120 },
+                bands,
                 0.62,
                 0.85,
                 0.016,
@@ -46,7 +53,7 @@ describe('coverParticleAudioUniforms', () => {
 
     it('keeps idle silk breathing when music is not active', () => {
         const smoother = new CoverParticleAudioSmoother();
-        const uniforms = smoother.tick({ bass: 28 }, 0, 0.85, 0.016, false, 0);
+        const uniforms = smoother.tick({ bass: { get: () => 28 } } as never, 0, 0.85, 0.016, false, 0);
 
         expect(uniforms.bass).toBeGreaterThan(0);
         expect(uniforms.mid).toBeGreaterThan(0);

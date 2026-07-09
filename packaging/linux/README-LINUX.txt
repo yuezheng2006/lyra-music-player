@@ -1,4 +1,4 @@
-Folia Linux 便携版说明
+Lyra Linux 便携版说明
 ======================
 
 此压缩包包含以下内容：
@@ -17,7 +17,7 @@ Folia Linux 便携版说明
    `__ICON_PATH__` -> `resources/linux/icon.png` 的绝对路径
 
 示例：
-`Exec=/home/yourname/Apps/Folia/folia-major`
-`Icon=/home/yourname/Apps/Folia/resources/linux/icon.png`
+`Exec=/home/yourname/Apps/Lyra/folia-major`
+`Icon=/home/yourname/Apps/Lyra/resources/linux/icon.png`
 
 3. 如果您的桌面环境有要求，请将该 `.desktop` 文件标记为可信或可执行。

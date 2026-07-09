@@ -10,17 +10,18 @@ export type ControlsTabOptionStyles = {
 };
 
 export const getControlsTabOptionStyles = (isDaylight: boolean): ControlsTabOptionStyles => ({
-    wellBg: isDaylight ? 'bg-black/5' : 'bg-black/20',
+    wellBg: isDaylight ? 'bg-black/5' : 'bg-white/[0.06]',
+    // Dark 选中态用白底黑字，贴近 Mineradio 控制台的高对比 pill。
     activeOptionClass: isDaylight
         ? 'bg-white text-stone-900 shadow-sm hover:bg-white/90'
-        : 'bg-white/20 text-white shadow-sm hover:bg-white/30',
+        : 'bg-white text-zinc-950 shadow-sm hover:bg-white/92',
     inactiveOptionClass: isDaylight
-        ? 'text-stone-600 hover:bg-black/[0.04] hover:text-stone-900'
-        : 'text-white/58 hover:bg-white/[0.06] hover:text-white/92',
+        ? 'text-stone-700 hover:bg-black/[0.04] hover:text-stone-950'
+        : 'text-white/88 hover:bg-white/[0.08] hover:text-white',
     disabledOptionClass: isDaylight
         ? 'text-stone-400 cursor-not-allowed'
-        : 'text-white/28 cursor-not-allowed',
-    sectionHintClass: isDaylight ? 'text-stone-500' : 'text-white/45',
+        : 'text-white/34 cursor-not-allowed',
+    sectionHintClass: isDaylight ? 'text-stone-500' : 'text-white/58',
 });
 
 export const getControlsTabOptionButtonClass = (

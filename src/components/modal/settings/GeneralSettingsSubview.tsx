@@ -56,7 +56,7 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
                             {t('options.appLanguage') || '界面语言'}
                         </div>
                         <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                            {t('options.appLanguageDesc') || '手动指定 Folia 的界面语言'}
+                            {t('options.appLanguageDesc') || '手动指定 Lyra 的界面语言'}
                         </div>
                     </div>
                     <CustomSelect

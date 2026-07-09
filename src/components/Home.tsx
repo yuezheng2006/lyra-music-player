@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, User, Loader2, ChevronRight, Settings , ChevronDown } from 'lucide-react';
+import { Search, Loader2, ChevronDown } from 'lucide-react';
 import { neteaseApi } from '../services/netease';
-import { HomeViewTab, NeteaseUser, NeteasePlaylist, SongResult, LocalSong, LocalLibraryGroup, LocalPlaylist, type StageStatus, type StageSource, type Theme } from '../types';
+import { NeteaseUser, NeteasePlaylist, SongResult, LocalSong, LocalLibraryGroup, LocalPlaylist, type SearchSourceId, type StageStatus, type StageSource, type Theme } from '../types';
 import { NavidromeSong, NavidromeViewSelection } from '../types/navidrome';
 import { LOCAL_MUSIC_SCAN_PROGRESS_EVENT } from '../services/localMusicService';
 import LocalMusicView from './LocalMusicView';
@@ -11,15 +11,29 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Carousel3D from './Carousel3D';
 import { useSearchNavigationStore } from '../stores/useSearchNavigationStore';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
+import OnlineMusicGuestConnect from './shared/OnlineMusicGuestConnect';
+import OnlineProviderFilterBar from './shared/OnlineProviderFilterBar';
+import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterStore';
+import { hasAnyOnlineMusicSession, hasNeteaseSession, hasQQMusicSession } from '../utils/onlineLibraryAccess';
+import { resolveSearchableLibraryProviders } from '../utils/onlineSearchRouting';
+import { useOnlineGuestStore } from '../stores/useOnlineGuestStore';
 import { useShallow } from 'zustand/react/shallow';
 
 interface HomeProps {
-    onPlaySong: (song: SongResult, playlistCtx?: SongResult[], isFmCall?: boolean) => void;
+    onPlaySong: (
+        song: SongResult,
+        playlistCtx?: SongResult[],
+        isFmCall?: boolean,
+        options?: { shouldNavigateToPlayer?: boolean },
+    ) => void;
     onBackToPlayer: () => void;
     onRefreshUser: () => void;
     user: NeteaseUser | null;
     playlists: NeteasePlaylist[];
     cloudPlaylist?: NeteasePlaylist | null;
+    favoriteAlbums?: any[];
+    isFavoriteAlbumsLoading?: boolean;
+    favoriteAlbumsLoadFailed?: boolean;
     currentTrack?: SongResult | null;
     isPlaying: boolean;
     onSelectPlaylist: (playlist: NeteasePlaylist) => void;
@@ -30,7 +44,11 @@ interface HomeProps {
     localSongs: LocalSong[];
     localPlaylists: LocalPlaylist[];
     onRefreshLocalSongs: () => void;
-    onPlayLocalSong: (song: LocalSong, queue?: LocalSong[]) => void;
+    onPlayLocalSong: (
+        song: LocalSong,
+        queue?: LocalSong[],
+        options?: { shouldNavigateToPlayer?: boolean },
+    ) => void;
     onAddLocalSongToQueue?: (song: LocalSong) => void;
     focusedPlaylistIndex?: number;
     setFocusedPlaylistIndex?: (index: number) => void;
@@ -59,14 +77,18 @@ interface HomeProps {
         focusedPlaylistIndex: number;
     }>>;
     onMatchSong?: (song: LocalSong) => void;
-    onPlayNavidromeSong?: (song: NavidromeSong, queue?: NavidromeSong[]) => void;
+    onPlayNavidromeSong?: (
+        song: NavidromeSong,
+        queue?: NavidromeSong[],
+        options?: { shouldNavigateToPlayer?: boolean },
+    ) => void;
     onAddNavidromeSongsToQueue?: (songs: NavidromeSong[]) => void;
     onMatchNavidromeSong?: (song: NavidromeSong) => void;
     navidromeFocusedAlbumIndex?: number;
     setNavidromeFocusedAlbumIndex?: (index: number) => void;
     pendingNavidromeSelection?: NavidromeViewSelection | null;
     onPendingNavidromeSelectionHandled?: () => void;
-    onSearchCommitted: (query: string, sourceTab: HomeViewTab, replace?: boolean) => void;
+    onSearchCommitted: (query: string, sourceTab: SearchSourceId, replace?: boolean) => void;
     stageEnabled?: boolean;
     stageSource?: StageSource | null;
     stageIsActive?: boolean;
@@ -77,20 +99,26 @@ interface HomeProps {
     onRegenerateStageToken?: () => Promise<void> | void;
     onClearStageState?: () => Promise<void> | void;
     theme: Theme;
-    onOpenSettings?: (initialTab?: 'help' | 'options') => void;
+    onOpenSettings?: (initialTab?: 'help' | 'options', initialSubview?: 'integration' | null) => void;
     navidromeEnabled?: boolean;
-    onPlayAll?: (songs: SongResult[]) => void;
+    onPlayAll?: (
+        songs: SongResult[],
+        options?: { shouldNavigateToPlayer?: boolean },
+    ) => void;
     onAddAllToQueue?: (songs: SongResult[]) => void;
     onAddSongToQueue?: (song: SongResult) => void;
 }
 
 const Home: React.FC<HomeProps> = ({
     onPlaySong,
-    onBackToPlayer,
+    onBackToPlayer: _onBackToPlayer,
     onRefreshUser,
     user,
     playlists,
     cloudPlaylist = null,
+    favoriteAlbums = [],
+    isFavoriteAlbumsLoading = false,
+    favoriteAlbumsLoadFailed = false,
     currentTrack,
     isPlaying,
     onSelectPlaylist,
@@ -135,44 +163,60 @@ const Home: React.FC<HomeProps> = ({
 }) => {
     const { t } = useTranslation();
     const isDaylight = useSettingsUiStore(state => state.isDaylight);
+    const visualizerBackgroundMode = useSettingsUiStore(state => state.visualizerBackgroundMode);
+    const isInteractive3dBackground = visualizerBackgroundMode === 'interactive3d';
     const {
         homeViewTab,
-        setHomeViewTab,
         searchQuery,
         setSearchQuery,
         isSearching,
         submitSearch,
     } = useSearchNavigationStore(useShallow(state => ({
         homeViewTab: state.homeViewTab,
-        setHomeViewTab: state.setHomeViewTab,
         searchQuery: state.searchQuery,
         setSearchQuery: state.setSearchQuery,
         isSearching: state.isSearching,
         submitSearch: state.submitSearch,
     })));
     const viewTab = homeViewTab;
-    const hasNeteaseLogin = Boolean(user);
-    const isNeteaseTab = viewTab === 'playlist' || viewTab === 'albums' || viewTab === 'radio';
-    const homeContentBottomPadding = currentTrack ? 'pb-28 md:pb-32' : '';
-    const playlistCards = cloudPlaylist
-        ? (playlists.length > 0
-            ? [playlists[0], cloudPlaylist, ...playlists.slice(1)]
-            : [cloudPlaylist])
-        : playlists;
+    const searchProvider = useOnlineLibraryFilterStore(state => state.searchProvider);
+    const playlistProviders = useOnlineLibraryFilterStore(state => state.playlistProviders);
+    const hasNeteaseLogin = hasNeteaseSession(user);
+    const hasQQLogin = hasQQMusicSession();
+    const searchableProviders = resolveSearchableLibraryProviders(playlistProviders, {
+        netease: hasNeteaseLogin,
+        qq: hasQQLogin,
+    });
+    const onlineGuestEntered = useOnlineGuestStore(state => state.entered);
+    const hasAnyOnlineLogin = hasAnyOnlineMusicSession(user);
+    const showGuestConnect = viewTab === 'playlist' && !hasAnyOnlineLogin && !onlineGuestEntered;
+    const showOnlineLibrary = viewTab === 'playlist' && (hasAnyOnlineLogin || onlineGuestEntered);
+    const homeContentBottomPadding = currentTrack
+        ? 'pb-[calc(var(--app-player-bar-height,72px)+24px)]'
+        : '';
+    const playlistCards = playlists;
+    const homeSearchPlaceholder = searchableProviders.length > 1
+        ? t('home.searchMultiSources')
+        : (searchableProviders[0] || searchProvider) === 'qq'
+            ? t('home.searchQQMusic')
+            : (searchableProviders[0] || searchProvider) === 'coco'
+                ? t('home.searchCocoMusic')
+                : t('home.searchDatabase');
     // const isDaylight = theme.name === 'Daylight Default'; // Deprecated, passed as prop
 
+    useEffect(() => {
+        // Free peer provider (coco) keeps the online home available without login.
+        useOnlineGuestStore.getState().enter();
+    }, []);
+
     // Style Variants
-    const mainBg = isDaylight ? 'bg-white/40' : 'bg-black/20';
+    const mainBg = isInteractive3dBackground ? 'bg-transparent' : isDaylight ? 'bg-white/40' : 'bg-black/20';
+    const mainBackdrop = isInteractive3dBackground ? '' : 'backdrop-blur-sm';
     const inputBg = isDaylight ? 'bg-black/5 focus:bg-black/10' : 'bg-white/5 focus:bg-white/10';
-    const cardBg = isDaylight ? 'bg-white/40' : 'bg-white/5';
-    const activeTabBg = isDaylight ? 'text-black font-bold' : 'text-black'; // When tab active (white bg), text is black
     // For pill nav container
     const navPillBg = isDaylight ? 'bg-black/5' : 'bg-white/10';
-    const navPillInactiveText = isDaylight ? 'text-black/60 hover:text-black' : 'text-white/60 hover:text-white';
+    const navPillInactiveText = isDaylight ? 'text-black/60 hover:text-black' : 'text-white/78 hover:text-white';
     // UI State
-    const [showLoginModal, setShowLoginModal] = useState(false);
-
-    const [updateStatus, setUpdateStatus] = useState<ElectronUpdateStatus | null>(null);
     const [scanProgress, setScanProgress] = useState<{
         active: boolean;
         folderName: string;
@@ -183,59 +227,10 @@ const Home: React.FC<HomeProps> = ({
     const scanProgressPercent = scanProgress?.totalSongs
         ? Math.min(100, Math.round((scanProgress.completedSongs / scanProgress.totalSongs) * 100))
         : 0;
-    const homeTabs: Array<{ key: HomeViewTab; label: string; }> = [
-        { key: 'playlist', label: t('home.playlists') },
-        { key: 'radio', label: t('home.radio') || '电台' },
-        { key: 'albums', label: t('home.albums') || '专辑' },
-        { key: 'local', label: t('localMusic.folder') },
-        ...(navidromeEnabled ? [{ key: 'navidrome' as HomeViewTab, label: t('navidrome.title') || 'Navidrome' }] : []),
-    ];
-
-    useEffect(() => {
-        if (!window.electron?.getUpdateStatus) {
-            return;
-        }
-
-        let disposed = false;
-
-        window.electron.getUpdateStatus().then((status) => {
-            if (!disposed) {
-                setUpdateStatus(status);
-            }
-        }).catch(() => {
-            if (!disposed) {
-                setUpdateStatus(null);
-            }
-        });
-
-        const unsubscribe = window.electron.onUpdateStatusChanged?.((status) => {
-            setUpdateStatus(status);
-        });
-
-        return () => {
-            disposed = true;
-            unsubscribe?.();
-        };
-    }, []);
-
-    const showUpdateIndicator = Boolean(
-        updateStatus?.updateCheckEnabled &&
-        updateStatus.availableVersion &&
-        !updateStatus.updateSeen
-    );
 
     const [searchNavidromeSelection, setSearchNavidromeSelection] = useState<NavidromeViewSelection | null>(null);
-
-    // Login QR
-    const [qrCodeImg, setQrCodeImg] = useState<string>("");
-    const [qrStatus, setQrStatus] = useState<string>("");
-    const qrCheckInterval = useRef<any>(null);
     const [isLocalPlaylistOpen, setIsLocalPlaylistOpen] = useState(false);
 
-    // Favorite Albums
-    const [favoriteAlbums, setFavoriteAlbums] = useState<any[]>([]);
-    const [loadingAlbums, setLoadingAlbums] = useState(false);
-    const [albumsLoaded, setAlbumsLoaded] = useState(false);
     // Swipe handling
     // const touchStartY = useRef(0);
     // const touchEndY = useRef(0);
@@ -261,52 +256,7 @@ const Home: React.FC<HomeProps> = ({
     //     }
     // };
 
-    // Load favorite albums when tab is active
-    useEffect(() => {
-        if (viewTab === 'albums' && !albumsLoaded && user) {
-            fetchFavoriteAlbums();
-        }
-    }, [viewTab, user, albumsLoaded]);
-
-    useEffect(() => {
-        const handleRefreshAlbums = () => {
-            setAlbumsLoaded(false);
-        };
-        window.addEventListener('folia-refresh-favorite-albums', handleRefreshAlbums);
-        return () => window.removeEventListener('folia-refresh-favorite-albums', handleRefreshAlbums);
-    }, []);
-
-    const fetchFavoriteAlbums = async () => {
-        setLoadingAlbums(true);
-        try {
-            let allAlbums: any[] = [];
-            let offset = 0;
-            const limit = 50;
-            let hasMore = true;
-
-            while (hasMore) {
-                const res = await neteaseApi.getFavoriteAlbums(limit, offset);
-                if (res.data) {
-                    allAlbums = [...allAlbums, ...res.data];
-                }
-
-                // Use hasMore directly as requested
-                hasMore = res.hasMore;
-                offset += limit;
-            }
-
-            if (allAlbums.length > 0) {
-                setFavoriteAlbums(allAlbums);
-            }
-            setAlbumsLoaded(true);
-        } catch (e) {
-            console.error("Failed to fetch favorite albums", e);
-        } finally {
-            setLoadingAlbums(false);
-        }
-    };
-
-    // Radio State
+    // Swipe handling
     const [radioItems, setRadioItems] = useState<any[]>([]);
     const [loadingRadio, setLoadingRadio] = useState(false);
     const [radioLoaded, setRadioLoaded] = useState(false);
@@ -355,60 +305,21 @@ const Home: React.FC<HomeProps> = ({
         }
     };
 
-    const initLogin = async () => {
-        setShowLoginModal(true);
-        setQrStatus(t('home.loadingQr'));
-        try {
-            const keyRes = await neteaseApi.getQrKey();
-            const key = keyRes.data.unikey;
-
-            const createRes = await neteaseApi.createQr(key);
-            setQrCodeImg(createRes.data.qrimg);
-            setQrStatus(t('home.scanQr'));
-
-            if (qrCheckInterval.current) clearInterval(qrCheckInterval.current);
-            qrCheckInterval.current = setInterval(async () => {
-                try {
-                    const checkRes = await neteaseApi.checkQr(key);
-                    const code = checkRes.code;
-
-                    if (code === 800) {
-                        setQrStatus(t('home.qrExpired'));
-                        clearInterval(qrCheckInterval.current);
-                    } else if (code === 801) {
-                        // Waiting
-                    } else if (code === 802) {
-                        setQrStatus(t('home.qrScanned'));
-                    } else if (code === 803) {
-                        setQrStatus(t('home.loginSuccess'));
-                        clearInterval(qrCheckInterval.current);
-                        if (checkRes.cookie) {
-                            localStorage.setItem('netease_cookie', checkRes.cookie);
-                        }
-                        // Trigger parent refresh
-                        setTimeout(async () => {
-                            onRefreshUser();
-                            setShowLoginModal(false);
-                        }, 1000);
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
-            }, 3000);
-
-        } catch (e) {
-            setQrStatus(t('home.loginError'));
-        }
-    };
-
     const handleSearch = async (e?: React.FormEvent) => {
         e?.preventDefault();
         const query = searchQuery.trim();
         if (!query) return;
 
+        const sourceTab = viewTab === 'playlist'
+            ? (searchableProviders[0] || searchProvider)
+            : viewTab;
+
         const didSearch = await submitSearch({
             query,
-            sourceTab: viewTab,
+            sourceTab,
+            providers: viewTab === 'playlist' && searchableProviders.length > 0
+                ? [...searchableProviders]
+                : undefined,
             deps: {
                 localSongs,
                 t: (key, fallback) => t(key, fallback ?? ''),
@@ -416,15 +327,9 @@ const Home: React.FC<HomeProps> = ({
         });
 
         if (didSearch) {
-            onSearchCommitted(query, viewTab);
+            onSearchCommitted(query, sourceTab);
         }
     };
-
-    useEffect(() => {
-        return () => {
-            if (qrCheckInterval.current) clearInterval(qrCheckInterval.current);
-        };
-    }, []);
 
     useEffect(() => {
         const handleScanProgress = (event: Event) => {
@@ -452,33 +357,14 @@ const Home: React.FC<HomeProps> = ({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
-                className={`relative w-full h-full flex flex-col font-sans overflow-hidden ${mainBg} pointer-events-auto backdrop-blur-sm overflow-y-auto custom-scrollbar`}
+                className={`relative w-full h-full flex flex-col font-sans overflow-hidden ${mainBg} pointer-events-auto ${mainBackdrop} overflow-y-auto custom-scrollbar`}
                 style={{ color: 'var(--text-primary)' }}
             >
                 {/* Header Section */}
                 {!isLocalPlaylistOpen && (
                     <div className="grid grid-cols-2 md:grid-cols-3 items-center w-full max-w-7xl mx-auto z-20 relative p-4 md:p-8 gap-y-4 md:gap-y-0">
-                            {/* Left: Title & Help */}
-                            <div className="flex items-center justify-start order-1 md:order-none">
-                                <h1 className="text-2xl font-bold tracking-tight opacity-90 flex items-center gap-3 select-none">
-                                    Folia
-                                </h1>
-                                <button
-                                    onClick={() => onOpenSettings?.('help')}
-                                    className={`relative flex items-center gap-1.5 p-2 rounded-full hover:bg-white/10 transition-all ml-4 ${
-                                        showUpdateIndicator 
-                                            ? 'opacity-90 hover:opacity-100' 
-                                            : 'opacity-40 hover:opacity-100'
-                                    }`}
-                                    title="Help & About"
-                                >
-                                    <Settings size={20} style={{ color: 'var(--text-primary)' }} />
-                                    {showUpdateIndicator && (
-                                        <span className="text-[10px] font-medium text-zinc-800 dark:text-zinc-200 opacity-80 whitespace-nowrap bg-zinc-200/50 dark:bg-white/10 px-2 py-0.5 rounded-md">
-                                            新版本发布
-                                        </span>
-                                    )}
-                                </button>
+                            {/* Left: scan progress only — brand/settings live in AppSidebar */}
+                            <div className="flex items-center justify-start order-1 md:order-none min-h-10">
                                 {scanProgress?.active && (
                                     <div
                                         className="relative ml-3"
@@ -540,41 +426,17 @@ const Home: React.FC<HomeProps> = ({
                                 )}
                             </div>
 
-                            {/* Center: Tab Switcher */}
+                            {/* Center: Stage entry only when enabled */}
                             <div className="flex justify-center order-3 md:order-none col-span-2 md:col-span-1 select-none">
-                                <div className={`relative ${navPillBg} backdrop-blur-md p-1 rounded-full scale-90 md:scale-100 origin-center`}>
-                                    <div className="inline-flex items-center gap-0">
-                                        {homeTabs.map((tab) => {
-                                            const isActive = viewTab === tab.key;
-
-                                            return (
-                                                <button
-                                                    key={tab.key}
-                                                    onClick={() => setHomeViewTab(tab.key)}
-                                                    className={`relative inline-flex items-center justify-center px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-colors duration-300 whitespace-nowrap ${isActive ? activeTabBg : navPillInactiveText}`}
-                                                >
-                                                    {isActive && (
-                                                        <motion.span
-                                                            layoutId="home-active-tab-pill"
-                                                            className="absolute inset-0 rounded-full bg-white shadow-sm"
-                                                            transition={{ type: 'spring', stiffness: 460, damping: 36, mass: 0.9 }}
-                                                        />
-                                                    )}
-                                                    <span className="relative z-10 select-none">{tab.label}</span>
-                                                </button>
-                                            );
-                                        })}
-                                        {stageEnabled && (
-                                            <button
-                                                onClick={() => onOpenStagePlayer?.()}
-                                                data-stage-active={stageIsActive ? 'true' : 'false'}
-                                                className={`relative inline-flex items-center justify-center px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-colors duration-300 whitespace-nowrap ${navPillInactiveText}`}
-                                            >
-                                                <span className="relative z-10">{t('home.stage') || '舞台'}</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
+                                {stageEnabled ? (
+                                    <button
+                                        onClick={() => onOpenStagePlayer?.()}
+                                        data-stage-active={stageIsActive ? 'true' : 'false'}
+                                        className={`relative inline-flex items-center justify-center px-3 md:px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-colors duration-300 whitespace-nowrap ${navPillBg} ${navPillInactiveText}`}
+                                    >
+                                        <span className="relative z-10">{t('home.stage') || '舞台'}</span>
+                                    </button>
+                                ) : null}
                             </div>
 
                             {/* Right: Search Bar */}
@@ -593,7 +455,7 @@ const Home: React.FC<HomeProps> = ({
                                     )}
                                     <input
                                         type="text"
-                                        placeholder={viewTab === 'local' ? t('home.searchLocal') : viewTab === 'navidrome' ? t('home.searchNavidrome') : t('home.searchDatabase')}
+                                        placeholder={homeSearchPlaceholder}
                                         value={searchQuery}
                                         onChange={e => setSearchQuery(e.target.value)}
 
@@ -607,273 +469,54 @@ const Home: React.FC<HomeProps> = ({
 
                 {/* Main Content Area */}
                 <div className={`flex-1 min-h-0 flex flex-col items-center relative ${homeContentBottomPadding}`}>
-                    {!hasNeteaseLogin && isNeteaseTab ? (
-                        <div className="flex flex-1 w-full flex-col items-center justify-center space-y-6">
-                            <div className={`w-24 h-24 rounded-3xl ${cardBg} border border-white/10 flex items-center justify-center backdrop-blur-md`}>
-                                <User size={40} className="opacity-20" />
-                            </div>
-                            <h2 className="text-3xl font-bold opacity-80 text-center">{t('home.guestTitle')}</h2>
-                            <p className="opacity-40 text-sm text-center max-w-md leading-6 whitespace-pre-line">{t('home.guestPrompt')}</p>
-                            <button
-                                onClick={initLogin}
-                                className="px-8 py-3 bg-white text-black rounded-full font-bold text-sm hover:scale-105 transition-transform"
-                            >
-                                {t('home.connectAccount')}
-                            </button>
-                        </div>
-                    ) : (
+                    {showGuestConnect ? (
+                        <OnlineMusicGuestConnect onRefreshUser={onRefreshUser} user={user} />
+                    ) : showOnlineLibrary && viewTab === 'playlist' ? (
                         <>
-                            {/* Conditional Content Based on Tab */}
-                            <AnimatePresence mode="wait">
-                                {viewTab === 'albums' ? (
-                                    <motion.div
-                                        key="albums"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.2 }}
-                                        className="w-full h-full flex-1 min-h-0 flex flex-col justify-center"
-                                    >
-                                        <div className="w-full flex-[0_1_clamp(520px,46vh,760px)] min-h-0 max-h-[clamp(520px,46vh,760px)]">
-                                            <Carousel3D
-                                                items={favoriteAlbums.map(a => ({
-                                                    id: a.id,
-                                                    name: a.name,
-                                                    coverUrl: a.picUrl,
-                                                    trackCount: a.size,
-                                                    description: a.artists?.[0]?.name
-                                                }))}
-                                                onSelect={(album) => onSelectAlbum(album.id)}
-                                                isLoading={loadingAlbums}
-                                                emptyMessage={t('home.noAlbums') || "No favorite albums found"}
-                                                initialFocusedIndex={focusedFavoriteAlbumIndex}
-                                                onFocusedIndexChange={setFocusedFavoriteAlbumIndex}
-                                                isDaylight={isDaylight}
-                                                hasFloatingPlayer={Boolean(currentTrack)}
-                                            />
-                                        </div>
-                                    </motion.div>
-                                ) : viewTab === 'playlist' ? (
-                                    <motion.div
-                                        key="playlist"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.2 }}
-                                        className="w-full h-full flex-1 min-h-0 flex flex-col justify-center"
-                                    >
-                                        <div className="w-full flex-[0_1_clamp(520px,46vh,760px)] min-h-0 max-h-[clamp(520px,46vh,760px)]">
-                                            <Carousel3D
-                                                items={playlistCards.map(p => ({
-                                                    ...p,
-                                                    coverUrl: p.coverImgUrl
-                                                }))}
-                                                onSelect={(pl) => onSelectPlaylist(pl as any)}
-                                                isLoading={false}
-                                                emptyMessage={t('home.loadingLibrary')}
-                                                initialFocusedIndex={focusedPlaylistIndex}
-                                                onFocusedIndexChange={setFocusedPlaylistIndex}
-                                                isDaylight={isDaylight}
-                                                hasFloatingPlayer={Boolean(currentTrack)}
-                                            />
-                                        </div>
-                                    </motion.div>
-                                ) : viewTab === 'radio' ? (
-                                    <motion.div
-                                        key="radio"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.2 }}
-                                        className="w-full h-full flex-1 min-h-0 flex flex-col justify-center"
-                                    >
-                                        <div className="w-full flex-[0_1_clamp(520px,46vh,760px)] min-h-0 max-h-[clamp(520px,46vh,760px)]">
-                                            <Carousel3D
-                                                items={radioItems}
-                                                onSelect={async (item) => {
-                                                    if (item.id === 'personal_fm') {
-                                                        const fmRes = await neteaseApi.getPersonalFm();
-                                                        if (fmRes.data && fmRes.data.length > 0) {
-                                                            onPlaySong(fmRes.data[0], fmRes.data, true);
-                                                        }
-                                                    } else {
-                                                        onSelectPlaylist({
-                                                            id: item.id,
-                                                            name: item.name,
-                                                            coverImgUrl: item.coverUrl,
-                                                            creator: { nickname: item.description },
-                                                            trackCount: item.trackCount
-                                                        } as any);
-                                                    }
-                                                }}
-                                                isLoading={loadingRadio}
-                                                emptyMessage={t('home.loadingLibrary')}
-                                                initialFocusedIndex={focusedRadioIndex}
-                                                onFocusedIndexChange={setFocusedRadioIndex}
-                                                isDaylight={isDaylight}
-                                                hasFloatingPlayer={Boolean(currentTrack)}
-                                            />
-                                        </div>
-                                    </motion.div>
-                                ) : viewTab === 'local' ? (
-                                    <motion.div
-                                        key="local"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.2 }}
-                                        className="w-full h-full flex-1"
-                                    >
-                                        <LocalMusicView
-                                            localSongs={localSongs}
-                                            localPlaylists={localPlaylists}
-                                            onRefresh={onRefreshLocalSongs}
-                                            onPlaySong={onPlayLocalSong}
-                                            onAddToQueue={onAddLocalSongToQueue}
-                                            onPlaylistVisibilityChange={setIsLocalPlaylistOpen}
-                                            activeRow={localMusicState.activeRow}
-                                            setActiveRow={(row) => setLocalMusicState(prev => ({ ...prev, activeRow: row }))}
-                                            selectedGroup={localMusicState.selectedGroup}
-                                            setSelectedGroup={(group) => setLocalMusicState(prev => ({
-                                                ...prev,
-                                                selectedGroup: group,
-                                                detailStack: group ? prev.detailStack : [],
-                                                detailOriginView: group ? prev.detailOriginView : null,
-                                            }))}
-                                            onBackFromDetail={() => {
-                                                if (localMusicState.detailStack.length > 0) {
-                                                    setLocalMusicState(prev => {
-                                                        const nextStack = prev.detailStack.slice(0, -1);
-                                                        return {
-                                                            ...prev,
-                                                            selectedGroup: nextStack[nextStack.length - 1] ?? null,
-                                                            detailStack: nextStack,
-                                                        };
-                                                    });
-                                                    return;
-                                                }
-
-                                                const shouldReturnToPlayer = localMusicState.detailOriginView === 'player';
-                                                setLocalMusicState(prev => ({
-                                                    ...prev,
-                                                    selectedGroup: null,
-                                                    detailStack: [],
-                                                    detailOriginView: null,
-                                                }));
-
-                                                if (shouldReturnToPlayer) {
-                                                    onBackToPlayer();
-                                                }
-                                            }}
-                                            onMatchSong={onMatchSong}
-                                            focusedFolderIndex={localMusicState.focusedFolderIndex}
-                                            setFocusedFolderIndex={(index) => setLocalMusicState(prev => ({ ...prev, focusedFolderIndex: index }))}
-                                            focusedAlbumIndex={localMusicState.focusedAlbumIndex}
-                                            setFocusedAlbumIndex={(index) => setLocalMusicState(prev => ({ ...prev, focusedAlbumIndex: index }))}
-                                            focusedArtistIndex={localMusicState.focusedArtistIndex}
-                                            setFocusedArtistIndex={(index) => setLocalMusicState(prev => ({ ...prev, focusedArtistIndex: index }))}
-                                            focusedPlaylistIndex={localMusicState.focusedPlaylistIndex}
-                                            setFocusedPlaylistIndex={(index) => setLocalMusicState(prev => ({ ...prev, focusedPlaylistIndex: index }))}
-                                            onSelectArtistGroup={onSelectLocalArtist}
-                                            onSelectAlbumGroup={onSelectLocalAlbum}
-                                            theme={theme}
-                                            isDaylight={isDaylight}
-                                            hasFloatingPlayer={Boolean(currentTrack)}
-                                        />
-                                    </motion.div>
-                                ) : (
-                                    <motion.div
-                                        key="navidrome"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.2 }}
-                                        className="w-full h-full flex-1"
-                                    >
-                                        <NavidromeMusicView
-                                            onPlaySong={onPlayNavidromeSong || (() => { })}
-                                            onAddSongsToQueue={onAddNavidromeSongsToQueue}
-                                            onOpenSettings={() => onOpenSettings?.('help')}
-                                            onMatchSong={onMatchNavidromeSong}
-                                            theme={theme}
-                                            isDaylight={isDaylight}
-                                            focusedAlbumIndex={navidromeFocusedAlbumIndex}
-                                            setFocusedAlbumIndex={setNavidromeFocusedAlbumIndex}
-                                            externalSelection={pendingNavidromeSelection ?? searchNavidromeSelection}
-                                            hasFloatingPlayer={Boolean(currentTrack)}
-                                            onExternalSelectionHandled={() => {
-                                                if (pendingNavidromeSelection) {
-                                                    onPendingNavidromeSelectionHandled?.();
-                                                    return;
-                                                }
-                                                setSearchNavidromeSelection(null);
-                                            }}
-                                        />
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                            <div className="w-full pt-2 pb-4 relative z-30">
+                                <OnlineProviderFilterBar
+                                    neteaseConnected={hasNeteaseLogin}
+                                    qqConnected={hasQQLogin}
+                                    onRefreshUser={onRefreshUser}
+                                />
+                            </div>
+                            <motion.div
+                                key="playlist"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="w-full h-full flex-1 min-h-0 flex flex-col justify-center"
+                            >
+                                <div className="w-full flex-[0_1_clamp(420px,42vh,620px)] min-h-0 max-h-[clamp(420px,42vh,620px)]">
+                                    <Carousel3D
+                                        items={playlistCards.map(p => ({
+                                            ...p,
+                                            coverUrl: p.coverImgUrl,
+                                            musicProvider: p.musicProvider === 'qq' || p.musicProvider === 'qishui' || p.musicProvider === 'coco'
+                                                ? p.musicProvider
+                                                : 'netease' as const,
+                                            description: p.specialType === 'cloud'
+                                                ? t('home.cloud')
+                                                : p.specialType === 'provider-default'
+                                                    ? t('home.cocoDefaultDescription')
+                                                    : p.creator?.nickname,
+                                        }))}
+                                        onSelect={(pl) => onSelectPlaylist(pl as any)}
+                                        isLoading={false}
+                                        emptyMessage={playlistCards.length === 0
+                                            ? t('home.noFilteredPlaylists')
+                                            : t('home.loadingLibrary')}
+                                        initialFocusedIndex={focusedPlaylistIndex}
+                                        onFocusedIndexChange={setFocusedPlaylistIndex}
+                                        isDaylight={isDaylight}
+                                        hasFloatingPlayer={Boolean(currentTrack)}
+                                    />
+                                </div>
+                            </motion.div>
                         </>
-                    )}
+                    ) : null}
                 </div>
-
-                    {/* Login Modal */}
-                    {
-                        showLoginModal && (
-                            <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xl p-4">
-                                <div className="bg-zinc-900/90 border border-white/10 p-8 rounded-3xl max-w-sm w-full text-center relative shadow-2xl">
-                                    <button
-                                        onClick={() => {
-                                            setShowLoginModal(false);
-                                            if (qrCheckInterval.current) clearInterval(qrCheckInterval.current);
-                                        }}
-                                        className="absolute top-4 right-4 opacity-30 hover:opacity-100 rounded-full bg-white/5 p-1 transition-colors"
-                                        style={{ color: 'var(--text-primary)' }}
-                                    >
-                                        ✕
-                                    </button>
-                                    <h3 className="text-lg font-bold mb-6" style={{ color: 'var(--text-primary)' }}>{t('home.loginTitle')}</h3>
-
-                                    <div className="relative inline-block bg-white p-2 rounded-xl mb-4 shadow-inner">
-                                        {qrCodeImg ? (
-                                            <img src={qrCodeImg} alt="QR Code" className="w-40 h-40" />
-                                        ) : (
-                                            <div className="w-40 h-40 flex items-center justify-center bg-gray-100 rounded-lg">
-                                                <Loader2 className="animate-spin text-gray-400" size={24} />
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <p className={`text-xs font-medium mt-2 ${qrStatus.includes('Success') ? 'text-green-400' : 'opacity-60'}`} style={{ color: qrStatus.includes('Success') ? undefined : 'var(--text-secondary)' }}>
-                                        {qrStatus}
-                                    </p>
-
-                                    <p className="text-[10px] opacity-30 mt-6" style={{ color: 'var(--text-secondary)' }}>
-                                        {t('home.loginNote')}
-                                    </p>
-                                </div>
-                            </div>
-                        )
-                    }
-
-                    {/* User Avatar - Back to Player */}
-                    {
-                        user && (
-                            <div className="absolute bottom-8 right-8 z-[100]">
-                                <div
-                                    onClick={onBackToPlayer}
-                                    className="group relative w-12 h-12 cursor-pointer rounded-full border border-white/20 hover:scale-105 transition-all overflow-hidden shadow-lg"
-                                    title="Return to Player"
-                                >
-                                    <img src={user.avatarUrl?.replace('http:', 'https:')} alt={user.nickname} className="w-full h-full object-cover" />
-
-                                    {/* Hover Overlay */}
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px]">
-                                        <ChevronRight className="text-white" size={24} />
-                                    </div>
-                                </div>
-                            </div>
-                        )
-                }
             </motion.div>
         </AnimatePresence>
     );

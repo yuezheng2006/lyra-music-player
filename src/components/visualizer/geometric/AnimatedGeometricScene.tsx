@@ -83,6 +83,8 @@ const AnimatedGeometricScene: React.FC<AnimatedGeometricSceneProps> = ({
         atmosphereEnergy,
         cinemaShake: interactive3dSceneTuning?.cinemaShake ?? 0.5,
         rhythmIntensity: interactive3dSceneTuning?.rhythmIntensity ?? 0.85,
+        atmosphereSensitivity: interactive3dSceneTuning?.atmosphereSensitivity ?? 1,
+        cameraPunchStrength: interactive3dSceneTuning?.cameraPunchStrength ?? 1,
         userRotateX: cameraControlState?.userRotateX,
         userRotateY: cameraControlState?.userRotateY,
         suppressPointerTilt: cameraControlState?.suppressPointerTilt,

@@ -3,28 +3,50 @@ import type { Line } from '../../../../../types';
 import { lyricThreeColor } from './lyricColorHelpers';
 import { makeLyricMask } from './makeLyricMask';
 import { getLyricSunBloomTexture, makeLyricShaderMaterial, type LyricPalette } from './lyricShaders';
+import { resolveLyricStageFitScale } from './resolveLyricStageViewport';
 
 // src/components/visualizer/geometric/mineradio/lyrics/buildLyricMesh.ts
 // Builds a Mineradio-style WebGL lyric line group.
+
+const DEFAULT_STAGE_WORLD_WIDTH = 4.8;
+/** Glow / bloom extends slightly past glyph bounds — include in fit. */
+const GLOW_OVERFLOW = 1.12;
+
+export type BuildLyricMeshOptions = {
+    /** Max world-space width the lyric plane may occupy on screen. */
+    maxWorldWidth?: number;
+};
 
 export const buildLyricMesh = (
     text: string,
     renderer: THREE.WebGLRenderer,
     palette: LyricPalette,
+    options: BuildLyricMeshOptions = {},
 ): THREE.Group => {
     const mask = makeLyricMask(text, renderer);
-    const worldW = 6.1;
+    const maxWorldWidth = Math.max(0.9, options.maxWorldWidth ?? DEFAULT_STAGE_WORLD_WIDTH);
+    // Prefer filling the safe viewport width; shrink further if the glyph block is still wider.
+    const worldW = Math.min(DEFAULT_STAGE_WORLD_WIDTH, maxWorldWidth);
     const worldH = worldW * (mask.height / mask.width);
     const textWorldW = worldW * (mask.textWidth / mask.width);
     const textWorldH = worldH * ((mask.textHeight || mask.fontSize) / mask.height);
+    // Fit the full plane (not only glyph AABB) so transparent padding / bloom stay on-screen.
+    const occupiedWorldW = Math.max(worldW, textWorldW) * GLOW_OVERFLOW;
+    const fitScale = resolveLyricStageFitScale(occupiedWorldW, maxWorldWidth);
 
     const group = new THREE.Group();
     group.renderOrder = 42;
-    group.position.set((Math.random() - 0.5) * 0.08, 0.2, 1.46);
-    group.scale.setScalar(0.96);
+    // Parent LyricStageRuntime is camera-locked; keep mesh at local origin.
+    group.position.set(0, 0, 0);
+    group.scale.setScalar(0.9 * fitScale);
     group.userData.age = 0;
     group.userData.state = 'in';
     group.userData.lastLyricProgress = -1;
+    group.userData.lyricText = text;
+    group.userData.baseScale = 0.9;
+    group.userData.fitScale = fitScale;
+    group.userData.maxWorldWidth = maxWorldWidth;
+    group.userData.occupiedWorldW = occupiedWorldW;
 
     const sunMat = new THREE.MeshBasicMaterial({
         map: getLyricSunBloomTexture(),
@@ -88,6 +110,23 @@ export const buildLyricMesh = (
     };
     updateLyricMeshProgress(group, 0);
     return group;
+};
+
+/** Re-apply viewport fit when the camera frustum / aspect changes. */
+export const applyLyricMeshViewportFit = (
+    mesh: THREE.Group,
+    maxWorldWidth: number,
+) => {
+    const lyric = mesh.userData?.lyric;
+    if (!lyric) return;
+    const baseScale = typeof mesh.userData.baseScale === 'number' ? mesh.userData.baseScale : 0.9;
+    const occupiedWorldW = typeof mesh.userData.occupiedWorldW === 'number'
+        ? mesh.userData.occupiedWorldW
+        : lyric.textWorldW * GLOW_OVERFLOW;
+    const fitScale = resolveLyricStageFitScale(occupiedWorldW, maxWorldWidth);
+    mesh.userData.fitScale = fitScale;
+    mesh.userData.maxWorldWidth = maxWorldWidth;
+    mesh.scale.setScalar(baseScale * fitScale);
 };
 
 export const updateLyricMeshProgress = (mesh: THREE.Group, progress: number) => {

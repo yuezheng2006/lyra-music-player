@@ -26,7 +26,7 @@ const DESKTOP_LYRICS_SETTING_KEYS = {
   opacity: 'DESKTOP_LYRICS_OPACITY',
 };
 
-const DESKTOP_LYRICS_WINDOW_TITLE = 'Folia Desktop Lyrics';
+const DESKTOP_LYRICS_WINDOW_TITLE = 'Lyra Desktop Lyrics';
 
 function clampNumber(value, min, max, fallback) {
   const n = Number(value);

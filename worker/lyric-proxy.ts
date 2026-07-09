@@ -2,8 +2,10 @@
 
 /**
  * Cloudflare Worker API Proxy handler.
- * Proxies requests to known lyric provider domains to bypass CORS.
+ * Proxies requests to known lyric/cover provider domains to bypass CORS.
  */
+
+import { isAllowedLyricProxyHost, isAmllDbHost } from '../shared/lyricProxyHosts.mjs';
 
 export async function handleLyricProxy(request: Request): Promise<Response> {
   const corsHeaders = {
@@ -24,15 +26,26 @@ export async function handleLyricProxy(request: Request): Promise<Response> {
       'KG-CLIENTTIMEMS',
       'mid',
       'x-router',
+      'X-Proxy-Referer',
+      'X-Proxy-Cookie',
     ].join(', '),
   };
-  const ignoredForwardHeaders = ['host', 'connection', 'content-length', 'origin', 'referer'];
-  const isAllowedLyricProxyHost = (hostname: string): boolean =>
-    hostname === 'qq.com' || hostname.endsWith('.qq.com') ||
-    hostname === 'kugou.com' || hostname.endsWith('.kugou.com') ||
-    hostname === 'amll-ttml-db.stevexmh.net';
-  const isAmllDbHost = (hostname: string): boolean =>
-    hostname === 'amll-ttml-db.stevexmh.net';
+  const ignoredForwardHeaders = [
+    'host',
+    'connection',
+    'content-length',
+    'origin',
+    'referer',
+    'cookie',
+    'x-proxy-referer',
+    'x-proxy-cookie',
+  ];
+  const applyLyricProxyHeaderOverrides = (headers: Headers, source: Headers): void => {
+    const proxyReferer = source.get('x-proxy-referer');
+    const proxyCookie = source.get('x-proxy-cookie');
+    if (proxyReferer) headers.set('Referer', proxyReferer);
+    if (proxyCookie) headers.set('Cookie', proxyCookie);
+  };
 
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -52,7 +65,7 @@ export async function handleLyricProxy(request: Request): Promise<Response> {
     const targetUrl = new URL(targetUrlStr);
     const hostname = targetUrl.hostname;
 
-    // Security check: only allow proxying to known lyric provider domains
+    // Security check: only allow proxying to known lyric/cover provider domains
     const isAllowed = isAllowedLyricProxyHost(hostname);
 
     if (!isAllowed) {
@@ -69,6 +82,7 @@ export async function handleLyricProxy(request: Request): Promise<Response> {
         headers.set(key, value);
       }
     });
+    applyLyricProxyHeaderOverrides(headers, request.headers);
 
     const hasBody = ['POST', 'PUT', 'PATCH'].includes(request.method);
     const fetchOptions: RequestInit = {
@@ -89,7 +103,7 @@ export async function handleLyricProxy(request: Request): Promise<Response> {
     }
 
     const responseHeaders = new Headers(response.headers);
-    
+
     // Add CORS headers to the response
     Object.entries(corsHeaders).forEach(([key, val]) => {
       responseHeaders.set(key, val);

@@ -1,0 +1,33 @@
+rebrand: Auralis → Lyra (天琴)
+
+## 变更内容
+- 产品名称：Auralis (声境) → Lyra (天琴)
+- 更新所有配置文件 (package.json, metadata.json)
+- 更新所有文档 (README.md, docs/*)
+- 更新所有源代码引用
+- 更新 Electron 和打包配置
+
+## 品牌定位
+Lyra (天琴)：
+- 天琴座 (Lyra constellation)，音乐与天文的结合
+- 与 Lyrics (歌词) 谐音，契合产品核心功能
+- 优雅、专业、国际化友好
+
+## Hackathon 准备
+添加了完整的 Hackathon 参赛文档：
+- README_HACKATHON.md - 总览指南
+- QUICK_ACTION_PLAN.md - 5天实施计划
+- UI_IMPROVEMENTS.md - UI优化指南
+- VERCEL_DEPLOYMENT.md - 部署指南
+- VIDEO_SCRIPT.md - 3分钟视频脚本
+- RENAME_REPORT.md - 重命名报告
+- showcase.html - 产品展示页面
+- vercel.json - Vercel部署配置
+- verify-rename.sh - 验证脚本
+
+## 验证
+✅ 构建成功 (npm run build)
+✅ 所有配置文件已更新
+✅ 无遗漏引用
+
+Co-authored-by: Claude <claude@anthropic.com>

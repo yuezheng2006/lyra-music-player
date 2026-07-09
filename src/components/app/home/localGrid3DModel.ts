@@ -30,9 +30,9 @@ const sortByName = <T extends { name: string }>(items: T[]) => (
 );
 
 export const buildLocalGrid3DGroups = (
-    localSongs: LocalSong[],
-    localPlaylists: LocalPlaylist[],
-    t: TFunction
+    localSongs: LocalSong[] = [],
+    localPlaylists: LocalPlaylist[] = [],
+    t: TFunction,
 ) => {
     const folders: Record<string, LocalSong[]> = {};
     const albums: Record<string, LocalSong[]> = {};

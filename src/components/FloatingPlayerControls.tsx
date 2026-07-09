@@ -1,21 +1,48 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Repeat, Repeat1, RepeatOff, ChartBar, SkipBack, SkipForward } from 'lucide-react';
+import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, AudioLines, Maximize, Minimize, ListMusic } from 'lucide-react';
 import { MotionValue } from 'framer-motion';
 import ProgressBar from './ProgressBar';
-import { PlayerState, LyricData, Theme } from '../types';
+import FloatingPlayerBackgroundMenu from './FloatingPlayerBackgroundMenu';
+import FloatingPlayerDockTime from './FloatingPlayerDockTime';
+import {
+    PlayerState,
+    LyricData,
+    Theme,
+    type Interactive3dSceneTuning,
+    type MineradioVisualPresetId,
+    type VisualizerBackgroundMode,
+    type VisualizerMode,
+} from '../types';
+import type { LyricColorPresetId } from '../utils/theme/lyricColorPresets';
 import LyricsTimelineModal from './modal/LyricsTimelineModal';
 import { getSizedCoverUrl } from '../utils/coverUrl';
+import { getMineradioPresetLabelFallback } from './visualizer/geometric/mineradioVisualPresets';
+import {
+    FLOATING_PLAYER_DOCK_MAX_WIDTH_PX,
+    FLOATING_PLAYER_PROGRESS_INSET_PX,
+    resolveFloatingPlayerDockFrameStyle,
+} from './floatingPlayerDockLayout';
 
-const CONTROL_LAYOUT_SPRING = {
-    type: 'spring' as const,
-    stiffness: 280,
-    damping: 24,
+// src/components/FloatingPlayerControls.tsx
+// Mineradio-style floating dock: left meta, center transport, right tool cluster.
+
+type AudioQuality = 'exhigh' | 'lossless' | 'hires';
+
+type FloatingSong = {
+    name: string;
+    artists?: Array<{ name: string }>;
+    ar?: Array<{ name: string }>;
 };
 
-const HOVER_EXPAND_DELAY_MS = 20;
-const HOVER_COLLAPSE_DELAY_MS = 100;
-const HOVER_HITBOX_BOTTOM_BUFFER_PX = 32;
+const AUDIO_QUALITY_OPTIONS: AudioQuality[] = ['exhigh', 'lossless', 'hires'];
+
+const formatSongArtists = (song: FloatingSong | null | undefined): string => {
+    const names = song?.ar?.map(artist => artist.name).filter(Boolean)
+        ?? song?.artists?.map(artist => artist.name).filter(Boolean)
+        ?? [];
+    return names.join(', ');
+};
 
 const buildLyricsToggleButtonClass = (
     playerLyricsVisible: boolean,
@@ -27,16 +54,34 @@ const buildLyricsToggleButtonClass = (
     }
     if (playerLyricsVisible) {
         return isDaylight
-            ? 'bg-black/14 text-black ring-1 ring-black/15 shadow-[0_0_16px_rgba(0,0,0,0.10)] scale-[1.04]'
-            : 'bg-white/20 text-white ring-1 ring-white/28 shadow-[0_0_20px_rgba(255,255,255,0.14)] scale-[1.04]';
+            ? 'bg-black/10 text-black'
+            : 'bg-white/[0.10] text-white';
     }
     return isDaylight
-        ? 'opacity-35 hover:opacity-90 hover:bg-black/5'
-        : 'opacity-35 hover:opacity-90 hover:bg-white/10';
+        ? 'text-black/55 hover:bg-black/[0.05] hover:text-black'
+        : 'text-white/70 hover:bg-white/[0.045] hover:text-white';
+};
+
+const buildToolButtonClass = (
+    isDaylight: boolean | undefined,
+    disabled: boolean,
+    active = false,
+) => {
+    if (disabled) {
+        return 'opacity-25 cursor-not-allowed hover:opacity-25';
+    }
+    if (active) {
+        return isDaylight
+            ? 'bg-black/[0.08] text-black'
+            : 'bg-white/[0.08] text-[rgba(210,244,241,0.92)]';
+    }
+    return isDaylight
+        ? 'text-black/55 hover:bg-black/[0.05] hover:text-black'
+        : 'text-white/70 hover:bg-white/[0.045] hover:text-white';
 };
 
 interface FloatingPlayerControlsProps {
-    currentSong: { name: string; } | null;
+    currentSong: FloatingSong | null;
     coverUrl?: string | null;
     playerState: PlayerState;
     currentTime: MotionValue<number>;
@@ -56,6 +101,7 @@ interface FloatingPlayerControlsProps {
     onNextTrack?: () => void;
     onTogglePlayerLyricsVisible?: () => void;
     onNavigateToPlayer: () => void;
+    onNavigateToPlaylist?: () => void;
     noTrackText?: string;
     primaryColor?: string;
     secondaryColor?: string;
@@ -66,6 +112,37 @@ interface FloatingPlayerControlsProps {
     controlsDisabled?: boolean;
     showLyricsLabel?: string;
     hideLyricsLabel?: string;
+    listeningModeLabel?: string;
+    backToPlaylistLabel?: string;
+    isImmersiveFullscreen?: boolean;
+    onToggleImmersiveFullscreen?: () => void;
+    enterFullscreenLabel?: string;
+    exitFullscreenLabel?: string;
+    /** When true, toggling lyrics on from home also enters listening mode. */
+    onRevealLyricsInPlayer?: () => void;
+    audioQuality?: AudioQuality;
+    onAudioQualityChange?: (quality: AudioQuality) => void;
+    canChangeAudioQuality?: boolean;
+    qualityExhighLabel?: string;
+    qualityLosslessLabel?: string;
+    qualityHiresLabel?: string;
+    audioQualityLabel?: string;
+    visualizerBackgroundMode?: VisualizerBackgroundMode | null;
+    interactive3dSceneTuning?: Interactive3dSceneTuning | null;
+    onVisualizerBackgroundModeChange?: (mode: VisualizerBackgroundMode) => void;
+    onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
+    visualizerMode?: VisualizerMode;
+    onVisualizerModeChange?: (mode: VisualizerMode) => void;
+    onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
+    backgroundMenuLabel?: string;
+    backgroundModeInteractive3dLabel?: string;
+    backgroundModeCommonLabel?: string;
+    backgroundModeMonetLabel?: string;
+    backgroundPresetSectionLabel?: string;
+    lyricsStyleSectionLabel?: string;
+    lyricColorSectionLabel?: string;
+    getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
+    getVisualizerModeLabel?: (mode: VisualizerMode) => string;
 }
 
 const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
@@ -78,7 +155,6 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     loopMode,
     playerLyricsVisible = true,
     currentView,
-    audioSrc,
     canTogglePlay = false,
     canSkipTracks = false,
     lyrics,
@@ -89,6 +165,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     onNextTrack,
     onTogglePlayerLyricsVisible,
     onNavigateToPlayer,
+    onNavigateToPlaylist,
     noTrackText = 'No Track',
     primaryColor = 'var(--text-primary)',
     secondaryColor = 'var(--text-secondary)',
@@ -99,153 +176,154 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     controlsDisabled = false,
     showLyricsLabel = 'Show lyrics',
     hideLyricsLabel = 'Hide lyrics',
+    listeningModeLabel = 'Listening mode',
+    backToPlaylistLabel = 'Back to playlist',
+    isImmersiveFullscreen = false,
+    onToggleImmersiveFullscreen,
+    enterFullscreenLabel = 'Fullscreen',
+    exitFullscreenLabel = 'Exit fullscreen',
+    onRevealLyricsInPlayer,
+    audioQuality = 'exhigh',
+    onAudioQualityChange,
+    canChangeAudioQuality = false,
+    qualityExhighLabel = 'HQ',
+    qualityLosslessLabel = 'SQ',
+    qualityHiresLabel = 'Hi-Res',
+    audioQualityLabel = 'Audio quality',
+    visualizerBackgroundMode = null,
+    interactive3dSceneTuning = null,
+    onVisualizerBackgroundModeChange,
+    onInteractive3dSceneTuningChange,
+    visualizerMode = 'classic',
+    onVisualizerModeChange,
+    onApplyLyricColorPreset,
+    backgroundMenuLabel = 'Background',
+    backgroundModeInteractive3dLabel = '3D',
+    backgroundModeCommonLabel = 'Common',
+    backgroundModeMonetLabel = 'Monet',
+    backgroundPresetSectionLabel = '3D style',
+    lyricsStyleSectionLabel = 'Lyric style',
+    lyricColorSectionLabel = 'Lyric colors',
+    getBackgroundPresetLabel,
+    getVisualizerModeLabel,
 }) => {
-    const glassBgExpanded = isDaylight ? 'bg-white/60 border border-white/20 shadow-xl' : 'bg-black/40 border border-white/5';
-    const glassBgCollapsed = isDaylight ? 'bg-white/40 border border-white/20 shadow-lg hover:bg-white/50' : 'bg-black/20 border border-white/5 hover:bg-black/30';
-    const trackColor = isDaylight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)';
-
-    const [isHovered, setIsHovered] = useState(false);
+    // Timeline modal kept mounted for minimal churn; dock no longer opens it.
     const [isTimelineOpen, setIsTimelineOpen] = useState(false);
-    const expandTimeoutRef = useRef<number | null>(null);
-    const collapseTimeoutRef = useRef<number | null>(null);
-
-    const canAutoExpand = canTogglePlay && duration > 0;
-    const showExpanded = isHovered || (canAutoExpand && playerState !== PlayerState.PLAYING && currentView !== 'home');
-
-    useEffect(() => {
-        return () => {
-            if (expandTimeoutRef.current !== null) {
-                window.clearTimeout(expandTimeoutRef.current);
-            }
-            if (collapseTimeoutRef.current !== null) {
-                window.clearTimeout(collapseTimeoutRef.current);
-            }
-        };
-    }, []);
-
-    const handleMouseEnter = () => {
-        if (collapseTimeoutRef.current !== null) {
-            window.clearTimeout(collapseTimeoutRef.current);
-            collapseTimeoutRef.current = null;
-        }
-
-        if (expandTimeoutRef.current !== null) {
-            return;
-        }
-
-        expandTimeoutRef.current = window.setTimeout(() => {
-            setIsHovered(true);
-            expandTimeoutRef.current = null;
-        }, HOVER_EXPAND_DELAY_MS);
-    };
-
-    const handleMouseLeave = () => {
-        if (expandTimeoutRef.current !== null) {
-            window.clearTimeout(expandTimeoutRef.current);
-            expandTimeoutRef.current = null;
-        }
-
-        if (!isHovered || collapseTimeoutRef.current !== null) {
-            return;
-        }
-
-        collapseTimeoutRef.current = window.setTimeout(() => {
-            setIsHovered(false);
-            collapseTimeoutRef.current = null;
-        }, HOVER_COLLAPSE_DELAY_MS);
-    };
-
-    const handleClick = () => {
-        if (currentView === 'home') {
-            onNavigateToPlayer();
-        }
-    };
+    const showListeningEntry = currentView === 'home';
+    const showBackToPlaylist = currentView === 'player' && Boolean(onNavigateToPlaylist);
+    const trackColor = isDaylight ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.10)';
+    const canSwitchBackground = Boolean(
+        interactive3dSceneTuning
+        && onVisualizerBackgroundModeChange
+        && onInteractive3dSceneTuningChange
+        && onVisualizerModeChange,
+    );
 
     if (hideControlBar) {
         return null;
     }
 
+    const handleToggleLyrics = () => {
+        if (!onTogglePlayerLyricsVisible) return;
+        // Home has no lyric canvas — reveal lyrics by entering listening mode.
+        if (currentView === 'home' && !playerLyricsVisible) {
+            onRevealLyricsInPlayer?.();
+            onTogglePlayerLyricsVisible();
+            return;
+        }
+        onTogglePlayerLyricsVisible();
+    };
+
     return (
         <>
-            <motion.div
-                className={`absolute bottom-8 left-1/2 -translate-x-1/2 z-60 w-full flex justify-center transition-all duration-300 pointer-events-none
-                    ${currentView === 'home'
-                        ? 'max-w-[calc(100vw-120px)] md:max-w-lg'
-                        : 'max-w-[min(960px,calc(100vw-48px))] px-3'}`}
-                initial={false}
-                animate={{
-                    opacity: isHidden ? 0 : 1,
-                    y: isHidden ? 24 : 0,
-                    scale: isHidden ? 0.97 : 1,
-                }}
-                transition={{ duration: 0.26, ease: 'easeOut' }}
-                style={{ pointerEvents: isHidden ? 'none' : 'auto' }}
-                onClick={(e) => e.stopPropagation()}
+            {/* Outer frame spans the content column; inner dock is width-capped and centered. */}
+            <div
+                className="fixed z-[130] flex justify-center overflow-visible"
+                style={resolveFloatingPlayerDockFrameStyle(isHidden)}
+                data-testid="floating-player-dock-frame"
             >
-                <div
-                    className="pointer-events-auto w-full flex justify-center"
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
-                    style={{
-                        paddingBottom: `${HOVER_HITBOX_BOTTOM_BUFFER_PX}px`,
-                        marginBottom: `${-HOVER_HITBOX_BOTTOM_BUFFER_PX}px`,
+                <motion.div
+                    className={`relative h-full w-full overflow-visible rounded-[50px] border-0 backdrop-blur-[12px] ${
+                        isDaylight ? 'bg-white/55' : 'bg-black/10'
+                    }`}
+                    initial={false}
+                    animate={{
+                        opacity: isHidden ? 0 : 0.94,
+                        y: isHidden ? 16 : 0,
                     }}
+                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                    style={{
+                        maxWidth: FLOATING_PLAYER_DOCK_MAX_WIDTH_PX,
+                        WebkitAppRegion: 'no-drag',
+                        WebkitBackdropFilter: 'blur(12px) saturate(1.8) brightness(1.12)',
+                        backdropFilter: 'blur(12px) saturate(1.8) brightness(1.12)',
+                        boxShadow: isDaylight
+                            ? 'inset 0 0 2px 1px rgba(255,255,255,0.55), inset 0 0 10px 4px rgba(255,255,255,0.22), 0 8px 28px rgba(17,17,26,0.08), 0 16px 48px rgba(17,17,26,0.06)'
+                            : 'inset 0 0 2px 1px rgba(255,255,255,0.35), inset 0 0 10px 4px rgba(255,255,255,0.15), 0 8px 28px rgba(17,17,26,0.08), 0 16px 56px rgba(17,17,26,0.08)',
+                    } as React.CSSProperties}
+                    onClick={(e) => e.stopPropagation()}
+                    data-testid="floating-player-dock"
                 >
-                    <motion.div
-                        layout
-                        transition={{ layout: CONTROL_LAYOUT_SPRING }}
-                        onClick={handleClick}
-                        className={`backdrop-blur-3xl shadow-2xl overflow-hidden cursor-pointer rounded-full relative transition-colors duration-300
-                            ${showExpanded
-                                ? `px-4 py-3.5 ${glassBgExpanded} w-full`
-                                : `px-4 py-2 ${glassBgCollapsed} ${currentView === 'player' ? 'w-[88%] md:w-[72%]' : 'w-[80%] md:w-[60%]'}`}`}
-                    >
-                        <motion.div layout transition={{ layout: CONTROL_LAYOUT_SPRING }} className="w-full">
-                            {showExpanded ? (
-                                <ExpandedView
-                                    currentSong={currentSong}
-                                    coverUrl={coverUrl}
-                                    playerState={playerState}
-                                    currentTime={currentTime}
-                                    lyricCurrentTime={lyricCurrentTime}
-                                    duration={duration}
-                                    loopMode={loopMode}
-                                    playerLyricsVisible={playerLyricsVisible}
-                                    canTogglePlay={canTogglePlay}
-                                    canSkipTracks={canSkipTracks}
-                                    onSeek={onSeek}
-                                    onTogglePlay={onTogglePlay}
-                                    onToggleLoop={onToggleLoop}
-                                    onPrevTrack={onPrevTrack}
-                                    onNextTrack={onNextTrack}
-                                    onTogglePlayerLyricsVisible={onTogglePlayerLyricsVisible}
-                                    onToggleTimeline={() => setIsTimelineOpen(true)}
-                                    noTrackText={noTrackText}
-                                    primaryColor={primaryColor}
-                                    secondaryColor={secondaryColor}
-                                    trackColor={trackColor}
-                                    hasLyrics={!!lyrics}
-                                    isDaylight={isDaylight}
-                                    controlsDisabled={controlsDisabled}
-                                    showLyricsLabel={showLyricsLabel}
-                                    hideLyricsLabel={hideLyricsLabel}
-                                />
-                            ) : (
-                                <CollapsedView
-                                    coverUrl={coverUrl}
-                                    currentTime={currentTime}
-                                    duration={duration}
-                                    onSeek={onSeek}
-                                    primaryColor={primaryColor}
-                                    secondaryColor={secondaryColor}
-                                    trackColor={trackColor}
-                                    controlsDisabled={controlsDisabled}
-                                />
-                            )}
-                        </motion.div>
-                    </motion.div>
-                </div>
-            </motion.div>
+                    <DockedBar
+                        currentSong={currentSong}
+                        coverUrl={coverUrl}
+                        playerState={playerState}
+                        currentTime={currentTime}
+                        duration={duration}
+                        loopMode={loopMode}
+                        playerLyricsVisible={playerLyricsVisible}
+                        canTogglePlay={canTogglePlay}
+                        canSkipTracks={canSkipTracks}
+                        onSeek={onSeek}
+                        onTogglePlay={onTogglePlay}
+                        onToggleLoop={onToggleLoop}
+                        onPrevTrack={onPrevTrack}
+                        onNextTrack={onNextTrack}
+                        onTogglePlayerLyricsVisible={handleToggleLyrics}
+                        onEnterListeningMode={showListeningEntry ? onNavigateToPlayer : undefined}
+                        onBackToPlaylist={showBackToPlaylist ? onNavigateToPlaylist : undefined}
+                        noTrackText={noTrackText}
+                        primaryColor={primaryColor}
+                        secondaryColor={secondaryColor}
+                        trackColor={trackColor}
+                        isDaylight={isDaylight}
+                        controlsDisabled={controlsDisabled}
+                        showLyricsLabel={showLyricsLabel}
+                        hideLyricsLabel={hideLyricsLabel}
+                        listeningModeLabel={listeningModeLabel}
+                        backToPlaylistLabel={backToPlaylistLabel}
+                        isImmersiveFullscreen={isImmersiveFullscreen}
+                        onToggleImmersiveFullscreen={onToggleImmersiveFullscreen}
+                        enterFullscreenLabel={enterFullscreenLabel}
+                        exitFullscreenLabel={exitFullscreenLabel}
+                        audioQuality={audioQuality}
+                        onAudioQualityChange={onAudioQualityChange}
+                        canChangeAudioQuality={canChangeAudioQuality}
+                        qualityExhighLabel={qualityExhighLabel}
+                        qualityLosslessLabel={qualityLosslessLabel}
+                        qualityHiresLabel={qualityHiresLabel}
+                        audioQualityLabel={audioQualityLabel}
+                        canSwitchBackground={canSwitchBackground}
+                        visualizerBackgroundMode={visualizerBackgroundMode}
+                        interactive3dSceneTuning={interactive3dSceneTuning}
+                        onVisualizerBackgroundModeChange={onVisualizerBackgroundModeChange}
+                        onInteractive3dSceneTuningChange={onInteractive3dSceneTuningChange}
+                        visualizerMode={visualizerMode}
+                        onVisualizerModeChange={onVisualizerModeChange}
+                        theme={theme}
+                        onApplyLyricColorPreset={onApplyLyricColorPreset}
+                        backgroundMenuLabel={backgroundMenuLabel}
+                        backgroundModeInteractive3dLabel={backgroundModeInteractive3dLabel}
+                        backgroundModeCommonLabel={backgroundModeCommonLabel}
+                        backgroundModeMonetLabel={backgroundModeMonetLabel}
+                        backgroundPresetSectionLabel={backgroundPresetSectionLabel}
+                        lyricsStyleSectionLabel={lyricsStyleSectionLabel}
+                        lyricColorSectionLabel={lyricColorSectionLabel}
+                        getBackgroundPresetLabel={getBackgroundPresetLabel}
+                        getVisualizerModeLabel={getVisualizerModeLabel}
+                    />
+                </motion.div>
+            </div>
 
             <LyricsTimelineModal
                 isOpen={isTimelineOpen}
@@ -268,12 +346,11 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     );
 };
 
-interface ExpandedViewProps {
-    currentSong: { name: string; } | null;
+type DockedBarProps = {
+    currentSong: FloatingSong | null;
     coverUrl?: string | null;
     playerState: PlayerState;
     currentTime: MotionValue<number>;
-    lyricCurrentTime?: MotionValue<number>;
     duration: number;
     loopMode: 'off' | 'all' | 'one';
     playerLyricsVisible: boolean;
@@ -285,24 +362,54 @@ interface ExpandedViewProps {
     onPrevTrack?: () => void;
     onNextTrack?: () => void;
     onTogglePlayerLyricsVisible?: () => void;
-    onToggleTimeline: () => void;
+    onEnterListeningMode?: () => void;
+    onBackToPlaylist?: () => void;
     noTrackText: string;
     primaryColor: string;
     secondaryColor: string;
-    hasLyrics: boolean;
     trackColor?: string;
     isDaylight?: boolean;
     controlsDisabled?: boolean;
     showLyricsLabel: string;
     hideLyricsLabel: string;
-}
+    listeningModeLabel: string;
+    backToPlaylistLabel: string;
+    isImmersiveFullscreen: boolean;
+    onToggleImmersiveFullscreen?: () => void;
+    enterFullscreenLabel: string;
+    exitFullscreenLabel: string;
+    audioQuality: AudioQuality;
+    onAudioQualityChange?: (quality: AudioQuality) => void;
+    canChangeAudioQuality: boolean;
+    qualityExhighLabel: string;
+    qualityLosslessLabel: string;
+    qualityHiresLabel: string;
+    audioQualityLabel: string;
+    canSwitchBackground: boolean;
+    visualizerBackgroundMode: VisualizerBackgroundMode | null;
+    interactive3dSceneTuning: Interactive3dSceneTuning | null;
+    onVisualizerBackgroundModeChange?: (mode: VisualizerBackgroundMode) => void;
+    onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
+    visualizerMode: VisualizerMode;
+    onVisualizerModeChange?: (mode: VisualizerMode) => void;
+    theme?: Theme;
+    onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
+    backgroundMenuLabel: string;
+    backgroundModeInteractive3dLabel: string;
+    backgroundModeCommonLabel: string;
+    backgroundModeMonetLabel: string;
+    backgroundPresetSectionLabel: string;
+    lyricsStyleSectionLabel: string;
+    lyricColorSectionLabel: string;
+    getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
+    getVisualizerModeLabel?: (mode: VisualizerMode) => string;
+};
 
-const ExpandedView: React.FC<ExpandedViewProps> = ({
+const DockedBar: React.FC<DockedBarProps> = ({
     currentSong,
     coverUrl,
     playerState,
     currentTime,
-    lyricCurrentTime,
     duration,
     loopMode,
     playerLyricsVisible,
@@ -314,312 +421,87 @@ const ExpandedView: React.FC<ExpandedViewProps> = ({
     onPrevTrack,
     onNextTrack,
     onTogglePlayerLyricsVisible,
-    onToggleTimeline,
+    onEnterListeningMode,
+    onBackToPlaylist,
     noTrackText,
     primaryColor,
     secondaryColor,
-    hasLyrics,
     trackColor,
     isDaylight,
     controlsDisabled = false,
     showLyricsLabel,
     hideLyricsLabel,
+    listeningModeLabel,
+    backToPlaylistLabel,
+    isImmersiveFullscreen,
+    onToggleImmersiveFullscreen,
+    enterFullscreenLabel,
+    exitFullscreenLabel,
+    audioQuality,
+    onAudioQualityChange,
+    canChangeAudioQuality,
+    qualityExhighLabel,
+    qualityLosslessLabel,
+    qualityHiresLabel,
+    audioQualityLabel,
+    canSwitchBackground,
+    visualizerBackgroundMode,
+    interactive3dSceneTuning,
+    onVisualizerBackgroundModeChange,
+    onInteractive3dSceneTuningChange,
+    visualizerMode,
+    onVisualizerModeChange,
+    theme,
+    onApplyLyricColorPreset,
+    backgroundMenuLabel,
+    backgroundModeInteractive3dLabel,
+    backgroundModeCommonLabel,
+    backgroundModeMonetLabel,
+    backgroundPresetSectionLabel,
+    lyricsStyleSectionLabel,
+    lyricColorSectionLabel,
+    getBackgroundPresetLabel,
+    getVisualizerModeLabel,
 }) => {
-    const iconBtnClass = isDaylight ? 'hover:bg-black/5 text-black/60' : 'hover:bg-white/10 opacity-40 hover:opacity-100';
     const skipDisabled = controlsDisabled || !canSkipTracks;
+    const lyricsToggleDisabled = controlsDisabled || !onTogglePlayerLyricsVisible;
+    const qualityDisabled = controlsDisabled || !canChangeAudioQuality || !onAudioQualityChange;
     const coverArtUrl = coverUrl ? getSizedCoverUrl(coverUrl, 96) : null;
+    const artistLabel = formatSongArtists(currentSong);
+    const loopActive = loopMode !== 'off';
+    const mutedTransportColor = isDaylight ? 'rgba(0,0,0,0.52)' : 'rgba(255,255,255,0.70)';
+    const artistColor = isDaylight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.48)';
+    const titleColor = isDaylight ? 'rgba(0,0,0,0.88)' : 'rgba(255,255,255,0.92)';
+    const [qualityMenuOpen, setQualityMenuOpen] = useState(false);
+    const qualityMenuRef = useRef<HTMLDivElement>(null);
+
+    const qualityLabels: Record<AudioQuality, string> = {
+        exhigh: qualityExhighLabel,
+        lossless: qualityLosslessLabel,
+        hires: qualityHiresLabel,
+    };
+
+    useEffect(() => {
+        if (!qualityMenuOpen) return;
+        const handlePointerDown = (event: MouseEvent) => {
+            if (!qualityMenuRef.current?.contains(event.target as Node)) {
+                setQualityMenuOpen(false);
+            }
+        };
+        window.addEventListener('mousedown', handlePointerDown);
+        return () => window.removeEventListener('mousedown', handlePointerDown);
+    }, [qualityMenuOpen]);
 
     return (
-        <>
-            <div className="hidden sm:flex flex-col gap-2.5 w-full min-w-0">
-                <div className="flex items-center gap-3 w-full min-w-0">
-                    {coverArtUrl ? (
-                        <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl shadow-md border border-white/10">
-                            <img
-                                src={coverArtUrl}
-                                alt=""
-                                className="h-full w-full object-cover"
-                                draggable={false}
-                            />
-                        </div>
-                    ) : null}
-
-                    <div className="flex items-center gap-1 shrink-0">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onPrevTrack?.();
-                            }}
-                            disabled={skipDisabled || !onPrevTrack}
-                            className={`p-2 rounded-full transition-colors ${iconBtnClass} ${skipDisabled ? 'opacity-25 cursor-not-allowed hover:opacity-25' : ''}`}
-                            style={{ color: primaryColor }}
-                            title="Previous"
-                        >
-                            <SkipBack size={18} fill="currentColor" />
-                        </button>
-
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onTogglePlay();
-                            }}
-                            disabled={!canTogglePlay || controlsDisabled}
-                            className={`w-12 h-12 rounded-full bg-(--text-primary) text-black flex items-center justify-center transition-transform shrink-0 shadow-lg border-none ${controlsDisabled ? 'opacity-45 cursor-not-allowed' : 'hover:scale-105'}`}
-                            style={{ backgroundColor: primaryColor, color: 'var(--bg-color)' }}
-                        >
-                            {playerState === PlayerState.PLAYING ? (
-                                <Pause size={20} fill="currentColor" />
-                            ) : (
-                                <Play size={20} fill="currentColor" className="ml-1" />
-                            )}
-                        </button>
-
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onNextTrack?.();
-                            }}
-                            disabled={skipDisabled || !onNextTrack}
-                            className={`p-2 rounded-full transition-colors ${iconBtnClass} ${skipDisabled ? 'opacity-25 cursor-not-allowed hover:opacity-25' : ''}`}
-                            style={{ color: primaryColor }}
-                            title="Next"
-                        >
-                            <SkipForward size={18} fill="currentColor" />
-                        </button>
-                    </div>
-
-                    <div className="flex-1 min-w-0 text-center text-sm font-bold truncate px-2" style={{ color: primaryColor }}>
-                        {currentSong?.name || noTrackText}
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onToggleLoop();
-                            }}
-                            disabled={controlsDisabled}
-                            className={`p-2 rounded-full transition-colors ${loopMode !== 'off' ? (isDaylight ? 'bg-black/10 text-black' : 'bg-white/20') : 'opacity-40 hover:opacity-100'} ${controlsDisabled ? 'opacity-35 cursor-not-allowed' : ''}`}
-                            style={{ color: primaryColor }}
-                        >
-                            {loopMode === 'off'
-                                ? <RepeatOff size={18} />
-                                : loopMode === 'one'
-                                    ? <Repeat1 size={18} />
-                                    : <Repeat size={18} />}
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onTogglePlayerLyricsVisible?.();
-                            }}
-                            disabled={controlsDisabled || !onTogglePlayerLyricsVisible}
-                            aria-pressed={playerLyricsVisible}
-                            aria-label={playerLyricsVisible ? hideLyricsLabel : showLyricsLabel}
-                            className={`p-2 rounded-full transition-all duration-200 active:scale-95 ${buildLyricsToggleButtonClass(playerLyricsVisible, isDaylight, controlsDisabled || !onTogglePlayerLyricsVisible)}`}
-                            style={{ color: playerLyricsVisible ? undefined : primaryColor }}
-                            title={playerLyricsVisible ? hideLyricsLabel : showLyricsLabel}
-                        >
-                            <span
-                                className="text-[15px] font-bold leading-none select-none"
-                                style={{ fontFamily: "'PingFang SC','Microsoft YaHei',sans-serif" }}
-                            >
-                                词
-                            </span>
-                        </button>
-
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onToggleTimeline();
-                            }}
-                            disabled={!hasLyrics}
-                            className={`p-2 rounded-full transition-colors ${!hasLyrics ? 'opacity-20 cursor-not-allowed' : `opacity-40 hover:opacity-100 ${isDaylight ? 'hover:bg-black/5' : 'hover:bg-white/10'}`}`}
-                            style={{ color: primaryColor }}
-                            title="View Lyrics Timeline"
-                        >
-                            <ChartBar size={18} />
-                        </button>
-                    </div>
-                </div>
-
-                <div className="w-full px-1">
-                    <ProgressBar
-                        currentTime={currentTime}
-                        duration={duration}
-                        onSeek={onSeek}
-                        primaryColor={primaryColor}
-                        secondaryColor={secondaryColor}
-                        trackColor={trackColor}
-                        disabled={controlsDisabled}
-                    />
-                </div>
-            </div>
-
-            <div className="sm:hidden flex flex-col gap-2 w-full">
-                <div className="flex items-center gap-3 px-2">
-                    {coverArtUrl ? (
-                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg shadow-md border border-white/10">
-                            <img
-                                src={coverArtUrl}
-                                alt=""
-                                className="h-full w-full object-cover"
-                                draggable={false}
-                            />
-                        </div>
-                    ) : null}
-                    <div className="flex-1 text-center text-sm font-bold truncate" style={{ color: primaryColor }}>
-                        {currentSong?.name || noTrackText}
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-center gap-3">
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onToggleLoop();
-                        }}
-                        disabled={controlsDisabled}
-                        className={`p-2 rounded-full transition-colors ${loopMode !== 'off' ? 'bg-white/20' : 'opacity-40 hover:opacity-100'} ${controlsDisabled ? 'opacity-35 cursor-not-allowed' : ''}`}
-                        style={{ color: primaryColor }}
-                    >
-                        {loopMode === 'off'
-                            ? <RepeatOff size={20} />
-                            : loopMode === 'one'
-                                ? <Repeat1 size={20} />
-                                : <Repeat size={20} />}
-                    </button>
-
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onPrevTrack?.();
-                        }}
-                        disabled={skipDisabled || !onPrevTrack}
-                        className={`p-2 rounded-full transition-colors opacity-40 hover:opacity-100 ${skipDisabled ? 'opacity-25 cursor-not-allowed hover:opacity-25' : ''}`}
-                        style={{ color: primaryColor }}
-                    >
-                        <SkipBack size={20} fill="currentColor" />
-                    </button>
-
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onTogglePlay();
-                        }}
-                        disabled={!canTogglePlay || controlsDisabled}
-                        className={`w-12 h-12 rounded-full bg-(--text-primary) text-black flex items-center justify-center transition-transform shrink-0 shadow-lg border-none ${controlsDisabled ? 'opacity-45 cursor-not-allowed' : 'hover:scale-105'}`}
-                        style={{ backgroundColor: primaryColor, color: 'var(--bg-color)' }}
-                    >
-                        {playerState === PlayerState.PLAYING ? (
-                            <Pause size={20} fill="currentColor" />
-                        ) : (
-                            <Play size={20} fill="currentColor" className="ml-1" />
-                        )}
-                    </button>
-
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onNextTrack?.();
-                        }}
-                        disabled={skipDisabled || !onNextTrack}
-                        className={`p-2 rounded-full transition-colors opacity-40 hover:opacity-100 ${skipDisabled ? 'opacity-25 cursor-not-allowed hover:opacity-25' : ''}`}
-                        style={{ color: primaryColor }}
-                    >
-                        <SkipForward size={20} fill="currentColor" />
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onTogglePlayerLyricsVisible?.();
-                        }}
-                        disabled={controlsDisabled || !onTogglePlayerLyricsVisible}
-                        aria-pressed={playerLyricsVisible}
-                        aria-label={playerLyricsVisible ? hideLyricsLabel : showLyricsLabel}
-                        className={`p-2 rounded-full transition-all duration-200 active:scale-95 ${buildLyricsToggleButtonClass(playerLyricsVisible, isDaylight, controlsDisabled || !onTogglePlayerLyricsVisible)}`}
-                        style={{ color: playerLyricsVisible ? undefined : primaryColor }}
-                        title={playerLyricsVisible ? hideLyricsLabel : showLyricsLabel}
-                    >
-                        <span
-                            className="text-[16px] font-bold leading-none select-none"
-                            style={{ fontFamily: "'PingFang SC','Microsoft YaHei',sans-serif" }}
-                        >
-                            词
-                        </span>
-                    </button>
-
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onToggleTimeline();
-                        }}
-                        disabled={!hasLyrics}
-                        className={`p-2 rounded-full transition-colors ${!hasLyrics ? 'opacity-20 cursor-not-allowed' : `opacity-40 hover:opacity-100 ${isDaylight ? 'hover:bg-black/5' : 'hover:bg-white/10'}`}`}
-                        style={{ color: primaryColor }}
-                        title="View Lyrics Timeline"
-                    >
-                        <ChartBar size={20} />
-                    </button>
-                </div>
-
-                <div className="flex items-center gap-2 w-full px-2">
-                    <div className="flex-1">
-                        <ProgressBar
-                            currentTime={currentTime}
-                            duration={duration}
-                            onSeek={onSeek}
-                            primaryColor={primaryColor}
-                            secondaryColor={secondaryColor}
-                            disabled={controlsDisabled}
-                        />
-                    </div>
-                </div>
-            </div>
-        </>
-    );
-};
-
-interface CollapsedViewProps {
-    coverUrl?: string | null;
-    currentTime: MotionValue<number>;
-    duration: number;
-    onSeek: (time: number) => void;
-    primaryColor: string;
-    secondaryColor: string;
-    trackColor?: string;
-    controlsDisabled?: boolean;
-}
-
-const CollapsedView: React.FC<CollapsedViewProps> = ({
-    coverUrl,
-    currentTime,
-    duration,
-    onSeek,
-    primaryColor,
-    secondaryColor,
-    trackColor,
-    controlsDisabled = false,
-}) => {
-    const coverArtUrl = coverUrl ? getSizedCoverUrl(coverUrl, 64) : null;
-
-    return (
-        <div className="flex items-center w-full gap-3 h-8 px-2">
-            {coverArtUrl ? (
-                <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-white/10">
-                    <img
-                        src={coverArtUrl}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        draggable={false}
-                    />
-                </div>
-            ) : null}
-            <div className="flex-1 min-w-0">
+        <div className="relative h-full w-full overflow-visible">
+            {/* Edge scrubber inset clears capsule corners so the rail is not clipped. */}
+            <div
+                className="absolute top-[7px] z-20 overflow-visible"
+                style={{
+                    left: FLOATING_PLAYER_PROGRESS_INSET_PX,
+                    right: FLOATING_PLAYER_PROGRESS_INSET_PX,
+                }}
+            >
                 <ProgressBar
                     currentTime={currentTime}
                     duration={duration}
@@ -628,7 +510,268 @@ const CollapsedView: React.FC<CollapsedViewProps> = ({
                     secondaryColor={secondaryColor}
                     trackColor={trackColor}
                     disabled={controlsDisabled}
+                    isDaylight={isDaylight}
+                    variant="edge"
                 />
+            </div>
+
+            <div className="grid h-full grid-cols-[minmax(0,1.08fr)_auto_minmax(0,1.08fr)] items-center gap-3 px-5 pt-2.5 sm:gap-4 sm:px-6 md:px-7">
+                <div className="flex min-w-0 items-center gap-3 text-left">
+                    <div
+                        className="relative h-[52px] w-[52px] shrink-0 overflow-hidden rounded-[12px]"
+                        style={{
+                            boxShadow: isDaylight
+                                ? '0 8px 22px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.35)'
+                                : '0 10px 28px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.20), inset 0 0 0 1px rgba(255,255,255,0.08)',
+                            background: isDaylight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.07)',
+                        }}
+                    >
+                        {coverArtUrl ? (
+                            <img
+                                src={coverArtUrl}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                draggable={false}
+                            />
+                        ) : (
+                            <div className="flex h-full w-full items-center justify-center opacity-45" style={{ color: titleColor }}>
+                                <Disc3 size={20} strokeWidth={1.75} />
+                            </div>
+                        )}
+                    </div>
+                    <div className="min-w-0 flex-1 max-w-[220px] sm:max-w-[280px]">
+                        <div className="truncate text-[13.5px] font-bold leading-snug tracking-tight" style={{ color: titleColor }}>
+                            {currentSong?.name || noTrackText}
+                        </div>
+                        {artistLabel ? (
+                            <div className="mt-[3px] truncate text-[11.5px] font-normal leading-snug" style={{ color: artistColor }}>
+                                {artistLabel}
+                            </div>
+                        ) : null}
+                    </div>
+
+                    {/* Mineradio: quality pill sits with track meta on the left cluster. */}
+                    <div className="relative shrink-0" ref={qualityMenuRef}>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (qualityDisabled) return;
+                                setQualityMenuOpen(open => !open);
+                            }}
+                            disabled={qualityDisabled}
+                            className={`inline-flex h-9 min-w-[56px] items-center justify-center rounded-[13px] px-[11px] text-[11px] font-extrabold tracking-[0.2px] transition-colors ${
+                                qualityDisabled
+                                    ? 'opacity-25 cursor-not-allowed'
+                                    : qualityMenuOpen
+                                        ? (isDaylight ? 'bg-black/12 text-black' : 'bg-white/[0.12] text-white')
+                                        : (isDaylight
+                                            ? 'bg-black/[0.04] text-black/70 hover:bg-black/[0.07]'
+                                            : 'bg-white/[0.038] text-[rgba(237,245,255,0.82)] hover:bg-white/[0.07]')
+                            }`}
+                            style={{
+                                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
+                            }}
+                            title={audioQualityLabel}
+                            aria-label={audioQualityLabel}
+                            aria-expanded={qualityMenuOpen}
+                            aria-haspopup="menu"
+                            data-testid="floating-player-quality-trigger"
+                        >
+                            {qualityLabels[audioQuality]}
+                        </button>
+                        {qualityMenuOpen ? (
+                            <div
+                                role="menu"
+                                className={`absolute bottom-[calc(100%+10px)] left-0 z-30 min-w-[132px] overflow-hidden rounded-[14px] border p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.38)] backdrop-blur-xl ${
+                                    isDaylight
+                                        ? 'border-black/10 bg-white/95'
+                                        : 'border-white/10 bg-black/82'
+                                }`}
+                            >
+                                {AUDIO_QUALITY_OPTIONS.map(option => {
+                                    const selected = option === audioQuality;
+                                    return (
+                                        <button
+                                            key={option}
+                                            type="button"
+                                            role="menuitemradio"
+                                            aria-checked={selected}
+                                            onClick={() => {
+                                                onAudioQualityChange?.(option);
+                                                setQualityMenuOpen(false);
+                                            }}
+                                            className={`flex w-full items-center justify-between rounded-[9px] px-2.5 py-2 text-left text-[12px] font-extrabold transition-colors ${
+                                                selected
+                                                    ? (isDaylight ? 'bg-black/10 text-black' : 'bg-white/15 text-white')
+                                                    : (isDaylight ? 'text-black/70 hover:bg-black/5' : 'text-white/70 hover:bg-white/10 hover:text-white')
+                                            }`}
+                                        >
+                                            <span>{qualityLabels[option]}</span>
+                                            {selected ? <span className="text-[10px] opacity-60">✓</span> : null}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : null}
+                    </div>
+                </div>
+
+                {/* Center transport: loop · prev · play · next · queue */}
+                <div className="flex shrink-0 items-center justify-center gap-1 sm:gap-1.5">
+                    <button
+                        type="button"
+                        onClick={onToggleLoop}
+                        disabled={controlsDisabled}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled, loopActive)}`}
+                        title="Loop"
+                    >
+                        {loopMode === 'off'
+                            ? <RepeatOff size={18} strokeWidth={1.9} />
+                            : loopMode === 'one'
+                                ? <Repeat1 size={18} strokeWidth={1.9} />
+                                : <Repeat size={18} strokeWidth={1.9} />}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => onPrevTrack?.()}
+                        disabled={skipDisabled || !onPrevTrack}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, skipDisabled || !onPrevTrack)}`}
+                        style={{ color: mutedTransportColor }}
+                        title="Previous"
+                    >
+                        <SkipBack size={18} strokeWidth={1.9} />
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={onTogglePlay}
+                        disabled={!canTogglePlay || controlsDisabled}
+                        className={`mx-0.5 flex h-[46px] w-[46px] items-center justify-center rounded-full border-none transition-transform shrink-0 sm:mx-1 ${
+                            controlsDisabled ? 'opacity-45 cursor-not-allowed' : 'hover:scale-[1.04] active:scale-95'
+                        }`}
+                        style={{
+                            backgroundColor: isDaylight ? 'rgba(0,0,0,0.88)' : 'rgba(255,255,255,0.92)',
+                            color: isDaylight ? '#fff' : 'rgba(12,14,18,0.92)',
+                            boxShadow: isDaylight
+                                ? '0 8px 22px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)'
+                                : '0 0 0 1px rgba(255,255,255,0.28), 0 8px 24px rgba(0,0,0,0.28), 0 0 28px rgba(178,229,255,0.12)',
+                        }}
+                    >
+                        {playerState === PlayerState.PLAYING ? (
+                            <Pause size={20} fill="currentColor" />
+                        ) : (
+                            <Play size={20} fill="currentColor" className="ml-0.5" />
+                        )}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => onNextTrack?.()}
+                        disabled={skipDisabled || !onNextTrack}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, skipDisabled || !onNextTrack)}`}
+                        style={{ color: mutedTransportColor }}
+                        title="Next"
+                    >
+                        <SkipForward size={18} strokeWidth={1.9} />
+                    </button>
+
+                    {onBackToPlaylist ? (
+                        <button
+                            type="button"
+                            onClick={onBackToPlaylist}
+                            className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, false)}`}
+                            title={backToPlaylistLabel}
+                            aria-label={backToPlaylistLabel}
+                        >
+                            <ListMusic size={18} strokeWidth={1.9} />
+                        </button>
+                    ) : (
+                        <span className="inline-flex h-9 w-9 shrink-0" aria-hidden />
+                    )}
+                </div>
+
+                <div className="flex min-w-0 items-center justify-end gap-0.5 sm:gap-1">
+                    {onEnterListeningMode ? (
+                        <button
+                            type="button"
+                            onClick={onEnterListeningMode}
+                            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, false)}`}
+                            title={listeningModeLabel}
+                            aria-label={listeningModeLabel}
+                        >
+                            <AudioLines size={17} strokeWidth={1.9} />
+                        </button>
+                    ) : null}
+
+                    <button
+                        type="button"
+                        onClick={() => onTogglePlayerLyricsVisible?.()}
+                        disabled={lyricsToggleDisabled}
+                        aria-pressed={playerLyricsVisible}
+                        aria-label={playerLyricsVisible ? hideLyricsLabel : showLyricsLabel}
+                        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] transition-all duration-180 active:scale-95 ${buildLyricsToggleButtonClass(playerLyricsVisible, isDaylight, lyricsToggleDisabled)}`}
+                        title={playerLyricsVisible ? hideLyricsLabel : showLyricsLabel}
+                    >
+                        <span
+                            className="text-[13px] font-bold leading-none select-none tracking-wide"
+                            style={{ fontFamily: "'PingFang SC','Microsoft YaHei',sans-serif" }}
+                        >
+                            词
+                        </span>
+                    </button>
+
+                    {canSwitchBackground
+                        && interactive3dSceneTuning
+                        && onVisualizerBackgroundModeChange
+                        && onInteractive3dSceneTuningChange
+                        && onVisualizerModeChange ? (
+                        <FloatingPlayerBackgroundMenu
+                            isDaylight={isDaylight}
+                            primaryColor={titleColor}
+                            disabled={controlsDisabled}
+                            visualizerBackgroundMode={visualizerBackgroundMode}
+                            interactive3dSceneTuning={interactive3dSceneTuning}
+                            onVisualizerBackgroundModeChange={onVisualizerBackgroundModeChange}
+                            onInteractive3dSceneTuningChange={onInteractive3dSceneTuningChange}
+                            visualizerMode={visualizerMode}
+                            onVisualizerModeChange={onVisualizerModeChange}
+                            theme={theme}
+                            onApplyLyricColorPreset={onApplyLyricColorPreset}
+                            backgroundMenuLabel={backgroundMenuLabel}
+                            modeInteractive3dLabel={backgroundModeInteractive3dLabel}
+                            modeCommonLabel={backgroundModeCommonLabel}
+                            modeMonetLabel={backgroundModeMonetLabel}
+                            presetSectionLabel={backgroundPresetSectionLabel}
+                            lyricsStyleSectionLabel={lyricsStyleSectionLabel}
+                            lyricColorSectionLabel={lyricColorSectionLabel}
+                            getPresetLabel={(preset) => getBackgroundPresetLabel?.(preset) || getMineradioPresetLabelFallback(preset)}
+                            getVisualizerLabel={(mode) => getVisualizerModeLabel?.(mode) || mode}
+                            buildToolButtonClass={(disabled, active) => buildToolButtonClass(isDaylight, disabled, active)}
+                        />
+                    ) : null}
+
+                    {onToggleImmersiveFullscreen ? (
+                        <button
+                            type="button"
+                            onClick={onToggleImmersiveFullscreen}
+                            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, false, isImmersiveFullscreen)}`}
+                            title={isImmersiveFullscreen ? exitFullscreenLabel : enterFullscreenLabel}
+                            aria-label={isImmersiveFullscreen ? exitFullscreenLabel : enterFullscreenLabel}
+                            aria-pressed={isImmersiveFullscreen}
+                        >
+                            {isImmersiveFullscreen
+                                ? <Minimize size={17} strokeWidth={1.9} />
+                                : <Maximize size={17} strokeWidth={1.9} />}
+                        </button>
+                    ) : null}
+
+                    <FloatingPlayerDockTime
+                        currentTime={currentTime}
+                        duration={duration}
+                        isDaylight={isDaylight}
+                    />
+                </div>
             </div>
         </div>
     );

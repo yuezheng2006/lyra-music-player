@@ -4,6 +4,7 @@ import type { AudioBands, Interactive3dSceneTuning, Line, Theme } from '../../..
 import type { GeometricQualityProfile } from '../geometricQuality';
 import type { InteractiveCameraControlValue } from '../useInteractiveCameraControl';
 import { shouldShowCoverParticleWebGL } from '../webgl/CoverParticleWebGLStage';
+import { normalizeInteractive3dVisualPreset } from '../mineradioVisualPresets';
 import { useMineradioPlaybackRuntime } from './useMineradioPlaybackRuntime';
 
 // src/components/visualizer/geometric/mineradio/MineradioPlaybackStage.tsx
@@ -48,6 +49,7 @@ const MineradioPlaybackStage: React.FC<MineradioPlaybackStageProps> = ({
 }) => {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const enabled = shouldShowCoverParticleWebGL(sceneTuning);
+    const visualPreset = normalizeInteractive3dVisualPreset(sceneTuning?.visualPreset);
 
     useMineradioPlaybackRuntime({
         containerRef,
@@ -76,7 +78,17 @@ const MineradioPlaybackStage: React.FC<MineradioPlaybackStageProps> = ({
         <div
             ref={containerRef}
             className="absolute inset-0 overflow-hidden z-0 isolate"
+            style={{
+                pointerEvents: 'auto',
+                touchAction: 'none',
+                background:
+                    visualPreset === 'emily'
+                        ? 'radial-gradient(circle at 50% 46%, rgba(21, 38, 43, 0.42) 0%, rgba(7, 25, 34, 0.78) 58%, rgba(2, 8, 12, 0.92) 100%)'
+                        : 'transparent',
+            }}
             data-testid="mineradio-playback-stage"
+            data-visual-preset={visualPreset}
+            data-cover-url={coverUrl ?? ''}
             aria-hidden
         />
     );

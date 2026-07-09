@@ -107,7 +107,7 @@ export const UserGuidePageContent: React.FC<UserGuidePageContentProps> = ({
                         icon={Lock}
                         iconClassName={isDaylight ? 'text-amber-500' : 'text-amber-300'}
                         title={t('userGuide.clickThrough.trayTitle', 'Use the tray icon')}
-                        description={t('userGuide.clickThrough.trayDesc', 'Right-click the Folia tray icon and choose the click-through option to enable or disable it.')}
+                        description={t('userGuide.clickThrough.trayDesc', 'Right-click the Lyra tray icon and choose the click-through option to enable or disable it.')}
                     />
                     <UserGuideFeatureCard
                         {...featureCardClasses}
@@ -212,12 +212,26 @@ export const UserGuidePageContent: React.FC<UserGuidePageContentProps> = ({
         <>
             <UserGuideTipCard
                 {...tipCardClasses}
-                icon={Palette}
-                iconClassName={isDaylight ? 'text-rose-500' : 'text-rose-300'}
-                title={t('userGuide.theme.title', 'Color themes')}
-                description={t('userGuide.theme.desc', 'Customize Folia with your own light and dark color themes, or generate an AI theme from the current song.')}
+                icon={Sparkles}
+                iconClassName={isDaylight ? 'text-amber-500' : 'text-amber-300'}
+                title={t('userGuide.atmosphere.title', 'Smart atmosphere & AI')}
+                description={t('userGuide.atmosphere.desc', 'Smart atmosphere is a local beat engine; AI themes own colors and can also recommend atmosphere strength and visual style.')}
             />
             <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <UserGuideFeatureCard
+                    {...featureCardClasses}
+                    icon={Sparkles}
+                    iconClassName={isDaylight ? 'text-amber-500' : 'text-amber-300'}
+                    title={t('userGuide.atmosphere.smartTitle', 'Smart atmosphere')}
+                    description={t('userGuide.atmosphere.smartDesc', 'When enabled, beat / bass / camera punch drive the 3D background and lyric rhythm. When off, basic spectrum remains but impact is reduced.')}
+                />
+                <UserGuideFeatureCard
+                    {...featureCardClasses}
+                    icon={WandSparkles}
+                    iconClassName={isDaylight ? 'text-purple-500' : 'text-purple-300'}
+                    title={t('userGuide.atmosphere.aiTitle', 'AI theme bridge')}
+                    description={t('userGuide.atmosphere.aiDesc', 'Generating or applying an AI theme derives atmosphere sensitivity, camera punch, and a visual-style recommendation from color and intensity.')}
+                />
                 <UserGuideFeatureCard
                     {...featureCardClasses}
                     icon={Palette}
@@ -228,9 +242,9 @@ export const UserGuidePageContent: React.FC<UserGuidePageContentProps> = ({
                 <UserGuideFeatureCard
                     {...featureCardClasses}
                     icon={WandSparkles}
-                    iconClassName={isDaylight ? 'text-purple-500' : 'text-purple-300'}
+                    iconClassName={isDaylight ? 'text-indigo-500' : 'text-indigo-300'}
                     title={t('ui.generateAITheme', 'Generate AI Theme')}
-                    description={t('userGuide.theme.aiDesc', 'When AI theme settings are configured, Folia can create song-aware colors and optionally auto-apply cached song themes.')}
+                    description={t('userGuide.theme.aiDesc', 'When AI theme settings are configured, Lyra can create song-aware colors and optionally auto-apply cached song themes.')}
                 />
             </div>
             {footer}

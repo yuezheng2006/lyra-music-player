@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useTransform, animate, AnimatePresence } from 'framer-motion';
 import { Loader2, Disc, Map as MapIcon, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { OnlineProviderBadge } from './shared/OnlineProviderBadge';
+import type { OnlineMusicProviderId } from '../types';
 
 // Convert HTTP to HTTPS only for Netease CDN URLs
 const toSafeUrl = (url?: string): string | undefined => {
@@ -13,9 +15,19 @@ const toSafeUrl = (url?: string): string | undefined => {
     return url;
 };
 
+type CarouselItemData = {
+    id: number | string;
+    name: string;
+    coverUrl?: string;
+    trackCount?: number;
+    playCount?: number;
+    description?: string;
+    musicProvider?: OnlineMusicProviderId;
+};
+
 // Carousel Item Component with safe blur animation
 const CarouselItem: React.FC<{
-    item: { id: number | string; name: string; coverUrl?: string; trackCount?: number; playCount?: number; description?: string; };
+    item: CarouselItemData;
     distance: number;
     isActive: boolean;
     xOffset: number;
@@ -64,15 +76,21 @@ const CarouselItem: React.FC<{
             }}
         >
             <div
-                className={`rounded-2xl overflow-hidden shadow-2xl relative transition-all duration-300 ${isActive ? 'ring-2 ring-white/30' : ''}`}
+                className={`rounded-xl overflow-hidden shadow-xl relative transition-all duration-300 ${isActive ? 'ring-2 ring-white/30' : ''}`}
                 style={{ width: coverSize, height: coverSize }}
             >
                 {item.coverUrl ? (
                     <img src={toSafeUrl(item.coverUrl)} alt={item.name} className="w-full h-full object-cover pointer-events-none" />
                 ) : (
                     <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
-                        <Disc size={64} className="opacity-20" style={{ color: 'var(--text-primary)' }} />
+                        <Disc size={48} className="opacity-20" style={{ color: 'var(--text-primary)' }} />
                     </div>
+                )}
+                {item.musicProvider && (
+                    <OnlineProviderBadge
+                        provider={item.musicProvider}
+                        className="absolute top-2 left-2 z-10"
+                    />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
             </div>
@@ -81,7 +99,7 @@ const CarouselItem: React.FC<{
 };
 
 interface Carousel3DProps {
-    items: { id: number | string; name: string; coverUrl?: string; trackCount?: number; playCount?: number; description?: string; }[];
+    items: CarouselItemData[];
     onSelect: (item: any) => void;
     isLoading?: boolean;
     emptyMessage?: string;
@@ -263,17 +281,17 @@ const Carousel3D: React.FC<Carousel3DProps> = ({
         && containerSize.width >= 2000
         && containerSize.height >= (hasFloatingPlayer ? 780 : 720);
     const coverSize = useCompactMetrics
-        ? (isDesktopWidth ? 208 : 192)
-        : (isDesktopWidth ? (isUltraDesktop ? 360 : isLargeDesktop ? 312 : 256) : 224);
+        ? (isDesktopWidth ? 168 : 152)
+        : (isDesktopWidth ? (isUltraDesktop ? 248 : isLargeDesktop ? 220 : 176) : 168);
     const carouselMinHeight = useCompactMetrics
-        ? (isDesktopWidth ? 260 : 240)
-        : (isDesktopWidth ? (isUltraDesktop ? 440 : isLargeDesktop ? 380 : 320) : 300);
+        ? (isDesktopWidth ? 220 : 200)
+        : (isDesktopWidth ? (isUltraDesktop ? 320 : isLargeDesktop ? 280 : 240) : 230);
     const stageMinHeight = useCompactMetrics
-        ? (isDesktopWidth ? 210 : 190)
-        : (isDesktopWidth ? (isUltraDesktop ? 360 : isLargeDesktop ? 300 : 260) : 220);
+        ? (isDesktopWidth ? 180 : 160)
+        : (isDesktopWidth ? (isUltraDesktop ? 260 : isLargeDesktop ? 230 : 200) : 180);
     const focusDecorationSize = useCompactMetrics
-        ? (isDesktopWidth ? 340 : 300)
-        : (isDesktopWidth ? (isUltraDesktop ? 560 : isLargeDesktop ? 480 : 400) : 340);
+        ? (isDesktopWidth ? 280 : 250)
+        : (isDesktopWidth ? (isUltraDesktop ? 400 : isLargeDesktop ? 360 : 300) : 280);
     const mapButtonPadding = useCompactMetrics
         ? (isDesktopWidth ? 8 : 7)
         : (isDesktopWidth ? (isUltraDesktop ? 14 : isLargeDesktop ? 13 : 12) : 10);
@@ -281,8 +299,8 @@ const Carousel3D: React.FC<Carousel3DProps> = ({
         ? (isDesktopWidth ? 20 : 18)
         : (isDesktopWidth ? (isUltraDesktop ? 28 : isLargeDesktop ? 26 : 24) : 20);
     const sideOffset = useCompactMetrics
-        ? (isDesktopWidth ? 210 : 180)
-        : (isDesktopWidth ? (isUltraDesktop ? 336 : isLargeDesktop ? 288 : 240) : 210);
+        ? (isDesktopWidth ? 170 : 150)
+        : (isDesktopWidth ? (isUltraDesktop ? 230 : isLargeDesktop ? 205 : 175) : 165);
 
     const titleSpacingClass = useCompactMetrics
         ? (hasFloatingPlayer ? 'pt-4 pb-0 -mb-3 md:-mb-4' : 'pt-4 pb-4')
@@ -377,17 +395,22 @@ const Carousel3D: React.FC<Carousel3DProps> = ({
                     transition={{ duration: 0.3 }}
                     className={`relative shrink-0 text-center z-10 px-8 pointer-events-none ${titleSpacingClass}`}
                 >
-                    <h3 className="font-bold text-2xl truncate max-w-xl mx-auto" style={{ color: 'var(--text-primary)' }}>
+                    <h3 className="font-bold text-xl truncate max-w-xl mx-auto" style={{ color: 'var(--text-primary)' }}>
                         {items[focusedIndex].name}
                     </h3>
-                    <p className="text-xs opacity-50 font-mono mt-1" style={{ color: 'var(--text-secondary)' }}>
-                        {items[focusedIndex].trackCount !== undefined ? `${items[focusedIndex].trackCount} songs` : ''}
-                        {items[focusedIndex].description
-                            ? ` • ${items[focusedIndex].description.length > 12
-                                ? items[focusedIndex].description.substring(0, 12) + '...'
-                                : items[focusedIndex].description
-                            }`
-                            : ''}
+                    <p className="text-xs opacity-50 font-mono mt-1 inline-flex items-center justify-center gap-2 flex-wrap" style={{ color: 'var(--text-secondary)' }}>
+                        {items[focusedIndex].musicProvider && (
+                            <OnlineProviderBadge provider={items[focusedIndex].musicProvider} />
+                        )}
+                        <span>
+                            {items[focusedIndex].trackCount !== undefined ? `${items[focusedIndex].trackCount} songs` : ''}
+                            {items[focusedIndex].description
+                                ? ` • ${items[focusedIndex].description.length > 12
+                                    ? items[focusedIndex].description.substring(0, 12) + '...'
+                                    : items[focusedIndex].description
+                                }`
+                                : ''}
+                        </span>
                     </p>
                 </motion.div>
             )}

@@ -10,7 +10,10 @@ import { resolveVisualizerBackgroundMode } from '../../stores/useSettingsUiStore
 import ControlsTabPlayerBackgroundSection from './ControlsTabPlayerBackgroundSection';
 import { getControlsTabOptionButtonClass, getControlsTabOptionStyles } from './controlsTabOptionStyles';
 import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
-import type { LyricColorPresetId } from '../../utils/theme/lyricColorPresets';
+import {
+    matchLyricColorPresetId,
+    type LyricColorPresetId,
+} from '../../utils/theme/lyricColorPresets';
 
 // Controls tab keeps the visualizer picker local so it can expand into a full-tab overlay
 // without changing the rest of the player state flow.
@@ -21,6 +24,7 @@ interface ControlsTabProps {
     onLike: () => void;
     isLiked: boolean;
     onGenerateAITheme: () => void;
+    onActivateSmartTheme: () => void;
     isGeneratingTheme: boolean;
     canGenerateAITheme: boolean;
     theme: Theme;
@@ -62,6 +66,7 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
     onLike,
     isLiked,
     onGenerateAITheme,
+    onActivateSmartTheme,
     isGeneratingTheme,
     canGenerateAITheme,
     theme,
@@ -282,6 +287,34 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                         </div>
                     </div>
 
+                    {onApplyLyricColorPreset && (
+                        <div className="space-y-2" data-testid="controls-lyric-color-presets">
+                            <div>
+                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                                    {t('options.lyricColorPresetTitle') || '歌词颜色'}
+                                </label>
+                                <p className={`mt-1 text-[9px] leading-snug ${sectionHintClass}`}>
+                                    {t('options.lyricColorPresetDesc') || '只改歌词颜色，不影响字体、动效和背景。'}
+                                </p>
+                            </div>
+                            <div className={`${wellBg} p-1 rounded-xl`}>
+                                <LyricColorPresetGrid
+                                    onSelect={onApplyLyricColorPreset}
+                                    activePresetId={matchLyricColorPresetId(
+                                        theme,
+                                        isDaylight ? 'light' : 'dark',
+                                    )}
+                                    isDaylight={isDaylight}
+                                    inactiveButtonClassName={isDaylight
+                                        ? 'text-stone-800 hover:bg-black/[0.05]'
+                                        : 'text-white/88 hover:bg-white/[0.08]'}
+                                    activeButtonClassName={optionStyles.activeOptionClass}
+                                    buttonClassName="w-full"
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     <div className="space-y-2" data-testid="controls-panel-theme-section">
                         <div>
                             <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
@@ -302,12 +335,16 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                             </button>
                             <button
                                 type="button"
-                                onClick={() => aiThemeSource.available && onBgModeChange('ai')}
-                                disabled={!aiThemeSource.available}
-                                className={`py-1.5 flex items-center justify-center gap-2 ${getControlsTabOptionButtonClass(themeSourceModel.activeSource === 'ai', optionStyles, !aiThemeSource.available)}`}
+                                onClick={() => {
+                                    if (isGeneratingTheme) return;
+                                    onActivateSmartTheme();
+                                }}
+                                disabled={isGeneratingTheme}
+                                className={`py-1.5 flex items-center justify-center gap-2 ${getControlsTabOptionButtonClass(themeSourceModel.activeSource === 'ai', optionStyles, isGeneratingTheme)}`}
+                                title={t('ui.smartThemeHint') || '有缓存则应用，否则分析当前歌曲并生成'}
                             >
                                 <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: aiSwatchColor }} />
-                                {t('ui.aiTheme')}
+                                {isGeneratingTheme ? (t('ui.generatingTheme') || '生成中...') : t('ui.smartTheme')}
                             </button>
                             {hasCustomTheme && (
                                 <button
@@ -361,38 +398,19 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                                 </>
                             )}
                         </div>
-
-                        {onApplyLyricColorPreset && (
-                            <div className="space-y-1" data-testid="controls-lyric-color-presets">
-                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                                    {t('options.lyricColorPresetTitle') || '流行歌词色'}
-                                </label>
-                                <p className={`text-[9px] leading-snug ${sectionHintClass}`}>
-                                    {t('options.lyricColorPresetDesc') || '高对比动态歌词配色，强调当前字高亮。'}
-                                </p>
-                                <div className={`${wellBg} p-1 rounded-xl`}>
-                                    <LyricColorPresetGrid
-                                        onSelect={onApplyLyricColorPreset}
-                                        inactiveButtonClassName={optionStyles.inactiveOptionClass}
-                                        activeButtonClassName={optionStyles.activeOptionClass}
-                                        buttonClassName="w-full"
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        <ControlsTabPlayerBackgroundSection
-                            visualizerMode={visualizerMode}
-                            visualizerBackgroundMode={visualizerBackgroundMode}
-                            interactive3dSceneTuning={interactive3dSceneTuning}
-                            enableSmartAtmosphere={enableSmartAtmosphere}
-                            isDaylight={isDaylight}
-                            onVisualizerBackgroundModeChange={onVisualizerBackgroundModeChange ?? (() => undefined)}
-                            onInteractive3dSceneTuningChange={onInteractive3dSceneTuningChange ?? (() => undefined)}
-                            onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere ?? (() => undefined)}
-                            onOpenAdvancedBackgroundSettings={onOpenAdvancedBackgroundSettings}
-                        />
                     </div>
+
+                    <ControlsTabPlayerBackgroundSection
+                        visualizerMode={visualizerMode}
+                        visualizerBackgroundMode={visualizerBackgroundMode}
+                        interactive3dSceneTuning={interactive3dSceneTuning}
+                        enableSmartAtmosphere={enableSmartAtmosphere}
+                        isDaylight={isDaylight}
+                        onVisualizerBackgroundModeChange={onVisualizerBackgroundModeChange ?? (() => undefined)}
+                        onInteractive3dSceneTuningChange={onInteractive3dSceneTuningChange ?? (() => undefined)}
+                        onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere ?? (() => undefined)}
+                        onOpenAdvancedBackgroundSettings={onOpenAdvancedBackgroundSettings}
+                    />
                 </div>
             </div>
         </motion.div>

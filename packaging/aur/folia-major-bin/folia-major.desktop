@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=Folia
-Comment=Lyrics Reimagine
+Name=Lyra
+Comment=Sound, Stage, Sense
 Exec=folia-major
 Icon=folia-major
 Terminal=false
 Type=Application
 Categories=AudioVideo;Player;
-StartupWMClass=Folia
+StartupWMClass=Lyra

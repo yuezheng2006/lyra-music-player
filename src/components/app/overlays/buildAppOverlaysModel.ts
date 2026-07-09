@@ -7,7 +7,16 @@ import type PlaylistView from '../views/PlaylistView';
 import type AlbumView from '../views/AlbumView';
 import type ArtistView from '../views/ArtistView';
 import { PlayerState } from '../../../types';
-import type { SongResult, UnifiedSong, LyricData } from '../../../types';
+import type {
+    Interactive3dSceneTuning,
+    LyricData,
+    MineradioVisualPresetId,
+    SongResult,
+    UnifiedSong,
+    VisualizerBackgroundMode,
+    VisualizerMode,
+} from '../../../types';
+import type { LyricColorPresetId } from '../../../utils/theme/lyricColorPresets';
 
 // src/components/app/overlays/buildAppOverlaysModel.ts
 
@@ -44,8 +53,16 @@ type BuildAppOverlaysModelParams = {
     handleSearchResultArtistSelect: (track: UnifiedSong, artistName: string, artistId?: number) => void;
     handleSearchResultAlbumSelect: (track: UnifiedSong, albumName: string, albumId?: number) => void;
     popOverlay: () => void;
-    playSong: (song: SongResult, queue?: SongResult[], isFmCall?: boolean) => Promise<void>;
-    playOnlineQueueFromStart: (songs: SongResult[]) => void;
+    playSong: (
+        song: SongResult,
+        queue?: SongResult[],
+        isFmCall?: boolean,
+        options?: { shouldNavigateToPlayer?: boolean },
+    ) => Promise<void>;
+    playOnlineQueueFromStart: (
+        songs: SongResult[],
+        options?: { shouldNavigateToPlayer?: boolean },
+    ) => void;
     addNeteaseSongsToQueue: (songs: SongResult[]) => void;
     addNeteaseSongToQueue: (song: SongResult) => void;
     handleAlbumSelect: (albumId: number) => void;
@@ -79,6 +96,7 @@ type BuildAppOverlaysModelParams = {
     onNextTrack: () => void;
     onTogglePlayerLyricsVisible: () => void;
     navigateToPlayer: () => void;
+    navigateToHome: () => void;
     isPlayerChromeHidden: boolean;
     shouldHidePlayerProgressBar: boolean;
     onSeekMainAudio: (time: number) => void;
@@ -86,7 +104,37 @@ type BuildAppOverlaysModelParams = {
     noTrackText: string;
     showLyricsLabel: string;
     hideLyricsLabel: string;
+    listeningModeLabel: string;
+    backToPlaylistLabel?: string;
+    isImmersiveFullscreen?: boolean;
+    onToggleImmersiveFullscreen?: () => void;
+    enterFullscreenLabel?: string;
+    exitFullscreenLabel?: string;
+    onRevealLyricsInPlayer?: () => void;
     coverUrl?: string | null;
+    audioQuality?: 'exhigh' | 'lossless' | 'hires';
+    onAudioQualityChange?: (quality: 'exhigh' | 'lossless' | 'hires') => void;
+    canChangeAudioQuality?: boolean;
+    qualityExhighLabel?: string;
+    qualityLosslessLabel?: string;
+    qualityHiresLabel?: string;
+    audioQualityLabel?: string;
+    visualizerBackgroundMode?: VisualizerBackgroundMode | null;
+    interactive3dSceneTuning?: Interactive3dSceneTuning | null;
+    onVisualizerBackgroundModeChange?: (mode: VisualizerBackgroundMode) => void;
+    onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
+    visualizerMode?: VisualizerMode;
+    onVisualizerModeChange?: (mode: VisualizerMode) => void;
+    onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
+    backgroundMenuLabel?: string;
+    backgroundModeInteractive3dLabel?: string;
+    backgroundModeCommonLabel?: string;
+    backgroundModeMonetLabel?: string;
+    backgroundPresetSectionLabel?: string;
+    lyricsStyleSectionLabel?: string;
+    lyricColorSectionLabel?: string;
+    getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
+    getVisualizerModeLabel?: (mode: VisualizerMode) => string;
 };
 
 // Builds the full overlay model, including detail overlays and floating playback controls.
@@ -140,6 +188,7 @@ export const buildAppOverlaysModel = ({
     onNextTrack,
     onTogglePlayerLyricsVisible,
     navigateToPlayer,
+    navigateToHome,
     isPlayerChromeHidden,
     shouldHidePlayerProgressBar,
     onSeekMainAudio,
@@ -147,7 +196,37 @@ export const buildAppOverlaysModel = ({
     noTrackText,
     showLyricsLabel,
     hideLyricsLabel,
+    listeningModeLabel,
+    backToPlaylistLabel = 'Back to playlist',
+    isImmersiveFullscreen = false,
+    onToggleImmersiveFullscreen,
+    enterFullscreenLabel,
+    exitFullscreenLabel,
+    onRevealLyricsInPlayer,
     coverUrl,
+    audioQuality,
+    onAudioQualityChange,
+    canChangeAudioQuality,
+    qualityExhighLabel,
+    qualityLosslessLabel,
+    qualityHiresLabel,
+    audioQualityLabel,
+    visualizerBackgroundMode = null,
+    interactive3dSceneTuning = null,
+    onVisualizerBackgroundModeChange,
+    onInteractive3dSceneTuningChange,
+    visualizerMode = 'classic',
+    onVisualizerModeChange,
+    onApplyLyricColorPreset,
+    backgroundMenuLabel,
+    backgroundModeInteractive3dLabel,
+    backgroundModeCommonLabel,
+    backgroundModeMonetLabel,
+    backgroundPresetSectionLabel,
+    lyricsStyleSectionLabel,
+    lyricColorSectionLabel,
+    getBackgroundPresetLabel,
+    getVisualizerModeLabel,
 }: BuildAppOverlaysModelParams): AppOverlaysModel => ({
     searchOverlay: currentView === 'home'
         ? {
@@ -170,10 +249,10 @@ export const buildAppOverlaysModel = ({
                     playlist: topOverlay.playlist,
                     onBack: popOverlay,
                     onPlaySong: (song, ctx) => {
-                        void playSong(song, ctx, false);
+                        void playSong(song, ctx, false, { shouldNavigateToPlayer: true });
                     },
                     onPlayAll: songs => {
-                        playOnlineQueueFromStart(songs);
+                        playOnlineQueueFromStart(songs, { shouldNavigateToPlayer: false });
                     },
                     onAddAllToQueue: addNeteaseSongsToQueue,
                     onAddSongToQueue: addNeteaseSongToQueue,
@@ -195,10 +274,10 @@ export const buildAppOverlaysModel = ({
                         albumId: topOverlay.id,
                         onBack: popOverlay,
                         onPlaySong: (song, ctx) => {
-                            void playSong(song, ctx, false);
+                            void playSong(song, ctx, false, { shouldNavigateToPlayer: true });
                         },
                         onPlayAll: songs => {
-                            playOnlineQueueFromStart(songs);
+                            playOnlineQueueFromStart(songs, { shouldNavigateToPlayer: false });
                         },
                         onAddAllToQueue: addNeteaseSongsToQueue,
                         onAddSongToQueue: addNeteaseSongToQueue,
@@ -213,7 +292,7 @@ export const buildAppOverlaysModel = ({
                         artistId: topOverlay.id,
                         onBack: popOverlay,
                         onPlaySong: (song, ctx) => {
-                            void playSong(song, ctx, false);
+                            void playSong(song, ctx, false, { shouldNavigateToPlayer: true });
                         },
                         onAddSongToQueue: addNeteaseSongToQueue,
                         onSelectAlbum: handleAlbumSelect,
@@ -267,16 +346,47 @@ export const buildAppOverlaysModel = ({
             onNextTrack,
             onTogglePlayerLyricsVisible,
             onNavigateToPlayer: navigateToPlayer,
-    noTrackText,
-    showLyricsLabel,
-    hideLyricsLabel,
-    coverUrl,
-    primaryColor: 'var(--text-primary)',
+            onNavigateToPlaylist: navigateToHome,
+            noTrackText,
+            showLyricsLabel,
+            hideLyricsLabel,
+            listeningModeLabel,
+            backToPlaylistLabel,
+            isImmersiveFullscreen,
+            onToggleImmersiveFullscreen,
+            enterFullscreenLabel,
+            exitFullscreenLabel,
+            onRevealLyricsInPlayer,
+            coverUrl,
+            primaryColor: 'var(--text-primary)',
             secondaryColor: 'var(--text-secondary)',
             theme,
             isDaylight,
             isHidden: currentView === 'player' && isPlayerChromeHidden,
             hideControlBar: shouldHidePlayerProgressBar,
+            audioQuality,
+            onAudioQualityChange,
+            canChangeAudioQuality,
+            qualityExhighLabel,
+            qualityLosslessLabel,
+            qualityHiresLabel,
+            audioQualityLabel,
+            visualizerBackgroundMode,
+            interactive3dSceneTuning,
+            onVisualizerBackgroundModeChange,
+            onInteractive3dSceneTuningChange,
+            visualizerMode,
+            onVisualizerModeChange,
+            onApplyLyricColorPreset,
+            backgroundMenuLabel,
+            backgroundModeInteractive3dLabel,
+            backgroundModeCommonLabel,
+            backgroundModeMonetLabel,
+            backgroundPresetSectionLabel,
+            lyricsStyleSectionLabel,
+            lyricColorSectionLabel,
+            getBackgroundPresetLabel,
+            getVisualizerModeLabel,
         }
         : null,
 });

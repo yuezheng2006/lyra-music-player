@@ -1,6 +1,7 @@
 import type React from 'react';
-import { LocalLibraryGroup, LocalSong, SongResult } from '../../../types';
+import { LocalLibraryGroup, LocalSong, NeteasePlaylist, SongResult } from '../../../types';
 import { navidromeApi, getNavidromeConfig } from '../../../services/navidromeService';
+import { fetchQQPlaylistTracks } from '../../../services/musicProviders/qqMusicLibrary';
 import { buildLocalQueue, buildNavidromeQueue } from '../../../services/playbackAdapters';
 import { SubsonicSong } from '../../../types/navidrome';
 import { isBlob } from '../../../utils/blobGuards';
@@ -8,7 +9,7 @@ import { isBlob } from '../../../utils/blobGuards';
 // src/components/app/home/gridViewCollectionAdapters.ts
 // Converts home-surface collections into small GridView descriptors and resolves non-Netease tracks outside GridView.
 
-export type GridViewCollectionSource = 'netease' | 'local' | 'navidrome';
+export type GridViewCollectionSource = 'netease' | 'qq' | 'local' | 'navidrome';
 export type NavidromeGridViewCollectionType = 'album' | 'playlist' | 'artist' | 'random' | 'favorites';
 
 export interface BaseGridViewCollectionDescriptor {
@@ -28,6 +29,8 @@ export interface BaseGridViewCollectionDescriptor {
     albumCompany?: string;
     albumPublishTime?: number;
     returnToPlayerOnClose?: boolean;
+    musicProvider?: 'netease' | 'qq' | 'qishui' | 'coco';
+    providerPlaylistId?: string;
 }
 
 export interface LocalGridViewCollectionDescriptor extends BaseGridViewCollectionDescriptor {
@@ -46,8 +49,17 @@ export interface NavidromeGridViewCollectionDescriptor extends BaseGridViewColle
     editable?: boolean;
 }
 
+export interface QQGridViewCollectionDescriptor extends BaseGridViewCollectionDescriptor {
+    source: 'qq';
+    type: 'playlist';
+    providerPlaylistId: string;
+    musicProvider: 'qq';
+    raw?: NeteasePlaylist;
+}
+
 export type GridViewCollectionDescriptor =
     | (BaseGridViewCollectionDescriptor & { source: 'netease'; raw?: any; })
+    | QQGridViewCollectionDescriptor
     | LocalGridViewCollectionDescriptor
     | NavidromeGridViewCollectionDescriptor;
 
@@ -60,12 +72,47 @@ const getDisplayName = (name: React.ReactNode) => (
 export const createNeteaseGridViewCollection = (collection: any): GridViewCollectionDescriptor => ({
     ...collection,
     source: 'netease',
+    musicProvider: 'netease',
     albumArtist: collection.type === 'album'
         ? collection.raw?.artists?.map((artist: { name?: string }) => artist.name).filter(Boolean).join(' / ') || collection.description
         : collection.albumArtist,
     albumPublishTime: collection.type === 'album' ? collection.raw?.publishTime : collection.albumPublishTime,
     albumCompany: collection.type === 'album' ? collection.raw?.company : collection.albumCompany,
 });
+
+export const createQQGridViewCollection = (playlist: NeteasePlaylist): QQGridViewCollectionDescriptor => {
+    const providerPlaylistId = String(playlist.providerPlaylistId || '').trim();
+    if (!providerPlaylistId) {
+        throw new Error('QQ playlist is missing providerPlaylistId');
+    }
+
+    return {
+        source: 'qq',
+        id: playlist.id,
+        name: playlist.name,
+        type: 'playlist',
+        coverUrl: playlist.coverImgUrl,
+        coverImgUrl: playlist.coverImgUrl,
+        description: playlist.creator?.nickname || 'QQ 音乐',
+        trackCount: playlist.trackCount,
+        musicProvider: 'qq',
+        providerPlaylistId,
+        raw: playlist,
+    };
+};
+
+export const createOnlinePlaylistGridViewCollection = (playlist: NeteasePlaylist): GridViewCollectionDescriptor => {
+    if (playlist.musicProvider === 'qq') {
+        return createQQGridViewCollection(playlist);
+    }
+    return createNeteaseGridViewCollection({
+        ...playlist,
+        type: 'playlist',
+        coverUrl: playlist.coverImgUrl,
+        description: playlist.creator?.nickname || '歌单',
+        raw: playlist,
+    });
+};
 
 export const createLocalGridViewCollection = (group: LocalLibraryGroup): LocalGridViewCollectionDescriptor => ({
     source: 'local',
@@ -206,6 +253,10 @@ export const resolveNavidromeGridViewTracks = async (
     return buildNavidromeQueue(navidromeSongs);
 };
 
+export const resolveQQGridViewTracks = async (
+    descriptor: QQGridViewCollectionDescriptor
+): Promise<SongResult[]> => fetchQQPlaylistTracks(descriptor.providerPlaylistId);
+
 export const isLocalGridViewCollection = (
     collection: GridViewCollectionDescriptor
 ): collection is LocalGridViewCollectionDescriptor => collection.source === 'local';
@@ -213,6 +264,10 @@ export const isLocalGridViewCollection = (
 export const isNavidromeGridViewCollection = (
     collection: GridViewCollectionDescriptor
 ): collection is NavidromeGridViewCollectionDescriptor => collection.source === 'navidrome';
+
+export const isQQGridViewCollection = (
+    collection: GridViewCollectionDescriptor
+): collection is QQGridViewCollectionDescriptor => collection.source === 'qq';
 
 export const isNeteaseGridViewCollection = (
     collection: GridViewCollectionDescriptor

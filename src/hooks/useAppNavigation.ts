@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { HomeViewTab, LocalLibraryGroup, NeteasePlaylist } from '../types';
+import type { HomeViewTab, LocalLibraryGroup, NeteasePlaylist, SearchSourceId } from '../types';
 import type { NavidromeViewSelection } from '../types/navidrome';
 import { type SearchReturnView, useSearchNavigationStore } from '../stores/useSearchNavigationStore';
+import { useSettingsUiStore } from '../stores/useSettingsUiStore';
+import { clearOnlineBrowseOverlays } from '../utils/onlineBrowseOverlays';
 
 type ViewState = 'home' | 'player';
 
@@ -26,7 +28,7 @@ type NavigationHistoryState = {
     overlays: HomeOverlay[];
     overlayView: ViewState | null;
     overlayOriginView: ViewState | null;
-    search?: { query: string; sourceTab: HomeViewTab; returnView?: SearchReturnView; } | null;
+    search?: { query: string; sourceTab: SearchSourceId; returnView?: SearchReturnView; } | null;
 };
 
 type OverlayDisplayState = {
@@ -146,6 +148,11 @@ export function useAppNavigation() {
             : 'home'
     );
 
+    /** Close search + GridView so "home" means the clean playlist browse surface. */
+    const clearBrowseOverlays = () => {
+        clearOnlineBrowseOverlays();
+    };
+
     const initializeNavigationState = () => {
         const initialView = getStartupView();
         localStorage.setItem(LAST_APP_VIEW_KEY, initialView);
@@ -166,7 +173,7 @@ export function useAppNavigation() {
             detailStack: [],
             detailOriginView: null,
         }));
-        useSearchNavigationStore.getState().hideSearchOverlay();
+        clearBrowseOverlays();
         logNavigation('initializeNavigationState', {
             view: initialView,
             overlays: [],
@@ -201,7 +208,7 @@ export function useAppNavigation() {
                 detailOriginView: null,
             }));
         }
-        useSearchNavigationStore.getState().hideSearchOverlay();
+        clearBrowseOverlays();
         logNavigation('resetToHomeState', {
             view: 'home',
             overlays: [],
@@ -348,7 +355,7 @@ export function useAppNavigation() {
         returnView = 'home',
     }: {
         query: string;
-        sourceTab: HomeViewTab;
+        sourceTab: SearchSourceId;
         replace?: boolean;
         returnView?: SearchReturnView;
     }) => {
@@ -375,7 +382,8 @@ export function useAppNavigation() {
 
     const closeSearchView = () => {
         const searchReturnView = useSearchNavigationStore.getState().searchReturnView;
-        useSearchNavigationStore.getState().hideSearchOverlay();
+        // Always leave a clean surface under search (no leftover GridView).
+        clearOnlineBrowseOverlays();
 
         if (searchReturnView === 'player') {
             pushNavigationState({
@@ -473,13 +481,29 @@ export function useAppNavigation() {
         }
 
         if (currentView === 'player') {
-            setCurrentView('home');
-            localStorage.setItem(LAST_APP_VIEW_KEY, 'home');
-            logNavigation('navigateToHome:player->home', {
+            // Soft return: keep GridView / browse context so "back" restores the previous card page.
+            const hasGridBrowse = Boolean(useSettingsUiStore.getState().activeGridViewCollection);
+            const searchOpen = useSearchNavigationStore.getState().isSearchOpen;
+            pushNavigationState({
                 view: 'home',
-                overlays: overlayStack,
-                overlayView,
-                overlayOriginView,
+                overlays: [],
+                overlayView: null,
+                overlayOriginView: null,
+                replace: true,
+                hash: hasGridBrowse ? '#home' : (window.location.pathname + window.location.search),
+                search: searchOpen
+                    ? {
+                        query: useSearchNavigationStore.getState().searchQuery,
+                        sourceTab: useSearchNavigationStore.getState().searchSourceTab,
+                    }
+                    : null,
+            });
+            logNavigation('navigateToHome:player->home:soft', {
+                view: 'home',
+                overlays: [],
+                overlayView: null,
+                overlayOriginView: null,
+                historyState: { hasGridBrowse, searchOpen },
             });
             return;
         }

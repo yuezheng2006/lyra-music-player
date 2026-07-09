@@ -59,11 +59,13 @@ export const useLyricRhythmMotion = ({
                 cinemaScale: 0.82,
                 atmosphereEnergy: beatPulse ? (energy || 0.42) : 0.42,
             });
-            const glowAlpha = 0.12 + glow * 0.28;
+            const glowAlpha = glowColor ? 0.18 + glow * 0.38 : 0.12 + glow * 0.28;
             const shadowColor = glowColor
                 ? colorWithAlpha(glowColor, glowAlpha)
                 : `rgba(255,255,255,${0.08 + glow * 0.12})`;
-            return `drop-shadow(0 0 ${8 + glow * 24}px ${shadowColor})`;
+            const tightGlow = `drop-shadow(0 0 ${6 + glow * 14}px ${shadowColor})`;
+            const bloomGlow = `drop-shadow(0 0 ${16 + glow * 34}px ${shadowColor})`;
+            return `${tightGlow} ${bloomGlow}`;
         },
     );
 

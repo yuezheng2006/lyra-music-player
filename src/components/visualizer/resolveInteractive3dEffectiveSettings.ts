@@ -9,6 +9,7 @@ import {
     INTERACTIVE3D_SCENE_EFFECTS,
     type Interactive3dSceneEffectId,
 } from './geometric/interactive3dSceneRegistry';
+import { normalizeInteractive3dVisualPreset } from './geometric/mineradioVisualPresets';
 import { shouldShowCoverParticleWebGL } from './geometric/webgl/CoverParticleWebGLStage';
 
 // src/components/visualizer/resolveInteractive3dEffectiveSettings.ts
@@ -56,6 +57,8 @@ const WEBGL_TUNING_KEYS: Array<keyof Interactive3dSceneTuning> = [
     'enableCoverParticles',
     'rhythmIntensity',
     'bloomStrength',
+    'atmosphereSensitivity',
+    'cameraPunchStrength',
     'enableBassRipples',
     'qualityTier',
     'cameraControl',
@@ -97,7 +100,7 @@ export const resolveInactiveInteractive3dSceneEffects = (
     if (!isInteractive3dWebGLOnlyPath(input)) return [];
 
     const inactive = [...CANVAS_SCENE_EFFECT_IDS, 'dom-shapes' as Interactive3dSceneEffectId];
-    const preset = input.interactive3dSceneTuning?.visualPreset ?? 'emily';
+    const preset = normalizeInteractive3dVisualPreset(input.interactive3dSceneTuning?.visualPreset);
     if (preset !== 'emily') {
         inactive.push('bass-ripple');
     }
@@ -145,7 +148,7 @@ export const resolveInteractive3dSettingsConflicts = (
             messageFallback: '当前 3D 交互仅使用 WebGL 视觉风格；高级面板里的 canvas 分层开关不会生效。',
         });
 
-        const preset = input.interactive3dSceneTuning?.visualPreset ?? 'emily';
+        const preset = normalizeInteractive3dVisualPreset(input.interactive3dSceneTuning?.visualPreset);
         if (preset !== 'emily' && input.interactive3dSceneTuning?.enableBassRipples) {
             conflicts.push({
                 id: 'bass-ripples-preset-mismatch',
@@ -192,7 +195,7 @@ export const resolveInteractive3dEffectiveSettings = (
         renderer,
         webglActive,
         visualPreset: webglActive
-            ? (input.interactive3dSceneTuning?.visualPreset ?? 'emily')
+            ? normalizeInteractive3dVisualPreset(input.interactive3dSceneTuning?.visualPreset)
             : null,
         inactiveSceneEffectIds,
         activeWebglTuningKeys: webglActive ? WEBGL_TUNING_KEYS : [],

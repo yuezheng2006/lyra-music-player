@@ -59,7 +59,7 @@ export const DesktopGrid3DSurface: React.FC<DesktopGrid3DSurfaceProps> = ({
 
     return (
         <div className="w-full h-full min-h-0 flex flex-col justify-center relative">
-            {!isLoading && (
+            {!isLoading && items.length > 0 && (
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10">
                     <motion.button
                         whileHover={{ scale: 1.05 }}

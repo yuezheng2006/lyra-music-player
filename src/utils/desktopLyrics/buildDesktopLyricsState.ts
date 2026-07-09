@@ -72,7 +72,7 @@ export const buildDesktopLyricsState = ({
     const activeLine = currentLineIndex >= 0 ? lyrics?.lines[currentLineIndex] : null;
     const lineText = activeLine?.fullText?.replace(/\s+/g, ' ').trim()
         || fallbackTitle?.trim()
-        || 'Folia';
+        || 'Lyra';
     const lineStart = activeLine?.startTime ?? 0;
     const lineEnd = activeLine
         ? getLineRenderEndTime(activeLine)

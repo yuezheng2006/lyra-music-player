@@ -70,11 +70,11 @@ const ControlsTabPlayerBackgroundSection: React.FC<ControlsTabPlayerBackgroundSe
         <div className="space-y-2 pt-2" data-testid="controls-player-background-section">
             <div className="flex items-start justify-between gap-2">
                 <div>
-                    <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                    <label className={`text-[10px] font-bold uppercase tracking-widest ${sectionHintClass}`}>
                         {t('ui.playerPageBackground') || '播放页背景'}
                     </label>
                     <p className={`mt-1 text-[9px] leading-snug ${sectionHintClass}`}>
-                        {t('ui.playerPageBackgroundDesc') || '歌词下方的动态背景层'}
+                        {t('ui.playerPageBackgroundDesc') || '只改背景，与歌词样式互不影响'}
                     </p>
                 </div>
                 {onOpenAdvancedBackgroundSettings && (

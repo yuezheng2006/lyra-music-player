@@ -4,11 +4,16 @@ const http = require('http');
 const path = require('path');
 const Store = require('electron-store').default || require('electron-store');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 const { createStageApi } = require('./stageApi.cjs');
 const { createWindowPlaybackHandoffStore } = require('./windowPlaybackHandoff.cjs');
 const { DEFAULT_DISCORD_APPLICATION_ID, createDiscordPresenceController } = require('./discordPresence.cjs');
 const { createDesktopLyricsController } = require('./desktopLyrics.cjs');
 const { sanitizeDualTheme: sanitizeGeneratedDualTheme } = require('../shared/themeSanitizer.cjs');
+const {
+  isAllowedLyricProxyHost,
+  isAmllDbHost,
+} = require('../shared/lyricProxyHosts.cjs');
 const useLinuxGraphicsDebugMode = process.env.ELECTRON_LINUX_PACKAGED_GRAPHICS === 'true';
 const isAppImageRuntime =
   process.platform === 'linux' &&
@@ -47,7 +52,7 @@ if (process.platform === 'darwin' && process.arch === 'x64') {
   app.commandLine.appendSwitch('enable-gpu-rasterization');
 }
 
-const store = new Store({ projectName: 'Folia' });
+const store = new Store({ projectName: 'Lyra' });
 let mainWindow = null;
 let remoteControlWindow = null;
 let appTray = null;
@@ -98,13 +103,37 @@ const HIDE_TASKBAR_ICON_SETTING_KEY = 'HIDE_TASKBAR_ICON';
 const REMOTE_CONTROL_ALWAYS_ON_TOP_SETTING_KEY = 'REMOTE_CONTROL_ALWAYS_ON_TOP';
 const MAIN_WINDOW_ALWAYS_ON_TOP_SETTING_KEY = 'MAIN_WINDOW_ALWAYS_ON_TOP';
 const TRANSPARENT_PLAYER_BACKGROUND_SETTING_KEY = 'TRANSPARENT_PLAYER_BACKGROUND';
+const QQ_LOGIN_PARTITION = 'persist:folia-qqmusic-login';
+const QQ_LOGIN_URL = 'https://y.qq.com/n/ryqq/profile';
+const QQ_LOGIN_COOKIE_PRIORITY = [
+  'uin',
+  'qqmusic_uin',
+  'wxuin',
+  'login_type',
+  'qm_keyst',
+  'qqmusic_key',
+  'music_key',
+  'p_skey',
+  'skey',
+  'psrf_qqopenid',
+  'psrf_qqunionid',
+  'psrf_qqaccess_token',
+  'psrf_qqrefresh_token',
+  'wxopenid',
+  'wxunionid',
+  'wxrefresh_token',
+  'wxskey',
+  'p_uin',
+  'ptcz',
+  'RK',
+];
 
 const DEFAULT_STAGE_API_PORT = 32107;
 const DEFAULT_OBS_BROWSER_SOURCE_PORT = 32108;
 const FOLIA_RELEASES_URL = 'https://github.com/chthollyphile/folia-major/releases';
 const FOLIA_LATEST_RELEASE_API_URL = 'https://api.github.com/repos/chthollyphile/folia-major/releases/latest';
 const WINDOWS_APP_USER_MODEL_ID = 'top.izuna.foliamajor';
-const REMOTE_CONTROL_WINDOW_TITLE = 'Folia Remote';
+const REMOTE_CONTROL_WINDOW_TITLE = 'Lyra Remote';
 const WINDOW_PLAYBACK_HANDOFF_REQUEST_TIMEOUT_MS = 800;
 const bundledAppIconPath = path.join(__dirname, '../build/icon.png');
 const extraResourceIconPath = path.join(process.resourcesPath, 'icon.png');
@@ -197,6 +226,193 @@ function readStoredBoolean(settingKey, fallback = false) {
   }
 
   return fallback;
+}
+
+function getSenderWindow(event) {
+  return event?.sender ? BrowserWindow.fromWebContents(event.sender) : mainWindow;
+}
+
+function parseCookieHeader(cookieText) {
+  const out = {};
+  String(cookieText || '').split(';').forEach((part) => {
+    const raw = String(part || '').trim();
+    if (!raw) return;
+    const index = raw.indexOf('=');
+    if (index <= 0) return;
+    out[raw.slice(0, index).trim()] = raw.slice(index + 1).trim();
+  });
+  return out;
+}
+
+function qqCookieHasLogin(cookieText) {
+  const values = parseCookieHeader(cookieText);
+  const rawUin = Number(values.login_type) === 2
+    ? (values.wxuin || values.uin || values.p_uin || '')
+    : (values.uin || values.qqmusic_uin || values.wxuin || values.p_uin || '');
+  const uin = String(rawUin).replace(/\D/g, '');
+  const musicKey = values.qm_keyst || values.qqmusic_key || values.music_key || values.p_skey || values.skey ||
+    values.psrf_qqaccess_token || values.psrf_qqrefresh_token || values.wxrefresh_token || values.wxskey || '';
+  return Boolean(uin && musicKey);
+}
+
+function qqCookieHasPlaybackLogin(cookieText) {
+  const values = parseCookieHeader(cookieText);
+  const rawUin = Number(values.login_type) === 2
+    ? (values.wxuin || values.uin || values.p_uin || '')
+    : (values.uin || values.qqmusic_uin || values.wxuin || values.p_uin || '');
+  const uin = String(rawUin).replace(/\D/g, '');
+  const playbackKey = values.qm_keyst || values.qqmusic_key || values.music_key || values.wxskey || '';
+  return Boolean(uin && playbackKey);
+}
+
+function isQQCookieDomain(domain) {
+  const normalized = String(domain || '').replace(/^\./, '').toLowerCase();
+  return normalized === 'qq.com' || normalized.endsWith('.qq.com') || normalized.endsWith('qqmusic.qq.com');
+}
+
+function buildQQCookieHeader(cookies) {
+  const picked = new Map();
+  (cookies || []).forEach((cookie) => {
+    if (!cookie?.name || !isQQCookieDomain(cookie.domain)) return;
+    picked.set(cookie.name, cookie.value || '');
+  });
+  const ordered = [];
+  QQ_LOGIN_COOKIE_PRIORITY.forEach((name) => {
+    if (!picked.has(name)) return;
+    ordered.push([name, picked.get(name)]);
+    picked.delete(name);
+  });
+  picked.forEach((value, name) => ordered.push([name, value]));
+  return ordered
+    .filter(([name, value]) => name && value != null && String(value) !== '')
+    .map(([name, value]) => `${name}=${value}`)
+    .join('; ');
+}
+
+async function readQQLoginCookieHeader(cookieSession) {
+  const cookies = await cookieSession.cookies.get({});
+  return buildQQCookieHeader(cookies);
+}
+
+async function openQQMusicLoginWindow(owner) {
+  const cookieSession = session.fromPartition(QQ_LOGIN_PARTITION);
+  const initialCookie = await readQQLoginCookieHeader(cookieSession);
+  if (qqCookieHasPlaybackLogin(initialCookie)) {
+    return { ok: true, cookie: initialCookie, reused: true };
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let pollTimer = null;
+    let warmupStarted = false;
+
+    const loginWindow = new BrowserWindow({
+      width: 440,
+      height: 580,
+      minWidth: 380,
+      minHeight: 500,
+      show: false,
+      autoHideMenuBar: true,
+      title: 'QQ 音乐登录',
+      backgroundColor: '#111111',
+      icon: APP_ICON_PATH,
+      parent: owner && !owner.isDestroyed() ? owner : undefined,
+      modal: Boolean(owner && !owner.isDestroyed()),
+      webPreferences: {
+        partition: QQ_LOGIN_PARTITION,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      if (pollTimer) clearInterval(pollTimer);
+      if (loginWindow && !loginWindow.isDestroyed()) loginWindow.close();
+      resolve(result);
+    };
+
+    const checkCookies = async () => {
+      try {
+        const cookie = await readQQLoginCookieHeader(cookieSession);
+        if (qqCookieHasPlaybackLogin(cookie)) {
+          finish({ ok: true, cookie });
+        } else if (qqCookieHasLogin(cookie) && !warmupStarted) {
+          warmupStarted = true;
+          setTimeout(() => {
+            if (!settled && loginWindow && !loginWindow.isDestroyed()) {
+              loginWindow.loadURL('https://y.qq.com/n/ryqq/player')
+                .catch((error) => console.warn('QQ login warmup navigation failed:', error.message));
+            }
+          }, 900);
+        }
+      } catch (error) {
+        console.warn('QQ login cookie check failed:', error.message);
+      }
+    };
+
+    loginWindow.webContents.setWindowOpenHandler(({ url }) => {
+      if (/^https?:\/\//i.test(url)) {
+        loginWindow.loadURL(url).catch((error) => console.warn('QQ login popup navigation failed:', error.message));
+      } else {
+        shell.openExternal(url).catch(() => {});
+      }
+      return { action: 'deny' };
+    });
+
+    loginWindow.webContents.on('did-finish-load', () => {
+      void checkCookies();
+      loginWindow.webContents.executeJavaScript(`
+        setTimeout(() => {
+          const nodes = Array.from(document.querySelectorAll('a, button, span, div'));
+          const loginNode = nodes.find((node) => {
+            const text = (node.textContent || '').trim();
+            if (!/登录|登陆/.test(text)) return false;
+            const rect = node.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          });
+          if (loginNode) loginNode.click();
+        }, 700);
+      `, true).catch(() => {});
+    });
+
+    loginWindow.on('ready-to-show', () => {
+      if (owner && !owner.isDestroyed()) {
+        const parentBounds = owner.getBounds();
+        const windowBounds = loginWindow.getBounds();
+        loginWindow.setPosition(
+          Math.round(parentBounds.x + (parentBounds.width - windowBounds.width) / 2),
+          Math.round(parentBounds.y + (parentBounds.height - windowBounds.height) / 2),
+        );
+      }
+      loginWindow.show();
+    });
+    loginWindow.on('closed', async () => {
+      if (settled) return;
+      if (pollTimer) clearInterval(pollTimer);
+      try {
+        const cookie = await readQQLoginCookieHeader(cookieSession);
+        resolve(qqCookieHasLogin(cookie)
+          ? { ok: true, cookie, partial: !qqCookieHasPlaybackLogin(cookie) }
+          : { ok: false, cancelled: true, message: 'QQ 登录窗口已关闭' });
+      } catch (error) {
+        resolve({ ok: false, error: error.message || 'QQ 登录窗口已关闭' });
+      }
+    });
+
+    pollTimer = setInterval(checkCookies, 1200);
+    loginWindow.loadURL(QQ_LOGIN_URL).catch((error) => finish({ ok: false, error: error.message }));
+  });
+}
+
+async function clearQQMusicLoginSession() {
+  const cookieSession = session.fromPartition(QQ_LOGIN_PARTITION);
+  await cookieSession.clearStorageData({
+    storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
+  });
+  return { ok: true };
 }
 
 function getPublicSettings() {
@@ -640,7 +856,7 @@ function refreshTrayMenu() {
   ]);
 
   appTray.setContextMenu(menu);
-  appTray.setToolTip('Folia');
+  appTray.setToolTip('Lyra');
 }
 
 function ensureTray() {
@@ -665,14 +881,18 @@ function ensureTray() {
   return appTray;
 }
 
-const gotSingleInstanceLock = app.requestSingleInstanceLock();
+const shouldUseSingleInstanceLock = process.env.FOLIA_DISABLE_SINGLE_INSTANCE_LOCK !== 'true';
+const gotSingleInstanceLock = shouldUseSingleInstanceLock ? app.requestSingleInstanceLock() : true;
 
-if (!gotSingleInstanceLock) {
-  app.quit();
-} else {
-  app.on('second-instance', () => {
-    focusMainWindow();
-  });
+if (shouldUseSingleInstanceLock) {
+  if (!gotSingleInstanceLock) {
+    console.warn('[Electron] Another Lyra instance is already running. Quitting this launch.');
+    app.quit();
+  } else {
+    app.on('second-instance', () => {
+      focusMainWindow();
+    });
+  }
 }
 
 async function ensureSystemProxySession() {
@@ -844,18 +1064,28 @@ function removeCorsResponseHeaders(responseHeaders) {
   }
 }
 
-function isAllowedLyricProxyHost(hostname) {
-  return (
-    hostname === 'qq.com' ||
-    hostname.endsWith('.qq.com') ||
-    hostname === 'kugou.com' ||
-    hostname.endsWith('.kugou.com') ||
-    hostname === 'amll-ttml-db.stevexmh.net'
-  );
-}
+function shouldReturnLyricProxyAsBase64(contentType, targetUrl) {
+  if (typeof contentType === 'string' && contentType) {
+    const normalized = contentType.toLowerCase();
+    if (
+      normalized.startsWith('image/') ||
+      normalized.startsWith('audio/') ||
+      normalized.startsWith('video/') ||
+      normalized.includes('octet-stream') ||
+      normalized.includes('application/protobuf') ||
+      normalized.includes('application/x-protobuf')
+    ) {
+      return true;
+    }
+  }
 
-function isAmllDbHost(hostname) {
-  return hostname === 'amll-ttml-db.stevexmh.net';
+  // Some CDNs omit content-type; treat common cover extensions as binary.
+  try {
+    const pathname = new URL(targetUrl).pathname.toLowerCase();
+    return /\.(jpe?g|png|gif|webp|bmp|avif|ico)(?:$|\?)/i.test(pathname);
+  } catch {
+    return false;
+  }
 }
 
 async function proxyLyricRequest(targetUrlStr, init = {}) {
@@ -876,7 +1106,8 @@ async function proxyLyricRequest(targetUrlStr, init = {}) {
   headers.delete('connection');
   headers.delete('content-length');
   headers.delete('origin');
-  headers.delete('referer');
+  // Keep Referer/Cookie: Chromium forbids setting them in the renderer, but QQ
+  // playlist APIs reject requests without a y.qq.com referer.
 
   const response = await fetch(targetUrl.toString(), {
     method: typeof init?.method === 'string' ? init.method : 'GET',
@@ -896,6 +1127,8 @@ async function proxyLyricRequest(targetUrlStr, init = {}) {
       statusText: 'No Content',
       headers: {},
       bodyText: '',
+      bodyBase64: '',
+      bodyEncoding: 'text',
     };
   }
 
@@ -904,12 +1137,28 @@ async function proxyLyricRequest(targetUrlStr, init = {}) {
     normalizedHeaders[key] = value;
   }
 
+  const contentType = response.headers.get('content-type') || '';
+  if (shouldReturnLyricProxyAsBase64(contentType, targetUrl.toString())) {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      headers: normalizedHeaders,
+      bodyText: '',
+      bodyBase64: buffer.toString('base64'),
+      bodyEncoding: 'base64',
+    };
+  }
+
   return {
     ok: response.ok,
     status: response.status,
     statusText: response.statusText,
     headers: normalizedHeaders,
     bodyText: await response.text(),
+    bodyBase64: '',
+    bodyEncoding: 'text',
   };
 }
 
@@ -1125,7 +1374,7 @@ async function fetchLatestReleaseMetadata() {
       method: 'GET',
       headers: {
         Accept: 'application/vnd.github+json',
-        'User-Agent': `Folia/${app.getVersion()}`,
+        'User-Agent': `Lyra/${app.getVersion()}`,
       },
       signal: controller.signal,
     });
@@ -1905,6 +2154,8 @@ const { serveNcmApi } = require('@neteasecloudmusicapienhanced/api/server');
 
 const net = require('net');
 let assignedPort = 30000; // default fallback
+let assignedMusicProviderPort = 30002;
+let musicProviderSidecarProcess = null;
 const NETEASE_API_STATUS_CHANNEL = 'netease-api-status-changed';
 let neteaseApiStatus = {
   status: 'starting',
@@ -1983,6 +2234,33 @@ async function initializeNcmApiRuntime() {
   }
 }
 
+function usesExternalDevApis() {
+  return process.env.FOLIA_EXTERNAL_DEV_APIS === 'true';
+}
+
+// Dev mode reuses the same standalone Netease API / sidecar processes as `npm run dev:web`.
+function bindExternalDevApiPorts() {
+  assignedPort = Number(process.env.NETEASE_API_PORT || 3001);
+  assignedMusicProviderPort = Number(process.env.MUSIC_PROVIDER_SIDECAR_PORT || 3002);
+  updateNeteaseApiStatus({ status: 'running', port: assignedPort, error: null });
+  console.log('[Dev] Using external Netease API on port', assignedPort);
+  console.log('[Dev] Using external music provider sidecar on port', assignedMusicProviderPort);
+}
+
+const waitForNeteaseApiPort = async (timeoutMs = 30000) => {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (neteaseApiStatus.status === 'running' && assignedPort) {
+      return assignedPort;
+    }
+    if (neteaseApiStatus.status === 'error') {
+      throw new Error(neteaseApiStatus.error || 'Netease API failed to start');
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  throw new Error('Netease API startup timed out');
+};
+
 async function startApi() {
   updateNeteaseApiStatus({ status: 'starting', port: null, error: null });
   try {
@@ -1995,6 +2273,49 @@ async function startApi() {
   } catch (e) {
     updateNeteaseApiStatus({ status: 'error', port: null, error: serializeError(e) });
     console.error('Failed to start Netease API', e);
+  }
+}
+
+async function startMusicProviderSidecar() {
+  try {
+    const freePort = await getFreePort();
+    const sidecarScript = path.join(__dirname, '..', 'scripts', 'music-provider-sidecar.cjs');
+    if (!fs.existsSync(sidecarScript)) {
+      console.warn('[MusicProvider] Sidecar script not found:', sidecarScript);
+      return;
+    }
+
+    assignedMusicProviderPort = freePort;
+    musicProviderSidecarProcess = spawn(process.execPath, [sidecarScript], {
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
+        MUSIC_PROVIDER_SIDECAR_PORT: String(freePort),
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    musicProviderSidecarProcess.stdout?.on('data', chunk => {
+      console.log(`[MusicProvider] ${chunk.toString('utf8').trim()}`);
+    });
+    musicProviderSidecarProcess.stderr?.on('data', chunk => {
+      console.warn(`[MusicProvider] ${chunk.toString('utf8').trim()}`);
+    });
+    musicProviderSidecarProcess.on('exit', (code, signal) => {
+      if (code !== 0 && signal !== 'SIGTERM') {
+        console.warn('[MusicProvider] Sidecar exited unexpectedly', { code, signal });
+      }
+      musicProviderSidecarProcess = null;
+    });
+  } catch (error) {
+    console.error('[MusicProvider] Failed to start sidecar', error);
+  }
+}
+
+function stopMusicProviderSidecar() {
+  if (musicProviderSidecarProcess) {
+    musicProviderSidecarProcess.kill('SIGTERM');
+    musicProviderSidecarProcess = null;
   }
 }
 
@@ -2368,6 +2689,13 @@ function stopMainWindowClickThroughUnlockHoverMonitor() {
   mainWindowClickThroughUnlockHoverTimer = null;
 }
 
+function resetMainWindowClickThroughState() {
+  mainWindowClickThroughEnabled = false;
+  mainWindowClickThroughUnlockHover = false;
+  stopMainWindowClickThroughUnlockHoverMonitor();
+  applyMainWindowMouseIgnoreState();
+}
+
 function applyMainWindowMouseIgnoreState() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return false;
@@ -2565,7 +2893,7 @@ function createWindow(options = {}) {
   mainWindow = win;
   ensureTray();
   setMainWindowSkipTaskbarEnabled(mainWindowSkipTaskbarEnabled);
-  applyMainWindowMouseIgnoreState();
+  resetMainWindowClickThroughState();
   updateWindowThumbarButtons();
   win.on('resize', () => {
     saveWindowState(win, { deferred: true });
@@ -2598,8 +2926,25 @@ function createWindow(options = {}) {
   win.on('hide', refreshTrayMenu);
   win.on('minimize', refreshTrayMenu);
   win.on('restore', refreshTrayMenu);
+  win.on('enter-full-screen', () => {
+    publishMainWindowFullscreenState(win);
+  });
+  win.on('leave-full-screen', () => {
+    publishMainWindowFullscreenState(win);
+  });
 
   return win;
+}
+
+function publishMainWindowFullscreenState(win = mainWindow) {
+  if (!win || win.isDestroyed()) {
+    return false;
+  }
+
+  win.webContents.send('main-window-fullscreen-changed', {
+    isFullscreen: win.isFullScreen(),
+  });
+  return true;
 }
 
 function recreateMainWindowWithTransparencyMode(enabled, handoff = null) {
@@ -2634,9 +2979,7 @@ async function setMainWindowTransparentMode(enabled, handoff = null) {
     transparentModeEnabled: nextEnabled,
     mainWindowClickThroughEnabled: false,
   });
-  mainWindowClickThroughEnabled = false;
-  mainWindowClickThroughUnlockHover = false;
-  stopMainWindowClickThroughUnlockHoverMonitor();
+  resetMainWindowClickThroughState();
   recreateMainWindowWithTransparencyMode(nextEnabled, handoff);
   return true;
 }
@@ -2676,7 +3019,12 @@ app.whenReady().then(async () => {
   });
 
   setupAutoUpdater();
-  await startApi();
+  if (usesExternalDevApis()) {
+    bindExternalDevApiPorts();
+  } else {
+    await startApi();
+    await startMusicProviderSidecar();
+  }
   try {
     await stageApi.startStageServerIfNeeded();
   } catch (error) {
@@ -2716,6 +3064,7 @@ app.on('before-quit', () => {
   clearPendingWindowPlaybackHandoffRequests();
   desktopLyrics.destroy();
   void discordPresence.destroy();
+  stopMusicProviderSidecar();
 });
 
 // Settings Management IPC
@@ -2875,6 +3224,27 @@ ipcMain.handle('open-external-url', (event, url) => {
   return openExternalUrl(url);
 });
 
+ipcMain.handle('qq-music-open-login', (event) => {
+  return openQQMusicLoginWindow(getSenderWindow(event));
+});
+
+ipcMain.handle('qq-music-get-login-cookie', async () => {
+  const cookieSession = session.fromPartition(QQ_LOGIN_PARTITION);
+  const cookie = await readQQLoginCookieHeader(cookieSession);
+  if (!qqCookieHasLogin(cookie)) {
+    return { ok: false };
+  }
+  return {
+    ok: true,
+    cookie,
+    playbackReady: qqCookieHasPlaybackLogin(cookie),
+  };
+});
+
+ipcMain.handle('qq-music-clear-login', () => {
+  return clearQQMusicLoginSession();
+});
+
 ipcMain.handle('updates-download', () => {
   return downloadAvailableUpdate();
 });
@@ -2916,12 +3286,19 @@ ipcMain.handle('clear-audio-cache', async () => {
 });
 
 // Retrieve dynamic port of local Netease API Server
-ipcMain.handle('get-netease-port', () => {
-  return assignedPort;
+ipcMain.handle('get-netease-port', async () => {
+  if (usesExternalDevApis()) {
+    return assignedPort;
+  }
+  return waitForNeteaseApiPort();
 });
 
 ipcMain.handle('get-netease-api-status', () => {
   return neteaseApiStatus;
+});
+
+ipcMain.handle('get-music-provider-port', () => {
+  return assignedMusicProviderPort;
 });
 
 ipcMain.handle('window-minimize', () => {
@@ -2959,7 +3336,29 @@ ipcMain.handle('window-toggle-fullscreen', (event) => {
 
   const nextFullscreen = !mainWindow.isFullScreen();
   mainWindow.setFullScreen(nextFullscreen);
+  publishMainWindowFullscreenState(mainWindow);
   return nextFullscreen;
+});
+
+ipcMain.handle('window-is-fullscreen', (event) => {
+  if (!isTrustedMainWindowContents(event.sender) || !mainWindow || mainWindow.isDestroyed()) {
+    return false;
+  }
+
+  return mainWindow.isFullScreen();
+});
+
+ipcMain.handle('window-set-fullscreen', (event, enabled) => {
+  if (!isTrustedMainWindowContents(event.sender) || !mainWindow || mainWindow.isDestroyed()) {
+    return false;
+  }
+
+  const nextFullscreen = Boolean(enabled);
+  if (mainWindow.isFullScreen() !== nextFullscreen) {
+    mainWindow.setFullScreen(nextFullscreen);
+  }
+  publishMainWindowFullscreenState(mainWindow);
+  return mainWindow.isFullScreen();
 });
 
 ipcMain.handle('window-close', () => {

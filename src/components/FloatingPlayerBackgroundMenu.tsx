@@ -1,0 +1,260 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { Box } from 'lucide-react';
+import type {
+    Interactive3dSceneTuning,
+    MineradioVisualPresetId,
+    Theme,
+    VisualizerBackgroundMode,
+    VisualizerMode,
+} from '../types';
+import { resolveVisualizerBackgroundMode } from '../stores/useSettingsUiStore';
+import {
+    applyMineradioVisualPreset,
+    getMineradioPresetLabelFallback,
+    INTERACTIVE3D_VISUAL_PRESET_OPTIONS,
+} from './visualizer/geometric/mineradioVisualPresets';
+import { VISUALIZER_REGISTRY } from './visualizer/registry';
+import LyricColorPresetGrid from './shared/LyricColorPresetGrid';
+import {
+    matchLyricColorPresetId,
+    type LyricColorPresetId,
+} from '../utils/theme/lyricColorPresets';
+
+// src/components/FloatingPlayerBackgroundMenu.tsx
+// Dock popover: background mode, 3D preset, lyric walk, and lyric color presets.
+
+const DOCK_BACKGROUND_MODES: VisualizerBackgroundMode[] = ['interactive3d', 'common', 'monet'];
+
+type FloatingPlayerBackgroundMenuProps = {
+    isDaylight?: boolean;
+    primaryColor?: string;
+    disabled?: boolean;
+    visualizerBackgroundMode: VisualizerBackgroundMode | null;
+    interactive3dSceneTuning: Interactive3dSceneTuning;
+    onVisualizerBackgroundModeChange: (mode: VisualizerBackgroundMode) => void;
+    onInteractive3dSceneTuningChange: (patch: Partial<Interactive3dSceneTuning>) => void;
+    visualizerMode: VisualizerMode;
+    onVisualizerModeChange: (mode: VisualizerMode) => void;
+    theme?: Theme | null;
+    onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
+    backgroundMenuLabel: string;
+    modeInteractive3dLabel: string;
+    modeCommonLabel: string;
+    modeMonetLabel: string;
+    presetSectionLabel: string;
+    lyricsStyleSectionLabel: string;
+    lyricColorSectionLabel: string;
+    getPresetLabel: (preset: MineradioVisualPresetId) => string;
+    getVisualizerLabel: (mode: VisualizerMode) => string;
+    buildToolButtonClass: (disabled: boolean, active?: boolean) => string;
+};
+
+const getModeLabel = (
+    mode: VisualizerBackgroundMode,
+    labels: Pick<
+        FloatingPlayerBackgroundMenuProps,
+        'modeInteractive3dLabel' | 'modeCommonLabel' | 'modeMonetLabel'
+    >,
+) => {
+    switch (mode) {
+        case 'interactive3d':
+            return labels.modeInteractive3dLabel;
+        case 'common':
+            return labels.modeCommonLabel;
+        case 'monet':
+            return labels.modeMonetLabel;
+        default:
+            return mode;
+    }
+};
+
+const optionButtonClass = (selected: boolean, isDaylight?: boolean) => (
+    selected
+        ? (isDaylight ? 'bg-black/12 text-black' : 'bg-white/18 text-white')
+        : (isDaylight ? 'text-black/65 hover:bg-black/5' : 'text-white/78 hover:bg-white/10')
+);
+
+const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> = ({
+    isDaylight,
+    disabled = false,
+    visualizerBackgroundMode,
+    interactive3dSceneTuning,
+    onVisualizerBackgroundModeChange,
+    onInteractive3dSceneTuningChange,
+    visualizerMode,
+    onVisualizerModeChange,
+    theme = null,
+    onApplyLyricColorPreset,
+    backgroundMenuLabel,
+    modeInteractive3dLabel,
+    modeCommonLabel,
+    modeMonetLabel,
+    presetSectionLabel,
+    lyricsStyleSectionLabel,
+    lyricColorSectionLabel,
+    getPresetLabel,
+    getVisualizerLabel,
+    buildToolButtonClass,
+}) => {
+    const [open, setOpen] = useState(false);
+    const rootRef = useRef<HTMLDivElement>(null);
+    const resolvedMode = resolveVisualizerBackgroundMode(visualizerBackgroundMode);
+    const isInteractive3d = resolvedMode === 'interactive3d';
+    const modeLabels = { modeInteractive3dLabel, modeCommonLabel, modeMonetLabel };
+
+    useEffect(() => {
+        if (!open) return;
+        const handlePointerDown = (event: MouseEvent) => {
+            if (!rootRef.current?.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+        window.addEventListener('mousedown', handlePointerDown);
+        return () => window.removeEventListener('mousedown', handlePointerDown);
+    }, [open]);
+
+    return (
+        <div className="relative shrink-0" ref={rootRef}>
+            <button
+                type="button"
+                data-testid="floating-player-background-menu-trigger"
+                onClick={() => {
+                    if (disabled) return;
+                    setOpen(value => !value);
+                }}
+                disabled={disabled}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(disabled, open || isInteractive3d)}`}
+                title={backgroundMenuLabel}
+                aria-label={backgroundMenuLabel}
+                aria-expanded={open}
+                aria-haspopup="menu"
+            >
+                <Box size={17} strokeWidth={1.9} />
+            </button>
+
+            {open ? (
+                <div
+                    role="menu"
+                    data-testid="floating-player-background-menu"
+                    className={`absolute bottom-[calc(100%+10px)] right-0 z-40 w-[248px] max-h-[min(70vh,420px)] overflow-y-auto overflow-x-hidden rounded-2xl border p-2 shadow-[0_18px_48px_rgba(0,0,0,0.35)] backdrop-blur-2xl ${
+                        isDaylight
+                            ? 'border-black/10 bg-white/92'
+                            : 'border-white/12 bg-black/82'
+                    }`}
+                >
+                    <div className={`mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                        isDaylight ? 'text-black/45' : 'text-white/45'
+                    }`}>
+                        {backgroundMenuLabel}
+                    </div>
+                    <div className={`mb-2 grid grid-cols-3 gap-1 rounded-xl p-1 ${
+                        isDaylight ? 'bg-black/[0.04]' : 'bg-white/[0.06]'
+                    }`}>
+                        {DOCK_BACKGROUND_MODES.map(mode => {
+                            const selected = resolvedMode === mode;
+                            return (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    role="menuitemradio"
+                                    aria-checked={selected}
+                                    data-testid={`floating-player-background-mode-${mode}`}
+                                    onClick={() => onVisualizerBackgroundModeChange(mode)}
+                                    className={`rounded-lg px-1 py-1.5 text-[11px] font-semibold transition-colors ${optionButtonClass(selected, isDaylight)}`}
+                                >
+                                    {getModeLabel(mode, modeLabels)}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {isInteractive3d ? (
+                        <>
+                            <div className={`mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                                isDaylight ? 'text-black/45' : 'text-white/45'
+                            }`}>
+                                {presetSectionLabel}
+                            </div>
+                            <div className="mb-2 grid grid-cols-3 gap-1">
+                                {INTERACTIVE3D_VISUAL_PRESET_OPTIONS.map(preset => {
+                                    const selected = interactive3dSceneTuning.visualPreset === preset;
+                                    return (
+                                        <button
+                                            key={preset}
+                                            type="button"
+                                            role="menuitemradio"
+                                            aria-checked={selected}
+                                            data-testid={`floating-player-background-preset-${preset}`}
+                                            onClick={() => {
+                                                onInteractive3dSceneTuningChange(
+                                                    applyMineradioVisualPreset(preset, interactive3dSceneTuning),
+                                                );
+                                            }}
+                                            className={`rounded-lg px-1 py-1.5 text-[11px] font-semibold transition-colors ${optionButtonClass(selected, isDaylight)}`}
+                                        >
+                                            {getPresetLabel(preset) || getMineradioPresetLabelFallback(preset)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    ) : null}
+
+                    <div className={`mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                        isDaylight ? 'text-black/45' : 'text-white/45'
+                    }`}>
+                        {lyricsStyleSectionLabel}
+                    </div>
+                    <div className="mb-2 grid grid-cols-3 gap-1" data-testid="floating-player-lyrics-style-group">
+                        {VISUALIZER_REGISTRY.map(entry => {
+                            const selected = entry.mode === visualizerMode;
+                            return (
+                                <button
+                                    key={entry.mode}
+                                    type="button"
+                                    role="menuitemradio"
+                                    aria-checked={selected}
+                                    data-testid={`floating-player-lyrics-style-${entry.mode}`}
+                                    onClick={() => onVisualizerModeChange(entry.mode)}
+                                    className={`rounded-lg px-1 py-1.5 text-[11px] font-semibold transition-colors ${optionButtonClass(selected, isDaylight)}`}
+                                >
+                                    {getVisualizerLabel(entry.mode) || entry.labelFallback}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {onApplyLyricColorPreset ? (
+                        <>
+                            <div className={`mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                                isDaylight ? 'text-black/45' : 'text-white/45'
+                            }`}>
+                                {lyricColorSectionLabel}
+                            </div>
+                            <div className={`rounded-xl p-1 ${isDaylight ? 'bg-black/[0.04]' : 'bg-white/[0.06]'}`}>
+                                <LyricColorPresetGrid
+                                    onSelect={onApplyLyricColorPreset}
+                                    activePresetId={matchLyricColorPresetId(
+                                        theme,
+                                        isDaylight ? 'light' : 'dark',
+                                    )}
+                                    isDaylight={isDaylight}
+                                    className="grid-cols-2"
+                                    buttonClassName="w-full rounded-lg px-1.5 py-1.5"
+                                    inactiveButtonClassName={isDaylight
+                                        ? 'text-black/65 hover:bg-black/5'
+                                        : 'text-white/78 hover:bg-white/10'}
+                                    activeButtonClassName={isDaylight
+                                        ? 'bg-black/12 text-black'
+                                        : 'bg-white/18 text-white'}
+                                />
+                            </div>
+                        </>
+                    ) : null}
+                </div>
+            ) : null}
+        </div>
+    );
+};
+
+export default FloatingPlayerBackgroundMenu;

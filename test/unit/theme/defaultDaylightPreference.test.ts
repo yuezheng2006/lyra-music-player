@@ -25,9 +25,9 @@ describe('readDefaultDaylightPreference', () => {
         });
     });
 
-    it('defaults to daylight for fresh installs', async () => {
+    it('defaults to dark for fresh installs', async () => {
         const { readDefaultDaylightPreference } = await import('@/stores/useSettingsUiStore');
-        expect(readDefaultDaylightPreference()).toBe(true);
+        expect(readDefaultDaylightPreference()).toBe(false);
     });
 
     it('respects stored user preference', async () => {

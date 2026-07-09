@@ -1,5 +1,5 @@
 import { getFromCacheWithMigration, saveToCache } from '../services/db';
-import { getOnlineSongCacheKey } from '../services/netease';
+import { getProviderSongCacheKey } from '../services/musicProviders/registry';
 import type { OnlineLyricsState, SongResult } from '../types';
 import type { MigrationResult } from './lyrics/renderHints';
 import { migrateLyricDataRenderHints as migrateLyrics } from './lyrics/renderHints';
@@ -23,7 +23,7 @@ const migrateOnlineLyricsState = (value: OnlineLyricsState): MigrationResult<Onl
 };
 
 export const getOnlineLyricsStateCacheKey = (song: Pick<SongResult, 'id' | 't'>) =>
-    `${getOnlineSongCacheKey('lyric', song)}${ONLINE_LYRICS_STATE_SUFFIX}`;
+    `${getProviderSongCacheKey('lyric', song)}${ONLINE_LYRICS_STATE_SUFFIX}`;
 
 export const loadOnlineLyricsState = async (song: Pick<SongResult, 'id' | 't'>): Promise<OnlineLyricsState | null> => {
     const key = getOnlineLyricsStateCacheKey(song);

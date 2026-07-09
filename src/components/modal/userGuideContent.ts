@@ -61,15 +61,9 @@ export const PLAYER_PAGE_SHORTCUTS: UserGuideShortcut[] = [
         keys: ['P'],
     },
     {
-        id: 'hide-player-chrome',
-        titleKey: 'help.hidePlayerChrome',
-        fallback: 'Hide player controls',
-        keys: ['H'],
-    },
-    {
-        id: 'browser-fullscreen',
+        id: 'immersive-fullscreen',
         titleKey: 'help.browserFullscreen',
-        fallback: 'Fullscreen',
-        keys: ['F11'],
+        fallback: 'Fullscreen player',
+        keys: ['H'],
     },
 ];

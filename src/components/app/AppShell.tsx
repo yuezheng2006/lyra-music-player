@@ -37,6 +37,7 @@ const AppShell: React.FC<AppShellProps> = ({
     children,
 }) => {
     const [isWindowMaximized, setIsWindowMaximized] = useState(false);
+    const [isWindowFullscreen, setIsWindowFullscreen] = useState(false);
 
     useEffect(() => {
         if (!useCustomWindowRadius || !window.electron?.isWindowMaximized) {
@@ -68,7 +69,53 @@ const AppShell: React.FC<AppShellProps> = ({
         };
     }, [useCustomWindowRadius]);
 
-    const shouldApplyWindowRadius = useCustomWindowRadius && !isWindowMaximized;
+    useEffect(() => {
+        if (!useCustomWindowRadius) {
+            setIsWindowFullscreen(false);
+            return;
+        }
+
+        let isCancelled = false;
+
+        const syncFullscreenState = async () => {
+            try {
+                if (window.electron?.isWindowFullscreen) {
+                    const nextValue = await window.electron.isWindowFullscreen();
+                    if (!isCancelled) {
+                        setIsWindowFullscreen(nextValue);
+                    }
+                    return;
+                }
+                if (!isCancelled) {
+                    setIsWindowFullscreen(Boolean(document.fullscreenElement));
+                }
+            } catch {
+                if (!isCancelled) {
+                    setIsWindowFullscreen(false);
+                }
+            }
+        };
+
+        void syncFullscreenState();
+        const unsubscribe = window.electron?.onWindowFullscreenChanged?.((state) => {
+            setIsWindowFullscreen(Boolean(state?.isFullscreen));
+        });
+        const handleDocumentFullscreenChange = () => {
+            if (window.electron?.isWindowFullscreen) {
+                return;
+            }
+            setIsWindowFullscreen(Boolean(document.fullscreenElement));
+        };
+        document.addEventListener('fullscreenchange', handleDocumentFullscreenChange);
+
+        return () => {
+            isCancelled = true;
+            unsubscribe?.();
+            document.removeEventListener('fullscreenchange', handleDocumentFullscreenChange);
+        };
+    }, [useCustomWindowRadius]);
+
+    const shouldApplyWindowRadius = useCustomWindowRadius && !isWindowMaximized && !isWindowFullscreen;
     const shouldRenderTitlebarBackdrop = !isPlayerView || (useCustomWindowRadius && !isMainWindowClickThroughEnabled);
     const titlebarBackdropClassName = `absolute inset-0 backdrop-blur-sm ${
         isDaylight
@@ -99,6 +146,7 @@ const AppShell: React.FC<AppShellProps> = ({
                             }}
                             transition={{ duration: 0.18, ease: 'easeOut' }}
                             className={titlebarBackdropClassName}
+                            style={{ left: 'var(--app-sidebar-width, 0px)' }}
                         />
                     )}
                     <div className="relative h-full">

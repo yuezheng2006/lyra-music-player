@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { execSync } from 'child_process';
 import fs from 'fs';
+import { isAllowedLyricProxyHost, isAmllDbHost } from './shared/lyricProxyHosts.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -26,19 +27,36 @@ const LYRIC_PROXY_CORS_HEADERS: Record<string, string> = {
     'KG-CLIENTTIMEMS',
     'mid',
     'x-router',
+    'X-Proxy-Referer',
+    'X-Proxy-Cookie',
   ].join(', '),
 };
 
-const LYRIC_PROXY_IGNORED_FORWARD_HEADERS = ['host', 'connection', 'content-length', 'origin', 'referer'];
+const LYRIC_PROXY_IGNORED_FORWARD_HEADERS = [
+  'host',
+  'connection',
+  'content-length',
+  'origin',
+  'referer',
+  'cookie',
+  'x-proxy-referer',
+  'x-proxy-cookie',
+];
 
-function isAllowedLyricProxyHost(hostname: string): boolean {
-  return hostname === 'qq.com' || hostname.endsWith('.qq.com') ||
-    hostname === 'kugou.com' || hostname.endsWith('.kugou.com') ||
-    hostname === 'amll-ttml-db.stevexmh.net';
-}
-
-function isAmllDbHost(hostname: string): boolean {
-  return hostname === 'amll-ttml-db.stevexmh.net';
+/** Remap browser-safe proxy headers onto forbidden Referer/Cookie for upstream. */
+function applyLyricProxyHeaderOverrides(
+  headers: Headers,
+  sourceHeaders: Record<string, string | string[] | undefined>,
+): void {
+  const readHeader = (name: string): string => {
+    const value = sourceHeaders[name] ?? sourceHeaders[name.toLowerCase()];
+    if (Array.isArray(value)) return value.join(', ');
+    return typeof value === 'string' ? value : '';
+  };
+  const proxyReferer = readHeader('x-proxy-referer');
+  const proxyCookie = readHeader('x-proxy-cookie');
+  if (proxyReferer) headers.set('Referer', proxyReferer);
+  if (proxyCookie) headers.set('Cookie', proxyCookie);
 }
 
 function setLyricProxyCorsHeaders(res: import('http').ServerResponse): void {
@@ -101,6 +119,7 @@ function devLyricProxyPlugin() {
               headers.set(key, Array.isArray(value) ? value.join(', ') : value);
             }
           }
+          applyLyricProxyHeaderOverrides(headers, req.headers as Record<string, string | string[] | undefined>);
 
           const hasBody = ['POST', 'PUT', 'PATCH'].includes(req.method ?? '');
           const requestBody = hasBody ? await readDevRequestBody(req) : undefined;
@@ -216,9 +235,9 @@ export default async function viteConfig({ mode }: ConfigEnv): Promise<UserConfi
           maximumFileSizeToCacheInBytes: 5000000
         },
         manifest: {
-          name: 'Folia Music',
-          short_name: 'Folia',
-          description: 'A beautiful AI-themed music player',
+          name: 'Lyra',
+          short_name: 'Lyra',
+          description: 'Immersive multi-source music player with 3D stage and smart atmosphere',
           theme_color: '#09090b',
           background_color: '#09090b',
           display: 'standalone',

@@ -244,6 +244,7 @@ export function useAppControllerLibrary(core: AppControllerCoreResult) {
         skipAfterPlaybackFailure,
         handleStageExternalPlayRequest,
         shuffleQueue,
+        changeAudioQuality,
     } = usePlaybackQueueController({
         t,
         audioQuality,
@@ -258,6 +259,7 @@ export function useAppControllerLibrary(core: AppControllerCoreResult) {
         searchQuery,
         searchSourceTab,
         localSongs,
+        user,
         userId: user?.userId,
         currentTime,
         setCurrentSong,
@@ -356,6 +358,7 @@ export function useAppControllerLibrary(core: AppControllerCoreResult) {
         handleUpdateLocalLyrics,
         isLocalSongLiked,
         loadCurrentSongLyricPreview,
+        localPlaylists,
         localSongs,
         onMatchNavidromeSong,
         onPlayLocalSong,
@@ -381,5 +384,6 @@ export function useAppControllerLibrary(core: AppControllerCoreResult) {
         showOnlineLyricMatchModal,
         shuffleQueue,
         skipAfterPlaybackFailure,
+        changeAudioQuality,
     };
 }

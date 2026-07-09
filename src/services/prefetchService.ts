@@ -9,6 +9,7 @@ import { SongResult, LyricData, OnlineLyricsState } from '../types';
 import { getOnlineSongCacheKey, isCloudSong, neteaseApi } from './netease';
 import { getFromCacheWithMigration } from './db';
 import { hasCachedAudio } from './audioCache';
+import { getProviderSongCacheKey, isNeteaseOnlineSong } from './musicProviders/registry';
 import { migrateLyricDataRenderHints } from '../utils/lyrics/renderHints';
 import { processNeteaseLyrics } from '../utils/lyrics/neteaseProcessing';
 import { detectTimedLyricFormat } from '../utils/lyrics/formatDetection';
@@ -43,8 +44,8 @@ export interface PrefetchedSongData {
 // In-memory prefetch cache (not persisted to IndexedDB to avoid stale URLs)
 const prefetchCache = new Map<string, PrefetchedSongData>();
 
-const getPrefetchSongKey = (song: Pick<SongResult, 'id' | 't'>): string =>
-    getOnlineSongCacheKey('audio', song);
+const getPrefetchSongKey = (song: Pick<SongResult, 'id' | 't' | 'musicProvider'>): string =>
+    getProviderSongCacheKey('audio', song);
 
 const touchPrefetchCacheEntry = (songKey: string, data: PrefetchedSongData): PrefetchedSongData => {
     prefetchCache.delete(songKey);
@@ -110,7 +111,7 @@ const prefetchSong = async (
     if (signal.aborted) return;
 
     // Prefetch currently only supports Netease songs.
-    if ((song as any).isLocal || (song as any).localData || (song as any).isNavidrome) {
+    if ((song as any).isLocal || (song as any).localData || (song as any).isNavidrome || !isNeteaseOnlineSong(song)) {
         console.log(`[Prefetch] Skipping non-Netease song: ${song.name}`);
         return;
     }

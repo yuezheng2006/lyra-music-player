@@ -1,10 +1,18 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { buildDebugSnapshot } from '@/components/app/presentation/buildDebugSnapshot';
 import { createGridNavigationHandlers } from '@/components/app/navigation/createGridNavigationHandlers';
 import { DEFAULT_THEME, DAYLIGHT_THEME, DEV_DEBUG_SHORTCUT_LABEL } from '@/components/app/root/appConstants';
 import { useCommandPalette } from '@/components/command-palette/useCommandPalette';
 import { useSongThemeAutoGeneration } from '@/hooks/useSongThemeAutoGeneration';
+import { useWindowFullscreenState } from '@/hooks/useWindowFullscreenState';
 import { FALLBACK_AI_DUAL_THEME } from '@/services/themeSanitizer';
+import {
+    applyLyricColorPresetToDualTheme,
+    getLyricColorPresetById,
+    saveStoredLyricColorPresetId,
+    type LyricColorPresetId,
+} from '@/utils/theme/lyricColorPresets';
+import { isFullscreenPlayActive, isFullscreenPlayEngaged } from '@/utils/windowFullscreen';
 import { PlayerState } from '@/types';
 import { isLocalPlaybackSong, isNavidromePlaybackSong } from '@/utils/appPlaybackGuards';
 import type {
@@ -37,7 +45,10 @@ export function useAppControllerCommandLayer(
         duration,
         enableAlternativeLyricSources,
         enablePlayerPageNativeBlur,
+        enableSmartAtmosphere,
+        activateSmartTheme,
         generateAITheme,
+        handleToggleEnableSmartAtmosphere,
         getThemeParkSeedTheme,
         handleAutoMatchBestLyricForCurrentSong,
         handleNextTrack,
@@ -58,6 +69,7 @@ export function useAppControllerCommandLayer(
         isLyricsLoading,
         isNowPlayingControlDisabled,
         isNowPlayingStageActive,
+        isPlayerChromeHidden,
         isSearchOpen,
         isSettingsModalOpen,
         localSongs,
@@ -83,11 +95,15 @@ export function useAppControllerCommandLayer(
         playSong,
         playerState,
         publishStagePlayerPlaybackUpdate,
+        saveCustomDualTheme,
+        saveEditedAiDualTheme,
+        saveLyricColorDualTheme,
         searchSourceTab,
         setActiveGridViewCollection,
         setDesktopLyricsLocked,
         setHomeViewTab,
         setIsPanelOpen,
+        setIsPlayerChromeHidden,
         setIsUserGuideModalOpen,
         setPanelTab,
         setPlayerState,
@@ -112,14 +128,22 @@ export function useAppControllerCommandLayer(
         visualizerMode,
     } = core;
 
-    const canGenerateAITheme = Boolean((lyrics?.lines.length ?? 0) > 0 || currentSong?.isPureMusic);
+    const canGenerateAITheme = Boolean((lyrics?.lines.length ?? 0) > 0 || currentSong?.isPureMusic || currentSong?.name);
     const generateCurrentSongTheme = useCallback(() => {
         void generateAITheme(lyrics, currentSong);
     }, [currentSong, generateAITheme, lyrics]);
 
+    const activateCurrentSmartTheme = useCallback(() => {
+        void activateSmartTheme(lyrics, currentSong);
+    }, [activateSmartTheme, currentSong, lyrics]);
+
     const toggleDaylightMode = useCallback(() => {
         handleToggleDaylight(!isDaylight);
     }, [handleToggleDaylight, isDaylight]);
+
+    const toggleSmartAtmosphere = useCallback(() => {
+        handleToggleEnableSmartAtmosphere(!enableSmartAtmosphere);
+    }, [enableSmartAtmosphere, handleToggleEnableSmartAtmosphere]);
 
     const currentSearchSourceTabInPalette = useMemo(() => {
         if (currentSong) {
@@ -134,28 +158,87 @@ export function useAppControllerCommandLayer(
         return searchSourceTab;
     }, [currentSong, searchSourceTab]);
 
-    const toggleBrowserFullscreen = useCallback(async () => {
-        if (typeof window !== 'undefined' && window.electron?.toggleFullscreenWindow) {
-            return window.electron.toggleFullscreenWindow();
+    const { isWindowFullscreen, setWindowFullscreen } = useWindowFullscreenState();
+    const wasWindowFullscreenRef = useRef(isWindowFullscreen);
+    const isImmersiveFullscreen = isFullscreenPlayActive({
+        currentView,
+        isPlayerChromeHidden,
+        isWindowFullscreen,
+    });
+
+    // OS Esc / system leave-fullscreen should also exit 满屏 chrome hide.
+    useEffect(() => {
+        const wasFullscreen = wasWindowFullscreenRef.current;
+        wasWindowFullscreenRef.current = isWindowFullscreen;
+        if (wasFullscreen && !isWindowFullscreen && currentView === 'player' && isPlayerChromeHidden) {
+            setIsPlayerChromeHidden(false);
         }
+    }, [currentView, isPlayerChromeHidden, isWindowFullscreen, setIsPlayerChromeHidden]);
 
-        if (typeof document === 'undefined') {
-            return false;
+    // Leaving the player while OS-fullscreen should drop window fullscreen.
+    useEffect(() => {
+        if (currentView !== 'player' && isWindowFullscreen) {
+            void setWindowFullscreen(false);
         }
+    }, [currentView, isWindowFullscreen, setWindowFullscreen]);
 
-        try {
-            if (document.fullscreenElement) {
-                await document.exitFullscreen();
-                return true;
-            }
+    const exitWindowFullscreen = useCallback(() => {
+        void setWindowFullscreen(false);
+    }, [setWindowFullscreen]);
 
-            await document.documentElement.requestFullscreen();
+    const toggleImmersiveFullscreen = useCallback(() => {
+        const entering = !isFullscreenPlayEngaged({
+            currentView,
+            isPlayerChromeHidden,
+            isWindowFullscreen,
+        });
+
+        if (entering) {
+            navigateToPlayer();
+            setIsPanelOpen(false);
+            setIsPlayerChromeHidden(true);
+            void setWindowFullscreen(true);
             return true;
-        } catch (error) {
-            console.warn('[CommandPalette] Failed to toggle browser fullscreen:', error);
-            return false;
         }
-    }, []);
+
+        setIsPlayerChromeHidden(false);
+        void setWindowFullscreen(false);
+        return true;
+    }, [
+        currentView,
+        isPlayerChromeHidden,
+        isWindowFullscreen,
+        navigateToPlayer,
+        setIsPanelOpen,
+        setIsPlayerChromeHidden,
+        setWindowFullscreen,
+    ]);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (
+                event.target instanceof HTMLInputElement
+                || event.target instanceof HTMLTextAreaElement
+                || (event.target instanceof HTMLElement && event.target.isContentEditable)
+            ) {
+                return;
+            }
+            if (document.querySelector('[data-folia-keyboard-window="true"]')) {
+                return;
+            }
+            if (event.code !== 'KeyF') {
+                return;
+            }
+            if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+                return;
+            }
+            event.preventDefault();
+            toggleImmersiveFullscreen();
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [toggleImmersiveFullscreen]);
 
     const commandPaletteContext = useMemo(() => ({
         currentSearchSourceTab: currentSearchSourceTabInPalette,
@@ -163,10 +246,15 @@ export function useAppControllerCommandLayer(
         playerState,
         t: (key: string, fallback?: string) => t(key, fallback ?? ''),
         openSettings,
-        navigateToHome,
+        navigateToHome: () => {
+            setIsPlayerChromeHidden(false);
+            exitWindowFullscreen();
+            navigateToHome();
+        },
+        navigateDirectHome,
         navigateToPlayer,
         navigateToSearch,
-        toggleBrowserFullscreen,
+        toggleImmersiveFullscreen,
         setHomeViewTab,
         setPanelTab,
         setIsPanelOpen,
@@ -198,6 +286,8 @@ export function useAppControllerCommandLayer(
         },
         enablePlayerPageNativeBlur,
         toggleDaylightMode,
+        enableSmartAtmosphere,
+        toggleSmartAtmosphere,
         setAppLanguagePreference: handleSetAppLanguagePreference,
         enableAlternativeLyricSources,
         runAutoMatchBestLyric: handleAutoMatchBestLyricForCurrentSong,
@@ -216,6 +306,7 @@ export function useAppControllerCommandLayer(
         desktopLyricsStatus.locked,
         enableAlternativeLyricSources,
         enablePlayerPageNativeBlur,
+        enableSmartAtmosphere,
         generateCurrentSongTheme,
         handleAutoMatchBestLyricForCurrentSong,
         handleNextTrack,
@@ -228,8 +319,10 @@ export function useAppControllerCommandLayer(
         handleToggleShowSubtitleTranslation,
         hidePlayerTranslationSubtitle,
         isGeneratingTheme,
+        isPlayerChromeHidden,
         localSongs,
         navigateToHome,
+        navigateDirectHome,
         navigateToPlayer,
         navigateToSearch,
         openSettings,
@@ -240,19 +333,22 @@ export function useAppControllerCommandLayer(
         setDesktopLyricsLocked,
         setHomeViewTab,
         setIsPanelOpen,
+        setIsPlayerChromeHidden,
         setIsUserGuideModalOpen,
         setPanelTab,
         showSubtitleTranslation,
         shuffleQueue,
         submitSearch,
         t,
-        toggleBrowserFullscreen,
+        toggleImmersiveFullscreen,
         toggleDaylightMode,
+        toggleSmartAtmosphere,
         toggleDesktopLyrics,
         toggleLoop,
         togglePlay,
         toggleTransparentModeWithHandoff,
         transparentPlayerBackground,
+        exitWindowFullscreen,
     ]);
 
     const commandPalette = useCommandPalette({
@@ -342,6 +438,17 @@ export function useAppControllerCommandLayer(
 
     const themeParkSeedTheme = useMemo(() => getThemeParkSeedTheme(), [getThemeParkSeedTheme]);
 
+    const handleApplyLyricColorPreset = useCallback((presetId: LyricColorPresetId) => {
+        const preset = getLyricColorPresetById(presetId);
+        if (!preset) {
+            return;
+        }
+        // Colors only: never sync font / animation / 3D atmosphere from a lyric-color chip.
+        const nextDualTheme = applyLyricColorPresetToDualTheme(activeDualTheme, preset, { includeMotion: false });
+        saveStoredLyricColorPresetId(presetId);
+        saveLyricColorDualTheme(nextDualTheme, currentSong?.id ?? null);
+    }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme]);
+
     useSongThemeAutoGeneration({
         enabled: songThemeAutoSwitchEnabled && songThemeAutoGenerateEnabled,
         currentSong,
@@ -413,16 +520,21 @@ export function useAppControllerCommandLayer(
         commandPaletteContext,
         currentSearchSourceTabInPalette,
         devDebugSnapshot,
+        activateCurrentSmartTheme,
         generateCurrentSongTheme,
         handleMonetLyricLineSeek,
         handlePlayerPanelAlbumSelect,
         handlePlayerPanelArtistSelect,
         handleUnifiedAlbumSelect,
         handleUnifiedArtistSelect,
+        onApplyLyricColorPreset: handleApplyLyricColorPreset,
         nowPlayingDebugSnapshot,
         seekMainAudio,
         themeParkSeedTheme,
-        toggleBrowserFullscreen,
+        isImmersiveFullscreen,
+        isWindowFullscreen,
+        toggleImmersiveFullscreen,
+        exitWindowFullscreen,
         toggleDaylightMode,
     };
 }

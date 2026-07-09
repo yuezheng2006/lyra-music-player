@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('electron', {
     markUpdateSeen: (version) => ipcRenderer.invoke('updates-mark-seen', version),
     openUpdateReleasePage: (version) => ipcRenderer.invoke('updates-open-release-page', version),
     openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
+    openQQMusicLogin: () => ipcRenderer.invoke('qq-music-open-login'),
+    getQQMusicLoginCookie: () => ipcRenderer.invoke('qq-music-get-login-cookie'),
+    clearQQMusicLogin: () => ipcRenderer.invoke('qq-music-clear-login'),
     downloadUpdate: () => ipcRenderer.invoke('updates-download'),
     quitAndInstallUpdate: () => ipcRenderer.invoke('updates-quit-and-install'),
     onUpdateStatusChanged: (callback) => {
@@ -27,6 +30,7 @@ contextBridge.exposeInMainWorld('electron', {
     generateTheme: (lyricsText, options) => ipcRenderer.invoke('generate-theme', lyricsText, options),
     fetchLyricProxy: (url, init) => ipcRenderer.invoke('lyric-proxy-fetch', url, init),
     getNeteasePort: () => ipcRenderer.invoke('get-netease-port'),
+    getMusicProviderPort: () => ipcRenderer.invoke('get-music-provider-port'),
     getNeteaseApiStatus: () => ipcRenderer.invoke('get-netease-api-status'),
     onNeteaseApiStatusChanged: (callback) => {
         const listener = (_event, status) => callback(status);
@@ -36,6 +40,13 @@ contextBridge.exposeInMainWorld('electron', {
     minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
     toggleMaximizeWindow: () => ipcRenderer.invoke('window-toggle-maximize'),
     toggleFullscreenWindow: () => ipcRenderer.invoke('window-toggle-fullscreen'),
+    isWindowFullscreen: () => ipcRenderer.invoke('window-is-fullscreen'),
+    setWindowFullscreen: (enabled) => ipcRenderer.invoke('window-set-fullscreen', enabled),
+    onWindowFullscreenChanged: (callback) => {
+        const listener = (_event, state) => callback(state);
+        ipcRenderer.on('main-window-fullscreen-changed', listener);
+        return () => ipcRenderer.removeListener('main-window-fullscreen-changed', listener);
+    },
     closeWindow: () => ipcRenderer.invoke('window-close'),
     isWindowMaximized: () => ipcRenderer.invoke('window-is-maximized'),
     getWindowTransparentMode: () => ipcRenderer.invoke('window-get-transparent-mode'),

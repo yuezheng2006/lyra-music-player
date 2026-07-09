@@ -7,17 +7,11 @@ import {
 } from '../../../types';
 import { colorWithAlpha } from '../colorMix';
 import {
-    INTERACTIVE3D_SCENE_EFFECTS,
-} from '../geometric/interactive3dSceneRegistry';
-import {
     isInteractive3dWebGLOnlyPath,
-    resolveInteractive3dEffectiveSettings,
-    shouldShowInteractive3dSceneLayerToggle,
 } from '../resolveInteractive3dEffectiveSettings';
 import { Interactive3dCameraControlSelector } from './Interactive3dCameraControlSelector';
 import { Interactive3dQualityTierSelector } from './Interactive3dQualityTierSelector';
 import {
-    Interactive3dSectionLabel,
     Interactive3dToggleRow,
 } from './Interactive3dSettingsPrimitives';
 import { Interactive3dSmartAtmosphereControl } from './Interactive3dSmartAtmosphereControl';
@@ -60,11 +54,7 @@ export const Interactive3dBackgroundSettingsCard: React.FC<Interactive3dBackgrou
         enableSmartAtmosphere,
         interactive3dSceneTuning: tuning,
     };
-    const effectiveSettings = resolveInteractive3dEffectiveSettings(effectiveSettingsInput);
     const webglOnlyPath = isInteractive3dWebGLOnlyPath(effectiveSettingsInput);
-    const visibleSceneEffects = INTERACTIVE3D_SCENE_EFFECTS.filter(effect => (
-        shouldShowInteractive3dSceneLayerToggle(effect.id, effectiveSettingsInput)
-    ));
 
     return (
     <div
@@ -102,10 +92,13 @@ export const Interactive3dBackgroundSettingsCard: React.FC<Interactive3dBackgrou
 
         <Interactive3dSmartAtmosphereControl
             label={t('options.enableSmartAtmosphere') || '智能氛围'}
-            description={t('options.enableSmartAtmosphereDesc') || '根据节拍与歌曲情绪驱动 3D 背景粒子、涟漪和镜头 punch。'}
+            description={t('options.enableSmartAtmosphereDesc') || '让背景和歌词跟着音乐律动。'}
             checked={enableSmartAtmosphere}
             onChange={onToggleEnableSmartAtmosphere}
             theme={theme}
+            t={t}
+            tuning={tuning}
+            onTuningChange={onTuningChange}
         />
 
         <Interactive3dVisualPresetDeck
@@ -142,52 +135,16 @@ export const Interactive3dBackgroundSettingsCard: React.FC<Interactive3dBackgrou
             />
         )}
 
-        {visibleSceneEffects.length > 0 && (
-            <div className="space-y-3">
-                <Interactive3dSectionLabel theme={theme}>
-                    {t('options.interactive3dSceneLayers') || '场景组件'}
-                </Interactive3dSectionLabel>
-                <div className="space-y-3" data-testid="interactive3d-scene-layers">
-                    {visibleSceneEffects.map(effect => (
-                        <Interactive3dToggleRow
-                            key={effect.id}
-                            label={t(effect.labelKey) || effect.labelFallback}
-                            description={t(effect.descriptionKey) || effect.descriptionFallback}
-                            checked={Boolean(tuning[effect.tuningKey])}
-                            onChange={(enabled) => onTuningChange?.({ [effect.tuningKey]: enabled })}
-                            theme={theme}
-                            testId={effect.testId}
-                        />
-                    ))}
-                </div>
-            </div>
+        {!webglOnlyPath && (
+            <Interactive3dToggleRow
+                label={t('options.disableVisualizerVignette') || '禁用暗角'}
+                description={t('options.disableVisualizerVignetteDesc') || '关闭 3D 背景自带的边缘暗角。'}
+                checked={disableVisualizerVignette}
+                onChange={onToggleDisableVisualizerVignette}
+                theme={theme}
+                testId="interactive3d-toggle-vignette"
+            />
         )}
-
-        {webglOnlyPath && effectiveSettings.conflicts.length > 0 && (
-            <div
-                className="rounded-2xl border px-3 py-2.5 space-y-1.5 text-xs"
-                data-testid="interactive3d-settings-notices"
-                style={{
-                    borderColor: colorWithAlpha(theme.secondaryColor, 0.14),
-                    color: theme.secondaryColor,
-                }}
-            >
-                {effectiveSettings.conflicts.map(conflict => (
-                    <p key={conflict.id} className="opacity-75 leading-snug">
-                        {t(`options.interactive3dConflict.${conflict.id}`) || conflict.messageFallback}
-                    </p>
-                ))}
-            </div>
-        )}
-
-        <Interactive3dToggleRow
-            label={t('options.disableVisualizerVignette') || '禁用暗角'}
-            description={t('options.disableVisualizerVignetteDesc') || '关闭 3D 背景自带的边缘暗角。'}
-            checked={disableVisualizerVignette}
-            onChange={onToggleDisableVisualizerVignette}
-            theme={theme}
-            testId="interactive3d-toggle-vignette"
-        />
     </div>
     );
 };

@@ -19,6 +19,7 @@ type UsePlaybackInteractionBridgeParams = {
     stageActiveEntryKind: string | null;
     isNowPlayingStageActive: boolean;
     isPanelOpen: boolean;
+    isPlayerChromeHidden: boolean;
     isFmMode: boolean;
     playerState: PlayerState;
     duration: number;
@@ -53,6 +54,7 @@ export function usePlaybackInteractionBridge({
     stageActiveEntryKind,
     isNowPlayingStageActive,
     isPanelOpen,
+    isPlayerChromeHidden,
     isFmMode,
     playerState,
     duration,
@@ -113,8 +115,13 @@ export function usePlaybackInteractionBridge({
     const handleContainerClick = useCallback(() => {
         if (isPanelOpen) {
             setIsPanelOpen(false);
+            return;
         }
-    }, [isPanelOpen, setIsPanelOpen]);
+        // Immersive fullscreen: click canvas to restore chrome.
+        if (currentView === 'player' && isPlayerChromeHidden) {
+            setIsPlayerChromeHidden(false);
+        }
+    }, [currentView, isPanelOpen, isPlayerChromeHidden, setIsPanelOpen, setIsPlayerChromeHidden]);
 
     const handleFmTrash = useCallback(async () => {
         if (isNowPlayingStageActive) {

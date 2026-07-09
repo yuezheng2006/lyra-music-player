@@ -23,12 +23,31 @@ declare global {
     count: number;
   }
 
+  interface ElectronQQMusicLoginResult {
+    ok: boolean;
+    cookie?: string;
+    reused?: boolean;
+    partial?: boolean;
+    cancelled?: boolean;
+    message?: string;
+    error?: string;
+  }
+
+  interface ElectronQQMusicLoginCookieResult {
+    ok: boolean;
+    cookie?: string;
+    playbackReady?: boolean;
+  }
+
   interface ElectronLyricProxyResponse {
     ok: boolean;
     status: number;
     statusText: string;
     headers: Record<string, string>;
     bodyText: string;
+    /** Present when the upstream body is binary (images/audio). */
+    bodyBase64?: string;
+    bodyEncoding?: 'text' | 'base64';
   }
 
   interface ElectronNeteaseApiStatus {
@@ -451,6 +470,9 @@ declare global {
       markUpdateSeen: (version?: string | null) => Promise<ElectronUpdateStatus>;
       openUpdateReleasePage: (version?: string | null) => Promise<boolean>;
       openExternalUrl: (url: string) => Promise<boolean>;
+      openQQMusicLogin: () => Promise<ElectronQQMusicLoginResult>;
+      getQQMusicLoginCookie: () => Promise<ElectronQQMusicLoginCookieResult>;
+      clearQQMusicLogin: () => Promise<{ ok: boolean; error?: string }>;
       downloadUpdate: () => Promise<ElectronUpdateStatus>;
       quitAndInstallUpdate: () => Promise<boolean>;
       onUpdateStatusChanged: (callback: (status: ElectronUpdateStatus) => void) => () => void;
@@ -475,6 +497,11 @@ declare global {
       minimizeWindow: () => Promise<boolean>;
       toggleMaximizeWindow: () => Promise<boolean>;
       toggleFullscreenWindow: () => Promise<boolean>;
+      isWindowFullscreen: () => Promise<boolean>;
+      setWindowFullscreen: (enabled: boolean) => Promise<boolean>;
+      onWindowFullscreenChanged: (
+        callback: (state: { isFullscreen: boolean }) => void,
+      ) => () => void;
       closeWindow: () => Promise<boolean>;
       isWindowMaximized: () => Promise<boolean>;
       getWindowTransparentMode: () => Promise<boolean>;

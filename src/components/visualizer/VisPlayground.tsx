@@ -63,6 +63,7 @@ interface VisPlaygroundProps {
     enableSmartAtmosphere?: boolean;
     enable3dInteractiveBackground?: boolean;
     visualizerBackgroundMode?: VisualizerBackgroundMode | null;
+    coverUrl?: string | null;
     hideTranslationSubtitle?: boolean;
     showSubtitleTranslation?: boolean;
     subtitleOverlayOpacity?: number;
@@ -163,9 +164,9 @@ type QueryLocalFontsWindow = Window & {
 const PREVIEW_THEME: Theme = {
     name: 'Preview Theme',
     backgroundColor: '#09090b',
-    primaryColor: '#f4f4f5',
-    accentColor: '#f4f4f5',
-    secondaryColor: '#71717a',
+    primaryColor: '#fafafa',
+    accentColor: '#ffffff',
+    secondaryColor: '#b8b8c2',
     fontStyle: 'sans',
     animationIntensity: 'normal',
 };
@@ -274,6 +275,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     enableSmartAtmosphere = true,
     enable3dInteractiveBackground = true,
     visualizerBackgroundMode = null,
+    coverUrl = null,
     hideTranslationSubtitle = false,
     showSubtitleTranslation = true,
     subtitleOverlayOpacity = 0.6,
@@ -406,6 +408,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
         fontStyle,
         fontFamily: customFontFamily ?? undefined,
     }), [baseTheme, customFontFamily, fontStyle]);
+    const previewCoverUrl = coverUrl || VIS_PLAYGROUND_PREVIEW_COVER_URL;
     const resolvedPartitaTuning = useMemo<PartitaTuning>(() => {
         const rawMin = clampPartitaStagger(draftPartitaTuning.staggerMin ?? DEFAULT_PARTITA_TUNING.staggerMin);
         const rawMax = clampPartitaStagger(draftPartitaTuning.staggerMax ?? DEFAULT_PARTITA_TUNING.staggerMax);
@@ -920,7 +923,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                                 isPreviewMode
                                 backgroundOpacity={draftBackgroundOpacity}
                                 visualizerOpacity={draftVisualizerOpacity}
-                                coverUrl={VIS_PLAYGROUND_PREVIEW_COVER_URL}
+                                coverUrl={previewCoverUrl}
                                 useCoverColorBg={useCoverColorBg}
                                 transparentBackground={transparentPlayerBackground}
                                 disableVignette={disableVisualizerVignette}

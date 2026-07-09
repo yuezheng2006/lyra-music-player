@@ -1,10 +1,11 @@
 import React from 'react';
-import { Activity, AudioLines, Sparkles } from 'lucide-react';
-import type { Theme } from '../../../types';
+import { Sparkles } from 'lucide-react';
+import type { Interactive3dSceneTuning, Theme } from '../../../types';
 import { colorWithAlpha } from '../colorMix';
+import { Interactive3dAtmosphereTuningSliders } from './Interactive3dAtmosphereTuningSliders';
 
 // src/components/visualizer/backgrounds/Interactive3dSmartAtmosphereControl.tsx
-// Smart atmosphere control with low-frequency visual status indicators.
+// Smart atmosphere master toggle with optional sensitivity sliders.
 
 interface Interactive3dSmartAtmosphereControlProps {
     label: string;
@@ -12,13 +13,10 @@ interface Interactive3dSmartAtmosphereControlProps {
     checked: boolean;
     onChange?: (checked: boolean) => void;
     theme: Theme;
+    t: (key: string) => string;
+    tuning?: Interactive3dSceneTuning;
+    onTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
 }
-
-const SMART_DRIVER_ITEMS = [
-    { label: 'Beat', icon: AudioLines },
-    { label: 'Bass', icon: Activity },
-    { label: 'Camera', icon: Sparkles },
-] as const;
 
 export const Interactive3dSmartAtmosphereControl: React.FC<Interactive3dSmartAtmosphereControlProps> = ({
     label,
@@ -26,6 +24,9 @@ export const Interactive3dSmartAtmosphereControl: React.FC<Interactive3dSmartAtm
     checked,
     onChange,
     theme,
+    t,
+    tuning,
+    onTuningChange,
 }) => (
     <div
         className="rounded-2xl border p-3 space-y-3"
@@ -64,30 +65,14 @@ export const Interactive3dSmartAtmosphereControl: React.FC<Interactive3dSmartAtm
             </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-            {SMART_DRIVER_ITEMS.map(({ label: driverLabel, icon: Icon }, index) => (
-                <div
-                    key={driverLabel}
-                    className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium"
-                    style={{
-                        borderColor: colorWithAlpha(theme.secondaryColor, checked ? 0.22 : 0.12),
-                        color: checked ? theme.primaryColor : theme.secondaryColor,
-                        backgroundColor: colorWithAlpha(theme.backgroundColor, checked ? 0.24 : 0.12),
-                    }}
-                >
-                    <Icon size={11} />
-                    {driverLabel}
-                    <span
-                        className="ml-0.5 inline-block h-1.5 rounded-full transition-all"
-                        style={{
-                            width: `${12 + index * 5}px`,
-                            backgroundColor: checked
-                                ? colorWithAlpha(theme.primaryColor, 0.72)
-                                : colorWithAlpha(theme.secondaryColor, 0.24),
-                        }}
-                    />
-                </div>
-            ))}
-        </div>
+        {tuning && (
+            <Interactive3dAtmosphereTuningSliders
+                t={t}
+                theme={theme}
+                tuning={tuning}
+                enabled={checked}
+                onTuningChange={onTuningChange}
+            />
+        )}
     </div>
 );

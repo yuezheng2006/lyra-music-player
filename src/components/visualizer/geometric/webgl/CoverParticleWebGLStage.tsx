@@ -3,6 +3,7 @@ import type { MotionValue } from 'framer-motion';
 import type { AudioBands, Interactive3dSceneTuning } from '../../../../types';
 import type { GeometricQualityProfile } from '../geometricQuality';
 import type { InteractiveCameraSnapshot } from '../interactiveCamera/interactiveCameraTypes';
+import { normalizeInteractive3dVisualPreset } from '../mineradioVisualPresets';
 import { shouldRenderMineradioWebGL } from './mineradioPresetMap';
 import { useCoverParticleRuntime } from './useCoverParticleRuntime';
 
@@ -23,7 +24,7 @@ interface CoverParticleWebGLStageProps {
 }
 
 export const shouldShowCoverParticleWebGL = (tuning?: Interactive3dSceneTuning): boolean => {
-    const preset = tuning?.visualPreset ?? 'emily';
+    const preset = normalizeInteractive3dVisualPreset(tuning?.visualPreset);
     const enabled = tuning?.enableCoverParticles ?? true;
     return shouldRenderMineradioWebGL(preset, enabled);
 };
@@ -32,6 +33,7 @@ const CoverParticleWebGLStage: React.FC<CoverParticleWebGLStageProps> = (props) 
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [mountedContainer, setMountedContainer] = useState<HTMLDivElement | null>(null);
     const active = shouldShowCoverParticleWebGL(props.sceneTuning);
+    const visualPreset = normalizeInteractive3dVisualPreset(props.sceneTuning?.visualPreset);
 
     const handleContainerRef = useCallback((node: HTMLDivElement | null) => {
         containerRef.current = node;
@@ -51,7 +53,9 @@ const CoverParticleWebGLStage: React.FC<CoverParticleWebGLStageProps> = (props) 
         <div
             ref={handleContainerRef}
             className="absolute inset-0 overflow-hidden z-0 isolate"
+            style={{ pointerEvents: 'auto', touchAction: 'none' }}
             data-testid="interactive3d-cover-webgl-stage"
+            data-visual-preset={visualPreset}
             aria-hidden
         />
     );

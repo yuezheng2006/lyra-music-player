@@ -1,5 +1,5 @@
 import type React from 'react';
-import { PlayerState, type HomeViewTab, type SongResult } from '../../../types';
+import { PlayerState, type SearchSourceId, type SongResult } from '../../../types';
 import type LegacyHome from '../../Home';
 
 // src/components/app/home/buildHomeModel.ts
@@ -17,6 +17,9 @@ type BuildHomeModelParams = {
     user: LegacyHomeProps['user'];
     playlists: LegacyHomeProps['playlists'];
     cloudPlaylist?: LegacyHomeProps['cloudPlaylist'];
+    favoriteAlbums?: LegacyHomeProps['favoriteAlbums'];
+    isFavoriteAlbumsLoading?: LegacyHomeProps['isFavoriteAlbumsLoading'];
+    favoriteAlbumsLoadFailed?: LegacyHomeProps['favoriteAlbumsLoadFailed'];
     currentSong: LegacyHomeProps['currentTrack'];
     playerState: PlayerState;
     handlePlaylistSelect: LegacyHomeProps['onSelectPlaylist'];
@@ -29,7 +32,7 @@ type BuildHomeModelParams = {
     focusedRadioIndex?: LegacyHomeProps['focusedRadioIndex'];
     setFocusedRadioIndex?: LegacyHomeProps['setFocusedRadioIndex'];
     openSettings: NonNullable<LegacyHomeProps['onOpenSettings']>;
-    navigateToSearch: (args: { query: string; sourceTab: HomeViewTab; replace?: boolean }) => void;
+    navigateToSearch: (args: { query: string; sourceTab: SearchSourceId; replace?: boolean }) => void;
     openLocalAlbumByName?: LegacyHomeProps['onSelectLocalAlbum'];
     openLocalArtistByName?: LegacyHomeProps['onSelectLocalArtist'];
     localSongs: LegacyHomeProps['localSongs'];
@@ -58,7 +61,10 @@ type BuildHomeModelParams = {
     loadStageSessionIntoPlayback: (session: any) => Promise<void>;
     theme: LegacyHomeProps['theme'];
     navidromeEnabled: LegacyHomeProps['navidromeEnabled'];
-    playAll: (songs: SongResult[]) => void;
+    playAll: (
+        songs: SongResult[],
+        options?: { shouldNavigateToPlayer?: boolean },
+    ) => void;
     addAllToQueue: (songs: SongResult[]) => void;
     addSongToQueue: (song: SongResult) => void;
 };
@@ -71,6 +77,9 @@ export const buildHomeModel = ({
     user,
     playlists,
     cloudPlaylist,
+    favoriteAlbums = [],
+    isFavoriteAlbumsLoading = false,
+    favoriteAlbumsLoadFailed = false,
     currentSong,
     playerState,
     handlePlaylistSelect,
@@ -124,6 +133,9 @@ export const buildHomeModel = ({
             user,
             playlists,
             cloudPlaylist,
+            favoriteAlbums,
+            isFavoriteAlbumsLoading,
+            favoriteAlbumsLoadFailed,
             currentTrack: currentSong,
             isPlaying: playerState === PlayerState.PLAYING,
             onSelectPlaylist: handlePlaylistSelect,

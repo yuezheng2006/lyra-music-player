@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence, MotionValue, Variants, useMotionValueEvent } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_PARTITA_TUNING, Line, Theme, Word as WordType, AudioBands, type PartitaTuning } from '../../../types';
@@ -10,6 +10,7 @@ import { type VisualizerSharedProps } from '../definition';
 import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { resolveWordColor } from '../wordColoring';
+import { resolveLyricContainerFit } from '../resolveLyricContainerFit';
 
 // This one is still word-driven, but unlike Classic it needs to pre-build a column/chunk structure first.
 // The flow is basically: ask runtime for the active line, optionally preheat the upcoming line,
@@ -693,7 +694,11 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
         showSubtitleTranslation = true,
     } = props;
     const { t } = useTranslation();
+    const stageRef = useRef<HTMLDivElement | null>(null);
     const [windowHeight, setWindowHeight] = useState(800);
+    const [stageWidth, setStageWidth] = useState(() => (
+        typeof window === 'undefined' ? 960 : Math.max(320, window.innerWidth - 220)
+    ));
     const resolvedPartitaTuning = useMemo(() => resolvePartitaTuning(partitaTuning), [partitaTuning]);
     const layoutCacheRef = useRef<Map<string, PartitaSequentialLayout>>(new Map());
 
@@ -702,6 +707,23 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
         const handleResize = () => setWindowHeight(window.innerHeight);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useLayoutEffect(() => {
+        const node = stageRef.current;
+        if (!node || typeof ResizeObserver === 'undefined') return undefined;
+        const apply = (width: number) => {
+            const next = Math.max(240, Math.round(width));
+            setStageWidth(prev => (prev === next ? prev : next));
+        };
+        apply(node.getBoundingClientRect().width);
+        const observer = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (!entry) return;
+            apply(entry.contentRect.width);
+        });
+        observer.observe(node);
+        return () => observer.disconnect();
     }, []);
 
     const {
@@ -745,10 +767,22 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
     });
 
     const densityScale = sequentialLayout.totalGraphemes > 40 ? 0.8 : 1;
-    const mainFontSize = `clamp(${(2.5 * densityScale * lyricsFontScale).toFixed(3)}rem, ${(5.5 * densityScale * lyricsFontScale).toFixed(3)}vw, ${(4.5 * densityScale * lyricsFontScale).toFixed(3)}rem)`;
-    const emptyFontSize = `clamp(${(1.2 * lyricsFontScale).toFixed(3)}rem, ${(2.8 * lyricsFontScale).toFixed(3)}vw, ${(1.9 * lyricsFontScale).toFixed(3)}rem)`;
-    const translationFontSize = `clamp(${(1.05 * lyricsFontScale).toFixed(3)}rem, ${(2.2 * lyricsFontScale).toFixed(3)}vw, ${(1.2 * lyricsFontScale).toFixed(3)}rem)`;
-    const upcomingFontSize = `clamp(${(0.875 * lyricsFontScale).toFixed(3)}rem, ${(1.8 * lyricsFontScale).toFixed(3)}vw, ${(1 * lyricsFontScale).toFixed(3)}rem)`;
+    const lyricFit = useMemo(
+        () => resolveLyricContainerFit({
+            containerWidth: stageWidth,
+            lyricsFontScale: lyricsFontScale * densityScale,
+            sidePaddingRatio: 0.09,
+            minSidePaddingPx: 32,
+            preferredWidthRatio: 0.062,
+            minFontPx: 20,
+            maxFontPx: 48,
+        }),
+        [stageWidth, lyricsFontScale, densityScale],
+    );
+    const mainFontSize = lyricFit.fontSizeCss;
+    const emptyFontSize = `${Math.max(16, lyricFit.fontPx * 0.55).toFixed(2)}px`;
+    const translationFontSize = `${Math.max(14, lyricFit.fontPx * 0.42).toFixed(2)}px`;
+    const upcomingFontSize = `${Math.max(12, lyricFit.fontPx * 0.34).toFixed(2)}px`;
 
     const layoutVariants: Variants = {
         waiting: ({ config }: any) => ({
@@ -937,7 +971,14 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
             sharedProps={props}
         >
             <motion.div
-                className="relative z-10 w-full h-[70vh] flex items-center justify-center p-8 pointer-events-none will-change-transform"
+                ref={stageRef}
+                className="relative z-10 w-full h-[70vh] flex items-center justify-center pointer-events-none will-change-transform overflow-hidden"
+                style={{
+                    paddingLeft: lyricFit.sidePaddingPx,
+                    paddingRight: lyricFit.sidePaddingPx,
+                    paddingTop: 32,
+                    paddingBottom: 32,
+                }}
                 animate={lyricContainerFloat.animate}
                 transition={lyricContainerFloat.transition}
             >
@@ -948,11 +989,12 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
                             initial={activeLineContainerMotion.initial}
                             animate={activeLineContainerMotion.animate}
                             exit={activeLineContainerMotion.exit}
-                            className="flex flex-row-reverse items-stretch justify-center w-full max-w-5xl"
+                            className="flex flex-row-reverse items-stretch justify-center w-full"
                             style={{
                                 perspective: `${sequentialLayout.lineConfig.perspective}px`,
                                 gap: sequentialLayout.lineConfig.columnGap,
                                 minHeight: '320px',
+                                maxWidth: lyricFit.usableWidth,
                             }}
                         >
                             {sequentialLayout.columns.map((column) => {

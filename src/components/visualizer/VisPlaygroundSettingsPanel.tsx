@@ -379,7 +379,7 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
             value: entry.mode,
         }))
     ), [t]);
-    const resolvedBackgroundMode: VisualizerBackgroundMode = visualizerBackgroundMode ?? (visualizerMode === 'monet' ? 'monet' : 'interactive3d');
+    const resolvedBackgroundMode: VisualizerBackgroundMode = visualizerBackgroundMode ?? 'interactive3d';
     const backgroundModeOptions = useMemo<PresetOption<VisualizerBackgroundMode>[]>(() => ([
         { value: 'common', label: t('options.visualizerBackgroundModeCommon') || '通用' },
         { value: 'interactive3d', label: t('options.visualizerBackgroundModeInteractive3d') || '3D 交互' },
@@ -512,7 +512,7 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
                                 <div className="rounded-[24px] border p-4 space-y-4" style={{ backgroundColor: controlCardBg, borderColor: colorWithAlpha(theme.secondaryColor, 0.16) }}>
                                     <ToggleRow
                                         label={t('options.enableSmartAtmosphere') || '智能氛围'}
-                                        description={t('options.enableSmartAtmosphereDesc') || '根据节拍与歌曲情绪驱动背景呼吸、粒子和电影感缩放。'}
+                                        description={t('options.enableSmartAtmosphereDesc') || '让背景和歌词跟着音乐律动。'}
                                         checked={enableSmartAtmosphere}
                                         onChange={onToggleEnableSmartAtmosphere}
                                         theme={theme}

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Disc } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
+import { OnlineProviderBadge } from '../shared/OnlineProviderBadge';
+import type { OnlineMusicProviderId } from '../../types';
 
 // src/components/folia-grid/Grid3DSlider.tsx
 // Controlled desktop Grid3D slider shared by Netease, local music, and Navidrome overview surfaces.
@@ -14,6 +16,7 @@ export interface Grid3DSliderItem {
     summary?: string;
     trackCount?: number;
     type?: string;
+    musicProvider?: OnlineMusicProviderId;
 }
 
 interface Grid3DSliderProps {
@@ -131,9 +134,10 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
         && containerSize.width >= 2000
         && containerSize.height >= (hasFloatingPlayer ? 780 : 720);
 
+    // Tighter cards so more playlists fit in the carousel viewport.
     const coverSize = useCompactMetrics
-        ? (isDesktopWidth ? 208 : 192)
-        : (isDesktopWidth ? (isUltraDesktop ? 360 : isLargeDesktop ? 312 : 218) : 224);
+        ? (isDesktopWidth ? 168 : 152)
+        : (isDesktopWidth ? (isUltraDesktop ? 248 : isLargeDesktop ? 220 : 176) : 168);
 
     const safeFocusedIndex = clampFocusedIndex(focusedIndex, items.length);
     const itemsSignature = useMemo(() => items.map(item => item.id).join(','), [items]);
@@ -191,8 +195,8 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
         const containerCenter = container.scrollLeft + container.clientWidth / 2;
         const maxDist = 600;
         const isImage = grid3dCardStyle === 'image';
-        const peakScale = isImage ? 1.25 : 1.2;
-        const minScale = 0.5;
+        const peakScale = isImage ? 1.18 : 1.14;
+        const minScale = 0.55;
         const cards = flexWrapper.children;
 
         let closestIndex = 0;
@@ -478,29 +482,29 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUpOrLeave}
                 onMouseLeave={handleMouseUpOrLeave}
-                className={`w-full flex items-center overflow-x-auto overflow-y-hidden py-24 custom-scrollbar ${
+                className={`w-full flex items-center overflow-x-auto overflow-y-hidden py-14 md:py-16 custom-scrollbar ${
                     isInteractive ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
                 }`}
                 style={{ scrollbarWidth: 'none' }}
             >
-                <div className="flex px-[40vw] gap-12">
+                <div className="flex px-[38vw] gap-6 md:gap-8">
                     {isLoading ? (
                         Array.from({ length: 5 }).map((_, index) => (
                             <div key={`skeleton-${index}`} className="shrink-0 pointer-events-none select-none">
                                 {grid3dCardStyle === 'image' ? (
                                     <div
-                                        className="aspect-square rounded-2xl animate-pulse bg-zinc-200/20 dark:bg-zinc-800/20 border border-white/5 shadow-inner"
+                                        className="aspect-square rounded-xl animate-pulse bg-zinc-200/20 dark:bg-zinc-800/20 border border-white/5 shadow-inner"
                                         style={{ width: coverSize, height: coverSize }}
                                     />
                                 ) : (
                                     <div
-                                        className="rounded-xl border border-white/5 p-4 flex flex-col items-center backdrop-blur-md shadow-lg"
+                                        className="rounded-xl border border-white/5 p-2.5 flex flex-col items-center backdrop-blur-md shadow-lg"
                                         style={{ width: coverSize }}
                                     >
-                                        <div className="w-full aspect-square rounded-lg animate-pulse bg-zinc-200/20 dark:bg-zinc-800/20 mb-4" />
-                                        <div className="w-full text-left pt-2 space-y-2">
-                                            <div className="h-4 w-3/4 animate-pulse bg-zinc-200/20 dark:bg-zinc-800/20 rounded-md" />
-                                            <div className="h-3 w-1/2 animate-pulse bg-zinc-200/20 dark:bg-zinc-800/20 rounded-md" />
+                                        <div className="w-full aspect-square rounded-lg animate-pulse bg-zinc-200/20 dark:bg-zinc-800/20 mb-2.5" />
+                                        <div className="w-full text-left pt-0.5 space-y-1.5">
+                                            <div className="h-3 w-3/4 animate-pulse bg-zinc-200/20 dark:bg-zinc-800/20 rounded-md" />
+                                            <div className="h-2.5 w-1/2 animate-pulse bg-zinc-200/20 dark:bg-zinc-800/20 rounded-md" />
                                         </div>
                                     </div>
                                 )}
@@ -529,7 +533,7 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
                                 	>
                                     {grid3dCardStyle === 'image' ? (
                                         <div
-                                            className={`aspect-square rounded-2xl overflow-hidden shadow-2xl relative border border-white/10 ${
+                                            className={`aspect-square rounded-xl overflow-hidden shadow-xl relative border border-white/10 ${
                                                 isFocused ? 'ring-2 ring-white/30' : ''
                                             }`}
                                             style={{ width: coverSize, height: coverSize }}
@@ -538,35 +542,47 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
                                                 <img src={item.coverUrl} alt={typeof item.name === 'string' ? item.name : ''} className="w-full h-full object-cover pointer-events-none select-none" />
                                             ) : (
                                                 <div className="w-full h-full bg-zinc-800/20 flex items-center justify-center">
-                                                    <Disc size={64} className="opacity-20" />
+                                                    <Disc size={48} className="opacity-20" />
                                                 </div>
+                                            )}
+                                            {item.musicProvider && (
+                                                <OnlineProviderBadge
+                                                    provider={item.musicProvider}
+                                                    className="absolute top-2 left-2 z-10"
+                                                />
                                             )}
                                             <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
                                         </div>
                                     ) : (
                                         <div
-                                            className="rounded-xl border p-4 flex flex-col items-center backdrop-blur-md shadow-lg hover:shadow-2xl theme-polaroid-card"
+                                            className="rounded-xl border p-2.5 flex flex-col items-center backdrop-blur-md shadow-lg hover:shadow-xl theme-polaroid-card"
                                             style={{ width: coverSize }}
                                         >
-                                            <div className="w-full aspect-square rounded-lg overflow-hidden bg-zinc-800/20 relative shadow-inner mb-4 flex items-center justify-center">
+                                            <div className="w-full aspect-square rounded-lg overflow-hidden bg-zinc-800/20 relative shadow-inner mb-2.5 flex items-center justify-center">
                                                 {item.coverUrl && loadedIndices.has(index) ? (
                                                     <img src={item.coverUrl} alt={typeof item.name === 'string' ? item.name : ''} className="w-full h-full object-cover pointer-events-none select-none" />
                                                 ) : (
-                                                    <Disc size={64} className="opacity-20" />
+                                                    <Disc size={48} className="opacity-20" />
+                                                )}
+                                                {item.musicProvider && (
+                                                    <OnlineProviderBadge
+                                                        provider={item.musicProvider}
+                                                        className="absolute top-1.5 left-1.5 z-10"
+                                                    />
                                                 )}
                                             </div>
 
-                                            <div className="w-full text-left pt-2 min-w-0">
-                                                <h3 className="font-bold text-sm truncate max-w-full tracking-tight">
+                                            <div className="w-full text-left pt-0.5 min-w-0">
+                                                <h3 className="font-bold text-xs truncate max-w-full tracking-tight">
                                                     {item.name}
                                                 </h3>
                                                 {((item.type !== 'playlist' && item.description) || !compactDescription(item.summary)) && (
-                                                    <p className="text-xs opacity-50 truncate max-w-full mt-1 font-medium">
+                                                    <p className="text-[11px] opacity-50 truncate max-w-full mt-0.5 font-medium">
                                                         {item.type !== 'playlist' && item.description ? item.description : '♫'}
                                                     </p>
                                                 )}
                                                 {compactDescription(item.summary) && (
-                                                    <p className="text-[10px] leading-snug opacity-45 mt-2 line-clamp-2">
+                                                    <p className="text-[10px] leading-snug opacity-45 mt-1 line-clamp-1">
                                                         {compactDescription(item.summary)}
                                                     </p>
                                                 )}
@@ -586,12 +602,17 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
                         hasFloatingPlayer ? 'pt-6 md:pt-8 pb-0 -mb-4 md:-mb-6' : 'pt-5 md:pt-6 pb-4'
                     }`}
                 >
-                    <h3 className="font-bold text-2xl truncate max-w-xl mx-auto" style={{ color: 'var(--text-primary)' }}>
+                    <h3 className="font-bold text-xl truncate max-w-xl mx-auto" style={{ color: 'var(--text-primary)' }}>
                         {items[safeFocusedIndex].name}
                     </h3>
-                    <p className="text-xs opacity-50 font-mono mt-1" style={{ color: 'var(--text-secondary)' }}>
-                        {items[safeFocusedIndex].trackCount !== undefined ? `${items[safeFocusedIndex].trackCount} ${t('playlist.tracks') || 'songs'}` : ''}
-                        {items[safeFocusedIndex].description ? ` • ${items[safeFocusedIndex].description}` : ''}
+                    <p className="text-xs opacity-50 font-mono mt-1 inline-flex items-center justify-center gap-2 flex-wrap" style={{ color: 'var(--text-secondary)' }}>
+                        {items[safeFocusedIndex].musicProvider && (
+                            <OnlineProviderBadge provider={items[safeFocusedIndex].musicProvider} />
+                        )}
+                        <span>
+                            {items[safeFocusedIndex].trackCount !== undefined ? `${items[safeFocusedIndex].trackCount} ${t('playlist.tracks') || 'songs'}` : ''}
+                            {items[safeFocusedIndex].description ? ` • ${items[safeFocusedIndex].description}` : ''}
+                        </span>
                     </p>
                 </div>
             )}

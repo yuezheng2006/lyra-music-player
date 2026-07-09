@@ -11,13 +11,20 @@ import { detectTimedLyricFormat } from '../formatDetection';
 import { qrcDecrypt } from './qrcDecrypt';
 import { applyDetectedChorusEffects, applyNeteaseChorusByTime } from '../chorusEffects';
 import type { NeteaseChorusRange } from '../chorusEffects';
+import { getQQMusicAuth } from '../../../services/musicProviders/qqMusicAuth';
 
 const isElectron = typeof window !== 'undefined' && (window as any).electron;
 
 /**
  * Sends a POST request to u.y.qq.com via proxy or directly in Electron.
  */
-async function requestQQ(method: string, module: string, param: any): Promise<any> {
+export async function requestQQ(
+  method: string,
+  module: string,
+  param: any,
+  options: { comm?: Record<string, any> } = {}
+): Promise<any> {
+  const auth = getQQMusicAuth();
   const payload = {
     comm: {
       ct: 11,
@@ -29,7 +36,8 @@ async function requestQQ(method: string, module: string, param: any): Promise<an
       tmeAppID: "qqmusiclight",
       nettype: "NETWORK_WIFI",
       udid: "0",
-      uid: "0",
+      uid: auth.uin,
+      ...options.comm,
     },
     request: {
       method,
@@ -39,24 +47,44 @@ async function requestQQ(method: string, module: string, param: any): Promise<an
   };
 
   const targetUrl = 'https://u.y.qq.com/cgi-bin/musicu.fcg';
-  const url = isElectron ? targetUrl : `/api/lyric-proxy?url=${encodeURIComponent(targetUrl)}`;
-
-  const response = await fetch(url, {
+  const requestInit = {
     method: 'POST',
-    credentials: 'omit',
     headers: {
       'Content-Type': 'application/json',
-      'Cookie': 'tmeLoginType=-1;',
+      Cookie: auth.cookieHeader,
       'User-Agent': 'okhttp/3.14.9',
     },
     body: JSON.stringify(payload),
-  });
+  };
 
-  if (!response.ok) {
-    throw new Error(`QQ Music API request failed: ${response.status}`);
+  // Prefer main-process proxy so Cookie is not stripped by Chromium forbidden-header rules.
+  const electronBridge = typeof window !== 'undefined' ? window.electron : undefined;
+  let data: any;
+  if (electronBridge?.fetchLyricProxy) {
+    const proxied = await electronBridge.fetchLyricProxy(targetUrl, requestInit);
+    if (!proxied.ok) {
+      throw new Error(`QQ Music API request failed: ${proxied.status}`);
+    }
+    data = JSON.parse(proxied.bodyText);
+  } else {
+    const url = isElectron ? targetUrl : `/api/lyric-proxy?url=${encodeURIComponent(targetUrl)}`;
+    const headers: Record<string, string> = { ...requestInit.headers };
+    if (!isElectron) {
+      headers['X-Proxy-Cookie'] = auth.cookieHeader;
+      delete headers.Cookie;
+    }
+    const response = await fetch(url, {
+      method: requestInit.method,
+      credentials: 'omit',
+      headers,
+      body: requestInit.body,
+    });
+    if (!response.ok) {
+      throw new Error(`QQ Music API request failed: ${response.status}`);
+    }
+    data = await response.json();
   }
 
-  const data = await response.json();
   if (data.code !== 0 || data.request?.code !== 0) {
     throw new Error(`QQ Music API error: code ${data.code || data.request?.code}`);
   }
@@ -137,6 +165,7 @@ export async function searchQQLyrics(keyword: string, page = 1, pageSize = 20): 
         },
         duration: (info.interval || 0) * 1000,
         qqMid: info.mid,
+        qqMediaMid: info.file?.media_mid || info.mid,
       };
     });
   } catch (error) {

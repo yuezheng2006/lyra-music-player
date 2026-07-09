@@ -10,9 +10,10 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     t: (_key, fallback) => fallback ?? '',
     openSettings: vi.fn(),
     navigateToHome: vi.fn(),
+    navigateDirectHome: vi.fn(),
     navigateToPlayer: vi.fn(),
     navigateToSearch: vi.fn(),
-    toggleBrowserFullscreen: vi.fn(async () => true),
+    toggleImmersiveFullscreen: vi.fn(() => true),
     setHomeViewTab: vi.fn(),
     setPanelTab: vi.fn(),
     setIsPanelOpen: vi.fn(),
@@ -34,6 +35,8 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     showSubtitleTranslation: true,
     toggleSubtitleTranslation: vi.fn(),
     toggleDaylightMode: vi.fn(),
+    enableSmartAtmosphere: true,
+    toggleSmartAtmosphere: vi.fn(),
     setAppLanguagePreference: vi.fn(async () => undefined),
     enableAlternativeLyricSources: false,
     runAutoMatchBestLyric: vi.fn(async () => true),
@@ -206,8 +209,8 @@ describe('command palette registry', () => {
     it('returns all search commands when context is not provided', () => {
         const matches = getCommandPaletteMatches('search');
         const searchMatches = matches.filter(m => m.command.group === 'search');
-        // search-current, search-local, search-navidrome, search-netease
-        expect(searchMatches.length).toBe(4);
+        // search-current, search-local, search-navidrome, search-netease, search-qq, search-qishui, search-coco
+        expect(searchMatches.length).toBe(7);
     });
 
     it('matches and executes color/theme-park command', () => {
@@ -232,17 +235,17 @@ describe('command palette registry', () => {
         const [matchHome] = getCommandPaletteMatches('home');
         expect(matchHome.command.id).toBe('navigate-home');
         matchHome.command.execute('', context);
-        expect(context.navigateToHome).toHaveBeenCalled();
+        expect(context.navigateDirectHome).toHaveBeenCalled();
 
         const [matchPlayer] = getCommandPaletteMatches('player');
         expect(matchPlayer.command.id).toBe('navigate-player');
         matchPlayer.command.execute('', context);
         expect(context.navigateToPlayer).toHaveBeenCalled();
 
-        const [matchFullscreen] = getCommandPaletteMatches('浏览器全屏');
-        expect(matchFullscreen.command.id).toBe('browser-fullscreen');
-        await matchFullscreen.command.execute('', context);
-        expect(context.toggleBrowserFullscreen).toHaveBeenCalled();
+        const [matchFullscreen] = getCommandPaletteMatches('全屏播放');
+        expect(matchFullscreen.command.id).toBe('immersive-fullscreen');
+        matchFullscreen.command.execute('', context);
+        expect(context.toggleImmersiveFullscreen).toHaveBeenCalled();
     });
 
     it('executes home tab navigation commands', () => {
@@ -252,7 +255,7 @@ describe('command palette registry', () => {
         expect(matchLocalTab.command.id).toBe('home-local');
         matchLocalTab.command.execute('', context);
         expect(context.setHomeViewTab).toHaveBeenCalledWith('local');
-        expect(context.navigateToHome).toHaveBeenCalled();
+        expect(context.navigateDirectHome).toHaveBeenCalled();
     });
 
     it('executes playback controls', () => {

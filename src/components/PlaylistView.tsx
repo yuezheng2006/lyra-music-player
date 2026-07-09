@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Play, ChevronLeft, Disc, Loader2, Pencil, X, ListPlus, Plus } from 'lucide-react';
 import { NeteasePlaylist, SongResult } from '../types';
 import { getSongUnavailableTagText, isSongMarkedUnavailable, neteaseApi } from '../services/netease';
+import { fetchQQPlaylistTracks } from '../services/musicProviders/qqMusicLibrary';
 import { saveToCache, getFromCache, removeFromCache } from '../services/db';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -37,18 +38,61 @@ const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBack, onPlaySon
   const [offset, setOffset] = useState(0);
   const [isEditMode, setIsEditMode] = useState(false);
   const playableTracks = tracks.filter(track => !isSongMarkedUnavailable(track));
-  const CACHE_SCHEMA_VERSION = 3;
+  const CACHE_SCHEMA_VERSION = 4;
 
   // Scroll Ref
   const containerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) {
+        return;
+      }
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onBack();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onBack]);
+
   const INITIAL_LIMIT = 150;
   const BATCH_LIMIT = 1000;
-  const CACHE_KEY = playlist.specialType === 'cloud'
+  const CACHE_KEY = playlist.musicProvider === 'qq' && playlist.providerPlaylistId
+    ? `qq_playlist_tracks_${playlist.providerPlaylistId}`
+    : playlist.specialType === 'cloud'
     ? `playlist_tracks_cloud_${currentUserId ?? 'anonymous'}`
     : `playlist_tracks_${playlist.id}`;
 
+  const loadQQTracks = async (reset: boolean) => {
+    if (!reset || !playlist.providerPlaylistId) return;
+    setLoading(true);
+    try {
+      const responseTracks = await fetchQQPlaylistTracks(playlist.providerPlaylistId);
+      setTracks(responseTracks);
+      setOffset(responseTracks.length);
+      setHasMore(false);
+      const targetTime = playlist.trackUpdateTime || playlist.updateTime || Date.now();
+      saveToCache(CACHE_KEY, { tracks: responseTracks, snapshotTime: targetTime, schemaVersion: CACHE_SCHEMA_VERSION });
+    } catch (error) {
+      console.error('[Playlist] Failed to load QQ playlist tracks', error);
+      setTracks([]);
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadTracks = async (reset = false) => {
+    if (playlist.musicProvider === 'qq') {
+      await loadQQTracks(reset);
+      return;
+    }
     if (loading || (!hasMore && !reset)) return;
     setLoading(true);
 
@@ -272,7 +316,7 @@ const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBack, onPlaySon
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className={`fixed inset-0 z-50 flex items-center justify-center ${glassBg} font-sans`}
+      className={`absolute inset-0 z-50 flex items-center justify-center ${glassBg} font-sans`}
       style={{ color: 'var(--text-primary)' }}
     >
       {/* Main Container - Scrollable on Mobile, Flex on Desktop */}

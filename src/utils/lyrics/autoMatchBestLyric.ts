@@ -1,9 +1,9 @@
 import { LyricData, LyricProviderSource, SongResult } from '../../types';
 import { neteaseApi } from '../../services/netease';
+import { getMusicProvider } from '../../services/musicProviders/registry';
 import { fetchNeteaseChorusRanges, processNeteaseLyrics } from './neteaseProcessing';
 import { applyNeteaseChorusByTime } from './chorusEffects';
 import type { NeteaseChorusRange } from './chorusEffects';
-import { searchQQLyrics, fetchQQLyrics } from './providers/qqLyricProvider';
 import { searchKugouLyrics, fetchKugouLyrics } from './providers/kugouLyricProvider';
 import { fetchAmllDbLyrics } from './providers/amllDbProvider';
 import { normalizeLyricMatchDurationMs } from './duration';
@@ -165,13 +165,13 @@ export async function autoMatchBestLyric(
         if (qqBestCandidate !== undefined) {
             return qqBestCandidate;
         }
-        const qqSongs = await withTimeout(
-            searchQQLyrics(searchQuery, 1, AUTO_MATCH_SEARCH_LIMIT),
+        const qqResponse = await withTimeout(
+            getMusicProvider('qq').search(searchQuery, { limit: AUTO_MATCH_SEARCH_LIMIT, offset: 0 }),
             PROVIDER_SEARCH_TIMEOUT_MS,
             'QQ search',
-            []
+            { songs: [], hasMore: false }
         );
-        qqBestCandidate = selectBestCandidate('qq', qqSongs, targetSong);
+        qqBestCandidate = selectBestCandidate('qq', qqResponse.songs, targetSong);
         return qqBestCandidate;
     };
 
@@ -297,7 +297,13 @@ export async function autoMatchBestLyric(
                 for (const song of candidateSongs) {
                     console.log(`[autoMatchBestLyric] Checking QQ candidate: "${song.name}" by "${song.artists?.map((a: any) => a.name).join(', ')}"`);
                     const parsedLyrics = await withTimeout(
-                        fetchQQLyrics(song, { chorusRanges: neteaseChorusRanges }),
+                        (async () => {
+                            const lyrics = await getMusicProvider('qq').getLyrics(song);
+                            if (!lyrics || neteaseChorusRanges.length === 0) {
+                                return lyrics;
+                            }
+                            return applyNeteaseChorusByTime(lyrics, neteaseChorusRanges);
+                        })(),
                         PROVIDER_LYRIC_TIMEOUT_MS,
                         `QQ lyric fetch for ${song.id}`,
                         null

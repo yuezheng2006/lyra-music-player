@@ -3,6 +3,7 @@ import {
     applyLyricColorPresetToDualTheme,
     getLyricColorPresetById,
     LYRIC_COLOR_PRESETS,
+    matchLyricColorPresetId,
 } from '@/utils/theme/lyricColorPresets';
 
 const baseDualTheme = {
@@ -12,8 +13,8 @@ const baseDualTheme = {
         primaryColor: '#1c1917',
         accentColor: '#ea580c',
         secondaryColor: '#44403c',
-        fontStyle: 'sans' as const,
-        animationIntensity: 'normal' as const,
+        fontStyle: 'serif' as const,
+        animationIntensity: 'calm' as const,
     },
     dark: {
         name: 'Dark',
@@ -21,42 +22,62 @@ const baseDualTheme = {
         primaryColor: '#f4f4f5',
         accentColor: '#f4f4f5',
         secondaryColor: '#71717a',
-        fontStyle: 'sans' as const,
-        animationIntensity: 'normal' as const,
+        fontStyle: 'serif' as const,
+        animationIntensity: 'calm' as const,
     },
 };
 
 describe('lyricColorPresets', () => {
-    it('includes Douyin and Xiaohongshu inspired presets', () => {
-        expect(LYRIC_COLOR_PRESETS.length).toBeGreaterThanOrEqual(8);
-        expect(getLyricColorPresetById('douyin-neon')?.light.accentColor).toBe('#fe2c55');
-        expect(getLyricColorPresetById('douyin-neon')?.dark.accentColor).toBe('#00f5ff');
+    it('includes five distinctive Douyin and Xiaohongshu inspired presets', () => {
+        expect(LYRIC_COLOR_PRESETS).toHaveLength(5);
+        expect(getLyricColorPresetById('douyin-neon')?.light.accentColor).toBe('#ff2d55');
+        expect(getLyricColorPresetById('douyin-neon')?.dark.accentColor).toBe('#12f7d6');
         expect(getLyricColorPresetById('xhs-note-red')?.light.accentColor).toBe('#ff2442');
     });
 
     it('patches lyric colors on both modes while preserving backgrounds', () => {
-        const preset = getLyricColorPresetById('xhs-cream');
+        const preset = getLyricColorPresetById('xhs-morandi');
         expect(preset).toBeDefined();
 
         const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset!);
 
         expect(next.light.backgroundColor).toBe('#f5f5f4');
         expect(next.dark.backgroundColor).toBe('#09090b');
-        expect(next.light.primaryColor).toBe('#2d1f18');
-        expect(next.dark.accentColor).toBe('#ff7043');
+        expect(next.light.primaryColor).toBe('#2f2927');
+        expect(next.dark.accentColor).toBe('#fb7185');
     });
 
-    it('applies poster-style motion profile for dazibao red preset', () => {
+    it('defaults to colors-only and keeps font / animation untouched', () => {
         const preset = getLyricColorPresetById('dazibao-red');
         expect(preset).toBeDefined();
 
         const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset!);
 
-        expect(next.light.accentColor).toBe('#de2910');
+        expect(next.light.accentColor).toBe('#ff2a1f');
+        expect(next.light.animationIntensity).toBe('calm');
+        expect(next.light.fontStyle).toBe('serif');
+        expect(next.light.lyricRhythmScaleMultiplier).toBeUndefined();
+        expect(next.dark.primaryColor).toBe('#fff4df');
+    });
+
+    it('can still apply motion when explicitly requested by theme editors', () => {
+        const preset = getLyricColorPresetById('dazibao-red');
+        expect(preset).toBeDefined();
+
+        const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset!, { includeMotion: true });
+
         expect(next.light.animationIntensity).toBe('chaotic');
         expect(next.light.fontStyle).toBe('sans');
         expect(next.light.lyricRhythmScaleMultiplier).toBe(1.35);
         expect(next.light.lyricGlowUsesAccent).toBe(true);
-        expect(next.dark.primaryColor).toBe('#faf3e8');
+    });
+
+    it('matches the active lyric color preset from current theme colors', () => {
+        const preset = getLyricColorPresetById('douyin-neon')!;
+        const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset);
+
+        expect(matchLyricColorPresetId(next.light, 'light')).toBe('douyin-neon');
+        expect(matchLyricColorPresetId(next.dark, 'dark')).toBe('douyin-neon');
+        expect(matchLyricColorPresetId(baseDualTheme.light, 'light')).toBeNull();
     });
 });

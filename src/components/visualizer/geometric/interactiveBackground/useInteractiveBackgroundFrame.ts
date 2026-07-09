@@ -3,6 +3,7 @@ import type { MotionValue } from 'framer-motion';
 import type { Interactive3dSceneTuning, Theme } from '../../../../types';
 import { resolvePresentationBeatPulse } from '../../../../utils/atmosphere/rhythmPresentation';
 import { subscribeGeometricCanvasFrame } from '../geometricCanvasRuntime';
+import { normalizeInteractive3dVisualPreset } from '../mineradioVisualPresets';
 import {
     type GeometricQualityProfile,
     resolveGeometricQualityProfile,
@@ -128,7 +129,7 @@ export const useInteractiveBackgroundFrame = ({
                 pointerX: pointerX.get(),
                 pointerY: pointerY.get(),
                 paused,
-                visualPreset: interactive3dSceneTuning?.visualPreset ?? 'emily',
+                visualPreset: normalizeInteractive3dVisualPreset(interactive3dSceneTuning?.visualPreset),
                 rhythmIntensity: interactive3dSceneTuning?.rhythmIntensity ?? 0.85,
             };
             const effectiveProfile = enableBeatBursts

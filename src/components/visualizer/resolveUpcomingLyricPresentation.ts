@@ -14,7 +14,7 @@ const LIGHT_OVERLAY_FILL = '#f8fafc';
 
 /** Builds a dual-halo shadow readable on both bright chrome and dark particle fields. */
 const buildOverlayTextShadow = (theme: Theme) => {
-    const accentGlow = colorWithAlpha(theme.highlightColor || theme.accentColor || '#fbbf24', 0.42);
+    const accentGlow = colorWithAlpha(theme.accentColor || '#fbbf24', 0.42);
     const darkHalo = colorWithAlpha('#000000', 0.9);
     const midHalo = colorWithAlpha('#000000', 0.68);
     const lightHalo = colorWithAlpha('#ffffff', 0.46);
@@ -35,7 +35,7 @@ export const resolveUpcomingLyricPresentation = (
     subtitleOverlayOpacity = 0.6,
 ): UpcomingLyricPresentation => {
     const lineOpacity = Math.max(0.88, Math.min(1, subtitleOverlayOpacity + 0.32));
-    const accentTint = theme.highlightColor || theme.accentColor;
+    const accentTint = theme.accentColor;
     const color = mixColors(
         LIGHT_OVERLAY_FILL,
         accentTint || LIGHT_OVERLAY_FILL,

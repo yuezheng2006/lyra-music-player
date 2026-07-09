@@ -91,11 +91,14 @@ const fetchWithCreds = async (endpoint: string, options: RequestInit = {}) => {
       let anonCookie = typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function' ? null : localStorage.getItem('netease_anonymous_cookie');
       if (!anonCookie && !endpoint.startsWith('/register/anonimous')) {
         try {
-          const anonRes = await fetch(`${base}/register/anonimous?timestamp=${Date.now()}`).then(r => r.json());
-          if (anonRes && typeof anonRes.cookie === 'string' && anonRes.cookie) {
-            anonCookie = anonRes.cookie;
-            if (typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
-              localStorage.setItem('netease_anonymous_cookie', anonCookie);
+          const anonRes = await fetch(`${base}/register/anonimous?timestamp=${Date.now()}`);
+          if (anonRes.ok) {
+            const anonData = await anonRes.json();
+            if (anonData && typeof anonData.cookie === 'string' && anonData.cookie) {
+              anonCookie = anonData.cookie;
+              if (typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
+                localStorage.setItem('netease_anonymous_cookie', anonCookie);
+              }
             }
           }
         } catch (e) {
@@ -127,6 +130,43 @@ const fetchWithCreds = async (endpoint: string, options: RequestInit = {}) => {
 const toHttps = (url?: unknown) => {
   if (typeof url !== 'string' || !url) return '';
   return url.replace(/^http:/, 'https:');
+};
+
+// 判断网易云接口是否返回登录失效（301/401/403）
+export const isNeteaseAuthExpiredResponse = (response: any): boolean => {
+  const code = Number(response?.code ?? response?.data?.code);
+  return code === 301 || code === 401 || code === 403;
+};
+
+const normalizeFavoriteAlbumPage = (response: any) => {
+  if (Array.isArray(response?.data)) {
+    response.data.forEach((album: any) => {
+      album.picUrl = toHttps(album.picUrl);
+    });
+  }
+  return response;
+};
+
+// 兼容网易云 API 的 more / hasMore / count 三种分页字段
+const getFavoriteAlbumPageHasMore = (
+  response: any,
+  pageLength: number,
+  limit: number,
+  offset: number,
+): boolean => {
+  if (typeof response?.more === 'boolean') {
+    return response.more;
+  }
+  if (typeof response?.hasMore === 'boolean') {
+    return response.hasMore;
+  }
+
+  const count = Number(response?.count);
+  if (Number.isFinite(count) && count >= 0) {
+    return offset + pageLength < count;
+  }
+
+  return pageLength >= limit;
 };
 
 const normalizeArtistName = (value: any): string => {
@@ -598,13 +638,34 @@ export const neteaseApi = {
 
   getFavoriteAlbums: async (limit = 25, offset = 0) => {
     const res = await fetchWithCreds(`/album/sublist?limit=${limit}&offset=${offset}`);
-    if (res.data) {
-      res.data.forEach((a: any) => {
-        a.picUrl = toHttps(a.picUrl);
-        // Map artist info if needed, ensuring picUrl is https
-      });
+    return normalizeFavoriteAlbumPage(res);
+  },
+
+  collectAllFavoriteAlbums: async (limit = 50) => {
+    let allAlbums: any[] = [];
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const res = normalizeFavoriteAlbumPage(
+        await fetchWithCreds(`/album/sublist?limit=${limit}&offset=${offset}`),
+      );
+
+      if (isNeteaseAuthExpiredResponse(res)) {
+        throw new Error('NETEASE_AUTH_EXPIRED');
+      }
+
+      const page = Array.isArray(res.data) ? res.data : [];
+      allAlbums = [...allAlbums, ...page];
+      hasMore = getFavoriteAlbumPageHasMore(res, page.length, limit, offset);
+      offset += limit;
+
+      if (page.length === 0) {
+        hasMore = false;
+      }
     }
-    return res;
+
+    return allAlbums;
   },
 
   // --- Artist Data ---
@@ -714,6 +775,31 @@ export const neteaseApi = {
 
   fmTrash: async (songId: number) => {
     return fetchWithCreds(`/fm_trash?id=${songId}&timestamp=${Date.now()}`);
+  },
+
+  // --- Daily recommend / Podcast (djradio) ---
+  getDailyRecommendSongs: async () => {
+    return fetchWithCreds(`/recommend/songs?timestamp=${Date.now()}`);
+  },
+
+  cloudSearchByType: async (keywords: string, type: number, limit = 30, offset = 0) => {
+    return fetchWithCreds(
+      `/cloudsearch?keywords=${encodeURIComponent(keywords)}&type=${type}&limit=${limit}&offset=${offset}&timestamp=${Date.now()}`,
+    );
+  },
+
+  getDjHot: async (limit = 30, offset = 0) => {
+    return fetchWithCreds(`/dj/hot?limit=${limit}&offset=${offset}&timestamp=${Date.now()}`);
+  },
+
+  getDjDetail: async (rid: number) => {
+    return fetchWithCreds(`/dj/detail?rid=${rid}&timestamp=${Date.now()}`);
+  },
+
+  getDjPrograms: async (rid: number, limit = 40, offset = 0, asc = false) => {
+    return fetchWithCreds(
+      `/dj/program?rid=${rid}&limit=${limit}&offset=${offset}&asc=${asc}&timestamp=${Date.now()}`,
+    );
   },
 
   subscribePlaylist: async (id: number, subscribe = true) => {
