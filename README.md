@@ -29,9 +29,9 @@ Sound, Stage, Sense // 声随境转
 
 ## 项目简介
 
-Lyra（声境）是多平台打通的沉浸式音乐播放器，支持 3D 舞台与智能氛围；可连接在线平台、本地曲库与智能主题，通过智能歌词匹配、AI 配色与多种全屏歌词动画提供沉浸听歌体验。
+Lyra（音波）是打通个人多音乐平台的 3D 歌词音乐播放器：把网易云、本地曲库与 Navidrome 等来源汇到同一套沉浸式舞台，突出视觉表现、多源互通与智能歌词匹配。
 
-如果你希望直接开箱即用，马上体验，推荐直接使用基于Electron的 windows/ macOS/ Linux 桌面端版本。
+如果你希望直接开箱即用，马上体验，推荐直接使用基于 Electron 的 Windows / macOS / Linux 桌面端版本。
 
 如果希望能够在移动设备上使用，或在浏览器上体验云端多平台，可以选择[一键部署到 Vercel](https://lyra-site.vercel.app/guide/deploy-vercel) 的 Web 版本，或自行部署到其他支持 Node.js 的平台。
 
@@ -39,9 +39,7 @@ Lyra（声境）是多平台打通的沉浸式音乐播放器，支持 3D 舞台
 
 ### 演示视频
 
-https://github.com/user-attachments/assets/fd27f4f0-64b9-4c57-8c3b-10df767f934b
-
-https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
+演示视频正在按 Lyra（音波）重新录制，完成后会替换到这里。录制脚本见 [`VIDEO_SCRIPT.md`](./VIDEO_SCRIPT.md)；Hackathon 提交稿见 [`docs/hackathon-form.md`](./docs/hackathon-form.md)。
 
 ### 主题预览
 
