@@ -3,7 +3,7 @@
 > 作品：**Lyra（音波）**  
 > 参赛人：杨月欣  
 > 仓库：https://github.com/yuezheng2006/lyra-music-player  
-> 桌面版：https://github.com/yuezheng2006/lyra-music-player/releases/tag/v1.0.1  
+> 桌面版：https://github.com/yuezheng2006/lyra-music-player/releases/tag/v1.0.2  
 > 演示视频：待补
 
 ---
@@ -53,7 +53,7 @@ https://github.com/yuezheng2006/lyra-music-player
 
 ## 10. 体验入口（选填）
 
-https://github.com/yuezheng2006/lyra-music-player/releases/tag/v1.0.1
+https://github.com/yuezheng2006/lyra-music-player/releases/tag/v1.0.2
 
 macOS 安装注意：拖到 Applications 后执行  
 `xattr -dr com.apple.quarantine /Applications/Lyra.app`  
@@ -72,7 +72,7 @@ macOS 安装注意：拖到 Applications 后执行
 ### 已可用
 - 视觉：多主题全屏歌词 + 3D 交互舞台
 - 互通：网易云 / QQ 音乐 / Coco / Navidrome / 本地曲库导入
-- 交付：Win / macOS / Linux 安装包（v1.0.1）
+- 交付：Win / macOS / Linux 安装包（v1.0.2）
 
 ### 支持中
 - 本地歌智能匹配（补歌词 / 封面）

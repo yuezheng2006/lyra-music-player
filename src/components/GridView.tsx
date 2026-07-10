@@ -22,6 +22,7 @@ import { buildGridViewCardCoords } from './folia-grid/hexViewport';
 import PlaylistSelectionDialog from './shared/PlaylistSelectionDialog';
 import TextInputDialog from './shared/TextInputDialog';
 import { SidePanelList, TrackListItem } from './shared/SidePanelList';
+import { shouldStartGridViewDrag } from './gridView/shouldStartGridViewDrag';
 
 export interface GridViewSourceActions {
     local?: {
@@ -1943,25 +1944,9 @@ export const GridView: React.FC<GridViewProps> = ({
                 onPointerDown={(event) => {
                     if (event.button !== 0) return; // 仅限鼠标左键或主要指针拖动
 
-                    const target = event.target as HTMLElement;
-                    // 如果点击了按钮、输入框、链接或设置面板，则不触发拖动
-                    if (
-                        target.closest('button') ||
-                        target.closest('input') ||
-                        target.closest('a') ||
-                        target.closest('textarea') ||
-                        target.closest('.theme-glass-panel')
-                    ) {
+                    // Track cards must keep click-to-play; starting drag here swallows the click.
+                    if (!shouldStartGridViewDrag(event.target, mode)) {
                         return;
-                    }
-
-                    // 向上遍历判断是否在卡片内部点击了具有 cursor-pointer 的非卡片元素（例如歌手、专辑链接）
-                    let current: HTMLElement | null = target;
-                    while (current && !current.classList.contains('theme-polaroid-card')) {
-                        if (current.classList.contains('cursor-pointer')) {
-                            return;
-                        }
-                        current = current.parentElement;
                     }
 
                     dragControls.start(event);
