@@ -47,7 +47,7 @@ esac
 
 echo ""
 echo "将要进行以下替换："
-echo "  chthollyphile/folia-major → $GITHUB_USERNAME/$NEW_REPO"
+echo "  chthollyphile/lyra-music-player → $GITHUB_USERNAME/$NEW_REPO"
 echo ""
 read -p "确认执行？(y/n): " CONFIRM
 
@@ -62,24 +62,24 @@ echo -e "${YELLOW}开始替换...${NC}"
 # 替换 GitHub 仓库 URL
 find . -type f \( -name "*.md" -o -name "*.html" \) \
     ! -path "*/node_modules/*" ! -path "*/.git/*" \
-    -exec sed -i '' "s|chthollyphile/folia-major|$GITHUB_USERNAME/$NEW_REPO|g" {} +
+    -exec sed -i '' "s|chthollyphile/lyra-music-player|$GITHUB_USERNAME/$NEW_REPO|g" {} +
 
 echo -e "${GREEN}✅ GitHub 仓库 URL 已更新${NC}"
 
 # 替换 Vercel Deploy 按钮 URL
 find . -type f -name "*.md" \
     ! -path "*/node_modules/*" ! -path "*/.git/*" \
-    -exec sed -i '' "s|repository-url=https://github.com/chthollyphile/folia-major|repository-url=https://github.com/$GITHUB_USERNAME/$NEW_REPO|g" {} +
+    -exec sed -i '' "s|repository-url=https://github.com/chthollyphile/lyra-music-player|repository-url=https://github.com/$GITHUB_USERNAME/$NEW_REPO|g" {} +
 
 echo -e "${GREEN}✅ Vercel 部署链接已更新${NC}"
 
 # 更新 package.json 中的 repository
-sed -i '' "s|\"repo\": \"folia-major\"|\"repo\": \"$NEW_REPO\"|g" package.json
+sed -i '' "s|\"repo\": \"lyra-music-player\"|\"repo\": \"$NEW_REPO\"|g" package.json
 
 echo -e "${GREEN}✅ package.json 已更新${NC}"
 
 # 检查是否还有遗漏
-REMAINING=$(grep -r "chthollyphile/folia-major" --include="*.md" --include="*.html" --exclude-dir=node_modules --exclude-dir=.git 2>/dev/null | wc -l | tr -d ' ')
+REMAINING=$(grep -r "chthollyphile/lyra-music-player" --include="*.md" --include="*.html" --exclude-dir=node_modules --exclude-dir=.git 2>/dev/null | wc -l | tr -d ' ')
 
 echo ""
 echo "================================"
@@ -93,7 +93,7 @@ echo ""
 
 if [ "$REMAINING" -gt 0 ]; then
     echo -e "${YELLOW}⚠️  仍有部分引用未替换，请手动检查：${NC}"
-    grep -r "chthollyphile/folia-major" --include="*.md" --include="*.html" --exclude-dir=node_modules --exclude-dir=.git 2>/dev/null | head -5
+    grep -r "chthollyphile/lyra-music-player" --include="*.md" --include="*.html" --exclude-dir=node_modules --exclude-dir=.git 2>/dev/null | head -5
     echo ""
 fi
 
