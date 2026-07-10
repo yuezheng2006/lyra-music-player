@@ -1,0 +1,27 @@
+feat: rebrand as Lyra for Hackathon 2026
+
+## Brand Update
+- Product name: Lyra (天琴/音波)
+- English: Lyra
+- Chinese: 音波 (YinBo) or 天琴 (TianQin)
+- Slogan: Sound, Stage, Sense // 声随境转
+
+## Changes
+- Update productName to "Lyra" in package.json
+- Update all user-facing text and documentation
+- Add comprehensive Hackathon preparation guides (16 docs)
+- Add automation scripts (5 tools)
+- Update GitHub repository references
+
+## Technical Notes
+- Internal code names (folia-*) remain unchanged
+- Package name stays as "folia-major" for stability
+- No breaking changes to functionality
+
+## Hackathon Resources
+- Complete documentation package ready
+- UI improvement guide included
+- Deployment and video guides prepared
+- 5-day action plan provided
+
+Ready for Hackathon submission! 🎉
