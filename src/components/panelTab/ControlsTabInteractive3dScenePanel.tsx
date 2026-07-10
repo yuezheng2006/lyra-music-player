@@ -68,7 +68,11 @@ export const ControlsTabInteractive3dScenePanel: React.FC<ControlsTabInteractive
                             key={preset}
                             type="button"
                             data-testid={`controls-interactive3d-preset-${preset}`}
-                            onClick={() => onInteractive3dSceneTuningChange(applyMineradioVisualPreset(preset, interactive3dSceneTuning))}
+                            onClick={() => {
+                                onInteractive3dSceneTuningChange(
+                                    applyMineradioVisualPreset(preset, interactive3dSceneTuning),
+                                );
+                            }}
                             className={`py-1.5 ${getControlsTabOptionButtonClass(isActive, optionStyles)}`}
                         >
                             {getMineradioPresetLabel(preset, t)}

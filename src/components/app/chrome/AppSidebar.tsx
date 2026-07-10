@@ -141,7 +141,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                 </div>
             </div>
 
-            <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 pb-4">
+            <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-4">
                 <div className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] ${sectionLabel}`}>
                     {t('app.sidebarBrowse')}
                 </div>
@@ -151,6 +151,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                     className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'home', isDaylight)}`}
                     aria-current={active === 'home' ? 'page' : undefined}
                     title={t('app.sidebarHome')}
+                    aria-label={t('app.sidebarHome')}
                 >
                     <HomeIcon size={18} strokeWidth={2} />
                     <span>{t('app.sidebarHome')}</span>
@@ -162,6 +163,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                     className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'daily', isDaylight)}`}
                     aria-current={active === 'daily' ? 'page' : undefined}
                     title={t('app.sidebarDaily')}
+                    aria-label={t('app.sidebarDaily')}
                 >
                     <Sparkles size={18} strokeWidth={2} />
                     <span>{t('app.sidebarDaily')}</span>
@@ -173,6 +175,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                     className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'podcast', isDaylight)}`}
                     aria-current={active === 'podcast' ? 'page' : undefined}
                     title={t('app.sidebarPodcast')}
+                    aria-label={t('app.sidebarPodcast')}
                 >
                     <Podcast size={18} strokeWidth={2} />
                     <span>{t('app.sidebarPodcast')}</span>
@@ -185,19 +188,24 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                     className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors disabled:opacity-35 disabled:hover:bg-transparent ${navButtonClass(active === 'listening', isDaylight)}`}
                     aria-current={active === 'listening' ? 'page' : undefined}
                     title={hasCurrentSong ? t('player.listeningMode') : t('app.sidebarListeningDisabled')}
+                    aria-label={hasCurrentSong ? t('player.listeningMode') : t('app.sidebarListeningDisabled')}
                 >
                     <AudioLines size={18} strokeWidth={2} />
                     <span>{t('player.listeningMode')}</span>
                 </button>
             </nav>
 
+            {/* Dock sits in the content column only — pin settings to the sidebar foot. */}
             {onOpenSettings ? (
-                <div className="px-3 pb-[calc(var(--app-player-bar-height,72px)+16px)]">
+                <div className="mt-auto shrink-0 border-t px-3 pb-4 pt-3" style={{
+                    borderColor: isDaylight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)',
+                }}>
                     <button
                         type="button"
                         onClick={onOpenSettings}
                         className={`relative flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(false, isDaylight)}`}
                         title={t('app.sidebarSettings')}
+                        aria-label={t('app.sidebarSettings')}
                     >
                         <Settings size={18} strokeWidth={2} />
                         <span>{t('app.sidebarSettings')}</span>
@@ -210,9 +218,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                         ) : null}
                     </button>
                 </div>
-            ) : (
-                <div className="pb-[calc(var(--app-player-bar-height,72px)+16px)]" />
-            )}
+            ) : null}
         </aside>
     );
 };

@@ -541,8 +541,9 @@ export type MineradioVisualPresetId =
   | 'mineradioVinyl'
   | 'mineradioGalaxy';
 
-/** AI / theme bridge hints that can nudge interactive-3D atmosphere tuning. */
+/** AI / theme bridge hints that can nudge interactive-3D atmosphere intensity only. */
 export interface AtmosphereThemeHints {
+  /** @deprecated 3D style is user-owned; ignored by atmosphere bridge. */
   visualPreset?: MineradioVisualPresetId;
   rhythmIntensity?: number;
   cinemaShake?: number;

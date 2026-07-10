@@ -1578,10 +1578,11 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     },
     handleSetInteractive3dSceneTuning: (patch) => {
         const prev = get().interactive3dSceneTuning;
+        // visualPreset is user-owned: only change when the patch explicitly sets it.
         const next = resolveStoredInteractive3dSceneTuning({
             ...prev,
             ...patch,
-            visualPreset: patch.visualPreset ?? prev.visualPreset,
+            visualPreset: patch.visualPreset !== undefined ? patch.visualPreset : prev.visualPreset,
         });
         if (typeof window !== 'undefined') {
             localStorage.setItem(INTERACTIVE_3D_SCENE_TUNING_STORAGE_KEY, JSON.stringify(next));

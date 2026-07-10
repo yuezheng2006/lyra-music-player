@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box } from 'lucide-react';
+import { Orbit } from 'lucide-react';
 import type {
     Interactive3dSceneTuning,
     MineradioVisualPresetId,
@@ -129,7 +129,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                 aria-expanded={open}
                 aria-haspopup="menu"
             >
-                <Box size={17} strokeWidth={1.9} />
+                <Orbit size={17} strokeWidth={1.9} />
             </button>
 
             {open ? (
@@ -186,6 +186,11 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                                             aria-checked={selected}
                                             data-testid={`floating-player-background-preset-${preset}`}
                                             onClick={() => {
+                                                // Selecting a 3D style also locks background mode to interactive3d
+                                                // so the choice is active and persisted together.
+                                                if (resolvedMode !== 'interactive3d') {
+                                                    onVisualizerBackgroundModeChange('interactive3d');
+                                                }
                                                 onInteractive3dSceneTuningChange(
                                                     applyMineradioVisualPreset(preset, interactive3dSceneTuning),
                                                 );

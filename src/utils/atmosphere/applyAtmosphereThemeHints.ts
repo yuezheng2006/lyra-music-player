@@ -26,6 +26,8 @@ export const applyAtmosphereThemeHintsToTuning = (
     if (cinemaShake !== undefined) merged.cinemaShake = cinemaShake;
     if (atmosphereSensitivity !== undefined) merged.atmosphereSensitivity = atmosphereSensitivity;
     if (cameraPunchStrength !== undefined) merged.cameraPunchStrength = cameraPunchStrength;
+    // Keep user-selected 3D style sticky across song/theme changes.
+    merged.visualPreset = current.visualPreset;
 
     const next = resolveStoredInteractive3dSceneTuning(merged);
 

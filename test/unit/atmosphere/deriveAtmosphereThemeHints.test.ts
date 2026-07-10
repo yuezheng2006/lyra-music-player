@@ -19,15 +19,15 @@ const baseTheme = {
 };
 
 describe('deriveAtmosphereThemeHints', () => {
-    it('derives energetic hints for dark chaotic themes', () => {
+    it('derives energetic intensity hints without suggesting a visualPreset', () => {
         const dual: DualTheme = { light: baseTheme, dark: baseTheme };
         const hints = deriveAtmosphereThemeHints(dual);
-        expect(hints.visualPreset).toBeTruthy();
+        expect(hints.visualPreset).toBeUndefined();
         expect(hints.atmosphereSensitivity).toBeGreaterThan(0.8);
         expect(hints.cameraPunchStrength).toBeGreaterThan(0.8);
     });
 
-    it('preserves explicit atmosphereHints on the dual theme', () => {
+    it('strips visualPreset from explicit atmosphereHints', () => {
         const dual: DualTheme = {
             light: baseTheme,
             dark: baseTheme,
@@ -36,8 +36,7 @@ describe('deriveAtmosphereThemeHints', () => {
                 atmosphereSensitivity: 0.6,
             },
         };
-        expect(deriveAtmosphereThemeHints(dual)).toMatchObject({
-            visualPreset: 'emily',
+        expect(deriveAtmosphereThemeHints(dual)).toEqual({
             atmosphereSensitivity: 0.6,
         });
     });
@@ -46,11 +45,11 @@ describe('deriveAtmosphereThemeHints', () => {
         const dual = withDerivedAtmosphereHints({ light: baseTheme, dark: baseTheme });
         const current = {
             ...DEFAULT_INTERACTIVE3D_SCENE_TUNING,
-            visualPreset: 'terrain' as const,
+            visualPreset: 'mineradioOrbit' as const,
         };
         const next = applyAtmosphereThemeHintsToTuning(current, dual.atmosphereHints);
         expect(next).not.toBeNull();
-        expect(next?.visualPreset).toBe('emily');
+        expect(next?.visualPreset).toBe('mineradioOrbit');
         expect(next?.atmosphereSensitivity).toBeTypeOf('number');
         expect(next?.cameraPunchStrength).toBeTypeOf('number');
     });
@@ -59,14 +58,18 @@ describe('deriveAtmosphereThemeHints', () => {
         const next = applyAtmosphereThemeHintsToTuning(
             {
                 ...DEFAULT_INTERACTIVE3D_SCENE_TUNING,
-                visualPreset: 'terrain',
+                visualPreset: 'mineradioVinyl',
             },
             {
                 visualPreset: 'mineradioGalaxy',
                 atmosphereSensitivity: 1.1,
             },
         );
-        expect(next?.visualPreset).toBe('emily');
+        expect(next?.visualPreset).toBe('mineradioVinyl');
         expect(next?.atmosphereSensitivity).toBe(1.1);
+    });
+
+    it('defaults interactive3d visualPreset to emily (cover)', () => {
+        expect(DEFAULT_INTERACTIVE3D_SCENE_TUNING.visualPreset).toBe('emily');
     });
 });
