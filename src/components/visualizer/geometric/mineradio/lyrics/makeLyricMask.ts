@@ -26,13 +26,19 @@ export type LyricMask = {
     textMax: number;
 };
 
+export type MakeLyricMaskOptions = {
+    immersive?: boolean;
+};
+
 const STAGE_LYRIC_MAX_LINES = 2;
 const MASK_WIDTH = 2048;
 const MASK_HEIGHT = 512;
 const MIN_FONT_SIZE = 28;
 const START_FONT_SIZE = 128;
+const IMMERSIVE_START_FONT_SIZE = 168;
 /** Horizontal padding inside the mask so glyphs never sit on the texture edge. */
 const MASK_EDGE_PADDING_PX = 280;
+const IMMERSIVE_MASK_EDGE_PADDING_PX = 160;
 /** Hard floor for horizontal squash after wrapping + font shrink. */
 const MIN_FIT_SCALE_X = 0.5;
 
@@ -40,7 +46,11 @@ export const makeLyricMask = (
     text: string,
     renderer: THREE.WebGLRenderer,
     style?: LyricFontStyle,
+    options: MakeLyricMaskOptions = {},
 ): LyricMask => {
+    const immersive = Boolean(options.immersive);
+    const edgePadding = immersive ? IMMERSIVE_MASK_EDGE_PADDING_PX : MASK_EDGE_PADDING_PX;
+    const startFontSize = immersive ? IMMERSIVE_START_FONT_SIZE : START_FONT_SIZE;
     const canvas = document.createElement('canvas');
     canvas.width = MASK_WIDTH;
     canvas.height = MASK_HEIGHT;
@@ -49,9 +59,9 @@ export const makeLyricMask = (
         throw new Error('Lyric mask canvas unavailable');
     }
 
-    const maxWidth = MASK_WIDTH - MASK_EDGE_PADDING_PX * 2;
+    const maxWidth = MASK_WIDTH - edgePadding * 2;
     const normalized = String(text || '').replace(/\s+/g, ' ').trim();
-    let fontSize = START_FONT_SIZE;
+    let fontSize = startFontSize;
     let lines = [normalized];
     let widest = 1;
 

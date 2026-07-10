@@ -27,6 +27,7 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
     currentTime,
     lines = [],
     showLyrics = true,
+    immersiveLyrics = false,
     playing = true,
 }) => {
     const { pointerX, pointerY } = useGeometricPointer();
@@ -81,6 +82,7 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                     currentTime={currentTime}
                     lines={lines}
                     showLyrics={showLyrics}
+                    immersiveLyrics={immersiveLyrics}
                     playing={playing}
                     paused={paused}
                     cameraControlState={cameraControlState}

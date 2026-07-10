@@ -62,6 +62,8 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         navigateToPlayer,
         navigateToHome,
         isPlayerChromeHidden,
+        isFloatingDockRevealed,
+        isFloatingDockPopoverOpen,
         shouldHidePlayerProgressBar,
         seekMainAudio,
         publishStagePlayerPlaybackUpdate,
@@ -69,6 +71,8 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         toggleImmersiveFullscreen,
         exitWindowFullscreen,
         setIsPlayerChromeHidden,
+        setIsFloatingDockRevealed,
+        setIsFloatingDockPopoverOpen,
         audioQuality,
         setAudioQuality,
         changeAudioQuality,
@@ -171,10 +175,20 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         navigateToPlayer,
         navigateToHome: () => {
             setIsPlayerChromeHidden(false);
+            setIsFloatingDockRevealed(false);
+            setIsFloatingDockPopoverOpen(false);
             exitWindowFullscreen();
             navigateToHome();
         },
         isPlayerChromeHidden,
+        isFloatingDockRevealed,
+        isFloatingDockPopoverOpen,
+        onDockPopoverOpenChange: (open: boolean) => {
+            setIsFloatingDockPopoverOpen(open);
+            if (open && currentView === 'player' && isPlayerChromeHidden) {
+                setIsFloatingDockRevealed(true);
+            }
+        },
         shouldHidePlayerProgressBar,
         onSeekMainAudio: seekMainAudio,
         onStagePlayerSeek: publishStagePlayerPlaybackUpdate,
@@ -262,6 +276,8 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         isNowPlayingControlDisabled,
         isOverlayVisible,
         isPlayerChromeHidden,
+        isFloatingDockRevealed,
+        isFloatingDockPopoverOpen,
         isImmersiveFullscreen,
         isSearchOpen,
         lyrics,
@@ -269,6 +285,8 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         navigateToPlayer,
         navigateToHome,
         setIsPlayerChromeHidden,
+        setIsFloatingDockRevealed,
+        setIsFloatingDockPopoverOpen,
         exitWindowFullscreen,
         overlayStack,
         playerLyricsVisible,

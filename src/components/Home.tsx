@@ -5,8 +5,6 @@ import { neteaseApi } from '../services/netease';
 import { NeteaseUser, NeteasePlaylist, SongResult, LocalSong, LocalLibraryGroup, LocalPlaylist, type SearchSourceId, type StageStatus, type StageSource, type Theme } from '../types';
 import { NavidromeSong, NavidromeViewSelection } from '../types/navidrome';
 import { LOCAL_MUSIC_SCAN_PROGRESS_EVENT } from '../services/localMusicService';
-import LocalMusicView from './LocalMusicView';
-import NavidromeMusicView from './navidrome/NavidromeMusicView';
 import { motion, AnimatePresence } from 'framer-motion';
 import Carousel3D from './Carousel3D';
 import { useSearchNavigationStore } from '../stores/useSearchNavigationStore';

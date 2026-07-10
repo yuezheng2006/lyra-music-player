@@ -2,9 +2,11 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FolderOpen, Loader2, Music, ListMusic, User, Disc3 } from 'lucide-react';
 import DesktopGrid3DSurface, { DesktopGrid3DAction } from '../../folia-grid/DesktopGrid3DSurface';
+import LocalFolderRescanMenu, { LocalFolderRescanTarget } from '../../local/LocalFolderRescanMenu';
 import { LocalLibraryGroup, LocalPlaylist, LocalSong, Theme } from '../../../types';
 import { GridViewCollectionDescriptor, createLocalGridViewCollection } from './gridViewCollectionAdapters';
 import { buildLocalGrid3DGroups } from './localGrid3DModel';
+import { listImportedLocalRootFolderNames } from '../../../services/localMusicService';
 import { useDebouncedFocusSync } from '../../../hooks/useDebouncedFocusSync';
 
 // src/components/app/home/LocalGrid3DView.tsx
@@ -26,9 +28,11 @@ interface LocalGrid3DViewProps {
     focusedPlaylistIndex: number;
     setFocusedPlaylistIndex: (index: number) => void;
     onImportFolder: () => void;
+    onRescanFolder?: (target: LocalFolderRescanTarget) => void;
     importButtonDisabled?: boolean;
     isImporting?: boolean;
     isScanInProgress?: boolean;
+    isResyncingFocusedFolder?: boolean;
     onOpenGridView?: (collection: GridViewCollectionDescriptor) => void;
     theme: Theme;
     isDaylight: boolean;
@@ -49,15 +53,21 @@ export const LocalGrid3DView: React.FC<LocalGrid3DViewProps> = ({
     focusedPlaylistIndex,
     setFocusedPlaylistIndex,
     onImportFolder,
+    onRescanFolder,
     importButtonDisabled = false,
     isImporting = false,
     isScanInProgress = false,
+    isResyncingFocusedFolder = false,
     onOpenGridView,
     theme,
     isDaylight,
     hasFloatingPlayer = false,
 }) => {
     const { t } = useTranslation();
+    const rootFolderNames = useMemo(
+        () => listImportedLocalRootFolderNames(localSongs),
+        [localSongs],
+    );
     const { groups, coverSourceMap } = useMemo(() => {
         const rawGroups = buildLocalGrid3DGroups(localSongs, localPlaylists, t);
         const sourceMap = new Map<string, Blob | string | undefined>();
@@ -199,6 +209,20 @@ export const LocalGrid3DView: React.FC<LocalGrid3DViewProps> = ({
     }));
 
     const actions: DesktopGrid3DAction[] = [
+        ...(activeRow === 0 && onRescanFolder ? [{
+            id: 'rescan-folder',
+            label: t('localMusic.rescanFolder'),
+            onClick: () => undefined,
+            content: (
+                <LocalFolderRescanMenu
+                    rootFolderNames={rootFolderNames}
+                    onRescan={onRescanFolder}
+                    disabled={isScanInProgress}
+                    isBusy={isResyncingFocusedFolder || isScanInProgress}
+                    isDaylight={isDaylight}
+                />
+            ),
+        }] : []),
         {
             id: 'import-folder',
             label: isScanInProgress ? '扫描中' : isImporting ? t('localMusic.importing') : t('localMusic.importFolder'),

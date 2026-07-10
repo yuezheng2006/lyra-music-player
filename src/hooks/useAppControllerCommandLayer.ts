@@ -104,6 +104,7 @@ export function useAppControllerCommandLayer(
         setHomeViewTab,
         setIsPanelOpen,
         setIsPlayerChromeHidden,
+        setIsFloatingDockRevealed,
         setIsUserGuideModalOpen,
         setPanelTab,
         setPlayerState,
@@ -172,8 +173,9 @@ export function useAppControllerCommandLayer(
         wasWindowFullscreenRef.current = isWindowFullscreen;
         if (wasFullscreen && !isWindowFullscreen && currentView === 'player' && isPlayerChromeHidden) {
             setIsPlayerChromeHidden(false);
+            setIsFloatingDockRevealed(false);
         }
-    }, [currentView, isPlayerChromeHidden, isWindowFullscreen, setIsPlayerChromeHidden]);
+    }, [currentView, isPlayerChromeHidden, isWindowFullscreen, setIsFloatingDockRevealed, setIsPlayerChromeHidden]);
 
     // Leaving the player while OS-fullscreen should drop window fullscreen.
     useEffect(() => {
@@ -197,11 +199,13 @@ export function useAppControllerCommandLayer(
             navigateToPlayer();
             setIsPanelOpen(false);
             setIsPlayerChromeHidden(true);
+            setIsFloatingDockRevealed(false);
             void setWindowFullscreen(true);
             return true;
         }
 
         setIsPlayerChromeHidden(false);
+        setIsFloatingDockRevealed(false);
         void setWindowFullscreen(false);
         return true;
     }, [
@@ -209,6 +213,7 @@ export function useAppControllerCommandLayer(
         isPlayerChromeHidden,
         isWindowFullscreen,
         navigateToPlayer,
+        setIsFloatingDockRevealed,
         setIsPanelOpen,
         setIsPlayerChromeHidden,
         setWindowFullscreen,
@@ -248,6 +253,7 @@ export function useAppControllerCommandLayer(
         openSettings,
         navigateToHome: () => {
             setIsPlayerChromeHidden(false);
+            setIsFloatingDockRevealed(false);
             exitWindowFullscreen();
             navigateToHome();
         },
@@ -334,6 +340,7 @@ export function useAppControllerCommandLayer(
         setHomeViewTab,
         setIsPanelOpen,
         setIsPlayerChromeHidden,
+        setIsFloatingDockRevealed,
         setIsUserGuideModalOpen,
         setPanelTab,
         showSubtitleTranslation,

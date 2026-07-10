@@ -20,6 +20,7 @@ type AudioEffectData = {
 };
 
 const PRESET_GLOW: Record<LyricEffectPreset, string[]> = {
+    'midnight-default': ['#fafafa', '#b8b8c2'],
     'douyin-neon': ['#00f5ff', '#fe2c55'],
     'douyin-purple': ['#9333ea', '#e879f9'],
     'xhs-morandi': ['#d4738f', '#9a6b7a'],

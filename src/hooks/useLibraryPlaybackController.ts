@@ -597,7 +597,7 @@ export function useLibraryPlaybackController({
 
         const blobUrl = await getAudioFromLocalSong(localSong);
         if (!blobUrl) {
-            setStatusMsg({ type: 'error', text: '无法访问文件，请重新导入文件夹' });
+            setStatusMsg({ type: 'error', text: '无法访问文件，请重新扫描文件夹' });
             return;
         }
 

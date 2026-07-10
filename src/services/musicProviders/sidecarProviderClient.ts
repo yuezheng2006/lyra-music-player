@@ -217,7 +217,12 @@ export const requestSidecarAudioUrl = async (
                 ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
             }),
         });
+        // 5xx is a sidecar/transport failure — let callers fall back to local providers.
+        // 4xx means the provider resolved "no playable URL" for this song.
         if (!response.ok) {
+            if (response.status >= 500) {
+                throw new Error(`${providerId} sidecar audio failed: ${response.status}`);
+            }
             rememberNegativeAudio(lookupKey);
             return { kind: 'unavailable' };
         }

@@ -66,6 +66,9 @@ export function useAppControllerCore() {
         const saved = localStorage.getItem(PLAYER_CHROME_HIDDEN_STORAGE_KEY);
         return saved === 'true';
     });
+    // Floating dock can reappear in fullscreen without exiting immersive chrome / OS fullscreen.
+    const [isFloatingDockRevealed, setIsFloatingDockRevealed] = useState(false);
+    const [isFloatingDockPopoverOpen, setIsFloatingDockPopoverOpen] = useState(false);
     const [isDevDebugOverlayVisible, setIsDevDebugOverlayVisible] = useState(false);
     const [navidromeEnabled, setNavidromeEnabledState] = useState(() => isNavidromeEnabled());
     const [starredNavidromeSongIds, setStarredNavidromeSongIds] = useState<Set<string>>(new Set());
@@ -637,6 +640,8 @@ export function useAppControllerCore() {
         isNowPlayingControlDisabledRef,
         isPanelOpen,
         isPlayerChromeHidden,
+        isFloatingDockRevealed,
+        isFloatingDockPopoverOpen,
         isSettingsSubviewOpen,
         isTitlebarRevealed,
         lastAudioRecoverySourceRef,
@@ -697,6 +702,8 @@ export function useAppControllerCore() {
         setIsMainWindowClickThroughEnabled,
         setIsPanelOpen,
         setIsPlayerChromeHidden,
+        setIsFloatingDockRevealed,
+        setIsFloatingDockPopoverOpen,
         setIsTitlebarRevealed,
         setIsUserGuideModalOpen,
         setLyrics,

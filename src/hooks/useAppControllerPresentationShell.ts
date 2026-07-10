@@ -48,6 +48,8 @@ export function useAppControllerPresentationShell(
         isPanelOpen,
         isNowPlayingStageActive,
         isPlayerChromeHidden,
+        isFloatingDockRevealed,
+        isFloatingDockPopoverOpen,
         lyricTimelineOffsetMs,
         lyrics,
         lyricsCustomFontFamily,
@@ -62,6 +64,7 @@ export function useAppControllerPresentationShell(
         setIsClickThroughToggleHotspotActive,
         setIsMainWindowClickThroughEnabled,
         setIsPlayerChromeHidden,
+        setIsFloatingDockRevealed,
         settingsModalState,
         showSubtitleTranslation,
         stageActiveEntryKind,
@@ -129,14 +132,35 @@ export function useAppControllerPresentationShell(
         localStorage.setItem(PLAYER_CHROME_HIDDEN_STORAGE_KEY, String(isPlayerChromeHidden));
     }, [isPlayerChromeHidden]);
 
+    // Idle hide: in immersive fullscreen only toggle the floating dock; never clear chrome hide.
+    // Dock popovers (3D / lyric style, quality) pause idle hide so the menu does not vanish mid-use.
     useEffect(() => {
         if (!autoHidePlayerChrome) return;
 
         let timeoutId: number;
         let isThrottled = false;
         let rafId: number;
+        const immersive = currentView === 'player' && isPlayerChromeHidden;
+
+        if (isFloatingDockPopoverOpen) {
+            if (immersive) {
+                setIsFloatingDockRevealed(true);
+            } else {
+                setIsPlayerChromeHidden(false);
+            }
+            return;
+        }
 
         const showAndResetTimer = () => {
+            if (immersive) {
+                setIsFloatingDockRevealed(true);
+                window.clearTimeout(timeoutId);
+                timeoutId = window.setTimeout(() => {
+                    setIsFloatingDockRevealed(false);
+                }, 3000);
+                return;
+            }
+
             setIsPlayerChromeHidden(false);
             window.clearTimeout(timeoutId);
             timeoutId = window.setTimeout(() => {
@@ -148,7 +172,11 @@ export function useAppControllerPresentationShell(
             if (!e.relatedTarget || (e.clientY <= 0 || e.clientX <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight)) {
                 window.clearTimeout(timeoutId);
                 timeoutId = window.setTimeout(() => {
-                    setIsPlayerChromeHidden(true);
+                    if (immersive) {
+                        setIsFloatingDockRevealed(false);
+                    } else {
+                        setIsPlayerChromeHidden(true);
+                    }
                 }, 300);
             }
         };
@@ -172,7 +200,32 @@ export function useAppControllerPresentationShell(
             window.removeEventListener('mouseout', handleMouseOut);
             window.removeEventListener('mousemove', throttledMouseMove);
         };
-    }, [autoHidePlayerChrome, setIsPlayerChromeHidden]);
+    }, [
+        autoHidePlayerChrome,
+        currentView,
+        isFloatingDockPopoverOpen,
+        isPlayerChromeHidden,
+        setIsFloatingDockRevealed,
+        setIsPlayerChromeHidden,
+    ]);
+
+    // Click-revealed dock in immersive mode auto-hides after idle, without exiting fullscreen chrome.
+    useEffect(() => {
+        if (!(currentView === 'player' && isPlayerChromeHidden && isFloatingDockRevealed)) return;
+        if (isFloatingDockPopoverOpen) return;
+
+        const timeoutId = window.setTimeout(() => {
+            setIsFloatingDockRevealed(false);
+        }, 3000);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [
+        currentView,
+        isFloatingDockPopoverOpen,
+        isFloatingDockRevealed,
+        isPlayerChromeHidden,
+        setIsFloatingDockRevealed,
+    ]);
 
     useEffect(() => {
         const body = document.body;

@@ -9,12 +9,15 @@ import { resolveLyricStageFitScale } from './resolveLyricStageViewport';
 // Builds a Mineradio-style WebGL lyric line group.
 
 const DEFAULT_STAGE_WORLD_WIDTH = 4.8;
+const IMMERSIVE_STAGE_WORLD_WIDTH = 6.4;
 /** Glow / bloom extends slightly past glyph bounds — include in fit. */
 const GLOW_OVERFLOW = 1.12;
 
 export type BuildLyricMeshOptions = {
     /** Max world-space width the lyric plane may occupy on screen. */
     maxWorldWidth?: number;
+    /** Fullscreen / desktop-lyrics presentation. */
+    immersive?: boolean;
 };
 
 export const buildLyricMesh = (
@@ -23,28 +26,32 @@ export const buildLyricMesh = (
     palette: LyricPalette,
     options: BuildLyricMeshOptions = {},
 ): THREE.Group => {
-    const mask = makeLyricMask(text, renderer);
+    const immersive = Boolean(options.immersive);
+    const mask = makeLyricMask(text, renderer, undefined, { immersive });
     const maxWorldWidth = Math.max(0.9, options.maxWorldWidth ?? DEFAULT_STAGE_WORLD_WIDTH);
+    const preferredWorldWidth = immersive ? IMMERSIVE_STAGE_WORLD_WIDTH : DEFAULT_STAGE_WORLD_WIDTH;
     // Prefer filling the safe viewport width; shrink further if the glyph block is still wider.
-    const worldW = Math.min(DEFAULT_STAGE_WORLD_WIDTH, maxWorldWidth);
+    const worldW = Math.min(preferredWorldWidth, maxWorldWidth);
     const worldH = worldW * (mask.height / mask.width);
     const textWorldW = worldW * (mask.textWidth / mask.width);
     const textWorldH = worldH * ((mask.textHeight || mask.fontSize) / mask.height);
     // Fit the full plane (not only glyph AABB) so transparent padding / bloom stay on-screen.
     const occupiedWorldW = Math.max(worldW, textWorldW) * GLOW_OVERFLOW;
     const fitScale = resolveLyricStageFitScale(occupiedWorldW, maxWorldWidth);
+    const baseScale = immersive ? 1.08 : 0.9;
 
     const group = new THREE.Group();
     group.renderOrder = 42;
     // Parent LyricStageRuntime is camera-locked; keep mesh at local origin.
     group.position.set(0, 0, 0);
-    group.scale.setScalar(0.9 * fitScale);
+    group.scale.setScalar(baseScale * fitScale);
     group.userData.age = 0;
     group.userData.state = 'in';
     group.userData.lastLyricProgress = -1;
     group.userData.lyricText = text;
-    group.userData.baseScale = 0.9;
+    group.userData.baseScale = baseScale;
     group.userData.fitScale = fitScale;
+    group.userData.immersive = immersive;
     group.userData.maxWorldWidth = maxWorldWidth;
     group.userData.occupiedWorldW = occupiedWorldW;
 

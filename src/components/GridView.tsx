@@ -22,6 +22,7 @@ import { buildGridViewCardCoords } from './folia-grid/hexViewport';
 import PlaylistSelectionDialog from './shared/PlaylistSelectionDialog';
 import TextInputDialog from './shared/TextInputDialog';
 import { SidePanelList, TrackListItem } from './shared/SidePanelList';
+import { shouldStartGridViewDrag } from './gridView/shouldStartGridViewDrag';
 
 export interface GridViewSourceActions {
     local?: {
@@ -385,7 +386,8 @@ export const PolaroidCard = React.memo<{
                                             <span className="folia-eq__bar" />
                                         </span>
                                     ) : (
-                                        <Loader2 size={22} className="animate-spin opacity-90" />
+                                        // Current track, not actively playing: static mark, never a spinner.
+                                        <Pause size={20} fill="currentColor" className="opacity-90" />
                                     )}
                                 </div>
                             </div>
@@ -406,9 +408,9 @@ export const PolaroidCard = React.memo<{
                                         <span className="folia-eq__bar" />
                                     </span>
                                 ) : (
-                                    <Loader2 size={10} className="animate-spin opacity-90" />
+                                    <Pause size={10} fill="currentColor" className="opacity-90" />
                                 )}
-                                <span>{showPlayingEq ? 'NOW' : '...'}</span>
+                                <span>NOW</span>
                             </div>
                         </>
                     )}
@@ -1942,25 +1944,9 @@ export const GridView: React.FC<GridViewProps> = ({
                 onPointerDown={(event) => {
                     if (event.button !== 0) return; // 仅限鼠标左键或主要指针拖动
 
-                    const target = event.target as HTMLElement;
-                    // 如果点击了按钮、输入框、链接或设置面板，则不触发拖动
-                    if (
-                        target.closest('button') ||
-                        target.closest('input') ||
-                        target.closest('a') ||
-                        target.closest('textarea') ||
-                        target.closest('.theme-glass-panel')
-                    ) {
+                    // Track cards must keep click-to-play; starting drag here swallows the click.
+                    if (!shouldStartGridViewDrag(event.target, mode)) {
                         return;
-                    }
-
-                    // 向上遍历判断是否在卡片内部点击了具有 cursor-pointer 的非卡片元素（例如歌手、专辑链接）
-                    let current: HTMLElement | null = target;
-                    while (current && !current.classList.contains('theme-polaroid-card')) {
-                        if (current.classList.contains('cursor-pointer')) {
-                            return;
-                        }
-                        current = current.parentElement;
                     }
 
                     dragControls.start(event);
@@ -2238,7 +2224,7 @@ export const GridView: React.FC<GridViewProps> = ({
                                         className="w-full py-2.5 rounded-full text-xs font-semibold bg-zinc-800/10 dark:bg-zinc-100/10 hover:bg-zinc-900 hover:text-zinc-100 dark:hover:bg-zinc-100 dark:hover:text-zinc-900 transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 cursor-pointer"
                                     >
                                         {isSourceActionPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                                        {t('localMusic.reimport')}
+                                        {t('localMusic.rescanFolder')}
                                     </button>
                                 )}
                                 {isLocalAllSongsCollection && sourceActions?.local?.onResyncAllFolders && (
@@ -2248,7 +2234,7 @@ export const GridView: React.FC<GridViewProps> = ({
                                         className="w-full py-2.5 rounded-full text-xs font-semibold bg-zinc-800/10 dark:bg-zinc-100/10 hover:bg-zinc-900 hover:text-zinc-100 dark:hover:bg-zinc-100 dark:hover:text-zinc-900 transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 cursor-pointer"
                                     >
                                         {isSourceActionPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                                        {t('localMusic.reimport')}
+                                        {t('localMusic.rescanFolder')}
                                     </button>
                                 )}
                                 {canEditPlaylist && (

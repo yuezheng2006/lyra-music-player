@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { AudioBands, Interactive3dSceneTuning } from '../../../../types';
 import type { GeometricQualityProfile } from '../geometricQuality';
 import type { InteractiveCameraSnapshot } from '../interactiveCamera/interactiveCameraTypes';
-import { orbitToCameraPosition } from '../interactiveCamera/interactiveCameraMath';
+import { orbitToCameraPosition, resolveOrbitFitCameraRadius } from '../interactiveCamera/interactiveCameraMath';
 import {
     buildCoverParticleGeometry,
     coverParticleGridForQualityTier,
@@ -64,7 +64,7 @@ const MINERADIO_ORBIT_BASELINES: Partial<Record<
 >> = {
     emily: { theta: 0, phi: 0.08, radius: 6.6 },
     mineradioTunnel: { theta: 0, phi: 0.03, radius: 6.2 },
-    mineradioOrbit: { theta: 0, phi: 0.15, radius: 7.0 },
+    mineradioOrbit: { theta: 0, phi: 0.12, radius: 8.8 },
     mineradioVoid: { theta: 0, phi: 0.05, radius: 8.0 },
     mineradioVinyl: { theta: 0, phi: 0.04, radius: 6.5 },
     mineradioGalaxy: { theta: -0.52, phi: 0.34, radius: 9.4 },
@@ -224,6 +224,8 @@ export class CoverParticleRuntime {
 
     private lyricStageEnabled = true;
 
+    private lyricImmersive = false;
+
     private lyricInputProvider: (() => MineradioLyricRuntimeInputs) | null = null;
 
     private latestLyricInputs: MineradioLyricRuntimeInputs = {
@@ -274,7 +276,7 @@ export class CoverParticleRuntime {
         const cinematicPosition = applyCoverParticleCinemaOffset(baseZ, cinemaOffset);
         const orbitBaseline = MINERADIO_ORBIT_BASELINES[preset ?? 'emily'];
         const targetFov = orbitBaseline
-            ? 45 - Math.max(0, beat) * 2.35
+            ? presetProfile.fov - Math.max(0, beat) * 0.85
             : presetProfile.fov;
         this.camera.fov += (targetFov - this.camera.fov) * (targetFov < this.camera.fov ? 0.24 : 0.12);
         this.camera.updateProjectionMatrix();
@@ -287,13 +289,20 @@ export class CoverParticleRuntime {
                     -Math.PI * 0.45,
                     Math.PI * 0.45,
                 );
+                // Planet: pull camera back from the shorter viewport axis so the sphere never crops.
+                const fittedBaselineRadius = preset === 'mineradioOrbit'
+                    ? resolveOrbitFitCameraRadius({
+                        fovDeg: presetProfile.fov,
+                        aspect: this.camera.aspect,
+                    })
+                    : orbitBaseline.radius;
                 const targetRadius = THREE.MathUtils.clamp(
-                    orbitBaseline.radius
+                    fittedBaselineRadius
                         + this.userOrbitOffset.radius
                         - bassPulse * presetProfile.bassCameraPunch
                         + cinemaOffset.radiusKick,
                     2.4,
-                    14,
+                    preset === 'mineradioOrbit' ? 18 : 14,
                 );
                 const focusEase = Math.max(0.10, 0.12 + beat * 0.12);
                 const radiusEase = Math.max(0.07, 0.09 + beat * 0.12);
@@ -671,6 +680,11 @@ export class CoverParticleRuntime {
 
     setInputProvider(provider: () => CoverParticleRuntimeInputs) {
         this.inputProvider = provider;
+    }
+
+    setLyricImmersive(enabled: boolean) {
+        this.lyricImmersive = enabled;
+        this.lyricStage.setImmersive(enabled);
     }
 
     setLyricInputProvider(provider: () => MineradioLyricRuntimeInputs) {

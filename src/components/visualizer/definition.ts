@@ -53,6 +53,8 @@ export interface VisualizerSharedProps {
     visualizerBackgroundMode?: VisualizerBackgroundMode | null;
     resolvedVisualizerBackgroundMode?: VisualizerBackgroundMode;
     isPlayerChromeHidden?: boolean;
+    /** Fullscreen / desktop-lyrics presentation for interactive3d stage lyrics. */
+    immersiveLyrics?: boolean;
     hideTranslationSubtitle?: boolean;
     showSubtitleTranslation?: boolean;
     paused?: boolean;

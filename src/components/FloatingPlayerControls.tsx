@@ -20,6 +20,7 @@ import { getSizedCoverUrl } from '../utils/coverUrl';
 import { getMineradioPresetLabelFallback } from './visualizer/geometric/mineradioVisualPresets';
 import {
     FLOATING_PLAYER_DOCK_MAX_WIDTH_PX,
+    FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX,
     FLOATING_PLAYER_PROGRESS_INSET_PX,
     resolveFloatingPlayerDockFrameStyle,
 } from './floatingPlayerDockLayout';
@@ -150,6 +151,8 @@ interface FloatingPlayerControlsProps {
     lyricColorSectionLabel?: string;
     getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
     getVisualizerModeLabel?: (mode: VisualizerMode) => string;
+    /** True while a dock popover (background / quality) is open — pauses idle auto-hide. */
+    onDockPopoverOpenChange?: (open: boolean) => void;
 }
 
 const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
@@ -220,6 +223,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     lyricColorSectionLabel = 'Lyric colors',
     getBackgroundPresetLabel,
     getVisualizerModeLabel,
+    onDockPopoverOpenChange,
 }) => {
     // Timeline modal kept mounted for minimal churn; dock no longer opens it.
     const [isTimelineOpen, setIsTimelineOpen] = useState(false);
@@ -342,6 +346,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         lyricColorSectionLabel={lyricColorSectionLabel}
                         getBackgroundPresetLabel={getBackgroundPresetLabel}
                         getVisualizerModeLabel={getVisualizerModeLabel}
+                        onDockPopoverOpenChange={onDockPopoverOpenChange}
                     />
                 </motion.div>
             </div>
@@ -431,6 +436,7 @@ type DockedBarProps = {
     lyricColorSectionLabel: string;
     getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
     getVisualizerModeLabel?: (mode: VisualizerMode) => string;
+    onDockPopoverOpenChange?: (open: boolean) => void;
 };
 
 const DockedBar: React.FC<DockedBarProps> = ({
@@ -497,6 +503,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
     lyricColorSectionLabel,
     getBackgroundPresetLabel,
     getVisualizerModeLabel,
+    onDockPopoverOpenChange,
 }) => {
     const skipDisabled = controlsDisabled || !canSkipTracks;
     const lyricsToggleDisabled = controlsDisabled || !onTogglePlayerLyricsVisible;
@@ -508,6 +515,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
     const artistColor = isDaylight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.48)';
     const titleColor = isDaylight ? 'rgba(0,0,0,0.88)' : 'rgba(255,255,255,0.92)';
     const [qualityMenuOpen, setQualityMenuOpen] = useState(false);
+    const [backgroundMenuOpen, setBackgroundMenuOpen] = useState(false);
     const qualityMenuRef = useRef<HTMLDivElement>(null);
 
     const qualityLabels: Record<AudioQuality, string> = {
@@ -515,6 +523,11 @@ const DockedBar: React.FC<DockedBarProps> = ({
         lossless: qualityLosslessLabel,
         hires: qualityHiresLabel,
     };
+
+    useEffect(() => {
+        onDockPopoverOpenChange?.(qualityMenuOpen || backgroundMenuOpen);
+        return () => onDockPopoverOpenChange?.(false);
+    }, [backgroundMenuOpen, onDockPopoverOpenChange, qualityMenuOpen]);
 
     useEffect(() => {
         if (!qualityMenuOpen) return;
@@ -617,11 +630,12 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         {qualityMenuOpen ? (
                             <div
                                 role="menu"
-                                className={`absolute bottom-[calc(100%+10px)] left-0 z-30 min-w-[132px] overflow-hidden rounded-[14px] border p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.38)] backdrop-blur-xl ${
+                                className={`absolute left-0 z-30 min-w-[132px] overflow-hidden rounded-[14px] border p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.38)] backdrop-blur-xl ${
                                     isDaylight
                                         ? 'border-black/10 bg-white/95'
                                         : 'border-white/10 bg-black/82'
                                 }`}
+                                style={{ bottom: `calc(100% + ${FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX}px)` }}
                             >
                                 {AUDIO_QUALITY_OPTIONS.map(option => {
                                     const selected = option === audioQuality;
@@ -778,6 +792,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
                             onVisualizerModeChange={onVisualizerModeChange}
                             theme={theme}
                             onApplyLyricColorPreset={onApplyLyricColorPreset}
+                            onOpenChange={setBackgroundMenuOpen}
                             backgroundMenuLabel={backgroundMenuLabel}
                             modeInteractive3dLabel={backgroundModeInteractive3dLabel}
                             modeCommonLabel={backgroundModeCommonLabel}

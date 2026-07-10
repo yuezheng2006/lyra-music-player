@@ -29,8 +29,18 @@ const baseDualTheme = {
 };
 
 describe('lyricColorPresets', () => {
-    it('includes five distinctive Douyin and Xiaohongshu inspired presets', () => {
-        expect(LYRIC_COLOR_PRESETS).toHaveLength(5);
+    it('includes the default theme palette plus Douyin / Xiaohongshu presets', () => {
+        expect(LYRIC_COLOR_PRESETS).toHaveLength(6);
+        expect(getLyricColorPresetById('midnight-default')?.dark).toEqual({
+            primaryColor: '#fafafa',
+            accentColor: '#ffffff',
+            secondaryColor: '#b8b8c2',
+        });
+        expect(getLyricColorPresetById('midnight-default')?.light).toEqual({
+            primaryColor: '#1c1917',
+            accentColor: '#ea580c',
+            secondaryColor: '#44403c',
+        });
         expect(getLyricColorPresetById('douyin-neon')?.light.accentColor).toBe('#ff2d55');
         expect(getLyricColorPresetById('douyin-neon')?.dark.accentColor).toBe('#12f7d6');
         expect(getLyricColorPresetById('xhs-note-red')?.light.accentColor).toBe('#ff2442');
@@ -79,7 +89,22 @@ describe('lyricColorPresets', () => {
 
         expect(matchLyricColorPresetId(next.light, 'light')).toBe('douyin-neon');
         expect(matchLyricColorPresetId(next.dark, 'dark')).toBe('douyin-neon');
-        expect(matchLyricColorPresetId(baseDualTheme.light, 'light')).toBeNull();
+        // baseDualTheme.light is 1:1 with DAYLIGHT_THEME / midnight-default light.
+        expect(matchLyricColorPresetId(baseDualTheme.light, 'light')).toBe('midnight-default');
+        expect(matchLyricColorPresetId(baseDualTheme.dark, 'dark')).toBeNull();
+    });
+
+    it('matches the app default dark theme as midnight-default', () => {
+        expect(matchLyricColorPresetId({
+            primaryColor: '#fafafa',
+            accentColor: '#ffffff',
+            secondaryColor: '#b8b8c2',
+        }, 'dark')).toBe('midnight-default');
+        expect(resolveActiveLyricColorPresetId({
+            primaryColor: '#fafafa',
+            accentColor: '#ffffff',
+            secondaryColor: '#b8b8c2',
+        }, 'dark', null)).toBe('midnight-default');
     });
 
     it('falls back to the stored preset id when theme colors no longer match', () => {

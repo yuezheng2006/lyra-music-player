@@ -3,9 +3,8 @@
 </p>
 
 <div align="center">
-<a href="https://trendshift.io/repositories/71740?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-71740" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/71740" alt="yuezheng2006%2Flyra-music-player | Trendshift" width="250" height="55"/></a>
 
-# Lyra
+# Lyra（音波）
 
 Sound, Stage, Sense // 声随境转
 
@@ -17,113 +16,102 @@ Sound, Stage, Sense // 声随境转
 [![All Contributors](https://img.shields.io/badge/all_contributors-21-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
-[桌面版下载](https://github.com/yuezheng2006/lyra-music-player/releases)
-·
-[Vercel 部署](https://vercel.com/new/clone?repository-url=https://github.com/yuezheng2006/lyra-music-player)
-·
-[使用指南](https://lyra-site.vercel.app/guide/)
+[桌面版下载](https://github.com/yuezheng2006/lyra-music-player/releases/tag/v1.0.1)
 ·
 [技术说明](docs/technical.md)
+·
+[macOS 安装注意](docs/desktop/macos-app-damaged.md)
 
 </div>
 
 ## 项目简介
 
-Lyra（声境）是多平台打通的沉浸式音乐播放器，支持 3D 舞台与智能氛围；可连接在线平台、本地曲库与智能主题，通过智能歌词匹配、AI 配色与多种全屏歌词动画提供沉浸听歌体验。
+听歌不再只是听歌——多平台曲库汇进同一座 3D 歌词舞台，像在看文字 PV。
 
-如果你希望直接开箱即用，马上体验，推荐直接使用基于Electron的 windows/ macOS/ Linux 桌面端版本。
+Lyra（音波）是面向桌面端的沉浸式歌词音乐播放器。当前可连接网易云、QQ 音乐、Coco 聚合搜索、Navidrome 等来源，在同一套全屏歌词 / 3D 舞台中播放。
 
-如果希望能够在移动设备上使用，或在浏览器上体验云端多平台，可以选择[一键部署到 Vercel](https://lyra-site.vercel.app/guide/deploy-vercel) 的 Web 版本，或自行部署到其他支持 Node.js 的平台。
+推荐直接使用 Electron 桌面版（Windows / macOS / Linux）。
+
+## 能力状态（请按此理解仓库）
+
+| 状态 | 能力 |
+| --- | --- |
+| **已可用** | 全屏歌词动画、多主题舞台、3D 交互背景；网易云 / QQ 音乐 / Coco / Navidrome 多源播放；本地曲库导入；桌面端安装包 |
+| **支持中** | 本地歌智能匹配（补歌词 / 封面）；AI 情绪主题配色（需配置模型 Key） |
+| **计划开放中** | 统一舞台纳入 |
+
+说明：
+
+- **智能氛围**（节拍 / 低频 / 镜头）是本地音频分析，不是 LLM。
+- **AI 主题配色**依赖 Gemini / OpenAI，需自行配置；未配置时不影响基础播放与视觉主题切换。
+- Coco 为公开聚合搜索通道，上游偶发空结果，属已知波动。
 
 ## 展示
 
+### 截图
+
+#### 多源连接与搜索
+
+![多源连接](/img/screenshots/home-multisource-connect.png)
+
+![多源搜索](/img/screenshots/search-multisource.png)
+
+#### 沉浸播放页
+
+![播放页歌词](/img/screenshots/player-lyric-gejian.png)
+
+![点阵视觉](/img/screenshots/player-lyric-peini.png)
+
+#### 多主题歌词舞台
+
+![浮名](/img/screenshots/theme-fume-lyrics.png)
+
+![流光](/img/screenshots/theme-lumi-lyrics.png)
+
+![群唱](/img/screenshots/theme-cappella-chat.png)
+
 ### 演示视频
 
-https://github.com/user-attachments/assets/fd27f4f0-64b9-4c57-8c3b-10df767f934b
-
-https://github.com/user-attachments/assets/704f195a-2194-434b-86e8-8f36290e5cc4
-
-### 主题预览
-
-<table>
-  <tr>
-    <td width="50%">
-      <img src="./img/preview-fume.png" alt="Fume 主题预览" />
-    </td>
-    <td width="50%">
-      <img src="./img/preview-lumi.png" alt="Lumi 主题预览" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><strong>浮名</strong></td>
-    <td align="center"><strong>流光</strong></td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="./img/preview-cad.png" alt="Cad 主题预览" />
-    </td>
-    <td width="50%">
-      <img src="./img/preview-pat.png" alt="Pat 主题预览" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><strong>心象</strong></td>
-    <td align="center"><strong>云阶</strong></td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="./img/preview-cappella.jpg" alt="群唱 主题预览" />
-    </td>
-    <td width="50%">
-      <img src="./img/preview-tilt.png" alt="Tilt 主题预览" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><strong>群唱</strong></td>
-    <td align="center"><strong>倾诉</strong></td>
-  </tr>
-</table>
-
-不同的歌词动画具有不同的排版氛围和可调参数，让全屏歌词拥有如同文字PV般的丰富视觉效果，同时又能兼顾响应式布局，自动适配不同窗口尺寸。
-
-## 核心能力
-
-| 模块 | 说明 |
-| --- | --- |
-| 在线搜索与播放 | 搜索歌曲、歌手或专辑后即可播放，并自动加载相关封面与歌词。 |
-| 本地音乐支持 | 可导入本地音频文件，在本地安全保存索引信息，不上传文件内容。 |
-| 智能歌词匹配 | 本地歌曲可自动匹配在线歌词与封面，也支持手动修正匹配结果。 |
-| 本地歌词文件识别 | 自动加载同目录同名 `.lrc`、`.vtt`、`.ttml`、`.qrc`、`.yrc`、`.krc` 歌词文件，或歌词文件内嵌 LRC 歌词。适配 LDDC 生成的增强型逐字歌词格式。 |
-| Now Playing 接入 | 支持通过本机 [Now Playing](https://github.com/Widdit/now-playing-service/) 服务接入外部播放器的歌曲、时间轴与歌词信息，并驱动 Lyra 的舞台视图与全屏歌词渲染。 |
-| AI 主题生成 | 基于歌曲情绪与歌词内容生成沉浸式背景与视觉参数。 |
-| 多端体验 | 提供 Web 部署方式，同时支持桌面端打包分发。 |
+演示视频待补。桌面安装包见 [Releases v1.0.1](https://github.com/yuezheng2006/lyra-music-player/releases/tag/v1.0.1)。
 
 ## 桌面端下载
 
-桌面版内置前后端运行环境，适合希望即装即用的用户。最新版本请前往 [Releases 页面](https://github.com/yuezheng2006/lyra-music-player/releases)。
+| 平台 | 文件 |
+| --- | --- |
+| macOS Apple Silicon | [Lyra-1.0.1-arm64.dmg](https://github.com/yuezheng2006/lyra-music-player/releases/download/v1.0.1/Lyra-1.0.1-arm64.dmg) |
+| macOS Intel | [Lyra-1.0.1-x64.dmg](https://github.com/yuezheng2006/lyra-music-player/releases/download/v1.0.1/Lyra-1.0.1-x64.dmg) |
+| Windows | [Lyra-Setup-1.0.1.exe](https://github.com/yuezheng2006/lyra-music-player/releases/download/v1.0.1/Lyra-Setup-1.0.1.exe) |
+| Linux Deb | [lyra-music-player-1.0.1-linux-amd64.deb](https://github.com/yuezheng2006/lyra-music-player/releases/download/v1.0.1/lyra-music-player-1.0.1-linux-amd64.deb) |
+| Linux RPM | [lyra-music-player-1.0.1-linux-x86_64.rpm](https://github.com/yuezheng2006/lyra-music-player/releases/download/v1.0.1/lyra-music-player-1.0.1-linux-x86_64.rpm) |
+| Linux 通用 | [lyra-music-player-1.0.1-linux-x64.tar.gz](https://github.com/yuezheng2006/lyra-music-player/releases/download/v1.0.1/lyra-music-player-1.0.1-linux-x64.tar.gz) |
 
-Linux 包、Wayland / Hyprland 遥控窗和桌面端细节见 [技术与开发说明](docs/technical.md)。
+macOS 若提示「应用已损坏」：把 app 拖到 Applications 后执行：
 
-## 文档与开发
+```bash
+xattr -dr com.apple.quarantine /Applications/Lyra.app
+```
 
-更完整的使用说明请访问 [Lyra Guide](https://lyra-site.vercel.app/guide/)。
+详见 [macOS 安装说明](docs/desktop/macos-app-damaged.md)。
 
-部署、环境变量、本地开发、Stage API、常用脚本和技术栈见 [技术与开发说明](docs/technical.md)。
+## 文档
 
-如果你希望快速上线 Web 版本，请阅读 [Vercel 一键部署指南](https://lyra-site.vercel.app/guide/deploy-vercel) 来创建项目
+| 文档 | 用途 |
+| --- | --- |
+| [docs/technical.md](docs/technical.md) | 开发、环境变量、Stage API、技术栈 |
+| [docs/desktop/macos-app-damaged.md](docs/desktop/macos-app-damaged.md) | macOS Gatekeeper / 未签名包处理 |
+| [src/README.md](src/README.md) | 前端模块边界 |
+| [docs/hackathon/](docs/hackathon/) | Hackathon 过程材料（非产品说明，可忽略） |
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yuezheng2006/lyra-music-player)
+## 开发
 
-## 本地音乐与匹配说明
+```bash
+npm install
+npm run dev:electron   # 桌面开发
+npm run lint
+npm test
+```
 
-使用本地音乐时，Lyra 会优先尝试从以下来源补全信息：
-
-1. 音频文件自身元数据
-2. 同目录同名歌词文件
-3. 在线匹配结果
-
-如果自动匹配不准确，可以在播放界面的右侧面板进入“本地”选项卡，手动搜索并指定更合适的歌词、封面或元数据来源。你也可以选择只使用本地信息，关闭在线匹配结果。
-
+更多脚本与环境变量见 [技术说明](docs/technical.md)。
 
 ## 贡献者
 
@@ -168,14 +156,6 @@ Thanks goes to these wonderful people. Issue reports, bug reports, ideas, docs, 
 <!-- prettier-ignore-end -->
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
-
-<!-- 添加 issue 提出者时可以使用：
-
-```bash
-npm run contributors:add -- github-username bug
-npm run contributors:add -- github-username bug,ideas
-npm run contributors:generate
-``` -->
 
 ## 法律与免责声明
 

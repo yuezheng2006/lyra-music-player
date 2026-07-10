@@ -4,6 +4,7 @@ import type { DualTheme, Theme } from '../../types';
 // High-contrast lyric palettes. Controls apply colors only; motion stays optional for theme editors.
 
 export type LyricColorPresetId =
+    | 'midnight-default'
     | 'douyin-neon'
     | 'douyin-purple'
     | 'xhs-morandi'
@@ -39,6 +40,20 @@ export type ApplyLyricColorPresetOptions = {
 };
 
 export const LYRIC_COLOR_PRESETS: readonly LyricColorPreset[] = [
+    {
+        // 1:1 with DEFAULT_THEME (dark) + DAYLIGHT_THEME (light) in appConstants.
+        id: 'midnight-default',
+        labelKey: 'options.lyricColorPreset.midnightDefault',
+        labelFallback: '默认素白',
+        light: { primaryColor: '#1c1917', accentColor: '#ea580c', secondaryColor: '#44403c' },
+        dark: { primaryColor: '#fafafa', accentColor: '#ffffff', secondaryColor: '#b8b8c2' },
+        motion: {
+            fontStyle: 'sans',
+            animationIntensity: 'normal',
+            lyricRhythmScaleMultiplier: 1.0,
+            lyricGlowUsesAccent: false,
+        },
+    },
     {
         id: 'douyin-neon',
         labelKey: 'options.lyricColorPreset.douyinNeon',

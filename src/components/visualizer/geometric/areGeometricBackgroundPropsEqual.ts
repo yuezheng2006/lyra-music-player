@@ -26,6 +26,7 @@ export const areGeometricBackgroundPropsEqual = (
     if (prevProps.currentTime !== nextProps.currentTime) return false;
     if (prevProps.lines !== nextProps.lines) return false;
     if (prevProps.showLyrics !== nextProps.showLyrics) return false;
+    if (prevProps.immersiveLyrics !== nextProps.immersiveLyrics) return false;
     if (prevProps.playing !== nextProps.playing) return false;
     if (prevProps.atmosphereEnergy !== nextProps.atmosphereEnergy) return false;
 

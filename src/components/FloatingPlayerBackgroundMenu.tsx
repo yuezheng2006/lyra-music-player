@@ -15,6 +15,7 @@ import {
 } from './visualizer/geometric/mineradioVisualPresets';
 import { VISUALIZER_REGISTRY } from './visualizer/registry';
 import LyricColorPresetGrid from './shared/LyricColorPresetGrid';
+import { FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX } from './floatingPlayerDockLayout';
 import {
     resolveActiveLyricColorPresetId,
     type LyricColorPresetId,
@@ -37,6 +38,7 @@ type FloatingPlayerBackgroundMenuProps = {
     onVisualizerModeChange: (mode: VisualizerMode) => void;
     theme?: Theme | null;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
+    onOpenChange?: (open: boolean) => void;
     backgroundMenuLabel: string;
     modeInteractive3dLabel: string;
     modeCommonLabel: string;
@@ -85,6 +87,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
     onVisualizerModeChange,
     theme = null,
     onApplyLyricColorPreset,
+    onOpenChange,
     backgroundMenuLabel,
     modeInteractive3dLabel,
     modeCommonLabel,
@@ -101,6 +104,13 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
     const resolvedMode = resolveVisualizerBackgroundMode(visualizerBackgroundMode);
     const isInteractive3d = resolvedMode === 'interactive3d';
     const modeLabels = { modeInteractive3dLabel, modeCommonLabel, modeMonetLabel };
+
+    useEffect(() => {
+        onOpenChange?.(open);
+        return () => {
+            if (open) onOpenChange?.(false);
+        };
+    }, [onOpenChange, open]);
 
     useEffect(() => {
         if (!open) return;
@@ -136,18 +146,19 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                 <div
                     role="menu"
                     data-testid="floating-player-background-menu"
-                    className={`absolute bottom-[calc(100%+10px)] right-0 z-40 w-[248px] max-h-[min(70vh,420px)] overflow-y-auto overflow-x-hidden rounded-2xl border p-2 shadow-[0_18px_48px_rgba(0,0,0,0.35)] backdrop-blur-2xl ${
+                    className={`absolute right-0 z-40 w-[268px] overflow-visible rounded-2xl border p-2 pb-3 shadow-[0_18px_48px_rgba(0,0,0,0.35)] backdrop-blur-2xl ${
                         isDaylight
                             ? 'border-black/10 bg-white/92'
                             : 'border-white/12 bg-black/82'
                     }`}
+                    style={{ bottom: `calc(100% + ${FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX}px)` }}
                 >
-                    <div className={`mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                    <div className={`mb-1 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
                         isDaylight ? 'text-black/45' : 'text-white/45'
                     }`}>
                         {backgroundMenuLabel}
                     </div>
-                    <div className={`mb-2 grid grid-cols-3 gap-1 rounded-xl p-1 ${
+                    <div className={`mb-1.5 grid grid-cols-3 gap-1 rounded-xl p-1 ${
                         isDaylight ? 'bg-black/[0.04]' : 'bg-white/[0.06]'
                     }`}>
                         {DOCK_BACKGROUND_MODES.map(mode => {
@@ -160,7 +171,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                                     aria-checked={selected}
                                     data-testid={`floating-player-background-mode-${mode}`}
                                     onClick={() => onVisualizerBackgroundModeChange(mode)}
-                                    className={`rounded-lg px-1 py-1.5 text-[11px] font-semibold transition-colors ${optionButtonClass(selected, isDaylight)}`}
+                                    className={`rounded-lg px-1 py-1 text-[11px] font-semibold transition-colors ${optionButtonClass(selected, isDaylight)}`}
                                 >
                                     {getModeLabel(mode, modeLabels)}
                                 </button>
@@ -170,12 +181,12 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
 
                     {isInteractive3d ? (
                         <>
-                            <div className={`mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                            <div className={`mb-1 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
                                 isDaylight ? 'text-black/45' : 'text-white/45'
                             }`}>
                                 {presetSectionLabel}
                             </div>
-                            <div className="mb-2 grid grid-cols-3 gap-1">
+                            <div className="mb-1.5 grid grid-cols-3 gap-1">
                                 {INTERACTIVE3D_VISUAL_PRESET_OPTIONS.map(preset => {
                                     const selected = interactive3dSceneTuning.visualPreset === preset;
                                     return (
@@ -195,7 +206,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                                                     applyMineradioVisualPreset(preset, interactive3dSceneTuning),
                                                 );
                                             }}
-                                            className={`rounded-lg px-1 py-1.5 text-[11px] font-semibold transition-colors ${optionButtonClass(selected, isDaylight)}`}
+                                            className={`rounded-lg px-1 py-1 text-[11px] font-semibold transition-colors ${optionButtonClass(selected, isDaylight)}`}
                                         >
                                             {getPresetLabel(preset) || getMineradioPresetLabelFallback(preset)}
                                         </button>
@@ -205,12 +216,12 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                         </>
                     ) : null}
 
-                    <div className={`mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                    <div className={`mb-1 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
                         isDaylight ? 'text-black/45' : 'text-white/45'
                     }`}>
                         {lyricsStyleSectionLabel}
                     </div>
-                    <div className="mb-2 grid grid-cols-3 gap-1" data-testid="floating-player-lyrics-style-group">
+                    <div className="mb-1.5 grid grid-cols-4 gap-1" data-testid="floating-player-lyrics-style-group">
                         {VISUALIZER_REGISTRY.map(entry => {
                             const selected = entry.mode === visualizerMode;
                             return (
@@ -221,7 +232,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                                     aria-checked={selected}
                                     data-testid={`floating-player-lyrics-style-${entry.mode}`}
                                     onClick={() => onVisualizerModeChange(entry.mode)}
-                                    className={`rounded-lg px-1 py-1.5 text-[11px] font-semibold transition-colors ${optionButtonClass(selected, isDaylight)}`}
+                                    className={`rounded-lg px-0.5 py-1 text-[10px] font-semibold transition-colors ${optionButtonClass(selected, isDaylight)}`}
                                 >
                                     {getVisualizerLabel(entry.mode) || entry.labelFallback}
                                 </button>
@@ -231,7 +242,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
 
                     {onApplyLyricColorPreset ? (
                         <>
-                            <div className={`mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                            <div className={`mb-1 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
                                 isDaylight ? 'text-black/45' : 'text-white/45'
                             }`}>
                                 {lyricColorSectionLabel}
@@ -244,8 +255,8 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                                         isDaylight ? 'light' : 'dark',
                                     )}
                                     isDaylight={isDaylight}
-                                    className="grid-cols-2"
-                                    buttonClassName="w-full rounded-lg px-1.5 py-1.5"
+                                    className="grid-cols-3 gap-0.5"
+                                    buttonClassName="w-full rounded-lg px-1.5 py-1"
                                     inactiveButtonClassName={isDaylight
                                         ? 'text-black/65 hover:bg-black/5'
                                         : 'text-white/88 hover:bg-white/10'}

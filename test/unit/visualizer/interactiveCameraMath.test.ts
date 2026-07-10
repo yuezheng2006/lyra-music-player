@@ -10,13 +10,17 @@ import {
     GESTURE_DRAG_SPIN_X,
     GESTURE_DRAG_SPIN_Y,
     integrateFreeCameraMotion,
+    MINERADIO_ORBIT_FIT_FILL,
+    MINERADIO_ORBIT_SPHERE_RADIUS,
     ORBIT_DRAG_SENSITIVITY,
+    ORBIT_FIT_MAX_RADIUS,
     ORBIT_MAX_PHI,
     ORBIT_MAX_RADIUS,
     ORBIT_MIN_PHI,
     ORBIT_MIN_RADIUS,
     ORBIT_WHEEL_RADIUS_STEP,
     orbitToCameraPosition,
+    resolveOrbitFitCameraRadius,
 } from '@/components/visualizer/geometric/interactiveCamera/interactiveCameraMath';
 import { DEFAULT_INTERACTIVE_CAMERA_ORBIT } from '@/components/visualizer/geometric/interactiveCamera/interactiveCameraTypes';
 
@@ -107,5 +111,21 @@ describe('interactive camera math', () => {
         expect(position.x).toBeCloseTo(0, 6);
         expect(position.y).toBeCloseTo(0, 6);
         expect(position.z).toBeCloseTo(5, 6);
+    });
+
+    it('fits planet camera radius to the shorter viewport axis', () => {
+        const landscape = resolveOrbitFitCameraRadius({ fovDeg: 45, aspect: 16 / 9 });
+        const square = resolveOrbitFitCameraRadius({ fovDeg: 45, aspect: 1 });
+        const portrait = resolveOrbitFitCameraRadius({ fovDeg: 45, aspect: 0.6 });
+
+        expect(landscape).toBeGreaterThan(7.5);
+        expect(square).toBeCloseTo(landscape, 5);
+        expect(portrait).toBeGreaterThan(landscape);
+        expect(portrait).toBeLessThanOrEqual(ORBIT_FIT_MAX_RADIUS);
+
+        // Sphere should occupy ~fill of the short half-axis, not nearly fill the frame.
+        const halfFovTan = Math.tan((45 * Math.PI) / 360);
+        const fill = MINERADIO_ORBIT_SPHERE_RADIUS / (landscape * halfFovTan);
+        expect(fill).toBeCloseTo(MINERADIO_ORBIT_FIT_FILL, 5);
     });
 });

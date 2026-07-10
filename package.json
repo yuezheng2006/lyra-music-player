@@ -1,13 +1,12 @@
 {
   "name": "lyra-music-player",
   "productName": "Lyra",
-  "description": "Lyra — immersive multi-source music player with 3D stage and smart atmosphere",
+  "description": "Lyra (音波) — immersive multi-source lyric player with 3D stage",
   "author": {
     "name": "yuezheng2006",
     "email": "yuezheng2006@users.noreply.github.com"
   },
-  "private": true,
-  "version": "0.5.22",
+  "version": "1.0.1",
   "license": "AGPL-3.0",
   "type": "module",
   "main": "electron/main.cjs",
@@ -36,7 +35,7 @@
     "audit:lyrics-sources": "npx tsx test/manual/lyric-audit/index.ts",
     "probe:netease-xeapi": "node test/manual/netease_xeapi_probe.cjs",
     "stage:client": "vite --open /stage-client.html",
-    "dev:electron": "cross-env ELECTRON_DEV=true FOLIA_EXTERNAL_DEV_APIS=true FOLIA_DISABLE_SINGLE_INSTANCE_LOCK=true concurrently -k \"npm run dev:netease-api\" \"npm run dev:music-provider\" \"vite --port 3000 --strictPort\" \"wait-on tcp:3000 tcp:3001 tcp:3002 && electron .\"",
+    "dev:electron": "cross-env ELECTRON_DEV=true LYRA_EXTERNAL_DEV_APIS=true LYRA_DISABLE_SINGLE_INSTANCE_LOCK=true concurrently -k \"npm run dev:netease-api\" \"npm run dev:music-provider\" \"vite --port 3000 --strictPort\" \"wait-on tcp:3000 tcp:3001 tcp:3002 && electron .\"",
     "dev:electron:dist": "cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true vite build && electron .",
     "dev:electron:dist:swiftshader": "cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true FOLIA_LINUX_GRAPHICS_MODE=swiftshader vite build && electron .",
     "dev:electron:dist:software": "cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true FOLIA_LINUX_GRAPHICS_MODE=software vite build && electron .",
@@ -67,6 +66,10 @@
       "package.json",
       "build/miao.png",
       "build/thumbar/*.png"
+    ],
+    "asarUnpack": [
+      "scripts/music-provider-sidecar.cjs",
+      "scripts/music-provider-adapters/**/*"
     ],
     "extraResources": [
       {
