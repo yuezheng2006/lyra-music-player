@@ -300,7 +300,7 @@ npx vercel --prod
         <div class="max-w-2xl text-center">
             <h2 class="text-5xl font-bold mb-8">开始你的沉浸式音乐之旅</h2>
             <div class="flex gap-4 justify-center">
-                <a href="https://github.com/chthollyphile/folia-major" class="px-8 py-4 bg-white text-black rounded-full hover:bg-zinc-200">GitHub</a>
+                <a href="https://github.com/chthollyphile/lyra-music-player" class="px-8 py-4 bg-white text-black rounded-full hover:bg-zinc-200">GitHub</a>
                 <a href="https://your-vercel-url.vercel.app" class="px-8 py-4 border border-white rounded-full hover:bg-white/10">在线体验</a>
             </div>
         </div>
@@ -311,7 +311,7 @@ npx vercel --prod
 
 #### 选项 B: 使用现有文档站点
 
-- 已有网站：https://folia-site.vercel.app/guide/
+- 已有网站：https://lyra-site.vercel.app/guide/
 - 建议：在首页添加 Hackathon 专属横幅，嵌入演示视频
 
 ---

@@ -384,6 +384,7 @@ void main(){
     vColor = mix(defaultColor, coverColor, uHasCover) * (0.4 + depthFade * 0.7);
     maxRippleAmp = max(maxRippleAmp, abs(ripG) * 0.56 + uBass * 0.10 + uBeat * 0.08);
   } else if (uPreset < 8.5) {
+    // Mineradio orbit: sphere displacement + yaw only; keep cover color / vAlpha=1.
     float theta = aUv.x * 2.0 * PI;
     float phi = (aUv.y - 0.5) * PI;
     float baseR = 2.2;
@@ -399,13 +400,6 @@ void main(){
     float cy = cos(yaw);
     float sy = sin(yaw);
     pos.xz = mat2(cy, -sy, sy, cy) * pos.xz;
-
-    vec3 orbitColor = mix(defaultColor, coverColor, uHasCover);
-    float latitude = 0.5 + 0.5 * sin(phi * 6.0 + t * 0.8);
-    float rim = pow(abs(cos(phi)), 0.38);
-    vAlpha = 0.22 + rim * 0.62 + latitude * uTreble * 0.10;
-    vColor = mix(orbitColor, vec3(0.78, 0.92, 1.0), latitude * 0.16 + uBeat * 0.08) * (0.82 + rim * 0.34 + uBass * 0.08);
-    maxRippleAmp = max(maxRippleAmp, abs(trebFlare) * 0.26 + bassExpand * 0.18 + uBeat * 0.10);
   } else if (uPreset < 9.5) {
     pos = vec3((aUv.x - 0.5) * 0.01, (aUv.y - 0.5) * 0.01, -90.0);
     vAlpha = 0.0;
@@ -555,7 +549,8 @@ void main(){
     vBright = 0.94 + maxRippleAmp * 0.64 + uBass * 0.08 + edgeBoostFinal * 0.12 + uEnergy * 0.05 + uBeat * 0.16 + uBurstAmt * 0.16;
   } else if (uPreset > 8.5) {
     vBright = 0.0;
-  } else if (uPreset > 6.5 && uPreset < 8.5) {
+  } else if (uPreset > 6.5 && uPreset < 7.5) {
+    // Tunnel only; orbit (8) keeps the default vBright path like Mineradio.
     vBright = 0.88 + maxRippleAmp * 0.68 + uBass * 0.09 + uMid * 0.08 + uEnergy * 0.07 + uBeat * 0.14;
   } else if (uPreset > 5.5) {
     vBright = 0.82 + maxRippleAmp * 0.44 + uBass * 0.030 + uEnergy * 0.045 + uBurstAmt * 0.050 + uBeat * 0.07;
@@ -614,7 +609,8 @@ void main(){
     sz = clamp(depthSize * (0.90 + ringDrive * 0.62), 1.05, 3.90);
   } else if (uPreset > 8.5) {
     sz = 0.0;
-  } else if (uPreset > 6.5 && uPreset < 8.5) {
+  } else if (uPreset > 6.5 && uPreset < 7.5) {
+    // Tunnel only; orbit (8) keeps the default point-size path like Mineradio.
     float originalDrive = uBass * 0.12 + uMid * 0.10 + uTreble * 0.12 + uBeat * 0.12 + maxRippleAmp * 0.38;
     sz = clamp(depthSize * (1.00 + originalDrive * 0.48), 1.00, 5.20);
   } else if (uPreset > 5.5) {

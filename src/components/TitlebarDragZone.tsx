@@ -1,7 +1,8 @@
 import React from 'react';
+import { WINDOW_TRAFFIC_LIGHTS_WIDTH_PX } from './WindowControls';
 
 // src/components/TitlebarDragZone.tsx
-// Drag region for custom Electron chrome; keeps the sidebar strip clickable.
+// Drag region for custom Electron chrome; clears sidebar + left traffic lights.
 
 export default function TitlebarDragZone({
     active,
@@ -14,7 +15,7 @@ export default function TitlebarDragZone({
         <div
             className="absolute top-0 right-0 bottom-0 pointer-events-auto"
             style={{
-                left: 'var(--app-sidebar-width, 0px)',
+                left: `max(var(--app-sidebar-width, 0px), ${WINDOW_TRAFFIC_LIGHTS_WIDTH_PX}px)`,
                 WebkitAppRegion: 'drag',
             } as React.CSSProperties}
         />

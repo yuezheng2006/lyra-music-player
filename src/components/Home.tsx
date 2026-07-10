@@ -18,6 +18,7 @@ import { hasAnyOnlineMusicSession, hasNeteaseSession, hasQQMusicSession } from '
 import { resolveSearchableLibraryProviders } from '../utils/onlineSearchRouting';
 import { useOnlineGuestStore } from '../stores/useOnlineGuestStore';
 import { useShallow } from 'zustand/react/shallow';
+import { resolveHomeSolidBackgroundClass } from './app/home/homeSurfaceStyles';
 
 interface HomeProps {
     onPlaySong: (
@@ -163,8 +164,6 @@ const Home: React.FC<HomeProps> = ({
 }) => {
     const { t } = useTranslation();
     const isDaylight = useSettingsUiStore(state => state.isDaylight);
-    const visualizerBackgroundMode = useSettingsUiStore(state => state.visualizerBackgroundMode);
-    const isInteractive3dBackground = visualizerBackgroundMode === 'interactive3d';
     const {
         homeViewTab,
         searchQuery,
@@ -209,9 +208,8 @@ const Home: React.FC<HomeProps> = ({
         useOnlineGuestStore.getState().enter();
     }, []);
 
-    // Style Variants
-    const mainBg = isInteractive3dBackground ? 'bg-transparent' : isDaylight ? 'bg-white/40' : 'bg-black/20';
-    const mainBackdrop = isInteractive3dBackground ? '' : 'backdrop-blur-sm';
+    // Opaque home surface — do not let interactive3d / particle stage show through.
+    const mainBg = resolveHomeSolidBackgroundClass(isDaylight);
     const inputBg = isDaylight ? 'bg-black/5 focus:bg-black/10' : 'bg-white/5 focus:bg-white/10';
     // For pill nav container
     const navPillBg = isDaylight ? 'bg-black/5' : 'bg-white/10';
@@ -357,7 +355,7 @@ const Home: React.FC<HomeProps> = ({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
-                className={`relative w-full h-full flex flex-col font-sans overflow-hidden ${mainBg} pointer-events-auto ${mainBackdrop} overflow-y-auto custom-scrollbar`}
+                className={`relative w-full h-full flex flex-col font-sans overflow-hidden ${mainBg} pointer-events-auto overflow-y-auto custom-scrollbar`}
                 style={{ color: 'var(--text-primary)' }}
             >
                 {/* Header Section */}

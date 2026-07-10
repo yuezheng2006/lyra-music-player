@@ -1,8 +1,8 @@
 [Desktop Entry]
 Name=Lyra
 Comment=Sound, Stage, Sense
-Exec=folia-major
-Icon=folia-major
+Exec=lyra-music-player
+Icon=lyra-music-player
 Terminal=false
 Type=Application
 Categories=AudioVideo;Player;

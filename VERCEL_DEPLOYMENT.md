@@ -45,7 +45,7 @@ https://netease-cloud-music-api-example.vercel.app
 
 1. 点击 Deploy 按钮：
 
-   [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/chthollyphile/folia-major)
+   [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/chthollyphile/lyra-music-player)
 
 2. 登录/注册 Vercel 账号
 

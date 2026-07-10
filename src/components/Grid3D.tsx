@@ -16,6 +16,7 @@ import {
 } from '../types';
 import OnlineHomeFlatSurface from './folia-grid/OnlineHomeFlatSurface';
 import { createOnlinePlaylistGridViewCollection } from './app/home/gridViewCollectionAdapters';
+import { resolveHomeSolidBackgroundClass } from './app/home/homeSurfaceStyles';
 import OnlineProviderFilterBar from './shared/OnlineProviderFilterBar';
 import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterStore';
 import { hasNeteaseSession, hasQQMusicSession } from '../utils/onlineLibraryAccess';
@@ -112,8 +113,6 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
 
     const { t } = useTranslation();
     const isDaylight = useSettingsUiStore(state => state.isDaylight);
-    const visualizerBackgroundMode = useSettingsUiStore(state => state.visualizerBackgroundMode);
-    const isInteractive3dBackground = visualizerBackgroundMode === 'interactive3d';
     const searchProvider = useOnlineLibraryFilterStore(state => state.searchProvider);
     const moduleFilter = useOnlineLibraryFilterStore(state => state.moduleFilter);
     const playlistProviders = useOnlineLibraryFilterStore(state => state.playlistProviders);
@@ -215,14 +214,13 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         }
     };
 
-    const mainBg = isInteractive3dBackground ? 'bg-transparent' : isDaylight ? 'bg-white/40' : 'bg-black/20';
-    const mainBackdrop = isInteractive3dBackground ? '' : 'backdrop-blur-sm';
+    const mainBg = resolveHomeSolidBackgroundClass(isDaylight);
     const inputBg = isDaylight ? 'bg-black/5 focus:bg-black/10' : 'bg-white/5 focus:bg-white/10';
     const navPillBg = isDaylight ? 'bg-black/5' : 'bg-white/10';
     const navPillInactiveText = isDaylight ? 'text-black/60 hover:text-black' : 'text-white/60 hover:text-white';
 
     return (
-        <div className={`relative w-full h-full flex flex-col font-sans overflow-hidden ${mainBg} pointer-events-auto ${mainBackdrop}`} style={{ color: 'var(--text-primary)' }}>
+        <div className={`relative w-full h-full flex flex-col font-sans overflow-hidden ${mainBg} pointer-events-auto`} style={{ color: 'var(--text-primary)' }}>
             <div className="w-full max-w-7xl mx-auto z-20 relative p-4 md:p-6 pb-2">
                 <div className="grid grid-cols-2 md:grid-cols-3 items-center gap-y-4 md:gap-y-0">
                     {/* Brand/settings live in AppSidebar */}

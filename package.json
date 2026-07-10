@@ -1,5 +1,5 @@
 {
-  "name": "folia-major",
+  "name": "lyra-music-player",
   "productName": "Lyra",
   "description": "Lyra — immersive multi-source music player with 3D stage and smart atmosphere",
   "author": {
@@ -46,7 +46,7 @@
     "contributors:generate": "npx all-contributors-cli generate"
   },
   "build": {
-    "appId": "top.izuna.foliamajor",
+    "appId": "top.izuna.lyramusicplayer",
     "productName": "Lyra",
     "directories": {
       "output": "release"
@@ -55,7 +55,7 @@
       {
         "provider": "github",
         "owner": "chthollyphile",
-        "repo": "folia-major"
+        "repo": "lyra-music-player"
       }
     ],
     "files": [
@@ -86,8 +86,8 @@
         "to": "trayTemplate@2x.png"
       },
       {
-        "from": "packaging/linux/folia-major.desktop",
-        "to": "linux/folia-major.desktop"
+        "from": "packaging/linux/lyra-music-player.desktop",
+        "to": "linux/lyra-music-player.desktop"
       },
       {
         "from": "packaging/linux/README-LINUX.txt",
@@ -138,7 +138,7 @@
       },
       "icon": "build/icon.png",
       "category": "AudioVideo",
-      "executableName": "folia-major"
+      "executableName": "lyra-music-player"
     }
   },
   "dependencies": {

@@ -57,7 +57,7 @@ npm run build
 #### package.json
 ```json
 {
-  "name": "folia-major",
+  "name": "lyra-music-player",
   "productName": "Lyra",
   "description": "Lyra — immersive multi-source music player with 3D stage and smart atmosphere"
 }

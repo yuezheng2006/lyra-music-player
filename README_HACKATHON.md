@@ -170,7 +170,7 @@ vercel --prod
 ### 必须提供
 - [ ] **产品 Demo URL** - Vercel 部署的 Web 版本
 - [ ] **演示视频** - 3 分钟视频（YouTube/Bilibili 链接）
-- [ ] **GitHub 仓库** - https://github.com/chthollyphile/folia-major
+- [ ] **GitHub 仓库** - https://github.com/chthollyphile/lyra-music-player
 
 ### 强烈推荐
 - [ ] **展示页面** - `showcase.html`（部署到 Vercel）

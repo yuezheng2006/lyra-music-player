@@ -21,7 +21,7 @@ const isAppImageRuntime =
 const linuxGraphicsMode =
   process.platform !== 'linux'
     ? 'system'
-    : (process.env.FOLIA_LINUX_GRAPHICS_MODE || (isAppImageRuntime ? 'swiftshader' : 'system'));
+    : (process.env.LYRA_LINUX_GRAPHICS_MODE || (isAppImageRuntime ? 'swiftshader' : 'system'));
 
 // Fix for Arch Linux / Wayland & Vulkan compatibility issues
 if (process.platform === 'linux') {
@@ -130,8 +130,8 @@ const QQ_LOGIN_COOKIE_PRIORITY = [
 
 const DEFAULT_STAGE_API_PORT = 32107;
 const DEFAULT_OBS_BROWSER_SOURCE_PORT = 32108;
-const FOLIA_RELEASES_URL = 'https://github.com/chthollyphile/folia-major/releases';
-const FOLIA_LATEST_RELEASE_API_URL = 'https://api.github.com/repos/chthollyphile/folia-major/releases/latest';
+const LYRA_RELEASES_URL = 'https://github.com/chthollyphile/lyra-music-player/releases';
+const LYRA_LATEST_RELEASE_API_URL = 'https://api.github.com/repos/chthollyphile/lyra-music-player/releases/latest';
 const WINDOWS_APP_USER_MODEL_ID = 'top.izuna.foliamajor';
 const REMOTE_CONTROL_WINDOW_TITLE = 'Lyra Remote';
 const WINDOW_PLAYBACK_HANDOFF_REQUEST_TIMEOUT_MS = 800;
@@ -881,7 +881,7 @@ function ensureTray() {
   return appTray;
 }
 
-const shouldUseSingleInstanceLock = process.env.FOLIA_DISABLE_SINGLE_INSTANCE_LOCK !== 'true';
+const shouldUseSingleInstanceLock = process.env.LYRA_DISABLE_SINGLE_INSTANCE_LOCK !== 'true';
 const gotSingleInstanceLock = shouldUseSingleInstanceLock ? app.requestSingleInstanceLock() : true;
 
 if (shouldUseSingleInstanceLock) {
@@ -1305,7 +1305,7 @@ const updateState = {
   status: 'idle',
   currentVersion: normalizeVersion(app.getVersion()),
   availableVersion: null,
-  updateUrl: FOLIA_RELEASES_URL,
+  updateUrl: LYRA_RELEASES_URL,
   error: null,
   lastCheckedAt: null,
   downloadProgress: null,
@@ -1361,16 +1361,16 @@ async function fetchLatestReleaseMetadata() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
 
-  if (process.env.FOLIA_MOCK_UPDATE === 'true') {
+  if (process.env.LYRA_MOCK_UPDATE === 'true') {
     return {
       tag_name: 'v99.99.99',
-      html_url: 'https://github.com/chthollyphile/folia-major/releases/tag/v99.99.99',
+      html_url: 'https://github.com/chthollyphile/lyra-music-player/releases/tag/v99.99.99',
     };
   }
 
   try {
     const ses = await ensureSystemProxySession();
-    const response = await ses.fetch(FOLIA_LATEST_RELEASE_API_URL, {
+    const response = await ses.fetch(LYRA_LATEST_RELEASE_API_URL, {
       method: 'GET',
       headers: {
         Accept: 'application/vnd.github+json',
@@ -1489,7 +1489,7 @@ async function checkForUpdates({ manual = false } = {}) {
   try {
     const release = await fetchLatestReleaseMetadata();
     const latestVersion = normalizeVersion(release?.tag_name || release?.name);
-    const releaseUrl = typeof release?.html_url === 'string' ? release.html_url : FOLIA_RELEASES_URL;
+    const releaseUrl = typeof release?.html_url === 'string' ? release.html_url : LYRA_RELEASES_URL;
 
     if (!latestVersion) {
       throw new Error('Latest release did not include a version tag.');
@@ -1544,8 +1544,8 @@ function markUpdateSeen(version) {
 async function openUpdateReleasePage(version) {
   const normalizedVersion = normalizeVersion(version || updateState.availableVersion);
   const url = normalizedVersion
-    ? `${FOLIA_RELEASES_URL}/tag/v${normalizedVersion}`
-    : updateState.updateUrl || FOLIA_RELEASES_URL;
+    ? `${LYRA_RELEASES_URL}/tag/v${normalizedVersion}`
+    : updateState.updateUrl || LYRA_RELEASES_URL;
 
   await shell.openExternal(url);
   return true;
@@ -2235,7 +2235,7 @@ async function initializeNcmApiRuntime() {
 }
 
 function usesExternalDevApis() {
-  return process.env.FOLIA_EXTERNAL_DEV_APIS === 'true';
+  return process.env.LYRA_EXTERNAL_DEV_APIS === 'true';
 }
 
 // Dev mode reuses the same standalone Netease API / sidecar processes as `npm run dev:web`.
