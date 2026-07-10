@@ -17,7 +17,7 @@
   • 360+ 文件已更新
 
 技术重构：✅
-  • folia-major → lyra-music-player
+  • lyra-music-player → lyra-music-player
   • 所有配置文件已更新
 
 文档准备：✅
@@ -95,7 +95,7 @@ Slogan：Sound, Stage, Sense // 声随境转
 📋 Git 提交历史
 
 1. rebrand: Auralis → Lyra (天琴)
-2. refactor: rename folia-major to lyra-music-player
+2. refactor: rename lyra-music-player to lyra-music-player
 3. fix: update package-lock.json name field
 4. docs: add final checklist and username update script
 5. docs: add quick start guide

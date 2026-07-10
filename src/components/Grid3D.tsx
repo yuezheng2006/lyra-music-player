@@ -16,7 +16,13 @@ import {
 } from '../types';
 import OnlineHomeFlatSurface from './folia-grid/OnlineHomeFlatSurface';
 import { createOnlinePlaylistGridViewCollection } from './app/home/gridViewCollectionAdapters';
-import { resolveHomeSolidBackgroundClass } from './app/home/homeSurfaceStyles';
+import {
+    HOME_CONTENT_TOP_PADDING_CLASS,
+    HOME_FILTER_BOTTOM_PADDING_CLASS,
+    HOME_HEADER_BOTTOM_PADDING_CLASS,
+    HOME_HEADER_TOP_PADDING_CLASS,
+    resolveHomeSolidBackgroundClass,
+} from './app/home/homeSurfaceStyles';
 import OnlineProviderFilterBar from './shared/OnlineProviderFilterBar';
 import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterStore';
 import { hasNeteaseSession, hasQQMusicSession } from '../utils/onlineLibraryAccess';
@@ -221,7 +227,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
 
     return (
         <div className={`relative w-full h-full flex flex-col font-sans overflow-hidden ${mainBg} pointer-events-auto`} style={{ color: 'var(--text-primary)' }}>
-            <div className="w-full max-w-7xl mx-auto z-20 relative p-4 md:p-6 pb-2">
+            <div className={`w-full max-w-7xl mx-auto z-20 relative shrink-0 px-4 md:px-6 ${HOME_HEADER_TOP_PADDING_CLASS} ${HOME_HEADER_BOTTOM_PADDING_CLASS}`}>
                 <div className="grid grid-cols-2 md:grid-cols-3 items-center gap-y-4 md:gap-y-0">
                     {/* Brand/settings live in AppSidebar */}
                     <div className="flex items-center justify-start order-1 md:order-none min-h-10" />
@@ -261,7 +267,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                 </div>
             </div>
 
-            <div className="w-full pt-1 pb-2 shrink-0 relative z-30">
+            <div className={`w-full pt-1 ${HOME_FILTER_BOTTOM_PADDING_CLASS} shrink-0 relative z-30`}>
                 <OnlineProviderFilterBar
                     neteaseConnected={hasNeteaseLogin}
                     qqConnected={hasQQLogin}
@@ -269,7 +275,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                 />
             </div>
 
-            <div className="flex-1 min-h-0 relative">
+            <div className={`flex-1 min-h-0 relative ${HOME_CONTENT_TOP_PADDING_CLASS}`}>
                 <OnlineHomeFlatSurface
                     items={playlistCards}
                     isDaylight={isDaylight}

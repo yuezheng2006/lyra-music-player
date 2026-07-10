@@ -309,9 +309,14 @@ export default {
     "enterFullscreen": "Fullscreen play (window + fill)",
     "exitFullscreen": "Exit fullscreen play",
     "audioQuality": "Audio quality",
-    "backgroundMenu": "Background / Lyrics",
+    "backgroundMenu": "3D background / lyric style",
     "lyricsStyleSection": "Lyric style",
-    "lyricColorSection": "Lyric colors"
+    "lyricColorSection": "Lyric colors",
+    "previousTrack": "Previous track",
+    "nextTrack": "Next track",
+    "loopOff": "Loop: off",
+    "loopList": "Loop: list",
+    "loopOne": "Loop: one"
   },
   "gridView": {
     "layoutNeat": "Neat layout",

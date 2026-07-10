@@ -183,6 +183,13 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         hideLyricsLabel: t('player.hideLyrics'),
         listeningModeLabel: t('player.listeningMode'),
         backToPlaylistLabel: t('player.backToPlaylist'),
+        previousTrackLabel: t('player.previousTrack'),
+        nextTrackLabel: t('player.nextTrack'),
+        playLabel: t('player.play'),
+        pauseLabel: t('player.pause'),
+        loopOffLabel: t('player.loopOff'),
+        loopListLabel: t('player.loopList'),
+        loopOneLabel: t('player.loopOne'),
         isImmersiveFullscreen,
         onToggleImmersiveFullscreen: () => {
             toggleImmersiveFullscreen();

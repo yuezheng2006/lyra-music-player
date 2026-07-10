@@ -18,7 +18,13 @@ import { hasAnyOnlineMusicSession, hasNeteaseSession, hasQQMusicSession } from '
 import { resolveSearchableLibraryProviders } from '../utils/onlineSearchRouting';
 import { useOnlineGuestStore } from '../stores/useOnlineGuestStore';
 import { useShallow } from 'zustand/react/shallow';
-import { resolveHomeSolidBackgroundClass } from './app/home/homeSurfaceStyles';
+import {
+    HOME_FILTER_BOTTOM_PADDING_CLASS,
+    HOME_HEADER_BOTTOM_PADDING_CLASS,
+    HOME_HEADER_TOP_PADDING_CLASS,
+    resolveHomeContentBottomPaddingClass,
+    resolveHomeSolidBackgroundClass,
+} from './app/home/homeSurfaceStyles';
 
 interface HomeProps {
     onPlaySong: (
@@ -191,7 +197,7 @@ const Home: React.FC<HomeProps> = ({
     const showGuestConnect = viewTab === 'playlist' && !hasAnyOnlineLogin && !onlineGuestEntered;
     const showOnlineLibrary = viewTab === 'playlist' && (hasAnyOnlineLogin || onlineGuestEntered);
     const homeContentBottomPadding = currentTrack
-        ? 'pb-[calc(var(--app-player-bar-height,72px)+24px)]'
+        ? resolveHomeContentBottomPaddingClass(true)
         : '';
     const playlistCards = playlists;
     const homeSearchPlaceholder = searchableProviders.length > 1
@@ -360,7 +366,7 @@ const Home: React.FC<HomeProps> = ({
             >
                 {/* Header Section */}
                 {!isLocalPlaylistOpen && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 items-center w-full max-w-7xl mx-auto z-20 relative p-4 md:p-8 gap-y-4 md:gap-y-0">
+                    <div className={`grid grid-cols-2 md:grid-cols-3 items-center w-full max-w-7xl mx-auto z-20 relative shrink-0 px-4 md:px-8 ${HOME_HEADER_TOP_PADDING_CLASS} ${HOME_HEADER_BOTTOM_PADDING_CLASS} gap-y-4 md:gap-y-0`}>
                             {/* Left: scan progress only — brand/settings live in AppSidebar */}
                             <div className="flex items-center justify-start order-1 md:order-none min-h-10">
                                 {scanProgress?.active && (
@@ -471,7 +477,7 @@ const Home: React.FC<HomeProps> = ({
                         <OnlineMusicGuestConnect onRefreshUser={onRefreshUser} user={user} />
                     ) : showOnlineLibrary && viewTab === 'playlist' ? (
                         <>
-                            <div className="w-full pt-2 pb-4 relative z-30">
+                            <div className={`w-full pt-2 ${HOME_FILTER_BOTTOM_PADDING_CLASS} relative z-30 shrink-0`}>
                                 <OnlineProviderFilterBar
                                     neteaseConnected={hasNeteaseLogin}
                                     qqConnected={hasQQLogin}

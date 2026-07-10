@@ -106,6 +106,13 @@ type BuildAppOverlaysModelParams = {
     hideLyricsLabel: string;
     listeningModeLabel: string;
     backToPlaylistLabel?: string;
+    previousTrackLabel?: string;
+    nextTrackLabel?: string;
+    playLabel?: string;
+    pauseLabel?: string;
+    loopOffLabel?: string;
+    loopListLabel?: string;
+    loopOneLabel?: string;
     isImmersiveFullscreen?: boolean;
     onToggleImmersiveFullscreen?: () => void;
     enterFullscreenLabel?: string;
@@ -198,6 +205,13 @@ export const buildAppOverlaysModel = ({
     hideLyricsLabel,
     listeningModeLabel,
     backToPlaylistLabel = 'Back to playlist',
+    previousTrackLabel = 'Previous track',
+    nextTrackLabel = 'Next track',
+    playLabel = 'Play',
+    pauseLabel = 'Pause',
+    loopOffLabel = 'Loop: off',
+    loopListLabel = 'Loop: list',
+    loopOneLabel = 'Loop: one',
     isImmersiveFullscreen = false,
     onToggleImmersiveFullscreen,
     enterFullscreenLabel,
@@ -352,6 +366,13 @@ export const buildAppOverlaysModel = ({
             hideLyricsLabel,
             listeningModeLabel,
             backToPlaylistLabel,
+            previousTrackLabel,
+            nextTrackLabel,
+            playLabel,
+            pauseLabel,
+            loopOffLabel,
+            loopListLabel,
+            loopOneLabel,
             isImmersiveFullscreen,
             onToggleImmersiveFullscreen,
             enterFullscreenLabel,

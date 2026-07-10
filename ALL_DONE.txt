@@ -7,7 +7,7 @@
 📊 完成统计
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ 品牌重命名：Auralis → Lyra (天琴)
-✅ 技术重构：folia-major → lyra-music-player
+✅ 技术重构：lyra-music-player → lyra-music-player
 ✅ 文档准备：16 个完整指南
 ✅ 自动化脚本：4 个工具
 ✅ Git 提交：8 个 commits

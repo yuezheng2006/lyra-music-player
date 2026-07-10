@@ -14,7 +14,7 @@
 - ✅ 所有用户可见文本已更新
 
 ### 2. 技术名称重构
-- ✅ **folia-major → lyra-music-player**
+- ✅ **lyra-music-player → lyra-music-player**
 - ✅ package.json、Electron、打包配置全部更新
 - ✅ 目录和文件已重命名
 - ✅ wrangler.jsonc、.all-contributorsrc 已更新
@@ -65,7 +65,7 @@
 ## 📝 Git 提交历史
 
 1. `rebrand: Auralis → Lyra (天琴)` (653b228)
-2. `refactor: rename folia-major to lyra-music-player` (9b09ba0)
+2. `refactor: rename lyra-music-player to lyra-music-player` (9b09ba0)
 3. `fix: update package-lock.json name field` (d6fa910)
 4. `docs: add final checklist and username update script` (1f5d308)
 5. `docs: add quick start guide` (26dc04a)

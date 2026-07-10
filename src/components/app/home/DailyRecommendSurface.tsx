@@ -5,6 +5,7 @@ import type { SongResult } from '../../../types';
 import { fetchDailyRecommendSongs } from '../../../services/neteasePodcast';
 import type { NeteaseUser } from '../../../types';
 import OnlineProviderBadge from '../../shared/OnlineProviderBadge';
+import { resolveHomeContentBottomPaddingClass } from './homeSurfaceStyles';
 
 // src/components/app/home/DailyRecommendSurface.tsx
 // Netease daily recommend song list opened from the sidebar.
@@ -125,7 +126,7 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
                     {t('home.playAll')}
                 </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto pb-[calc(var(--app-player-bar-height,72px)+16px)]">
+            <div className={`min-h-0 flex-1 overflow-y-auto ${resolveHomeContentBottomPaddingClass(true)}`}>
                 <ul className="space-y-0.5">
                     {songs.map((song, index) => (
                         <li key={`${song.id}-${index}`}>

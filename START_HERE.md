@@ -7,7 +7,7 @@
 ## ✅ 已完成的工作
 
 1. ✅ **品牌重命名**：Auralis → Lyra (天琴)
-2. ✅ **技术重构**：folia-major → lyra-music-player
+2. ✅ **技术重构**：lyra-music-player → lyra-music-player
 3. ✅ **文档准备**：14 个完整指南
 4. ✅ **自动化脚本**：4 个工具
 5. ✅ **Git 提交**：4 个 commits

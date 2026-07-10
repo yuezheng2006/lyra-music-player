@@ -310,9 +310,14 @@ export default {
     "enterFullscreen": "全屏播放（窗口全屏 + 满屏）",
     "exitFullscreen": "退出全屏播放",
     "audioQuality": "音质",
-    "backgroundMenu": "背景 / 歌词",
+    "backgroundMenu": "3D 背景 / 歌词样式",
     "lyricsStyleSection": "歌词走位",
-    "lyricColorSection": "字体颜色"
+    "lyricColorSection": "字体颜色",
+    "previousTrack": "上一首",
+    "nextTrack": "下一首",
+    "loopOff": "循环：关闭",
+    "loopList": "循环：列表",
+    "loopOne": "循环：单曲"
   },
   "gridView": {
     "layoutNeat": "整齐布局",

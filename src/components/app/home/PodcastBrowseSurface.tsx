@@ -9,6 +9,7 @@ import {
     type NeteasePodcastRadio,
 } from '../../../services/neteasePodcast';
 import OnlineProviderBadge from '../../shared/OnlineProviderBadge';
+import { resolveHomeContentBottomPaddingClass } from './homeSurfaceStyles';
 
 // src/components/app/home/PodcastBrowseSurface.tsx
 // Sidebar podcast surface: hot/search radios → episode list → play.
@@ -162,7 +163,7 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
                     {t('home.podcastLoading')}
                 </div>
             ) : activeRadio ? (
-                <div className="min-h-0 flex-1 overflow-y-auto pb-[calc(var(--app-player-bar-height,72px)+16px)]">
+                <div className={`min-h-0 flex-1 overflow-y-auto ${resolveHomeContentBottomPaddingClass(true)}`}>
                     {loading && programs.length === 0 ? (
                         <div className={`flex items-center justify-center gap-2 py-16 text-sm ${muted}`}>
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -204,7 +205,7 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
                     )}
                 </div>
             ) : (
-                <div className="min-h-0 flex-1 overflow-y-auto pb-[calc(var(--app-player-bar-height,72px)+16px)]">
+                <div className={`min-h-0 flex-1 overflow-y-auto ${resolveHomeContentBottomPaddingClass(true)}`}>
                     {radios.length === 0 ? (
                         <div className={`py-16 text-center text-sm ${muted}`}>{t('home.podcastEmpty')}</div>
                     ) : (

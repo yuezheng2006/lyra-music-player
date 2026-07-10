@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { NeteasePlaylist, OnlineMusicProviderId } from '../../types';
 import { OnlineProviderBadge } from '../shared/OnlineProviderBadge';
 import { isProviderDefaultPlaylist } from '../../utils/onlineDefaultPlaylists';
+import { resolveHomeContentBottomPaddingClass } from '../app/home/homeSurfaceStyles';
 
 // src/components/folia-grid/OnlineHomeFlatSurface.tsx
 // Flat sectional home: glass playlist cards aligned with filter chrome.
@@ -97,7 +98,7 @@ const SectionTitle: React.FC<{ title: string; isDaylight: boolean; count?: numbe
     isDaylight,
     count,
 }) => (
-    <div className="mb-3.5 flex items-baseline gap-2">
+    <div className="mb-4 flex items-baseline gap-2">
         <h2 className={`text-[15px] md:text-base font-semibold tracking-tight ${isDaylight ? 'text-black/80' : 'text-white/88'}`}>
             {title}
         </h2>
@@ -167,10 +168,10 @@ export const OnlineHomeFlatSurface: React.FC<OnlineHomeFlatSurfaceProps> = ({
     return (
         <div
             className={`custom-scrollbar h-full min-h-0 w-full overflow-y-auto px-4 md:px-8 ${
-                hasFloatingPlayer ? 'pb-[calc(var(--app-player-bar-height,72px)+20px)]' : 'pb-12'
+                resolveHomeContentBottomPaddingClass(hasFloatingPlayer)
             }`}
         >
-            <div className="mx-auto max-w-6xl space-y-9 pt-1">
+            <div className="mx-auto max-w-6xl space-y-9">
                 <section>
                     <SectionTitle
                         title={primaryTitle}

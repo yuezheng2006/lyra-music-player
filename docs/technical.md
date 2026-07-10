@@ -2,7 +2,7 @@
 
 这份文档收纳仓库 README 中较细的部署、开发、桌面端和技术栈说明。更完整的使用指南也可以访问专门的文档站点：
 
-- [Lyra Guide](https://folia-site.vercel.app/guide/)
+- [Lyra Guide](https://lyra-site.vercel.app/guide/)
 - [Stage API 文档](../test/manual/stage-client/README.md)
 
 ## 桌面端说明
@@ -29,7 +29,7 @@ yay -S lyra-music-player-bin
 
 ```ini
 windowrule {
-  name = folia-remote
+  name = lyra-remote
   float = on
   size = 520 315
   center = on

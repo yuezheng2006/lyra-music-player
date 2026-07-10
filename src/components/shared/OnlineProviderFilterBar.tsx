@@ -150,7 +150,7 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
 
     return (
         <div
-            className="w-full max-w-6xl mx-auto px-4 md:px-6 space-y-3 pointer-events-auto"
+            className="w-full max-w-6xl mx-auto px-4 md:px-6 space-y-3.5 pointer-events-auto"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
             <div className="flex flex-wrap items-center gap-2.5">

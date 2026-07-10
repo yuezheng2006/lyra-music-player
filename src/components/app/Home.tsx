@@ -7,7 +7,10 @@ import { useSearchNavigationStore } from '../../stores/useSearchNavigationStore'
 import GridViewOverlayHost from './home/GridViewOverlayHost';
 import DailyRecommendSurface from './home/DailyRecommendSurface';
 import PodcastBrowseSurface from './home/PodcastBrowseSurface';
-import { resolveHomeSolidBackgroundClass } from './home/homeSurfaceStyles';
+import {
+    HOME_HEADER_TOP_PADDING_CLASS,
+    resolveHomeSolidBackgroundClass,
+} from './home/homeSurfaceStyles';
 import type { HomeViewModel } from './home/buildHomeModel';
 
 // App-level entry for the home surface backed by a view model.
@@ -30,7 +33,7 @@ const Home: React.FC<AppHomeProps> = ({ model, isHomeFullyHidden }) => {
         const solidBg = resolveHomeSolidBackgroundClass(isDaylight);
         return (
             <div
-                className={`relative z-20 flex h-full w-full flex-col overflow-hidden pt-6 pointer-events-auto ${solidBg}`}
+                className={`relative z-20 flex h-full w-full flex-col overflow-hidden ${HOME_HEADER_TOP_PADDING_CLASS} pointer-events-auto ${solidBg}`}
                 style={{ color: 'var(--text-primary)' }}
             >
                 {homeViewTab === 'daily' ? (

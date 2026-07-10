@@ -114,6 +114,13 @@ interface FloatingPlayerControlsProps {
     hideLyricsLabel?: string;
     listeningModeLabel?: string;
     backToPlaylistLabel?: string;
+    previousTrackLabel?: string;
+    nextTrackLabel?: string;
+    playLabel?: string;
+    pauseLabel?: string;
+    loopOffLabel?: string;
+    loopListLabel?: string;
+    loopOneLabel?: string;
     isImmersiveFullscreen?: boolean;
     onToggleImmersiveFullscreen?: () => void;
     enterFullscreenLabel?: string;
@@ -178,6 +185,13 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     hideLyricsLabel = 'Hide lyrics',
     listeningModeLabel = 'Listening mode',
     backToPlaylistLabel = 'Back to playlist',
+    previousTrackLabel = 'Previous track',
+    nextTrackLabel = 'Next track',
+    playLabel = 'Play',
+    pauseLabel = 'Pause',
+    loopOffLabel = 'Loop: off',
+    loopListLabel = 'Loop: list',
+    loopOneLabel = 'Loop: one',
     isImmersiveFullscreen = false,
     onToggleImmersiveFullscreen,
     enterFullscreenLabel = 'Fullscreen',
@@ -292,6 +306,13 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         hideLyricsLabel={hideLyricsLabel}
                         listeningModeLabel={listeningModeLabel}
                         backToPlaylistLabel={backToPlaylistLabel}
+                        previousTrackLabel={previousTrackLabel}
+                        nextTrackLabel={nextTrackLabel}
+                        playLabel={playLabel}
+                        pauseLabel={pauseLabel}
+                        loopOffLabel={loopOffLabel}
+                        loopListLabel={loopListLabel}
+                        loopOneLabel={loopOneLabel}
                         isImmersiveFullscreen={isImmersiveFullscreen}
                         onToggleImmersiveFullscreen={onToggleImmersiveFullscreen}
                         enterFullscreenLabel={enterFullscreenLabel}
@@ -374,6 +395,13 @@ type DockedBarProps = {
     hideLyricsLabel: string;
     listeningModeLabel: string;
     backToPlaylistLabel: string;
+    previousTrackLabel: string;
+    nextTrackLabel: string;
+    playLabel: string;
+    pauseLabel: string;
+    loopOffLabel: string;
+    loopListLabel: string;
+    loopOneLabel: string;
     isImmersiveFullscreen: boolean;
     onToggleImmersiveFullscreen?: () => void;
     enterFullscreenLabel: string;
@@ -433,6 +461,13 @@ const DockedBar: React.FC<DockedBarProps> = ({
     hideLyricsLabel,
     listeningModeLabel,
     backToPlaylistLabel,
+    previousTrackLabel,
+    nextTrackLabel,
+    playLabel,
+    pauseLabel,
+    loopOffLabel,
+    loopListLabel,
+    loopOneLabel,
     isImmersiveFullscreen,
     onToggleImmersiveFullscreen,
     enterFullscreenLabel,
@@ -623,7 +658,8 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         onClick={onToggleLoop}
                         disabled={controlsDisabled}
                         className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled, loopActive)}`}
-                        title="Loop"
+                        title={loopMode === 'off' ? loopOffLabel : loopMode === 'one' ? loopOneLabel : loopListLabel}
+                        aria-label={loopMode === 'off' ? loopOffLabel : loopMode === 'one' ? loopOneLabel : loopListLabel}
                     >
                         {loopMode === 'off'
                             ? <RepeatOff size={18} strokeWidth={1.9} />
@@ -638,7 +674,8 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         disabled={skipDisabled || !onPrevTrack}
                         className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, skipDisabled || !onPrevTrack)}`}
                         style={{ color: mutedTransportColor }}
-                        title="Previous"
+                        title={previousTrackLabel}
+                        aria-label={previousTrackLabel}
                     >
                         <SkipBack size={18} strokeWidth={1.9} />
                     </button>
@@ -657,6 +694,8 @@ const DockedBar: React.FC<DockedBarProps> = ({
                                 ? '0 8px 22px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)'
                                 : '0 0 0 1px rgba(255,255,255,0.28), 0 8px 24px rgba(0,0,0,0.28), 0 0 28px rgba(178,229,255,0.12)',
                         }}
+                        title={playerState === PlayerState.PLAYING ? pauseLabel : playLabel}
+                        aria-label={playerState === PlayerState.PLAYING ? pauseLabel : playLabel}
                     >
                         {playerState === PlayerState.PLAYING ? (
                             <Pause size={20} fill="currentColor" />
@@ -671,7 +710,8 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         disabled={skipDisabled || !onNextTrack}
                         className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, skipDisabled || !onNextTrack)}`}
                         style={{ color: mutedTransportColor }}
-                        title="Next"
+                        title={nextTrackLabel}
+                        aria-label={nextTrackLabel}
                     >
                         <SkipForward size={18} strokeWidth={1.9} />
                     </button>
