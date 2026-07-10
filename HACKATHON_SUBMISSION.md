@@ -300,7 +300,7 @@ npx vercel --prod
         <div class="max-w-2xl text-center">
             <h2 class="text-5xl font-bold mb-8">开始你的沉浸式音乐之旅</h2>
             <div class="flex gap-4 justify-center">
-                <a href="https://github.com/chthollyphile/lyra-music-player" class="px-8 py-4 bg-white text-black rounded-full hover:bg-zinc-200">GitHub</a>
+                <a href="https://github.com/yuezheng2006/lyra-music-player" class="px-8 py-4 bg-white text-black rounded-full hover:bg-zinc-200">GitHub</a>
                 <a href="https://your-vercel-url.vercel.app" class="px-8 py-4 border border-white rounded-full hover:bg-white/10">在线体验</a>
             </div>
         </div>

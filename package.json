@@ -3,8 +3,8 @@
   "productName": "Lyra",
   "description": "Lyra — immersive multi-source music player with 3D stage and smart atmosphere",
   "author": {
-    "name": "chthollyphile",
-    "email": "chthollyphile@users.noreply.github.com"
+    "name": "yuezheng2006",
+    "email": "yuezheng2006@users.noreply.github.com"
   },
   "private": true,
   "version": "0.5.22",
@@ -54,7 +54,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "chthollyphile",
+        "owner": "yuezheng2006",
         "repo": "lyra-music-player"
       }
     ],

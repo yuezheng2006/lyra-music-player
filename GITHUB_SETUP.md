@@ -153,7 +153,7 @@ https://github.com/YOUR_USERNAME/Lyra
 
 ```bash
 # 替换所有文档中的旧仓库地址
-OLD_REPO="chthollyphile/lyra-music-player"
+OLD_REPO="yuezheng2006/lyra-music-player"
 NEW_REPO="YOUR_USERNAME/lyra-music-player"
 
 find . -type f \( -name "*.md" -o -name "*.json" -o -name "*.html" \) \

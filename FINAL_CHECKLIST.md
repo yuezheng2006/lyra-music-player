@@ -33,7 +33,7 @@
 
 ## ⚠️ 最后一步：更新 GitHub 用户名
 
-当前所有文档中的 GitHub 链接仍然是 `chthollyphile/lyra-music-player`，需要更新为你的用户名。
+当前所有文档中的 GitHub 链接仍然是 `yuezheng2006/lyra-music-player`，需要更新为你的用户名。
 
 ---
 
@@ -50,7 +50,7 @@
 
 **或者手动替换：**
 在 VSCode 中：
-1. 全局搜索：`chthollyphile`
+1. 全局搜索：`yuezheng2006`
 2. 全局替换为：你的 GitHub 用户名
 3. 保存所有文件
 

@@ -342,7 +342,7 @@
   ```
 - 下方显示：
   - 网站 URL：`lyra.app`
-  - GitHub：`github.com/chthollyphile/lyra-music-player`
+  - GitHub：`github.com/yuezheng2006/lyra-music-player`
   - QR 码（可扫码访问）
 - 社交媒体图标（可选）
 
@@ -624,7 +624,7 @@
 React 19 | Three.js | Framer Motion | Electron | TypeScript
 
 🔗 立即体验：https://your-app.vercel.app
-📦 开源地址：https://github.com/chthollyphile/lyra-music-player
+📦 开源地址：https://github.com/yuezheng2006/lyra-music-player
 
 #音乐播放器 #开源项目 #Web3D #Hackathon2026
 ```

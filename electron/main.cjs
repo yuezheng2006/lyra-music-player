@@ -130,8 +130,8 @@ const QQ_LOGIN_COOKIE_PRIORITY = [
 
 const DEFAULT_STAGE_API_PORT = 32107;
 const DEFAULT_OBS_BROWSER_SOURCE_PORT = 32108;
-const LYRA_RELEASES_URL = 'https://github.com/chthollyphile/lyra-music-player/releases';
-const LYRA_LATEST_RELEASE_API_URL = 'https://api.github.com/repos/chthollyphile/lyra-music-player/releases/latest';
+const LYRA_RELEASES_URL = 'https://github.com/yuezheng2006/lyra-music-player/releases';
+const LYRA_LATEST_RELEASE_API_URL = 'https://api.github.com/repos/yuezheng2006/lyra-music-player/releases/latest';
 const WINDOWS_APP_USER_MODEL_ID = 'top.izuna.foliamajor';
 const REMOTE_CONTROL_WINDOW_TITLE = 'Lyra Remote';
 const WINDOW_PLAYBACK_HANDOFF_REQUEST_TIMEOUT_MS = 800;
@@ -1364,7 +1364,7 @@ async function fetchLatestReleaseMetadata() {
   if (process.env.LYRA_MOCK_UPDATE === 'true') {
     return {
       tag_name: 'v99.99.99',
-      html_url: 'https://github.com/chthollyphile/lyra-music-player/releases/tag/v99.99.99',
+      html_url: 'https://github.com/yuezheng2006/lyra-music-player/releases/tag/v99.99.99',
     };
   }
 
