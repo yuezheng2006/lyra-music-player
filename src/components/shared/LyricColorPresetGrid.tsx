@@ -1,4 +1,5 @@
 import React from 'react';
+import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
     LYRIC_COLOR_PRESETS,
@@ -52,21 +53,27 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
                         type="button"
                         data-testid={`lyric-color-preset-${preset.id}`}
                         aria-pressed={isActive}
+                        aria-current={isActive ? 'true' : undefined}
                         onClick={() => onSelect(preset.id)}
-                        className={`rounded-lg px-2.5 py-2 text-left transition-all ${buttonClassName} ${isActive ? resolvedActive : resolvedInactive}`.trim()}
+                        className={`relative rounded-lg px-2.5 py-2 text-left transition-all ${buttonClassName} ${isActive ? resolvedActive : resolvedInactive}`.trim()}
                         title={label}
                     >
-                        <span className="mb-1.5 flex gap-1" aria-hidden>
-                            {[preset.light.primaryColor, preset.light.accentColor, preset.dark.accentColor].map(color => (
-                                <span
-                                    key={color}
-                                    className="h-2.5 w-2.5 rounded-full"
-                                    style={{
-                                        backgroundColor: color,
-                                        boxShadow: isActive ? `0 0 10px ${color}` : undefined,
-                                    }}
-                                />
-                            ))}
+                        <span className="mb-1.5 flex items-center justify-between gap-1" aria-hidden>
+                            <span className="flex gap-1">
+                                {[preset.light.primaryColor, preset.light.accentColor, preset.dark.accentColor].map(color => (
+                                    <span
+                                        key={color}
+                                        className="h-2.5 w-2.5 rounded-full"
+                                        style={{
+                                            backgroundColor: color,
+                                            boxShadow: isActive ? `0 0 10px ${color}` : undefined,
+                                        }}
+                                    />
+                                ))}
+                            </span>
+                            {isActive ? (
+                                <Check size={12} strokeWidth={2.6} className="shrink-0 opacity-90" />
+                            ) : null}
                         </span>
                         <span
                             className={`block min-w-0 truncate text-[11px] font-semibold ${isActive ? '' : 'opacity-95'}`}

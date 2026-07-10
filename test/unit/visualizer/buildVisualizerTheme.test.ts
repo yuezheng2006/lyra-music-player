@@ -28,7 +28,9 @@ describe('buildVisualizerTheme', () => {
         });
 
         expect(visualizerTheme.backgroundColor).toBe(DEFAULT_THEME.backgroundColor);
-        expect(visualizerTheme.primaryColor).toBe(DEFAULT_THEME.primaryColor);
+        expect(visualizerTheme.primaryColor).toBe(daylightTheme.primaryColor);
+        expect(visualizerTheme.accentColor).toBe(daylightTheme.accentColor);
+        expect(visualizerTheme.secondaryColor).toBe(daylightTheme.secondaryColor);
         expect(visualizerTheme.fontStyle).toBe('serif');
     });
 
@@ -45,5 +47,28 @@ describe('buildVisualizerTheme', () => {
 
         expect(visualizerTheme.backgroundColor).toBe(daylightTheme.backgroundColor);
         expect(visualizerTheme.primaryColor).toBe(daylightTheme.primaryColor);
+    });
+
+    it('preserves lyric colors from the app theme on the interactive3d stage', () => {
+        const lyricTheme: Theme = {
+            ...daylightTheme,
+            primaryColor: '#f8fbff',
+            accentColor: '#12f7d6',
+            secondaryColor: '#ff3b6b',
+        };
+        const { visualizerTheme } = buildVisualizerTheme({
+            appStyle: { '--bg-color': lyricTheme.backgroundColor },
+            theme: lyricTheme,
+            lyricsFontStyle: 'sans',
+            lyricsCustomFontFamily: null,
+            currentSongId: 2,
+            visualizerMode: 'fume',
+            visualizerBackgroundMode: 'interactive3d',
+        });
+
+        expect(visualizerTheme.backgroundColor).toBe(DEFAULT_THEME.backgroundColor);
+        expect(visualizerTheme.primaryColor).toBe('#f8fbff');
+        expect(visualizerTheme.accentColor).toBe('#12f7d6');
+        expect(visualizerTheme.secondaryColor).toBe('#ff3b6b');
     });
 });

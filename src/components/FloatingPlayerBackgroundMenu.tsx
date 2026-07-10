@@ -16,7 +16,7 @@ import {
 import { VISUALIZER_REGISTRY } from './visualizer/registry';
 import LyricColorPresetGrid from './shared/LyricColorPresetGrid';
 import {
-    matchLyricColorPresetId,
+    resolveActiveLyricColorPresetId,
     type LyricColorPresetId,
 } from '../utils/theme/lyricColorPresets';
 
@@ -239,7 +239,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                             <div className={`rounded-xl p-1 ${isDaylight ? 'bg-black/[0.04]' : 'bg-white/[0.06]'}`}>
                                 <LyricColorPresetGrid
                                     onSelect={onApplyLyricColorPreset}
-                                    activePresetId={matchLyricColorPresetId(
+                                    activePresetId={resolveActiveLyricColorPresetId(
                                         theme,
                                         isDaylight ? 'light' : 'dark',
                                     )}
@@ -248,10 +248,10 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                                     buttonClassName="w-full rounded-lg px-1.5 py-1.5"
                                     inactiveButtonClassName={isDaylight
                                         ? 'text-black/65 hover:bg-black/5'
-                                        : 'text-white/78 hover:bg-white/10'}
+                                        : 'text-white/88 hover:bg-white/10'}
                                     activeButtonClassName={isDaylight
-                                        ? 'bg-black/12 text-black'
-                                        : 'bg-white/18 text-white'}
+                                        ? 'bg-white text-stone-950 shadow-sm ring-1 ring-black/10'
+                                        : 'bg-white text-zinc-950 shadow-sm ring-1 ring-white/35'}
                                 />
                             </div>
                         </>

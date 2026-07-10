@@ -13,7 +13,7 @@ import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
 import {
     applyLyricColorPresetToDualTheme,
     getLyricColorPresetById,
-    matchLyricColorPresetId,
+    resolveActiveLyricColorPresetId,
     type LyricColorPresetId,
 } from '../../utils/theme/lyricColorPresets';
 import { useThemeQuickEditorStore, type ThemeQuickEditorKind } from '../../stores/useThemeQuickEditorStore';
@@ -535,7 +535,7 @@ const ThemeQuickEditor: React.FC<ThemeQuickEditorProps> = ({
                                     </p>
                                     <LyricColorPresetGrid
                                         onSelect={applyLyricColorPreset}
-                                        activePresetId={matchLyricColorPresetId(activeTheme, mode)}
+                                        activePresetId={resolveActiveLyricColorPresetId(activeTheme, mode)}
                                         isDaylight={isDaylight}
                                         inactiveButtonClassName={`text-current opacity-95 hover:opacity-100 ${allTransitionClass}`}
                                         activeButtonClassName={`bg-white/90 text-stone-950 shadow-sm ring-1 ring-black/10 ${allTransitionClass}`}

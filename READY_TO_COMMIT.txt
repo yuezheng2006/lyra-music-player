@@ -18,7 +18,7 @@ GitHub 用户：yuezheng2006
    • 所有文档已更新
 
 2. 技术重构
-   • folia-major → lyra-music-player
+   • lyra-music-player → lyra-music-player
    • 所有配置已更新
 
 3. GitHub 用户名

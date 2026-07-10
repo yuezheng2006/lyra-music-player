@@ -30,10 +30,17 @@ export const buildVisualizerTheme = ({
         : String(appStyle['--bg-color']);
     return {
         visualizerTheme: {
+            // Interactive3d keeps a dark stage wash, but lyric text colors must stay on the
+            // active app theme so preset chips / on-stage lyrics stay in sync.
             ...(useDarkInteractive3dStage ? DEFAULT_THEME : theme),
+            primaryColor: theme.primaryColor,
+            accentColor: theme.accentColor,
+            secondaryColor: theme.secondaryColor,
             fontStyle: lyricsFontStyle,
             fontFamily: lyricsCustomFontFamily ?? undefined,
             backgroundColor: visualizerBackgroundColor,
+            lyricRhythmScaleMultiplier: theme.lyricRhythmScaleMultiplier,
+            lyricGlowUsesAccent: theme.lyricGlowUsesAccent,
         },
         visualizerGeometrySeed: currentSongId ?? `geometry-${visualizerMode}`,
     };

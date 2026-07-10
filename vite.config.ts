@@ -83,7 +83,7 @@ function readDevRequestBody(req: import('http').IncomingMessage): Promise<Buffer
 
 function devLyricProxyPlugin() {
   return {
-    name: 'folia-dev-lyric-proxy',
+    name: 'lyra-dev-lyric-proxy',
     apply: 'serve' as const,
     configureServer(server: ViteDevServer) {
       server.middlewares.use(async (req, res, next) => {
@@ -202,7 +202,7 @@ export default async function viteConfig({ mode }: ConfigEnv): Promise<UserConfi
     }
   }
 
-  const appVersionLabel = process.env.APP_VERSION_LABEL?.trim() || 'folia-major';
+  const appVersionLabel = process.env.APP_VERSION_LABEL?.trim() || 'lyra-music-player';
 
   return {
     base: process.env.ELECTRON === 'true' ? './' : '/',

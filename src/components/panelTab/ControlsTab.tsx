@@ -11,7 +11,7 @@ import ControlsTabPlayerBackgroundSection from './ControlsTabPlayerBackgroundSec
 import { getControlsTabOptionButtonClass, getControlsTabOptionStyles } from './controlsTabOptionStyles';
 import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
 import {
-    matchLyricColorPresetId,
+    resolveActiveLyricColorPresetId,
     type LyricColorPresetId,
 } from '../../utils/theme/lyricColorPresets';
 
@@ -300,7 +300,7 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                             <div className={`${wellBg} p-1 rounded-xl`}>
                                 <LyricColorPresetGrid
                                     onSelect={onApplyLyricColorPreset}
-                                    activePresetId={matchLyricColorPresetId(
+                                    activePresetId={resolveActiveLyricColorPresetId(
                                         theme,
                                         isDaylight ? 'light' : 'dark',
                                     )}

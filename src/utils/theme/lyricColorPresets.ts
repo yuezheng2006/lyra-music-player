@@ -161,6 +161,21 @@ export const readStoredLyricColorPresetId = (): LyricColorPresetId | null => {
     return getLyricColorPresetById(stored)?.id ?? null;
 };
 
+/**
+ * Active chip for lyric-color UI: prefer exact color match, then the last applied preset id.
+ * Stored id alone keeps selection visible after theme source / stage remaps.
+ */
+export const resolveActiveLyricColorPresetId = (
+    theme: Pick<Theme, 'primaryColor' | 'accentColor' | 'secondaryColor'> | null | undefined,
+    mode: 'light' | 'dark' = 'dark',
+    storedPresetId?: LyricColorPresetId | null,
+): LyricColorPresetId | null => {
+    const matched = matchLyricColorPresetId(theme, mode);
+    if (matched) return matched;
+    const stored = storedPresetId === undefined ? readStoredLyricColorPresetId() : storedPresetId;
+    return stored && getLyricColorPresetById(stored) ? stored : null;
+};
+
 export const saveStoredLyricColorPresetId = (presetId: LyricColorPresetId | null) => {
     if (typeof window === 'undefined') return;
     if (!presetId) {

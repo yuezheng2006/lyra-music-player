@@ -4,6 +4,7 @@ import {
     getLyricColorPresetById,
     LYRIC_COLOR_PRESETS,
     matchLyricColorPresetId,
+    resolveActiveLyricColorPresetId,
 } from '@/utils/theme/lyricColorPresets';
 
 const baseDualTheme = {
@@ -79,5 +80,14 @@ describe('lyricColorPresets', () => {
         expect(matchLyricColorPresetId(next.light, 'light')).toBe('douyin-neon');
         expect(matchLyricColorPresetId(next.dark, 'dark')).toBe('douyin-neon');
         expect(matchLyricColorPresetId(baseDualTheme.light, 'light')).toBeNull();
+    });
+
+    it('falls back to the stored preset id when theme colors no longer match', () => {
+        expect(resolveActiveLyricColorPresetId(baseDualTheme.dark, 'dark', 'xhs-note-red')).toBe('xhs-note-red');
+        expect(resolveActiveLyricColorPresetId(baseDualTheme.dark, 'dark', null)).toBeNull();
+
+        const preset = getLyricColorPresetById('douyin-purple')!;
+        const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset);
+        expect(resolveActiveLyricColorPresetId(next.dark, 'dark', 'xhs-note-red')).toBe('douyin-purple');
     });
 });
