@@ -9,6 +9,7 @@ const { createStageApi } = require('./stageApi.cjs');
 const { createWindowPlaybackHandoffStore } = require('./windowPlaybackHandoff.cjs');
 const { DEFAULT_DISCORD_APPLICATION_ID, createDiscordPresenceController } = require('./discordPresence.cjs');
 const { createDesktopLyricsController } = require('./desktopLyrics.cjs');
+const { startResilientLocalApi } = require('./resilientApiStartup.cjs');
 const { sanitizeDualTheme: sanitizeGeneratedDualTheme } = require('../shared/themeSanitizer.cjs');
 const {
   isAllowedLyricProxyHost,
@@ -2161,18 +2162,6 @@ let neteaseApiStatus = {
   updatedAt: Date.now(),
 };
 
-function serializeError(error) {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  if (typeof error === 'string' && error.trim()) {
-    return error;
-  }
-
-  return 'Unknown error';
-}
-
 function updateNeteaseApiStatus(nextStatus) {
   neteaseApiStatus = {
     ...neteaseApiStatus,
@@ -2201,14 +2190,17 @@ async function getFreePort() {
   });
 }
 
-// Initializes the Netease API runtime files before the local server starts handling requests.
-async function initializeNcmApiRuntime() {
+// Prepares everything the local server needs without requiring network access.
+function prepareLocalNcmApiRuntime() {
   global.cnIp = generateRandomChineseIP();
 
   if (!global.deviceId) {
     global.deviceId = generateDeviceId();
   }
+}
 
+// Remote credentials improve API coverage but must never prevent the local server from starting.
+async function bootstrapRemoteNcmApiRuntime() {
   let currentPublicKey = {};
   if (fs.existsSync(xeapiPublicKeyPath)) {
     try {
@@ -2259,16 +2251,22 @@ const waitForNeteaseApiPort = async (timeoutMs = 30000) => {
 };
 
 async function startApi() {
-  updateNeteaseApiStatus({ status: 'starting', port: null, error: null });
   try {
-    const freePort = await getFreePort();
-    await initializeNcmApiRuntime();
-    await serveNcmApi({ port: freePort });
-    assignedPort = freePort;
-    updateNeteaseApiStatus({ status: 'running', port: assignedPort, error: null });
+    assignedPort = await startResilientLocalApi({
+      getFreePort,
+      prepareLocalRuntime: prepareLocalNcmApiRuntime,
+      bootstrapRemoteRuntime: bootstrapRemoteNcmApiRuntime,
+      serve: port => serveNcmApi({ port }),
+      updateStatus: updateNeteaseApiStatus,
+      onBootstrapWarning: (error, phase) => {
+        console.warn(
+          `[Netease API] Remote bootstrap ${phase}; starting local API with cached credentials`,
+          error,
+        );
+      },
+    });
     console.log('Netease API started on port', assignedPort);
   } catch (e) {
-    updateNeteaseApiStatus({ status: 'error', port: null, error: serializeError(e) });
     console.error('Failed to start Netease API', e);
   }
 }

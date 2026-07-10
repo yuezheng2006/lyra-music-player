@@ -699,7 +699,7 @@ const MonetRailLine: React.FC<{
                     maskSize: '100% 100%',
                     textShadow: entry.status === 'active'
                         ? `0 16px 42px ${colorWithAlpha(theme.backgroundColor, 0.32)}, 0 0 28px ${colorWithAlpha(activeColor, 0.22)}`
-                        : entry.status === 'upcoming'
+                        : entry.status === 'waiting'
                             ? `0 10px 24px ${colorWithAlpha(theme.backgroundColor, 0.18)}`
                             : 'none',
                 }}
