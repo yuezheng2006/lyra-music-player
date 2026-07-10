@@ -278,6 +278,39 @@ describe('localMusicService', () => {
         ]);
     });
 
+    it('prompts to rebind the root handle when a resync has no persisted directory', async () => {
+        const selectedHandle = createLibraryHandle('rebound-root');
+        vi.mocked(getDirHandles).mockResolvedValue({});
+        vi.mocked((window as any).showDirectoryPicker).mockResolvedValue(selectedHandle as unknown as FileSystemDirectoryHandle);
+
+        const importedSongs = await resyncFolder('Music');
+
+        expect(importedSongs).toHaveLength(1);
+        expect((window as any).showDirectoryPicker).toHaveBeenCalledTimes(1);
+        expect(saveDirHandles).toHaveBeenCalledWith({ Music: selectedHandle });
+        expect(saveLocalSongs).toHaveBeenCalledWith([
+            expect.objectContaining<Partial<LocalSong>>({
+                filePath: 'Music/Disc 1/Track 01.mp3',
+                folderName: 'Music/Disc 1',
+            }),
+        ]);
+    });
+
+    it('prompts to rebind the root handle when persisted permission is denied', async () => {
+        const deniedHandle = createLibraryHandle('denied-root');
+        deniedHandle.queryPermission = async () => 'denied' as PermissionState;
+        deniedHandle.requestPermission = async () => 'denied' as PermissionState;
+        const reboundHandle = createLibraryHandle('rebound-root');
+        vi.mocked(getDirHandles).mockResolvedValue({ Music: deniedHandle as unknown as FileSystemDirectoryHandle });
+        vi.mocked((window as any).showDirectoryPicker).mockResolvedValue(reboundHandle as unknown as FileSystemDirectoryHandle);
+
+        const importedSongs = await resyncFolder('Music');
+
+        expect(importedSongs).toHaveLength(1);
+        expect((window as any).showDirectoryPicker).toHaveBeenCalledTimes(1);
+        expect(saveDirHandles).toHaveBeenCalledWith({ Music: reboundHandle });
+    });
+
     it('deduplicates nested folders before rescanning all imported roots', async () => {
         const musicHandle = createLibraryHandle('music-root');
         const otherHandle = createLibraryHandle('other-root');

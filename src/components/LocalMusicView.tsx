@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { FolderOpen, Music, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LocalSong, LocalLibraryGroup, LocalPlaylist } from '../types';
-import { importFolder, matchLyrics, resyncAllFolders, resyncFolder, deleteFolderSongs, LOCAL_MUSIC_SCAN_PROGRESS_EVENT } from '../services/localMusicService';
+import { importFolder, listImportedLocalRootFolderNames, matchLyrics, resyncAllFolders, resyncFolder, deleteFolderSongs, LOCAL_MUSIC_SCAN_PROGRESS_EVENT } from '../services/localMusicService';
 import LyricMatchModal from './modal/LyricMatchModal';
 import LocalPlaylistView from './local/LocalPlaylistView';
+import LocalFolderRescanMenu, { LocalFolderRescanTarget } from './local/LocalFolderRescanMenu';
 import Carousel3D from './Carousel3D';
 import LocalArtistView from './local/LocalArtistView';
 import { deleteLocalPlaylist, updateLocalPlaylist } from '../services/localPlaylistService';
@@ -88,6 +89,7 @@ const LocalMusicView: React.FC<LocalMusicViewProps> = ({
 
     const [isImporting, setIsImporting] = useState(false);
     const [isScanInProgress, setIsScanInProgress] = useState(false);
+    const [isResyncingFocusedFolder, setIsResyncingFocusedFolder] = useState(false);
     const [matchingLyricsFor, setMatchingLyricsFor] = useState<string | null>(null);
     const [showMatchModal, setShowMatchModal] = useState(false);
     const [selectedSong, setSelectedSong] = useState<LocalSong | null>(null);
@@ -423,8 +425,6 @@ const LocalMusicView: React.FC<LocalMusicViewProps> = ({
         if (!selectedGroup || selectedGroup.type !== 'folder' || selectedGroup.isVirtual) return;
 
         try {
-            // Re-import the selected folder and its nested children
-            // Pass the folder name so we delete the whole tree on success
             const importedSongs = await resyncFolder(selectedGroup.name);
 
             // If user cancelled, do nothing and keep existing folder intact
@@ -432,17 +432,36 @@ const LocalMusicView: React.FC<LocalMusicViewProps> = ({
                 return;
             }
 
-            // Log result
-            if (importedSongs.length === 0) {
-                console.warn('[LocalMusic] No songs imported during resync');
-            } else {
-                console.log(`[LocalMusic] Successfully re-imported ${importedSongs.length} songs`);
-            }
-
-            await onRefresh(); // Refresh the UI to show updated songs while keeping the current playlist view open
+            console.log(`[LocalMusic] Successfully rescanned ${importedSongs.length} songs`);
+            setNeedsPermission(false);
+            await onRefresh();
         } catch (error) {
             console.error('Failed to resync folder:', error);
             alert(t('localMusic.resyncFailed'));
+        }
+    };
+
+    // Rescans one imported root, or every root when target is "all".
+    const handleRescanFolderTarget = async (target: LocalFolderRescanTarget) => {
+        if (isScanInProgress || isResyncingFocusedFolder) return;
+
+        setIsResyncingFocusedFolder(true);
+        try {
+            const importedSongs = target === 'all'
+                ? await resyncAllFolders()
+                : await resyncFolder(target);
+
+            if (importedSongs === null) {
+                return;
+            }
+
+            setNeedsPermission(false);
+            await onRefresh();
+        } catch (error) {
+            console.error('Failed to rescan folder:', error);
+            alert(t('localMusic.resyncFailed'));
+        } finally {
+            setIsResyncingFocusedFolder(false);
         }
     };
 
@@ -687,18 +706,28 @@ const LocalMusicView: React.FC<LocalMusicViewProps> = ({
                                     ))}
 
                                     {activeSection.withImport && (
-                                        <button
-                                            onClick={handleFolderImport}
-                                            className={`p-1.5 rounded-full transition-colors ${
-                                                importButtonDisabled
-                                                    ? 'bg-white/5 text-white/45 cursor-not-allowed'
-                                                    : 'bg-white/10 hover:bg-white/20'
-                                            }`}
-                                            disabled={importButtonDisabled}
-                                            title={isScanInProgress ? '正在扫描媒体库' : 'Import Folder'}
-                                        >
-                                            {importButtonDisabled ? <Loader2 size={14} className="animate-spin" /> : <FolderOpen size={14} />}
-                                        </button>
+                                        <>
+                                            <LocalFolderRescanMenu
+                                                rootFolderNames={listImportedLocalRootFolderNames(localSongs)}
+                                                onRescan={handleRescanFolderTarget}
+                                                disabled={isScanInProgress}
+                                                isBusy={isResyncingFocusedFolder || isScanInProgress}
+                                                isDaylight={isDaylight}
+                                                compact
+                                            />
+                                            <button
+                                                onClick={handleFolderImport}
+                                                className={`p-1.5 rounded-full transition-colors ${
+                                                    importButtonDisabled
+                                                        ? 'bg-white/5 text-white/45 cursor-not-allowed'
+                                                        : 'bg-white/10 hover:bg-white/20'
+                                                }`}
+                                                disabled={importButtonDisabled}
+                                                title={isScanInProgress ? '正在扫描媒体库' : t('localMusic.importFolder')}
+                                            >
+                                                {importButtonDisabled ? <Loader2 size={14} className="animate-spin" /> : <FolderOpen size={14} />}
+                                            </button>
+                                        </>
                                     )}
                                 </div>
                                 <div className="w-full flex-[0_1_clamp(460px,46vh,760px)] min-h-0 max-h-[clamp(460px,46vh,760px)]">

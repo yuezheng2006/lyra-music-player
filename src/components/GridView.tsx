@@ -385,7 +385,8 @@ export const PolaroidCard = React.memo<{
                                             <span className="folia-eq__bar" />
                                         </span>
                                     ) : (
-                                        <Loader2 size={22} className="animate-spin opacity-90" />
+                                        // Current track, not actively playing: static mark, never a spinner.
+                                        <Pause size={20} fill="currentColor" className="opacity-90" />
                                     )}
                                 </div>
                             </div>
@@ -406,9 +407,9 @@ export const PolaroidCard = React.memo<{
                                         <span className="folia-eq__bar" />
                                     </span>
                                 ) : (
-                                    <Loader2 size={10} className="animate-spin opacity-90" />
+                                    <Pause size={10} fill="currentColor" className="opacity-90" />
                                 )}
-                                <span>{showPlayingEq ? 'NOW' : '...'}</span>
+                                <span>NOW</span>
                             </div>
                         </>
                     )}
@@ -2238,7 +2239,7 @@ export const GridView: React.FC<GridViewProps> = ({
                                         className="w-full py-2.5 rounded-full text-xs font-semibold bg-zinc-800/10 dark:bg-zinc-100/10 hover:bg-zinc-900 hover:text-zinc-100 dark:hover:bg-zinc-100 dark:hover:text-zinc-900 transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 cursor-pointer"
                                     >
                                         {isSourceActionPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                                        {t('localMusic.reimport')}
+                                        {t('localMusic.rescanFolder')}
                                     </button>
                                 )}
                                 {isLocalAllSongsCollection && sourceActions?.local?.onResyncAllFolders && (
@@ -2248,7 +2249,7 @@ export const GridView: React.FC<GridViewProps> = ({
                                         className="w-full py-2.5 rounded-full text-xs font-semibold bg-zinc-800/10 dark:bg-zinc-100/10 hover:bg-zinc-900 hover:text-zinc-100 dark:hover:bg-zinc-100 dark:hover:text-zinc-900 transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 cursor-pointer"
                                     >
                                         {isSourceActionPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                                        {t('localMusic.reimport')}
+                                        {t('localMusic.rescanFolder')}
                                     </button>
                                 )}
                                 {canEditPlaylist && (

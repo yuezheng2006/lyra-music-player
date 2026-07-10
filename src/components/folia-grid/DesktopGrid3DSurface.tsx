@@ -17,6 +17,8 @@ export interface DesktopGrid3DAction {
     active?: boolean;
     disabled?: boolean;
     title?: string;
+    /** When set, render custom content instead of the default action button. */
+    content?: React.ReactNode;
 }
 
 interface DesktopGrid3DSurfaceProps {
@@ -144,6 +146,9 @@ export const DesktopGrid3DSurface: React.FC<DesktopGrid3DSurfaceProps> = ({
                     </AnimatePresence>
 
                     {actions.map(action => (
+                        action.content ? (
+                            <React.Fragment key={action.id}>{action.content}</React.Fragment>
+                        ) : (
                         <button
                             key={action.id}
                             onClick={action.onClick}
@@ -162,6 +167,7 @@ export const DesktopGrid3DSurface: React.FC<DesktopGrid3DSurfaceProps> = ({
                             {action.icon}
                             <span>{action.label}</span>
                         </button>
+                        )
                     ))}
                 </div>
             )}

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
-import { importFolder, LOCAL_MUSIC_SCAN_PROGRESS_EVENT } from '../../../services/localMusicService';
+import { importFolder, resyncAllFolders, resyncFolder, LOCAL_MUSIC_SCAN_PROGRESS_EVENT } from '../../../services/localMusicService';
 import LocalMusicView from '../../LocalMusicView';
 import LocalGrid3DView from './LocalGrid3DView';
 import GridViewOverlayHost from './GridViewOverlayHost';
+import type { LocalFolderRescanTarget } from '../../local/LocalFolderRescanMenu';
 import {
     HOME_HEADER_TOP_PADDING_CLASS,
     resolveHomeSolidBackgroundClass,
@@ -40,6 +41,7 @@ const LocalBrowseSurface: React.FC<LocalBrowseSurfaceProps> = ({ model, isDaylig
     } = props;
 
     const [isLocalImporting, setIsLocalImporting] = useState(false);
+    const [isResyncingFocusedFolder, setIsResyncingFocusedFolder] = useState(false);
     const [scanProgressActive, setScanProgressActive] = useState(false);
 
     useEffect(() => {
@@ -68,6 +70,27 @@ const LocalBrowseSurface: React.FC<LocalBrowseSurfaceProps> = ({ model, isDaylig
         }
     };
 
+    // Rescans one imported root, or every root when target is "all".
+    const handleRescanFolder = async (target: LocalFolderRescanTarget) => {
+        if (isResyncingFocusedFolder || scanProgressActive) return;
+
+        setIsResyncingFocusedFolder(true);
+        try {
+            const importedSongs = target === 'all'
+                ? await resyncAllFolders()
+                : await resyncFolder(target);
+
+            if (importedSongs !== null) {
+                onRefreshLocalSongs();
+            }
+        } catch (error) {
+            console.error('[LocalBrowseSurface] Failed to rescan local folder:', error);
+            alert(t('localMusic.resyncFailed'));
+        } finally {
+            setIsResyncingFocusedFolder(false);
+        }
+    };
+
     const solidBg = resolveHomeSolidBackgroundClass(isDaylight);
 
     if (homeLayoutStyle === 'grid') {
@@ -92,9 +115,11 @@ const LocalBrowseSurface: React.FC<LocalBrowseSurfaceProps> = ({ model, isDaylig
                             focusedPlaylistIndex={localMusicState.focusedPlaylistIndex}
                             setFocusedPlaylistIndex={(index) => setLocalMusicState(prev => ({ ...prev, focusedPlaylistIndex: index }))}
                             onImportFolder={handleFolderImport}
+                            onRescanFolder={(target) => void handleRescanFolder(target)}
                             importButtonDisabled={isLocalImporting || scanProgressActive}
                             isImporting={isLocalImporting}
                             isScanInProgress={scanProgressActive}
+                            isResyncingFocusedFolder={isResyncingFocusedFolder}
                             theme={theme}
                             isDaylight={isDaylight}
                             hasFloatingPlayer={Boolean(currentTrack)}

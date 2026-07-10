@@ -32,8 +32,7 @@ xattr -dr com.apple.quarantine /Applications/Lyra.app
 ## 更新说明
 
 - **Lyra（音波）{{VERSION}}**
-- **已可用**：沉浸式视觉（全屏歌词 / 3D 舞台）、多源互通（网易云 / QQ / Coco / Navidrome）、桌面端安装包
+- **已可用**：沉浸式视觉（全屏歌词 / 3D 舞台）、多源互通（网易云 / QQ / Coco / Navidrome / 本地曲库）、桌面端安装包
 - **支持中**：智能匹配、AI 情绪配色（需模型 Key）
-- **计划开放中**：本地曲库
 
 _好像在哪里存在似的，然而哪里都不存在。所谓的故事，其实就是龙_

@@ -350,10 +350,10 @@ const LocalPlaylistView: React.FC<LocalPlaylistViewProps> = ({ title, coverUrl, 
                                         disabled={isResyncing}
                                         className="flex-1 py-2.5 rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                         style={{ color: 'var(--text-primary)' }}
-                                        title="Re-import folder to refresh"
+                                        title={t('localMusic.rescanFolder')}
                                     >
                                         <RefreshCw size={16} className={isResyncing ? 'animate-spin' : ''} />
-                                        {t('localMusic.reimport')}
+                                        {t('localMusic.rescanFolder')}
                                     </button>
                                 )}
 

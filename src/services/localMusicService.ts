@@ -62,7 +62,6 @@ export const LOCAL_MUSIC_SCAN_PROGRESS_EVENT = 'folia-local-music-scan-progress'
 const HYDRATION_BATCH_SIZE = 25;
 const HYDRATION_REFRESH_EVERY = 100;
 const SNAPSHOT_HASH_SEED = 2166136261;
-const REIMPORT_HANDLE_MISSING_ERROR = 'Missing persisted directory handle for reimport';
 const PREFERRED_FOLDER_COVER_FILES = ['cover.png', 'cover.jpg', 'cover.jpeg'];
 
 interface LocalMusicScanProgressDetail {
@@ -114,38 +113,53 @@ function notifyLocalMusicScanProgress(detail: LocalMusicScanProgressDetail) {
     window.dispatchEvent(new CustomEvent(LOCAL_MUSIC_SCAN_PROGRESS_EVENT, { detail }));
 }
 
-async function getImportDirectoryHandle(expectedRootName?: string): Promise<FileSystemDirectoryHandle | null> {
-    if (expectedRootName) {
-        const dirHandles = await getDirHandles();
-        const persistedHandle = dirHandles[expectedRootName];
-
-        if (!persistedHandle) {
-            throw new Error(REIMPORT_HANDLE_MISSING_ERROR);
-        }
-
-        const permissionAwareHandle = persistedHandle as FileSystemDirectoryHandle & {
-            queryPermission: (descriptor: { mode: 'read' | 'readwrite' }) => Promise<PermissionState>;
-            requestPermission: (descriptor: { mode: 'read' | 'readwrite' }) => Promise<PermissionState>;
-        };
-
-        let permission = await permissionAwareHandle.queryPermission({ mode: 'read' });
-        if (permission !== 'granted') {
-            permission = await permissionAwareHandle.requestPermission({ mode: 'read' });
-        }
-
-        if (permission !== 'granted') {
-            return null;
-        }
-
-        return persistedHandle;
-    }
-
+async function pickDirectoryHandle(): Promise<FileSystemDirectoryHandle> {
     if (!('showDirectoryPicker' in window)) {
         throw new Error('File System Access API not supported in this browser');
     }
 
     // @ts-ignore - showDirectoryPicker is not in all TypeScript definitions
     return await window.showDirectoryPicker();
+}
+
+async function tryGrantDirectoryPermission(
+    dirHandle: FileSystemDirectoryHandle,
+): Promise<boolean> {
+    const permissionAwareHandle = dirHandle as FileSystemDirectoryHandle & {
+        queryPermission?: (descriptor: { mode: 'read' | 'readwrite' }) => Promise<PermissionState>;
+        requestPermission?: (descriptor: { mode: 'read' | 'readwrite' }) => Promise<PermissionState>;
+    };
+
+    if (!permissionAwareHandle.queryPermission) {
+        return true;
+    }
+
+    let permission = await permissionAwareHandle.queryPermission({ mode: 'read' });
+    if (permission !== 'granted' && permissionAwareHandle.requestPermission) {
+        permission = await permissionAwareHandle.requestPermission({ mode: 'read' });
+    }
+
+    return permission === 'granted';
+}
+
+async function getImportDirectoryHandle(expectedRootName?: string): Promise<FileSystemDirectoryHandle | null> {
+    if (expectedRootName) {
+        const dirHandles = { ...(await getDirHandles()) };
+        const persistedHandle = dirHandles[expectedRootName];
+
+        if (persistedHandle && await tryGrantDirectoryPermission(persistedHandle)) {
+            return persistedHandle;
+        }
+
+        // Handle missing or permission revoked: ask user to re-select the folder.
+        const pickedHandle = await pickDirectoryHandle();
+        dirHandles[expectedRootName] = pickedHandle;
+        await saveDirHandles(dirHandles);
+        console.log(`[LocalMusic] Re-bound directory handle for "${expectedRootName}" after rescan picker.`);
+        return pickedHandle;
+    }
+
+    return await pickDirectoryHandle();
 }
 
 async function findImportedRootForHandle(dirHandle: FileSystemDirectoryHandle): Promise<string | null> {
@@ -1456,11 +1470,7 @@ async function recoverFileHandleFromPersistedDirectory(song: LocalSong): Promise
         return null;
     }
 
-    const permissionAwareHandle = rootDirHandle as FileSystemDirectoryHandle & {
-        queryPermission: (descriptor: { mode: 'read' | 'readwrite' }) => Promise<PermissionState>;
-    };
-    const permission = await permissionAwareHandle.queryPermission({ mode: 'read' });
-    if (permission !== 'granted') {
+    if (!await tryGrantDirectoryPermission(rootDirHandle)) {
         return null;
     }
 
@@ -1470,6 +1480,9 @@ async function recoverFileHandleFromPersistedDirectory(song: LocalSong): Promise
 
     try {
         const recoveredHandle = await resolveFileHandleFromDirHandle(rootDirHandle, relativePathFromRoot);
+        if (!recoveredHandle) {
+            return null;
+        }
         fileHandleMap.set(song.id, recoveredHandle);
         song.fileHandle = recoveredHandle;
         await saveLocalSong(song);
@@ -1622,14 +1635,15 @@ export async function deleteSongsByIds(songIds: string[]): Promise<void> {
     console.log(`[LocalMusic] Deleted ${songIds.length} songs by ID`);
 }
 
-// Resync folder: refresh an imported folder in place using the persisted root handle
+// Resync one imported folder via its root handle; prompts for re-select if permission is lost.
 export async function resyncFolder(folderName: string): Promise<LocalSong[] | null> {
     // Only root imports have persisted directory handles. Derived child folders
     // should resync through their imported root folder handle.
     const rootFolderName = folderName.split('/')[0] || folderName;
     const importedSongs = await importFolder(rootFolderName);
 
-    // If user cancelled (empty array), return null to indicate cancellation
+    // importFolder returns [] when the directory picker is cancelled.
+    // Keep existing library untouched and signal cancellation to callers.
     if (importedSongs.length === 0) {
         return null;
     }
@@ -1643,14 +1657,18 @@ function getLocalSongRootFolderName(song: LocalSong): string | null {
     return rootFolderName || null;
 }
 
-// Resyncs all imported local roots once, even when the song list contains nested folders.
-export async function resyncAllFolders(): Promise<LocalSong[] | null> {
-    const allSongs = await getLocalSongs();
-    const rootFolderNames = Array.from(new Set(
-        allSongs
+// Lists unique imported root directory names from the current local library.
+export function listImportedLocalRootFolderNames(songs: LocalSong[]): string[] {
+    return Array.from(new Set(
+        songs
             .map(getLocalSongRootFolderName)
             .filter((rootFolderName): rootFolderName is string => Boolean(rootFolderName))
-    ));
+    )).sort((left, right) => left.localeCompare(right));
+}
+
+// Resyncs all imported local roots once, even when the song list contains nested folders.
+export async function resyncAllFolders(): Promise<LocalSong[] | null> {
+    const rootFolderNames = listImportedLocalRootFolderNames(await getLocalSongs());
 
     if (rootFolderNames.length === 0) {
         return null;
