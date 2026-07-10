@@ -1,10 +1,10 @@
 {
-  "name": "folia-major",
-  "productName": "Folia",
-  "description": "Lyrics Reimagine",
+  "name": "lyra-music-player",
+  "productName": "Lyra",
+  "description": "Lyra — immersive multi-source music player with 3D stage and smart atmosphere",
   "author": {
-    "name": "chthollyphile",
-    "email": "chthollyphile@users.noreply.github.com"
+    "name": "yuezheng2006",
+    "email": "yuezheng2006@users.noreply.github.com"
   },
   "private": true,
   "version": "0.5.22",
@@ -16,14 +16,19 @@
     "dev": "vite --port 3000 --strictPort",
     "predev:netease-api": "node scripts/kill-port.mjs 3001",
     "dev:netease-api": "node scripts/dev-netease-api.cjs",
-    "predev:web": "node scripts/kill-port.mjs 3000 3001",
-    "dev:web": "concurrently -k \"npm run dev:netease-api\" \"wait-on tcp:3001 && vite --port 3000 --strictPort\"",
-    "predev:electron": "node scripts/kill-port.mjs 3000",
+    "predev:music-provider": "node scripts/kill-port.mjs 3002",
+    "dev:music-provider": "node scripts/music-provider-sidecar.cjs",
+    "predev:web": "node scripts/kill-port.mjs 3000 3001 3002",
+    "dev:web": "concurrently -k \"npm run dev:netease-api\" \"npm run dev:music-provider\" \"wait-on tcp:3001 tcp:3002 && vite --port 3000 --strictPort\"",
+    "predev:electron": "node scripts/kill-port.mjs 3000 3001 3002",
     "build": "vite build",
     "preview": "vite preview",
+    "lint": "tsc --noEmit",
     "test": "vitest run -c vitest.config.ts",
     "test:unit": "vitest run -c vitest.config.ts",
     "test:unit:watch": "vitest -c vitest.config.ts",
+    "test:electron-smoke": "node test/manual/electron_smoke.mjs",
+    "test:electron-click-through": "node test/manual/electron_click_through.mjs",
     "test:ui": "playwright test",
     "test:ui:update": "playwright test --update-snapshots",
     "benchmark:lyrics": "npx tsx test/manual/lyrics_benchmark.ts",
@@ -31,7 +36,7 @@
     "audit:lyrics-sources": "npx tsx test/manual/lyric-audit/index.ts",
     "probe:netease-xeapi": "node test/manual/netease_xeapi_probe.cjs",
     "stage:client": "vite --open /stage-client.html",
-    "dev:electron": "cross-env ELECTRON_DEV=true concurrently -k \"vite\" \"wait-on tcp:3000 && electron .\"",
+    "dev:electron": "cross-env ELECTRON_DEV=true FOLIA_EXTERNAL_DEV_APIS=true FOLIA_DISABLE_SINGLE_INSTANCE_LOCK=true concurrently -k \"npm run dev:netease-api\" \"npm run dev:music-provider\" \"vite --port 3000 --strictPort\" \"wait-on tcp:3000 tcp:3001 tcp:3002 && electron .\"",
     "dev:electron:dist": "cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true vite build && electron .",
     "dev:electron:dist:swiftshader": "cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true FOLIA_LINUX_GRAPHICS_MODE=swiftshader vite build && electron .",
     "dev:electron:dist:software": "cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true FOLIA_LINUX_GRAPHICS_MODE=software vite build && electron .",
@@ -41,21 +46,23 @@
     "contributors:generate": "npx all-contributors-cli generate"
   },
   "build": {
-    "appId": "top.izuna.foliamajor",
-    "productName": "Folia",
+    "appId": "top.izuna.lyramusicplayer",
+    "productName": "Lyra",
     "directories": {
       "output": "release"
     },
     "publish": [
       {
         "provider": "github",
-        "owner": "chthollyphile",
-        "repo": "folia-major"
+        "owner": "yuezheng2006",
+        "repo": "lyra-music-player"
       }
     ],
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "scripts/music-provider-sidecar.cjs",
+      "scripts/music-provider-adapters/**/*",
       "shared/**/*",
       "package.json",
       "build/miao.png",
@@ -79,8 +86,8 @@
         "to": "trayTemplate@2x.png"
       },
       {
-        "from": "packaging/linux/folia-major.desktop",
-        "to": "linux/folia-major.desktop"
+        "from": "packaging/linux/lyra-music-player.desktop",
+        "to": "linux/lyra-music-player.desktop"
       },
       {
         "from": "packaging/linux/README-LINUX.txt",
@@ -131,7 +138,7 @@
       },
       "icon": "build/icon.png",
       "category": "AudioVideo",
-      "executableName": "folia-major"
+      "executableName": "lyra-music-player"
     }
   },
   "dependencies": {

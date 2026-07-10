@@ -69,7 +69,7 @@ jobs:
       - name: Build Web App for Electron
         env:
           ELECTRON: "true"
-          APP_VERSION_LABEL: folia-canary
+          APP_VERSION_LABEL: lyra-canary
         run: npm run build
 
       - name: Package Electron App

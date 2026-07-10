@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Lyra
+Comment=Sound, Stage, Sense
+Exec=lyra-music-player
+Icon=lyra-music-player
+Terminal=false
+Type=Application
+Categories=AudioVideo;Player;
+StartupWMClass=Lyra

@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { Activity, AlertCircle, Check, Loader2, Server, Trash2 } from 'lucide-react';
+import { Activity, AlertCircle, Check, KeyRound, Loader2, Server, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { NowPlayingConnectionStatus, StageSource, StageStatus, Theme } from '../../../types';
 import type { NavidromeServerProfile } from '../../../types/navidrome';
 import type { ObsBrowserSourceStatus } from '../../../types/obsBrowserSource';
+import QQMusicLoginPanel from '../../shared/QQMusicLoginPanel';
 
 // src/components/modal/settings/IntegrationSettingsSubview.tsx
-// Integration settings for Discord, Stage, Now Playing, OBS, and Navidrome.
+// Integration settings for music providers, Discord, Stage, Now Playing, OBS, and Navidrome.
 
 type NavidromeTestStatus = 'idle' | 'testing' | 'success' | 'failed';
 type StageActionStatus = 'idle' | 'regenerating';
-
 export type IntegrationSettingsChrome = {
     errorBgColor: string;
     errorTextColor: string;
@@ -152,7 +152,6 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
     const navidromeServerLabel = navidromeServerProfile?.serverVersion
         || navidromeServerProfile?.serverType
         || t('navidrome.serverProfileUnavailable');
-
     const handleCopyStageAddress = async (address: string) => {
         await onCopyText(address);
         setStageAddressCopied(true);
@@ -179,7 +178,7 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
                                     {t('options.enableDiscordRichPresence') || 'Enable Discord playback status'}
                                 </div>
                                 <div className="text-[10px] opacity-40 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
-                                    {t('options.discordRichPresenceDesc') || 'Show the current Folia track in Discord desktop. Folia connects with its built-in application identity.'}
+                                    {t('options.discordRichPresenceDesc') || 'Show the current Lyra track in Discord desktop. Lyra connects with its built-in application identity.'}
                                 </div>
                             </div>
                             <button
@@ -449,6 +448,20 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
                     </div>
                 </section>
             )}
+
+            <section>
+                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                    <KeyRound size={14} /> {t('options.qqMusicAccount') || 'QQ Music Account'}
+                </h3>
+                <QQMusicLoginPanel
+                    variant="settings"
+                    cardClass={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}
+                    successBgColor={successBgColor}
+                    successTextColor={successTextColor}
+                    errorBgColor={errorBgColor}
+                    errorTextColor={errorTextColor}
+                />
+            </section>
 
             <section>
                 <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>

@@ -21,9 +21,9 @@ const FALLBACK_LIGHT_THEME: Theme = {
 const FALLBACK_DARK_THEME: Theme = {
     name: 'AI Dark',
     backgroundColor: '#0f172a',
-    primaryColor: '#f8fafc',
+    primaryColor: '#fafafa',
     accentColor: '#7dd3fc',
-    secondaryColor: '#cbd5e1',
+    secondaryColor: '#b8c0cc',
     fontStyle: 'sans',
     animationIntensity: 'normal',
     wordColors: [],
@@ -176,13 +176,31 @@ export const sanitizeTheme = (
     return sanitized;
 };
 
+const sanitizeAtmosphereHints = (value: unknown): DualTheme['atmosphereHints'] => {
+    if (!isRecord(value)) return undefined;
+    const hints: NonNullable<DualTheme['atmosphereHints']> = {};
+    if (typeof value.visualPreset === 'string') {
+        hints.visualPreset = value.visualPreset as NonNullable<DualTheme['atmosphereHints']>['visualPreset'];
+    }
+    for (const key of ['rhythmIntensity', 'cinemaShake', 'atmosphereSensitivity', 'cameraPunchStrength'] as const) {
+        const next = value[key];
+        if (typeof next === 'number' && Number.isFinite(next)) {
+            hints[key] = next;
+        }
+    }
+    return Object.keys(hints).length > 0 ? hints : undefined;
+};
+
 export const sanitizeDualTheme = (
     value: unknown,
     fallbackTheme: DualTheme = FALLBACK_AI_DUAL_THEME,
 ): DualTheme => {
     const source = isRecord(value) ? value : {};
+    const atmosphereHints = sanitizeAtmosphereHints(source.atmosphereHints)
+        ?? fallbackTheme.atmosphereHints;
     return {
         light: sanitizeTheme(source.light, fallbackTheme.light),
         dark: sanitizeTheme(source.dark, fallbackTheme.dark),
+        ...(atmosphereHints ? { atmosphereHints } : {}),
     };
 };

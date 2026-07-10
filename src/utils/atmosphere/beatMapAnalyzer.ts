@@ -1,6 +1,7 @@
 // src/utils/atmosphere/beatMapAnalyzer.ts
 // Public entry for offline beat map analysis.
 
+import type { BeatMap } from '../../types/atmosphere';
 import { buildBeatEvents, createEmptyBeatMap } from './beatMap/buildBeatEvents';
 import { detectBeatCandidates } from './beatMap/detectBeatCandidates';
 import { extractEnergyFrames } from './beatMap/extractEnergyFrames';
@@ -10,6 +11,21 @@ import {
 } from './podcastDjBeatMap';
 
 export { PODCAST_DJ_DURATION_THRESHOLD_SEC } from './podcastDjBeatMap';
+
+const BEAT_MAP_CACHE_LIMIT = 8;
+const beatMapCache = new Map<string, Promise<BeatMap | null>>();
+
+const rememberBeatMapPromise = (audioUrl: string, promise: Promise<BeatMap | null>) => {
+    beatMapCache.set(audioUrl, promise);
+    if (beatMapCache.size <= BEAT_MAP_CACHE_LIMIT) {
+        return;
+    }
+
+    const oldestKey = beatMapCache.keys().next().value;
+    if (typeof oldestKey === 'string') {
+        beatMapCache.delete(oldestKey);
+    }
+};
 
 export const analyzeBeatMapFromAudioBuffer = (
     buffer: AudioBuffer,
@@ -53,11 +69,29 @@ export const decodeAudioBufferFromUrl = async (
     }
 };
 
+/** Decode + analyze once per URL; concurrent callers share the same fetch. */
 export const analyzeBeatMapFromUrl = async (
     audioUrl: string,
     audioContext: AudioContext,
 ) => {
-    const buffer = await decodeAudioBufferFromUrl(audioUrl, audioContext);
-    if (!buffer) return null;
-    return analyzeBeatMapFromAudioBuffer(buffer);
+    const cached = beatMapCache.get(audioUrl);
+    if (cached) {
+        return cached;
+    }
+
+    const promise = (async () => {
+        const buffer = await decodeAudioBufferFromUrl(audioUrl, audioContext);
+        if (!buffer) return null;
+        return analyzeBeatMapFromAudioBuffer(buffer);
+    })().catch((error) => {
+        beatMapCache.delete(audioUrl);
+        throw error;
+    });
+
+    rememberBeatMapPromise(audioUrl, promise);
+    return promise;
+};
+
+export const clearBeatMapAnalysisCache = () => {
+    beatMapCache.clear();
 };

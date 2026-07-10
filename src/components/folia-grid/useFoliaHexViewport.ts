@@ -9,7 +9,7 @@ import {
 } from './hexViewport';
 import type { HexGridCoord } from './hexViewport';
 
-// Shared React viewport state for Folia's hex-grid card surfaces.
+// Shared React viewport state for Lyra's hex-grid card surfaces.
 export interface UseFoliaHexViewportOptions {
     itemCount: number;
     spacingX: number;

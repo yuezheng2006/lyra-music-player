@@ -1,4 +1,4 @@
-import { PlayerState, type HomeViewTab, type SongResult, type VisualizerMode, type VisualizerBackgroundMode, type MonetBackgroundTuning } from '../../types';
+import { PlayerState, type HomeViewTab, type SearchSourceId, type SongResult, type VisualizerMode, type VisualizerBackgroundMode, type MonetBackgroundTuning } from '../../types';
 import type { AppLanguagePreference } from '../../i18n/config';
 import type { PanelTab } from '../UnifiedPanel';
 import type {
@@ -36,19 +36,28 @@ const buildQueueSongDescription = (song: SongResult, index: number, context: Com
     return metadata || context.t('commandPalette.queueIndex', 'Queue #{{index}}').replace('{{index}}', String(index + 1));
 };
 
-const getSearchSourceLabel = (sourceTab: HomeViewTab, context: CommandPaletteContext) => {
+const getSearchSourceLabel = (sourceTab: SearchSourceId, context: CommandPaletteContext) => {
     if (sourceTab === 'local') {
         return context.t('commandPalette.sourceLocal', 'local library');
     }
     if (sourceTab === 'navidrome') {
         return context.t('commandPalette.sourceNavidrome', 'Navidrome');
     }
+    if (sourceTab === 'qq') {
+        return context.t('commandPalette.sourceQQMusic', 'QQ Music');
+    }
+    if (sourceTab === 'qishui') {
+        return context.t('commandPalette.sourceQishuiMusic', 'Qishui Music');
+    }
+    if (sourceTab === 'coco') {
+        return context.t('commandPalette.sourceCocoMusic', 'Coco');
+    }
     return context.t('commandPalette.sourceNetease', 'NetEase Cloud Music');
 };
 
 const buildSearchPreview = (
     input: string,
-    sourceTab: HomeViewTab,
+    sourceTab: SearchSourceId,
     context: CommandPaletteContext,
     isCurrentSource: boolean
 ) => {
@@ -103,7 +112,7 @@ const createSearchCommand = (
     title: string,
     description: string,
     keywords: string[],
-    resolveSource: (context: CommandPaletteContext) => HomeViewTab
+    resolveSource: (context: CommandPaletteContext) => SearchSourceId
 ): CommandPaletteCommand => ({
     id,
     group: 'search',
@@ -190,7 +199,7 @@ const createHomeTabCommand = (
     keywords,
     execute: (_input, context) => {
         context.setHomeViewTab(tab);
-        context.navigateToHome();
+        context.navigateDirectHome();
         return true;
     },
 });
@@ -234,7 +243,10 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createSearchCommand('search-current', 'Search songs', 'Search songs in the current source', ['search', 'find', 'song', '搜索', '搜歌', 'sousuo', 'souge', 'ss', 'sg'], context => context.currentSearchSourceTab),
     createSearchCommand('search-local', 'Search local songs', 'Search local library', ['local', 'local search', 'search local', '本地', '本地音乐', 'bendi', 'bendiyinyue', 'bd', 'bdyy'], () => 'local'),
     createSearchCommand('search-navidrome', 'Search Navidrome songs', 'Search Navidrome library', ['navi', 'navidrome', 'search navidrome', '导航', '服务器', 'fuwuqi', 'fwq'], () => 'navidrome'),
-    createSearchCommand('search-netease', 'Search NetEase songs', 'Search NetEase Cloud Music', ['netease', 'cloud', 'search netease', '网易云', '网抑云', 'wangyiyun', 'wyy'], () => 'playlist'),
+    createSearchCommand('search-netease', 'Search NetEase songs', 'Search NetEase Cloud Music', ['netease', 'cloud', 'search netease', '网易云', '网抑云', 'wangyiyun', 'wyy'], () => 'netease'),
+    createSearchCommand('search-qq', 'Search QQ Music songs', 'Search QQ Music', ['qq', 'qq music', 'search qq', 'QQ音乐', '扣扣音乐', 'qqyinyue', 'qqyy'], () => 'qq'),
+    createSearchCommand('search-qishui', 'Parse Qishui Music link', 'Paste a Qishui Music share link', ['qishui', 'qishui music', 'search qishui', '汽水', '汽水音乐', 'qishuiyinyue', 'qsyy'], () => 'qishui'),
+    createSearchCommand('search-coco', 'Search Coco songs', 'Search free aggregated music sources', ['coco', 'coco downloader', 'search coco', '聚合', '免费搜索', 'juhe'], () => 'coco'),
     createQueueSearchCommand(),
 
     createSettingsCommand('settings-help', 'Open Help', 'Open help and shortcuts', ['help', '帮助', 'bangzhu', 'bz'], 'help'),
@@ -253,7 +265,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createSettingsCommand('settings-appearance', 'Appearance settings', 'Open visual and appearance settings', ['appearance', 'visual settings', '外观', '视觉', 'waiguan', 'shijue', 'wg', 'sj'], 'options', 'appearance'),
     createSettingsCommand('settings-general', 'General settings', 'Open general app preferences', ['general', 'language settings', 'locale', '通用', '语言', 'tongyong', 'yuyan', 'ty', 'yy'], 'options', 'general'),
     createSettingsCommand('settings-playback', 'Playback settings', 'Open playback behavior settings', ['playback settings', 'playback', '播放', '播放设置', 'bofang', 'bofangshezhi', 'bf', 'bfsz'], 'options', 'playback'),
-    createSettingsCommand('settings-integration', 'Integration settings', 'Open Stage, Now Playing, and Navidrome settings', ['integration', 'stage', 'now playing', 'navidrome settings', '集成', '连接', 'jicheng', 'lianjie', 'jc', 'lj'], 'options', 'integration'),
+    createSettingsCommand('settings-integration', 'Integration settings', 'Open music account, Stage, Now Playing, and Navidrome settings', ['integration', 'stage', 'now playing', 'navidrome settings', 'qq music settings', 'qq music cookie', '集成', '连接', 'QQ音乐', 'QQ音乐登录', 'jicheng', 'lianjie', 'qqyinyue', 'qqdenglu', 'jc', 'lj'], 'options', 'integration'),
     createSettingsCommand('settings-discord-presence', 'Discord playback status', 'Open Discord Rich Presence settings', ['discord', 'rich presence', 'discord presence', 'playing status', '播放状态', 'discord状态', 'discordzhuangtai', 'bofangzhuangtai', 'dc', 'zt'], 'options', 'integration'),
     createSettingsCommand('settings-obs-browser-source', 'OBS browser source', 'Open OBS browser source settings', ['obs', 'browser source', 'live source', '直播源', '浏览器源', 'zhiboyuan', 'liulanqiyuan', 'zby', 'llqy'], 'options', 'integration'),
     createSettingsCommand('settings-storage', 'Storage settings', 'Open cache and storage settings', ['storage', 'cache', '存储', '缓存', 'cunchu', 'huancun', 'cc', 'hc'], 'options', 'storage'),
@@ -295,28 +307,80 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         description: 'Return to home view',
         keywords: ['home', '首页', '主页', 'shouye', 'zhuye', 'sy', 'zy'],
         execute: (_input, context) => {
-            context.navigateToHome();
+            context.navigateDirectHome();
             return true;
         },
     },
     {
         id: 'navigate-player',
         group: 'navigation',
-        title: 'Go player',
-        description: 'Return to player view',
-        keywords: ['player', '播放页', '播放器', 'bofangye', 'bofangqi', 'bfy', 'bfq'],
+        title: 'Listening mode',
+        description: 'Enter the immersive player view',
+        keywords: [
+            'player',
+            'listening mode',
+            '听歌模式',
+            '播放页',
+            '播放器',
+            'tinggemoshi',
+            'bofangye',
+            'bofangqi',
+            'tgms',
+            'bfy',
+            'bfq',
+        ],
         execute: (_input, context) => {
             context.navigateToPlayer();
             return true;
         },
     },
     {
-        id: 'browser-fullscreen',
+        id: 'navigate-back-playlist',
         group: 'navigation',
-        title: 'Fullscreen',
-        description: 'Toggle browser fullscreen',
-        keywords: ['fullscreen', 'full screen', 'f11', 'browser fullscreen', '全屏', '浏览器全屏', 'quanping', 'liulanqiquanping', 'qp', 'llqqp'],
-        execute: (_input, context) => context.toggleBrowserFullscreen(),
+        title: 'Back to playlist',
+        description: 'Return from listening mode to the playlist card view',
+        keywords: [
+            'back',
+            'playlist',
+            'grid',
+            '回到歌单',
+            '返回歌单',
+            '歌单',
+            '卡片',
+            'huidaogedan',
+            'fanhuidedan',
+            'gedan',
+            'hdgd',
+            'fhgd',
+            'gd',
+        ],
+        execute: (_input, context) => {
+            context.navigateToHome();
+            return true;
+        },
+    },
+    {
+        id: 'immersive-fullscreen',
+        group: 'navigation',
+        title: 'Fullscreen player',
+        description: 'OS fullscreen plus player-only fill',
+        keywords: [
+            'fullscreen',
+            'full screen',
+            'immersive',
+            'player fullscreen',
+            '全屏',
+            '全屏播放',
+            '沉浸',
+            '满屏',
+            '满画面',
+            'quanping',
+            'quanpingbofang',
+            'manscreen',
+            'qp',
+            'qpbf',
+        ],
+        execute: (_input, context) => context.toggleImmersiveFullscreen(),
     },
     createHomeTabCommand('playlist', 'Open playlists', 'Open playlist home tab', ['playlist', 'playlists', '歌单', 'gedan', 'gd']),
     createHomeTabCommand('local', 'Open local music', 'Open local music tab', ['local music', 'local', '本地', '本地音乐', 'bendi', 'bendiyinyue', 'bd', 'bdyy']),
@@ -480,6 +544,27 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         keywords: ['background 3d', 'interactive background', '3d background', '3d 交互背景', '3djh', 'jh', '背景切换到 3D 交互', '背景切换到3D交互'],
         execute: (_input, context) => {
             context.setVisualizerBackgroundMode('interactive3d');
+            return true;
+        },
+    },
+    {
+        id: 'settings-toggle-smart-atmosphere',
+        group: 'visualizer',
+        title: 'Toggle smart atmosphere',
+        description: 'Enable or disable local beat / bass / camera-punch drive',
+        keywords: [
+            'smart atmosphere',
+            'atmosphere',
+            'beat drive',
+            '智能氛围',
+            '氛围',
+            '节拍驱动',
+            'zhinengfenwei',
+            'znfw',
+            'fw',
+        ],
+        execute: (_input, context) => {
+            context.toggleSmartAtmosphere();
             return true;
         },
     },

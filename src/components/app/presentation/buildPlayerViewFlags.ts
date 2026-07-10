@@ -1,10 +1,9 @@
 // src/components/app/presentation/buildPlayerViewFlags.ts
 
-// Builds top-level player-view booleans used by the shell, overlays, and floating controls.
+// Builds top-level player-view booleans used by the shell, overlays, and docked player bar.
 export const buildPlayerViewFlags = ({
     currentView,
     disableHomeDynamicBackground,
-    hidePlayerProgressBar,
     hidePlayerTranslationSubtitle,
     hidePlayerRightPanelButton,
     isNowPlayingControlDisabled,
@@ -15,7 +14,6 @@ export const buildPlayerViewFlags = ({
 }: {
     currentView: string;
     disableHomeDynamicBackground: boolean;
-    hidePlayerProgressBar: boolean;
     hidePlayerTranslationSubtitle: boolean;
     hidePlayerRightPanelButton: boolean;
     isNowPlayingControlDisabled: boolean;
@@ -28,7 +26,8 @@ export const buildPlayerViewFlags = ({
     return {
         isPlayerView,
         shouldPauseVisualizerBackground: currentView !== 'player' && disableHomeDynamicBackground,
-        shouldHidePlayerProgressBar: isPlayerView && hidePlayerProgressBar,
+        // Docked bar visibility is owned by autoHidePlayerChrome / H key only.
+        shouldHidePlayerProgressBar: false,
         shouldHidePlayerTranslationSubtitle: isPlayerView && hidePlayerTranslationSubtitle,
         shouldHidePlayerRightPanelButton: isPlayerView && hidePlayerRightPanelButton,
         canToggleCurrentPlayback: !isNowPlayingControlDisabled && Boolean(

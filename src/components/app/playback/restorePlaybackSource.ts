@@ -3,7 +3,8 @@ import { getCachedAudioBlob } from '../../../services/audioCache';
 import { getCachedCoverUrl } from '../../../services/coverCache';
 import { getFromCacheWithMigration, getLocalSongs } from '../../../services/db';
 import { ensureLocalSongEmbeddedCover, getAudioFromLocalSong } from '../../../services/localMusicService';
-import { getOnlineSongCacheKey, isCloudSong, neteaseApi } from '../../../services/netease';
+import { isCloudSong, neteaseApi } from '../../../services/netease';
+import { getMusicProviderForSong, getProviderSongCacheKey, isNeteaseOnlineSong } from '../../../services/musicProviders/registry';
 import { getNavidromeConfig, navidromeApi } from '../../../services/navidromeService';
 import type { ThemeCacheSongKey } from '../../../services/themeCache';
 import type { LyricData, LocalSong, SongResult, StatusMessage } from '../../../types';
@@ -73,7 +74,7 @@ export const restorePlaybackSourceForSong = async (
         preserveCurrentOnMiss: false,
     });
 
-    setCachedCoverUrl(await getCachedCoverUrl(getOnlineSongCacheKey('cover', song)));
+    setCachedCoverUrl(await getCachedCoverUrl(getProviderSongCacheKey('cover', song)));
 
     if (isNavidromePlaybackSong(song)) {
         const navidromeSongToRestore = (song as unknown as SongResult & { navidromeData?: NavidromeSong }).navidromeData;
@@ -188,12 +189,20 @@ export const restorePlaybackSourceForSong = async (
         setCurrentSong(prev => prev?.id === song.id ? { ...prev, onlineLyricsState } : prev);
     }
 
-    const cachedAudio = await getCachedAudioBlob(getOnlineSongCacheKey('audio', song));
+    const cachedAudio = await getCachedAudioBlob(getProviderSongCacheKey('audio', song));
     if (cachedAudio) {
         const blobUrl = URL.createObjectURL(cachedAudio);
         replaceBlobUrl(blobUrlRef, blobUrl);
         currentOnlineAudioUrlFetchedAtRef.current = null;
         setAudioSrc(blobUrl);
+    } else if (!isNeteaseOnlineSong(song)) {
+        const audioResult = await getMusicProviderForSong(song).getAudioUrl(song, { quality: audioQuality });
+        if (audioResult.kind === 'ok') {
+            currentOnlineAudioUrlFetchedAtRef.current = Date.now();
+            setAudioSrc(audioResult.audioUrl);
+        } else {
+            return false;
+        }
     } else {
         const urlRes = await neteaseApi.getSongUrl(song.id, audioQuality);
         let url = urlRes.data?.[0]?.url;
@@ -207,7 +216,7 @@ export const restorePlaybackSourceForSong = async (
     }
 
     const cachedLyrics = await getFromCacheWithMigration<LyricData>(
-        getOnlineSongCacheKey('lyric', song),
+        getProviderSongCacheKey('lyric', song),
         migrateLyricDataRenderHints,
     );
     const restoredPreferredLyrics = resolveOnlineLyrics(onlineLyricsState, cachedLyrics);
@@ -220,6 +229,12 @@ export const restorePlaybackSourceForSong = async (
                 : isPureMusicLyricText(cachedText),
         } : prev);
         setLyrics(restoredPreferredLyrics);
+        return true;
+    }
+
+    if (!isNeteaseOnlineSong(song)) {
+        const providerLyrics = await getMusicProviderForSong(song).getLyrics(song);
+        setLyrics(providerLyrics);
         return true;
     }
 

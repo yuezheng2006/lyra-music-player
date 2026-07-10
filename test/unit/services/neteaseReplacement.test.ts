@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Covers unavailable-song replacement resolution and legacy Web API fallback behavior.
 
-const mockJsonResponse = (payload: unknown) => ({
+const mockJsonResponse = (payload: unknown, ok = true) => ({
+    ok,
     json: vi.fn().mockResolvedValue(payload),
 });
 

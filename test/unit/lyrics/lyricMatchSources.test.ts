@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { neteaseApi } from '@/services/netease';
-import { searchQQLyrics } from '@/utils/lyrics/providers/qqLyricProvider';
+import { getMusicProvider } from '@/services/musicProviders/registry';
 import { fetchAmllDbLyrics } from '@/utils/lyrics/providers/amllDbProvider';
 import { searchAmllDbLyricCandidates } from '@/utils/lyrics/lyricMatchSources';
 
@@ -14,14 +14,13 @@ vi.mock('@/services/netease', () => ({
     }
 }));
 
+vi.mock('@/services/musicProviders/registry', () => ({
+    getMusicProvider: vi.fn(),
+}));
+
 vi.mock('@/utils/lyrics/neteaseProcessing', () => ({
     fetchNeteaseChorusRanges: vi.fn(),
     processNeteaseLyrics: vi.fn(),
-}));
-
-vi.mock('@/utils/lyrics/providers/qqLyricProvider', () => ({
-    searchQQLyrics: vi.fn(),
-    fetchQQLyrics: vi.fn(),
 }));
 
 vi.mock('@/utils/lyrics/providers/kugouLyricProvider', () => ({
@@ -39,11 +38,17 @@ vi.mock('@/utils/lyrics/chorusEffects', () => ({
 
 describe('lyricMatchSources', () => {
     const cloudSearchMock = vi.mocked(neteaseApi.cloudSearch);
-    const searchQQLyricsMock = vi.mocked(searchQQLyrics);
+    const getMusicProviderMock = vi.mocked(getMusicProvider);
     const fetchAmllDbLyricsMock = vi.mocked(fetchAmllDbLyrics);
 
     beforeEach(() => {
         vi.resetAllMocks();
+        getMusicProviderMock.mockReturnValue({
+            id: 'qq',
+            search: vi.fn(async () => ({ songs: [], hasMore: false })),
+            getAudioUrl: vi.fn(),
+            getLyrics: vi.fn(),
+        });
     });
 
     it('probes AMLLDB candidates concurrently', async () => {
@@ -59,7 +64,6 @@ describe('lyricMatchSources', () => {
                 ],
             },
         });
-        searchQQLyricsMock.mockResolvedValue([]);
         fetchAmllDbLyricsMock.mockImplementation(() => {
             let resolve!: (value: { lines: []; isWordByWord: true } | null) => void;
             const promise = new Promise<{ lines: []; isWordByWord: true } | null>((res) => {

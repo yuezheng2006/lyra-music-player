@@ -39,13 +39,13 @@ export function useAppControllerPresentationShell(
         duration,
         enablePlayerPageNativeBlur,
         fumeTuning,
-        hidePlayerProgressBar,
         hidePlayerRightPanelButton,
         hidePlayerTranslationSubtitle,
         interactive3dSceneTuning,
         isDaylight,
         isElectronWindow,
         isMainWindowClickThroughEnabled,
+        isPanelOpen,
         isNowPlayingStageActive,
         isPlayerChromeHidden,
         lyricTimelineOffsetMs,
@@ -98,7 +98,8 @@ export function useAppControllerPresentationShell(
         lyricsCustomFontFamily,
         currentSongId: currentSong?.id,
         visualizerMode,
-    }), [appStyle, currentSong?.id, lyricsCustomFontFamily, lyricsFontStyle, theme, visualizerMode]);
+        visualizerBackgroundMode,
+    }), [appStyle, currentSong?.id, lyricsCustomFontFamily, lyricsFontStyle, theme, visualizerBackgroundMode, visualizerMode]);
 
     const {
         desktopLyricsStatus,
@@ -224,6 +225,25 @@ export function useAppControllerPresentationShell(
         };
     }, [isElectronWindow, setIsClickThroughToggleHotspotActive, setIsMainWindowClickThroughEnabled]);
 
+    const isSettingsModalOpen = settingsModalState.isOpen;
+    const shouldSuspendMainWindowClickThrough =
+        currentView !== 'player' || isPanelOpen || isSettingsModalOpen;
+
+    // Click-through is player-only; suspend it whenever home, settings, or side panel needs input.
+    useEffect(() => {
+        if (!isElectronWindow || !shouldSuspendMainWindowClickThrough) {
+            return;
+        }
+
+        void window.electron?.setMainWindowClickThroughEnabled?.(false);
+        void window.electron?.setMainWindowClickThroughUnlockHover?.(false);
+        setIsClickThroughToggleHotspotActive(false);
+    }, [
+        isElectronWindow,
+        setIsClickThroughToggleHotspotActive,
+        shouldSuspendMainWindowClickThrough,
+    ]);
+
     useEffect(() => {
         if (!isElectronWindow || !isMainWindowClickThroughEnabled || !window.electron?.setMainWindowClickThroughUnlockHover) {
             setIsClickThroughToggleHotspotActive(false);
@@ -284,7 +304,6 @@ export function useAppControllerPresentationShell(
     } = useMemo(() => buildPlayerViewFlags({
         currentView,
         disableHomeDynamicBackground,
-        hidePlayerProgressBar,
         hidePlayerTranslationSubtitle,
         hidePlayerRightPanelButton,
         isNowPlayingControlDisabled,
@@ -298,14 +317,12 @@ export function useAppControllerPresentationShell(
         currentView,
         disableHomeDynamicBackground,
         duration,
-        hidePlayerProgressBar,
         hidePlayerRightPanelButton,
         hidePlayerTranslationSubtitle,
         isNowPlayingControlDisabled,
         stageActiveEntryKind,
     ]);
 
-    const isSettingsModalOpen = settingsModalState.isOpen;
     const {
         obsBrowserSourceStatus,
         isObsBrowserSourceRendering,

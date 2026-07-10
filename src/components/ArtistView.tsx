@@ -34,6 +34,24 @@ const ArtistView: React.FC<ArtistViewProps> = ({ artistId, onBack, onPlaySong, o
     // Scroll Ref for top songs list
     const topSongsRef = useRef<HTMLDivElement>(null);
 
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            const target = event.target;
+            if (
+                target instanceof HTMLInputElement ||
+                target instanceof HTMLTextAreaElement ||
+                (target instanceof HTMLElement && target.isContentEditable)
+            ) {
+                return;
+            }
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            onBack();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onBack]);
+
     const loadArtistData = async () => {
         setLoading(true);
         try {
@@ -84,7 +102,7 @@ const ArtistView: React.FC<ArtistViewProps> = ({ artistId, onBack, onPlaySong, o
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className={`fixed inset-0 z-50 flex items-center justify-center ${glassBg} font-sans`}
+            className={`absolute inset-0 z-50 flex items-center justify-center ${glassBg} font-sans`}
             style={{ color: 'var(--text-primary)' }}
         >
             {/* Main Container */}

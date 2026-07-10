@@ -23,3 +23,11 @@ export const resolvePlayerGeometricBackgroundDisabled = (
     }
     return settingsSubviewOpen || !isInteractive3dBackgroundMode(backgroundMode);
 };
+
+/**
+ * Interactive3d WebGL LyricStage must stay off.
+ * DOM visualizer modes already draw the active lyric line; enabling both causes stacked ghost text.
+ */
+export const shouldEnableInteractive3dWebGlLyrics = (
+    _backgroundMode?: VisualizerBackgroundMode,
+): boolean => false;

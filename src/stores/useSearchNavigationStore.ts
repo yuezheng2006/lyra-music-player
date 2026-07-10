@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { getNavidromeConfig, navidromeApi } from '../services/navidromeService';
-import { neteaseApi } from '../services/netease';
-import type { HomeViewTab, LocalSong, UnifiedSong } from '../types';
+import { getMusicProvider } from '../services/musicProviders/registry';
+import { isQishuiShareUrl, resolveOnlineSearchProvider } from '../utils/onlineSearchRouting';
+import type { HomeViewTab, LocalSong, OnlineMusicProviderId, SearchSourceId, UnifiedSong } from '../types';
 
 const LAST_HOME_VIEW_TAB_KEY = 'last_home_view_tab';
 const DEFAULT_SEARCH_LIMIT = 30;
@@ -18,10 +19,20 @@ type SearchExecutionResult = {
     nextOffset: number;
 };
 
+type SubmitSearchPayload = {
+    query?: string;
+    sourceTab: SearchSourceId;
+    /** When set, keyword search fans out across these online providers. */
+    providers?: OnlineMusicProviderId[];
+    deps: SearchExecutorDeps;
+    returnView?: SearchReturnView;
+};
+
 interface SearchNavigationState {
     homeViewTab: HomeViewTab;
     searchQuery: string;
-    searchSourceTab: HomeViewTab;
+    searchSourceTab: SearchSourceId;
+    searchProviders: OnlineMusicProviderId[];
     searchResults: UnifiedSong[] | null;
     searchReturnView: SearchReturnView;
     isSearchOpen: boolean;
@@ -34,9 +45,9 @@ interface SearchNavigationState {
     setHomeViewTab: (tab: HomeViewTab) => void;
     setSearchQuery: (query: string) => void;
     setSearchScrollTop: (scrollTop: number) => void;
-    restoreSearch: (payload: { query: string; sourceTab: HomeViewTab; returnView?: SearchReturnView; }) => void;
+    restoreSearch: (payload: { query: string; sourceTab: SearchSourceId; returnView?: SearchReturnView; }) => void;
     hideSearchOverlay: () => void;
-    submitSearch: (payload: { query?: string; sourceTab: HomeViewTab; deps: SearchExecutorDeps; returnView?: SearchReturnView; }) => Promise<boolean>;
+    submitSearch: (payload: SubmitSearchPayload) => Promise<boolean>;
     loadMoreSearchResults: (payload: { deps: SearchExecutorDeps; }) => Promise<void>;
 }
 
@@ -111,24 +122,86 @@ const searchNavidromeSongs = async (query: string): Promise<SearchExecutionResul
     };
 };
 
-const searchNeteaseSongs = async (query: string, limit: number, offset: number): Promise<SearchExecutionResult> => {
-    const response = await neteaseApi.cloudSearch(query, limit, offset);
-    const results = (response.result?.songs || []) as UnifiedSong[];
-    const totalCount = response.result?.songCount || 0;
+const isOnlineMusicProviderId = (sourceTab: SearchSourceId): sourceTab is OnlineMusicProviderId =>
+    sourceTab === 'netease' || sourceTab === 'qq' || sourceTab === 'qishui' || sourceTab === 'coco';
+
+const searchOnlineProviderSongs = async (
+    providerId: OnlineMusicProviderId,
+    query: string,
+    limit: number,
+    offset: number
+): Promise<SearchExecutionResult> => {
+    const response = await getMusicProvider(providerId).search(query, { limit, offset });
+    const results = (response.songs as UnifiedSong[]).map(song => ({
+        ...song,
+        musicProvider: song.musicProvider || providerId,
+    }));
 
     return {
         results,
-        hasMore: offset + results.length < totalCount,
+        hasMore: response.hasMore ?? (typeof response.total === 'number' ? offset + results.length < response.total : false),
         nextOffset: offset + results.length,
+    };
+};
+
+/** Round-robin merge so no single source monopolizes the first page. */
+const interleaveProviderResults = (batches: UnifiedSong[][]): UnifiedSong[] => {
+    const merged: UnifiedSong[] = [];
+    const maxLen = batches.reduce((max, batch) => Math.max(max, batch.length), 0);
+    for (let index = 0; index < maxLen; index += 1) {
+        for (const batch of batches) {
+            if (index < batch.length) {
+                merged.push(batch[index]);
+            }
+        }
+    }
+    return merged;
+};
+
+const searchAggregatedOnlineProviders = async (
+    providers: OnlineMusicProviderId[],
+    query: string,
+    limit: number,
+    offset: number,
+): Promise<SearchExecutionResult> => {
+    if (providers.length === 0) {
+        return { results: [], hasMore: false, nextOffset: offset };
+    }
+    if (providers.length === 1) {
+        return searchOnlineProviderSongs(providers[0], query, limit, offset);
+    }
+
+    const perLimit = Math.max(8, Math.ceil(limit / providers.length));
+    const settled = await Promise.allSettled(
+        providers.map(providerId => searchOnlineProviderSongs(providerId, query, perLimit, offset)),
+    );
+    const batches: UnifiedSong[][] = [];
+    let hasMore = false;
+    let nextOffset = offset;
+
+    settled.forEach((result) => {
+        if (result.status !== 'fulfilled') {
+            return;
+        }
+        batches.push(result.value.results);
+        hasMore = hasMore || result.value.hasMore;
+        nextOffset = Math.max(nextOffset, result.value.nextOffset);
+    });
+
+    return {
+        results: interleaveProviderResults(batches),
+        hasMore,
+        nextOffset,
     };
 };
 
 const executeSearch = async (
     query: string,
-    sourceTab: HomeViewTab,
+    sourceTab: SearchSourceId,
     offset: number,
     limit: number,
-    deps: SearchExecutorDeps
+    deps: SearchExecutorDeps,
+    providers?: OnlineMusicProviderId[],
 ): Promise<SearchExecutionResult> => {
     if (sourceTab === 'local') {
         return searchLocalSongs(deps.localSongs, query, deps.t);
@@ -138,7 +211,11 @@ const executeSearch = async (
         return searchNavidromeSongs(query);
     }
 
-    return searchNeteaseSongs(query, limit, offset);
+    const resolvedProviders = providers && providers.length > 0
+        ? providers
+        : [isOnlineMusicProviderId(sourceTab) ? sourceTab : 'netease'];
+
+    return searchAggregatedOnlineProviders(resolvedProviders, query, limit, offset);
 };
 
 const getInitialHomeViewTab = (): HomeViewTab => {
@@ -146,7 +223,13 @@ const getInitialHomeViewTab = (): HomeViewTab => {
         return 'playlist';
     }
     const savedTab = localStorage.getItem(LAST_HOME_VIEW_TAB_KEY);
-    return savedTab === 'playlist' || savedTab === 'local' || savedTab === 'albums' || savedTab === 'navidrome' || savedTab === 'radio'
+    return savedTab === 'playlist'
+        || savedTab === 'local'
+        || savedTab === 'albums'
+        || savedTab === 'navidrome'
+        || savedTab === 'radio'
+        || savedTab === 'daily'
+        || savedTab === 'podcast'
         ? savedTab
         : 'playlist';
 };
@@ -155,6 +238,7 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
     homeViewTab: getInitialHomeViewTab(),
     searchQuery: '',
     searchSourceTab: 'playlist',
+    searchProviders: [],
     searchResults: null,
     searchReturnView: 'home',
     isSearchOpen: false,
@@ -179,15 +263,35 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
         isSearchOpen: true,
     }),
     hideSearchOverlay: () => set({ isSearchOpen: false, searchReturnView: 'home' }),
-    submitSearch: async ({ query, sourceTab, deps, returnView = 'home' }) => {
+    submitSearch: async ({ query, sourceTab, providers, deps, returnView = 'home' }) => {
         const trimmedQuery = (query ?? get().searchQuery).trim();
         if (!trimmedQuery) {
             return false;
         }
 
+        const resolvedSourceTab = sourceTab === 'local' || sourceTab === 'navidrome'
+            ? sourceTab
+            : resolveOnlineSearchProvider(trimmedQuery, sourceTab);
+
+        // Callers pass already-resolved searchable providers (checked ∩ signed-in).
+        // Honor that list as-is; only fall back to a single sourceTab when omitted.
+        const effectiveProviders: OnlineMusicProviderId[] = (() => {
+            if (sourceTab === 'local' || sourceTab === 'navidrome') {
+                return [];
+            }
+            if (isQishuiShareUrl(trimmedQuery) || resolvedSourceTab === 'qishui') {
+                return ['qishui'];
+            }
+            if (providers && providers.length > 0) {
+                return providers.filter(isOnlineMusicProviderId);
+            }
+            return isOnlineMusicProviderId(resolvedSourceTab) ? [resolvedSourceTab] : [];
+        })();
+
         set({
             searchQuery: trimmedQuery,
-            searchSourceTab: sourceTab,
+            searchSourceTab: effectiveProviders.length > 1 ? effectiveProviders[0] : resolvedSourceTab,
+            searchProviders: effectiveProviders,
             searchReturnView: returnView,
             isSearchOpen: true,
             isSearching: true,
@@ -199,7 +303,14 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
         });
 
         try {
-            const result = await executeSearch(trimmedQuery, sourceTab, 0, get().limit, deps);
+            const result = await executeSearch(
+                trimmedQuery,
+                resolvedSourceTab,
+                0,
+                get().limit,
+                deps,
+                effectiveProviders,
+            );
             set({
                 searchResults: result.results,
                 hasMore: result.hasMore,
@@ -222,6 +333,7 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
         const {
             searchQuery,
             searchSourceTab,
+            searchProviders,
             searchResults,
             hasMore,
             isSearching,
@@ -244,7 +356,14 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
         set({ isLoadingMore: true });
 
         try {
-            const result = await executeSearch(searchQuery, searchSourceTab, offset, limit, deps);
+            const result = await executeSearch(
+                searchQuery,
+                searchSourceTab,
+                offset,
+                limit,
+                deps,
+                searchProviders.length > 0 ? searchProviders : undefined,
+            );
             set({
                 searchResults: [...(searchResults || []), ...result.results],
                 hasMore: result.hasMore,

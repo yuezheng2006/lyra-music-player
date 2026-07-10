@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
     createCoverPlaceholder,
+    createSongCoverPlaceholder,
     pickRandomSongCoverUrl,
     resolveNavidromeArtistCoverUrl,
 } from '@/utils/coverPlaceholders';
@@ -14,6 +15,15 @@ describe('coverPlaceholders', () => {
         expect(decoded).toContain('<svg');
         expect(decoded).toContain('linearGradient');
         expect(decoded).toContain('stop-color="#e0f2fe"');
+    });
+
+    it('creates a song placeholder from title and artist', () => {
+        const placeholder = createSongCoverPlaceholder('刀马旦', '周杰伦');
+        const decoded = decodeURIComponent(placeholder);
+
+        expect(placeholder.startsWith('data:image/svg+xml')).toBe(true);
+        expect(decoded).toContain('刀');
+        expect(decoded).toContain('linearGradient');
     });
 
     it('prefers artistImageUrl over coverArt for navidrome artists', () => {

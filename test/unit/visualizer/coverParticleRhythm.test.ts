@@ -21,14 +21,25 @@ describe('coverParticleBurstSmoother', () => {
 });
 
 describe('coverParticlePresetRuntime', () => {
-    it('gives tunnel and starfield stronger motion profiles than cover', () => {
+    it('normalizes removed presets before resolving runtime profiles', () => {
         const emily = resolveCoverParticlePresetRuntime('emily');
         const tunnel = resolveCoverParticlePresetRuntime('tunnel');
-        const starfield = resolveCoverParticlePresetRuntime('starfield');
+        const terrain = resolveCoverParticlePresetRuntime('terrain');
+        const aurora = resolveCoverParticlePresetRuntime('aurora');
+        const voidPreset = resolveCoverParticlePresetRuntime('mineradioVoid');
 
-        expect(tunnel.speedMul).toBeGreaterThan(emily.speedMul);
-        expect(starfield.speedMul).toBeGreaterThan(emily.speedMul);
-        expect(tunnel.bassCameraPunch).toBeGreaterThan(starfield.bassCameraPunch);
-        expect(tunnel.fov).toBeGreaterThan(emily.fov);
+        expect(tunnel).toEqual(emily);
+        expect(terrain).toEqual(emily);
+        expect(aurora).toEqual(emily);
+        expect(voidPreset).toEqual(emily);
+    });
+
+    it('keeps legacy box aliases on the quantum cube profile', () => {
+        const quantumCube = resolveCoverParticlePresetRuntime('quantumCube');
+        const starfield = resolveCoverParticlePresetRuntime('starfield');
+        const vinyl = resolveCoverParticlePresetRuntime('vinyl');
+
+        expect(starfield).toEqual(quantumCube);
+        expect(vinyl).toEqual(quantumCube);
     });
 });

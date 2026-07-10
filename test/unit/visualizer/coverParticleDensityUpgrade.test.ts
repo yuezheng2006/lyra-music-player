@@ -27,9 +27,26 @@ describe('cover particle density upgrade', () => {
         ).toBeGreaterThan(0);
     });
 
-    it('keeps tunnel/starfield motion profiles stronger than cover', () => {
-        const tunnel = resolveCoverParticlePresetRuntime('tunnel');
+    it('keeps active tunnel/starfield motion profiles stronger than cover', () => {
+        const cover = resolveCoverParticlePresetRuntime('emily');
+        const tunnel = resolveCoverParticlePresetRuntime('mineradioTunnel');
         const starfield = resolveCoverParticlePresetRuntime('starfield');
+        expect(cover.cameraZ).toBe(6.6);
+        expect(cover.fov).toBe(45);
         expect(tunnel.bassCameraPunch).toBeGreaterThan(starfield.bassCameraPunch);
+    });
+
+    it('keeps Mineradio original presets at source camera defaults', () => {
+        for (const preset of [
+            'mineradioTunnel',
+            'mineradioOrbit',
+            'mineradioVinyl',
+            'mineradioGalaxy',
+        ] as const) {
+            const profile = resolveCoverParticlePresetRuntime(preset);
+            expect(profile.speedMul).toBe(1);
+            expect(profile.pointScale).toBe(1);
+            expect(profile.fov).toBe(45);
+        }
     });
 });

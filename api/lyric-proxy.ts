@@ -1,4 +1,5 @@
 import { URL } from 'url';
+import { isAllowedLyricProxyHost, isAmllDbHost } from '../shared/lyricProxyHosts.mjs';
 
 // api/lyric-proxy.ts
 
@@ -20,19 +21,36 @@ const CORS_HEADERS = {
     'KG-CLIENTTIMEMS',
     'mid',
     'x-router',
+    'X-Proxy-Referer',
+    'X-Proxy-Cookie',
   ].join(', '),
 };
 
-const IGNORED_FORWARD_HEADERS = ['host', 'connection', 'content-length', 'origin', 'referer'];
+const IGNORED_FORWARD_HEADERS = [
+  'host',
+  'connection',
+  'content-length',
+  'origin',
+  'referer',
+  'cookie',
+  'x-proxy-referer',
+  'x-proxy-cookie',
+];
 
-function isAllowedLyricProxyHost(hostname: string): boolean {
-  return hostname === 'qq.com' || hostname.endsWith('.qq.com') ||
-    hostname === 'kugou.com' || hostname.endsWith('.kugou.com') ||
-    hostname === 'amll-ttml-db.stevexmh.net';
-}
-
-function isAmllDbHost(hostname: string): boolean {
-  return hostname === 'amll-ttml-db.stevexmh.net';
+/** Remap browser-safe proxy headers onto forbidden Referer/Cookie for upstream. */
+function applyLyricProxyHeaderOverrides(
+  headers: Record<string, string>,
+  sourceHeaders: Record<string, unknown>,
+): void {
+  const readHeader = (name: string): string => {
+    const value = sourceHeaders[name] ?? sourceHeaders[name.toLowerCase()];
+    if (Array.isArray(value)) return value.join(', ');
+    return typeof value === 'string' ? value : '';
+  };
+  const proxyReferer = readHeader('x-proxy-referer');
+  const proxyCookie = readHeader('x-proxy-cookie');
+  if (proxyReferer) headers.Referer = proxyReferer;
+  if (proxyCookie) headers.Cookie = proxyCookie;
 }
 
 export default async function handler(req: any, res: any) {
@@ -54,7 +72,7 @@ export default async function handler(req: any, res: any) {
     const targetUrl = new URL(targetUrlStr);
     const hostname = targetUrl.hostname;
 
-    // Security check: only allow proxying to known lyric provider domains
+    // Security check: only allow proxying to known lyric/cover provider domains
     const isAllowed = isAllowedLyricProxyHost(hostname);
 
     if (!isAllowed) {
@@ -68,6 +86,7 @@ export default async function handler(req: any, res: any) {
         headers[key] = req.headers[key] as string;
       }
     }
+    applyLyricProxyHeaderOverrides(headers, req.headers);
 
     // Forward the method and body (if present and method is not GET/HEAD)
     const hasBody = ['POST', 'PUT', 'PATCH'].includes(req.method);

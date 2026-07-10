@@ -13,6 +13,11 @@ import {
 } from '../../../types';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { sanitizeUrlBackgroundItem } from '../../../utils/urlBackground';
+import {
+    getLyricColorPresetById,
+    readStoredLyricColorPresetId,
+    saveStoredLyricColorPresetId,
+} from '../../../utils/theme/lyricColorPresets';
 
 // src/components/modal/settings/AppearanceSettingsSubview.tsx
 // Visual settings subview for theme presets, lyric renderer entry, layout settings, and configurations import/export.
@@ -241,6 +246,7 @@ export const compressConfig = (config: any): string => {
     if (config.showSubtitleTranslation !== undefined) minified.sst = config.showSubtitleTranslation;
     if (config.lyricsFontStyle) minified.lfs = config.lyricsFontStyle;
     if (config.lyricsFontScale !== undefined) minified.lfn = config.lyricsFontScale;
+    if (config.lyricColorPresetId) minified.lcp = config.lyricColorPresetId;
 
     if (config.classicTuning) minified.ct = compressClassic(config.classicTuning);
     if (config.cadenzaTuning) minified.cat = compressCadenza(config.cadenzaTuning);
@@ -263,17 +269,17 @@ export const compressConfig = (config: any): string => {
     const bytes = new TextEncoder().encode(jsonStr);
     const binaryString = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
     const base64 = btoa(binaryString);
-    return `folia-theme://${base64}`;
+    return `auralis-theme://${base64}`;
 };
 
 /**
- * Decodes and restores a configuration object from either raw JSON or a compressed base64 string starting with 'folia-theme://'.
+ * Decodes and restores a configuration object from either raw JSON or a compressed base64 string starting with 'auralis-theme://'.
  */
 export const decompressConfig = (str: string): any => {
     let parsed: any = null;
     const trimmed = str.trim();
-    if (trimmed.startsWith('folia-theme://')) {
-        const base64 = trimmed.slice('folia-theme://'.length);
+    if (trimmed.startsWith('auralis-theme://')) {
+        const base64 = trimmed.slice('auralis-theme://'.length);
         const binaryString = atob(base64);
         const bytes = Uint8Array.from(binaryString, char => char.charCodeAt(0));
         const jsonStr = new TextDecoder().decode(bytes);
@@ -303,6 +309,7 @@ export const decompressConfig = (str: string): any => {
         if (parsed.sst !== undefined) decompressed.showSubtitleTranslation = parsed.sst;
         if (parsed.lfs) decompressed.lyricsFontStyle = parsed.lfs;
         if (parsed.lfn !== undefined) decompressed.lyricsFontScale = parsed.lfn;
+        if (parsed.lcp) decompressed.lyricColorPresetId = parsed.lcp;
 
         if (parsed.ct) decompressed.classicTuning = decompressClassic(parsed.ct);
         if (parsed.cat) decompressed.cadenzaTuning = decompressCadenza(parsed.cat);
@@ -326,7 +333,7 @@ export const decompressConfig = (str: string): any => {
         const validKeys = [
             'theme', 'visualizerMode', 'visualizerBackgroundMode', 'backgroundOpacity',
             'visualizerOpacity', 'hidePlayerTranslationSubtitle', 'showSubtitleTranslation',
-            'lyricsFontStyle', 'lyricsFontScale', 'classicTuning',
+            'lyricsFontStyle', 'lyricsFontScale', 'lyricColorPresetId', 'classicTuning',
             'cadenzaTuning', 'partitaTuning', 'fumeTuning', 'claddaghTuning', 'cappellaTuning',
             'tiltTuning', 'monetBackgroundTuning', 'interactive3dSceneTuning', 'monetTuning',
             'urlBackgroundList', 'urlBackgroundSelectedId',
@@ -490,6 +497,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             showSubtitleTranslation: store.showSubtitleTranslation,
             lyricsFontStyle: store.lyricsFontStyle,
             lyricsFontScale: store.lyricsFontScale,
+            lyricColorPresetId: readStoredLyricColorPresetId(),
             classicTuning: store.classicTuning,
             cadenzaTuning: store.cadenzaTuning,
             partitaTuning: store.partitaTuning,
@@ -570,6 +578,9 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             }
             if (config.lyricsFontScale !== undefined) {
                 store.handleSetLyricsFontScale(config.lyricsFontScale);
+            }
+            if (config.lyricColorPresetId && getLyricColorPresetById(config.lyricColorPresetId)) {
+                saveStoredLyricColorPresetId(config.lyricColorPresetId);
             }
 
             // Tunings
@@ -809,7 +820,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
                                 {t('options.autoHidePlayerChrome') || '自动隐藏控制栏'}
                             </div>
                             <div className="text-xs opacity-50 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
-                                {t('options.autoHidePlayerChromeDesc') || '开启后，自动隐藏播放页的进度条和右侧按钮。'}
+                                {t('options.autoHidePlayerChromeDesc') || '开启后，鼠标离开窗口约 3 秒会自动隐藏播放页底栏与右侧面板按钮。也可按 H 键切换。'}
                             </div>
                         </div>
                         <button
@@ -904,7 +915,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
                             {t('options.importExportTitle') || '备份与导入配置'}
                         </div>
                         <div className="text-xs opacity-50 max-w-[400px]" style={{ color: 'var(--text-secondary)' }}>
-                            {t('options.importExportDesc') || '通过标准 JSON 或 folia-theme 文本导入/导出配色主题与歌词动画设置。'}
+                            {t('options.importExportDesc') || '通过标准 JSON 或 auralis-theme 文本导入/导出配色主题与歌词动画设置。'}
                         </div>
                     </div>
 

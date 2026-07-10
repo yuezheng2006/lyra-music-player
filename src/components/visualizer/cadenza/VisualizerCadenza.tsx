@@ -484,10 +484,11 @@ const buildDomTextShadow = (color: string, intensity: number, blurScale = 1) => 
 const chooseFontPx = (width: number, line: Line) => {
     const graphemeCount = splitGraphemes(line.fullText).length || 1;
     const wordCount = line.words.length || 1;
-    const widthBase = clamp(width * 0.086, 34, 94);
-    const lengthPenalty = graphemeCount > 12 ? Math.min((graphemeCount - 12) * 1.8, 34) : 0;
-    const densityPenalty = wordCount > 7 ? Math.min((wordCount - 7) * 1.5, 18) : 0;
-    return clamp(widthBase - lengthPenalty - densityPenalty, 28, 104);
+    // Keep hero size inside the measured stage with clear side padding.
+    const widthBase = clamp(width * 0.068, 28, 64);
+    const lengthPenalty = graphemeCount > 12 ? Math.min((graphemeCount - 12) * 1.8, 28) : 0;
+    const densityPenalty = wordCount > 7 ? Math.min((wordCount - 7) * 1.5, 16) : 0;
+    return clamp(widthBase - lengthPenalty - densityPenalty, 22, 72);
 };
 
 const buildCanvasFont = (theme: Theme, fontPx: number) => `700 ${fontPx}px ${resolveThemeFontStack(theme)}`;
@@ -502,7 +503,7 @@ const buildPreparedState = (
         return null;
     }
 
-    const fontPx = clamp(chooseFontPx(viewport.width, line) * tuning.fontScale, 24, 132);
+    const fontPx = clamp(chooseFontPx(viewport.width, line) * tuning.fontScale, 20, 72);
     const font = buildCanvasFont(theme, fontPx);
     // This is the expensive part of the mode.
     // Once a line reaches here, we fully measure it, wrap it, split it, and convert it into placement-ready fragments.
@@ -510,7 +511,7 @@ const buildPreparedState = (
     const text = prepared.segments.join('');
     const { segmentMetas, graphemes } = buildSegmentMetas(prepared);
     const lineHeight = Math.round(fontPx * (isCJK(text) ? 1.22 : 1.1));
-    const availableWidth = Math.max(viewport.width - 48, 120);
+    const availableWidth = Math.max(viewport.width - 64, 120);
     const minWidth = Math.min(220, availableWidth);
     const wrapCompression = graphemes.length > 12
         ? clamp(0.92 - (graphemes.length - 12) * 0.018, 0.62, 0.92)

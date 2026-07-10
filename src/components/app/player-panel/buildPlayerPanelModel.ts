@@ -26,6 +26,7 @@ type BuildPlayerPanelModelParams = {
     handleLike: LegacyUnifiedPanelProps['playback']['onLike'];
     isLiked: boolean;
     generateAITheme: () => void;
+    activateSmartTheme: () => void;
     isGeneratingTheme: boolean;
     hasLyrics: boolean;
     canGenerateAITheme: boolean;
@@ -67,7 +68,7 @@ type BuildPlayerPanelModelParams = {
     hideToggleButton: boolean;
     activePlaybackContext: 'main' | 'stage';
     isNowPlayingControlDisabled: boolean;
-    openSettings: (initialTab: 'help' | 'options') => void;
+    openSettings: (initialTab: 'help' | 'options', initialSubview?: 'integration' | null) => void;
     openCommandPalette?: LegacyUnifiedPanelProps['playback']['onOpenCommandPalette'];
     isCommandPaletteOpen?: boolean;
     playQueue: LegacyUnifiedPanelProps['queue']['playQueue'];
@@ -95,6 +96,7 @@ type BuildPlayerPanelModelParams = {
     handleClearCache: LegacyUnifiedPanelProps['account']['onClearCache'];
     handleSyncData: LegacyUnifiedPanelProps['account']['onSyncData'];
     isSyncing: LegacyUnifiedPanelProps['account']['isSyncing'];
+    refreshUserData: LegacyUnifiedPanelProps['account']['onRefreshUser'];
     useCoverColorBg: LegacyUnifiedPanelProps['account']['useCoverColorBg'];
     handleToggleCoverColorBg: LegacyUnifiedPanelProps['account']['onToggleCoverColorBg'];
     isDaylight: LegacyUnifiedPanelProps['account']['isDaylight'];
@@ -128,6 +130,7 @@ export const buildPlayerPanelModel = ({
     handleLike,
     isLiked,
     generateAITheme,
+    activateSmartTheme,
     isGeneratingTheme,
     hasLyrics,
     canGenerateAITheme,
@@ -197,6 +200,7 @@ export const buildPlayerPanelModel = ({
     handleClearCache,
     handleSyncData,
     isSyncing,
+    refreshUserData,
     useCoverColorBg,
     handleToggleCoverColorBg,
     isDaylight,
@@ -229,6 +233,7 @@ export const buildPlayerPanelModel = ({
             onLike: handleLike,
             isLiked,
             onGenerateAITheme: generateAITheme,
+            onActivateSmartTheme: activateSmartTheme,
             isGeneratingTheme,
             hasLyrics,
             canGenerateAITheme,
@@ -273,6 +278,9 @@ export const buildPlayerPanelModel = ({
             onOpenSettings: () => {
                 openSettings('options');
             },
+            onOpenIntegrationSettings: () => {
+                openSettings('options', 'integration');
+            },
             onOpenCommandPalette: openCommandPalette,
             isCommandPaletteOpen,
             visualizerBackgroundMode,
@@ -316,6 +324,10 @@ export const buildPlayerPanelModel = ({
             onClearCache: handleClearCache,
             onSyncData: handleSyncData,
             isSyncing,
+            onRefreshUser: refreshUserData,
+            onOpenIntegrationSettings: () => {
+                openSettings('options', 'integration');
+            },
             useCoverColorBg,
             onToggleCoverColorBg: handleToggleCoverColorBg,
             isDaylight,

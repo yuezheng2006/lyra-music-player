@@ -45,6 +45,7 @@ import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
 import {
     applyLyricColorPresetToDualTheme,
     getLyricColorPresetById,
+    matchLyricColorPresetId,
     type LyricColorPresetId,
 } from '../../utils/theme/lyricColorPresets';
 
@@ -558,7 +559,7 @@ const ThemePark: React.FC<ThemeParkProps> = ({
         if (!preset) {
             return;
         }
-        setDraftTheme(previous => applyLyricColorPresetToDualTheme(previous, preset));
+        setDraftTheme(previous => applyLyricColorPresetToDualTheme(previous, preset, { includeMotion: false }));
     };
 
     // 仅当 mouse down 和 click 都在 overlay 元素本身发生时才触发关闭，
@@ -718,8 +719,13 @@ const ThemePark: React.FC<ThemeParkProps> = ({
                                 </div>
                                 <LyricColorPresetGrid
                                     onSelect={applyLyricColorPreset}
-                                    inactiveButtonClassName={isDaylight ? 'text-stone-700 hover:bg-black/[0.04]' : 'text-white/70 hover:bg-white/[0.06]'}
-                                    activeButtonClassName={isDaylight ? 'bg-white text-stone-900 shadow-sm' : 'bg-white/15 text-white shadow-sm'}
+                                    activePresetId={matchLyricColorPresetId(
+                                        safeDraftTheme[pickerState.mode],
+                                        pickerState.mode,
+                                    )}
+                                    isDaylight={isDaylight}
+                                    inactiveButtonClassName={isDaylight ? 'text-stone-800 hover:bg-black/[0.05]' : 'text-white/88 hover:bg-white/[0.08]'}
+                                    activeButtonClassName={isDaylight ? 'bg-white text-stone-950 shadow-sm ring-1 ring-black/10' : 'bg-white/15 text-white shadow-sm ring-1 ring-white/20'}
                                 />
                             </div>
 

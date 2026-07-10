@@ -31,10 +31,10 @@ export const AiHelpPromptModal: React.FC<AiHelpPromptModalProps> = ({
         guideUrl: FOLIA_GUIDE_URL,
         repoUrl: FOLIA_REPOSITORY_URL,
         defaultValue: [
-            'I am using Folia and need help with a problem.',
+            'I am using Lyra and need help with a problem.',
             '',
-            `Folia Guide: ${FOLIA_GUIDE_URL}`,
-            `Folia repository: ${FOLIA_REPOSITORY_URL}`,
+            `Lyra Guide: ${FOLIA_GUIDE_URL}`,
+            `Lyra repository: ${FOLIA_REPOSITORY_URL}`,
             '',
             'Please read these references as context, then help me understand and solve the problem I describe next. Ask for any missing details before making assumptions, and give me steps I can try safely.'
         ].join('\n')
@@ -100,7 +100,7 @@ export const AiHelpPromptModal: React.FC<AiHelpPromptModalProps> = ({
                             <div className="pr-10">
                                 <h2 className="text-xl font-semibold">{t('aiHelp.title', 'Need help?')}</h2>
                                 <p className={`mt-2 text-sm leading-6 ${textSecondary}`}>
-                                    {t('aiHelp.description', 'Describe your issue on the official site of the AI model you use, then paste this prompt so it knows where to find Folia docs and source context.')}
+                                    {t('aiHelp.description', 'Describe your issue on the official site of the AI model you use, then paste this prompt so it knows where to find Lyra docs and source context.')}
                                 </p>
                             </div>
 

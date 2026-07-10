@@ -4,7 +4,7 @@ import { PlayerState } from '../types';
 import type { ReplayGainMode, SongResult, StatusMessage } from '../types';
 import type { LocalSong } from '../types';
 import { hasCachedAudio, saveAudioBlob } from '../services/audioCache';
-import { getOnlineSongCacheKey } from '../services/netease';
+import { getProviderSongCacheKey } from '../services/musicProviders/registry';
 import { saveToCache } from '../services/db';
 
 // src/hooks/usePlaybackAudioBridge.ts
@@ -57,7 +57,6 @@ export function usePlaybackAudioBridge({
     updateCacheSize,
     t,
 }: UsePlaybackAudioBridgeParams) {
-    const previousAudioSrcRef = useRef<string | null>(null);
     const replayGainLogSignatureRef = useRef<string | null>(null);
 
     const setupAudioAnalyzer = useCallback(() => {
@@ -89,7 +88,7 @@ export function usePlaybackAudioBridge({
     const cacheSongAssets = useCallback(async () => {
         if (!currentSong || !audioSrc || audioSrc.startsWith('blob:')) return;
 
-        const existing = await hasCachedAudio(getOnlineSongCacheKey('audio', currentSong));
+        const existing = await hasCachedAudio(getProviderSongCacheKey('audio', currentSong));
         if (existing || !enableMediaCache) return;
 
         console.log('[Cache] Caching fully played song:', currentSong.name);
@@ -97,7 +96,7 @@ export function usePlaybackAudioBridge({
         try {
             const response = await fetch(audioSrc);
             const blob = await response.blob();
-            await saveAudioBlob(getOnlineSongCacheKey('audio', currentSong), blob);
+            await saveAudioBlob(getProviderSongCacheKey('audio', currentSong), blob);
             console.log('[Cache] Audio saved');
         } catch (error) {
             console.error('[Cache] Failed to download audio for cache', error);
@@ -108,7 +107,7 @@ export function usePlaybackAudioBridge({
             try {
                 const response = await fetch(coverUrl, { mode: 'cors' });
                 const blob = await response.blob();
-                await saveToCache(getOnlineSongCacheKey('cover', currentSong), blob);
+                await saveToCache(getProviderSongCacheKey('cover', currentSong), blob);
                 console.log('[Cache] Cover saved');
             } catch (error) {
                 console.error('[Cache] Failed to download cover for cache', error);
@@ -187,20 +186,8 @@ export function usePlaybackAudioBridge({
         }
     }, [audioContextRef, currentSong, gainNodeRef, getTargetPlaybackVolume, replayGainLinearRef, replayGainMode, syncOutputGain]);
 
-    useEffect(() => {
-        const audioElement = audioRef.current;
-        if (!audioElement) {
-            previousAudioSrcRef.current = audioSrc;
-            return;
-        }
-
-        if (audioSrc && previousAudioSrcRef.current && previousAudioSrcRef.current !== audioSrc) {
-            audioElement.pause();
-            audioElement.load();
-        }
-
-        previousAudioSrcRef.current = audioSrc;
-    }, [audioRef, audioSrc]);
+    // React already reloads media when the audio `src` prop changes; do not call
+    // audio.load() again or the same CDN URL will be fetched twice.
 
     useEffect(() => {
         const audioElement = audioRef.current;

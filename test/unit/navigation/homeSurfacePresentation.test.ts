@@ -37,6 +37,18 @@ describe('buildHomeSurfacePresentation', () => {
         });
     });
 
+    it('keeps Home mounted under player when GridView browse context is active', () => {
+        expect(buildHomeSurfacePresentation({
+            currentView: 'player',
+            isSettingsModalOpen: false,
+            isPanelOpen: false,
+            hasActiveGridView: true,
+        })).toEqual({
+            shouldKeepHomeMounted: true,
+            shouldShowHomeSurface: false,
+        });
+    });
+
     it('hides Home while home overlays are open', () => {
         expect(buildHomeSurfacePresentation({
             currentView: 'home',

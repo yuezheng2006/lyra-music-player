@@ -24,6 +24,7 @@ type BuildSettingsDialogModelParams = {
     themeParkInitialTheme: DualTheme;
     onToggleNavidrome?: (enabled: boolean) => void;
     currentSongTitle?: string | null;
+    currentCoverUrl?: string | null;
     loadLyricFilterPreview: () => Promise<LyricData | null>;
     onSaveLyricFilterPattern: (pattern: string) => Promise<void> | void;
     stageStatus?: StageStatus | null;
@@ -52,6 +53,7 @@ export const buildSettingsDialogModel = ({
     themeParkInitialTheme,
     onToggleNavidrome,
     currentSongTitle,
+    currentCoverUrl,
     loadLyricFilterPreview,
     onSaveLyricFilterPattern,
     stageStatus,
@@ -91,6 +93,7 @@ export const buildSettingsDialogModel = ({
         onToggleSongThemeAutoGenerate: themeController.handleSongThemeAutoGenerateChange,
         onToggleNavidrome,
         currentSongTitle,
+        currentCoverUrl,
         loadLyricFilterPreview,
         onSaveLyricFilterPattern,
         stageStatus,

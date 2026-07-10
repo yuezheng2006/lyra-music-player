@@ -36,6 +36,24 @@ const AlbumView: React.FC<AlbumViewProps> = ({ albumId, onBack, onPlaySong, onPl
     // Scroll Ref
     const containerRef = useRef<HTMLDivElement>(null);
 
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            const target = event.target;
+            if (
+                target instanceof HTMLInputElement ||
+                target instanceof HTMLTextAreaElement ||
+                (target instanceof HTMLElement && target.isContentEditable)
+            ) {
+                return;
+            }
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            onBack();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onBack]);
+
     const loadAlbum = async () => {
         setLoading(true);
         try {
@@ -85,7 +103,7 @@ const AlbumView: React.FC<AlbumViewProps> = ({ albumId, onBack, onPlaySong, onPl
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className={`fixed inset-0 z-50 flex items-center justify-center ${glassBg} font-sans`}
+            className={`absolute inset-0 z-50 flex items-center justify-center ${glassBg} font-sans`}
             style={{ color: 'var(--text-primary)' }}
         >
             {/* Main Container */}

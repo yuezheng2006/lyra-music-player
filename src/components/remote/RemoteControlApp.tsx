@@ -30,7 +30,7 @@ const formatTime = (seconds: number) => {
     return `${minutes}:${String(rest).padStart(2, '0')}`;
 };
 
-const REMOTE_CONTROL_DOCUMENT_TITLE = 'Folia Remote';
+const REMOTE_CONTROL_DOCUMENT_TITLE = 'Lyra Remote';
 const REMOTE_VIDEO_EXPORT_PRESET_VALUES_STORAGE_KEY = 'remote_video_export_preset_values';
 const REMOTE_BACKGROUND_MODE_STORAGE_KEY = 'remote_background_mode';
 const REMOTE_TITLEBAR_REVEAL_THRESHOLD = 44;
@@ -232,7 +232,7 @@ const RemoteControlApp: React.FC = () => {
     const progressValue = duration > 0 ? Math.max(0, Math.min(currentTime, duration)) : 0;
     const isPlaying = snapshot.playerState === PlayerState.PLAYING;
     const primaryDisabled = snapshot.controlsDisabled || !snapshot.hasTrack;
-    const title = snapshot.title || 'Folia';
+    const title = snapshot.title || 'Lyra';
     const artist = snapshot.artist || (snapshot.hasTrack ? 'Unknown artist' : 'No active track');
     const exportState = snapshot.exportState ?? idleVideoExportState();
     const isDaylight = Boolean(snapshot.isDaylight);

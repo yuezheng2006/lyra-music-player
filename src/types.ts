@@ -103,18 +103,15 @@ export interface StoredCustomLyricsFont {
   fontId?: string;
 }
 
-export interface DualTheme {
-  light: Theme;
-  dark: Theme;
-}
-
 export type ThemeMode = 'default' | 'ai' | 'custom';
 
 export type BuiltinVisualizerMode = 'classic' | 'cadenza' | 'partita' | 'fume' | 'monet';
 export type VisualizerMode = BuiltinVisualizerMode | (string & {});
 export type VisualizerFrameRate = 'off' | 120 | 90 | 60;
 
-export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'radio';
+export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'radio' | 'daily' | 'podcast';
+export type OnlineMusicProviderId = 'netease' | 'qq' | 'qishui' | 'coco';
+export type SearchSourceId = HomeViewTab | OnlineMusicProviderId;
 
 export type PlaybackContext = 'main' | 'stage';
 export type StageSource = 'stage-api' | 'now-playing';
@@ -529,11 +526,37 @@ export type Interactive3dQualityTier = 'auto' | 'high' | 'balanced' | 'lite';
 /** Mineradio 交互 3D 背景镜头模式。 */
 export type Interactive3dCameraControlMode = 'auto' | 'orbit' | 'wasd' | 'gesture';
 
-/** Interactive 3D visual preset ids (cover + two popular WebGL styles). */
+/** Interactive 3D visual preset ids (cover + mature WebGL background styles). */
 export type MineradioVisualPresetId =
   | 'emily'
   | 'starfield'
-  | 'tunnel';
+  | 'tunnel'
+  | 'nebula'
+  | 'terrain'
+  | 'quantumCube'
+  | 'aurora'
+  | 'mineradioTunnel'
+  | 'mineradioOrbit'
+  | 'mineradioVoid'
+  | 'mineradioVinyl'
+  | 'mineradioGalaxy';
+
+/** AI / theme bridge hints that can nudge interactive-3D atmosphere intensity only. */
+export interface AtmosphereThemeHints {
+  /** @deprecated 3D style is user-owned; ignored by atmosphere bridge. */
+  visualPreset?: MineradioVisualPresetId;
+  rhythmIntensity?: number;
+  cinemaShake?: number;
+  atmosphereSensitivity?: number;
+  cameraPunchStrength?: number;
+}
+
+export interface DualTheme {
+  light: Theme;
+  dark: Theme;
+  /** Optional local-atmosphere recommendations derived from or returned with AI themes. */
+  atmosphereHints?: AtmosphereThemeHints;
+}
 
 export interface Interactive3dSceneTuning {
   qualityTier: Interactive3dQualityTier;
@@ -544,6 +567,10 @@ export interface Interactive3dSceneTuning {
   cinemaShake: number;
   /** Mineradio fx.bloomStrength when bloom layer is enabled (0–1.6). */
   bloomStrength: number;
+  /** Scales beat / bass / energy response from the local atmosphere engine (0–1.5). */
+  atmosphereSensitivity: number;
+  /** Scales cameraPunch / cinematic punch from beat hits (0–1.5). */
+  cameraPunchStrength: number;
   enableBackgroundWash: boolean;
   enableOrbitField: boolean;
   enableBassRipples: boolean;
@@ -569,18 +596,20 @@ export const DEFAULT_INTERACTIVE3D_SCENE_TUNING: Interactive3dSceneTuning = {
   visualPreset: 'emily',
   rhythmIntensity: 0.85,
   cinemaShake: 0.5,
-  bloomStrength: 0.62,
+  bloomStrength: 0.82,
+  atmosphereSensitivity: 1,
+  cameraPunchStrength: 1,
   shelfMode: 'off',
   shelfPresence: 'auto',
   shelfCameraMode: 'dynamic',
   enableBackgroundWash: true,
-  enableOrbitField: false,
+  enableOrbitField: true,
   enableBassRipples: true,
-  enableBeatBursts: false,
+  enableBeatBursts: true,
   enableLyricFocusAura: true,
   enableDomShapes: false,
-  enableBloomParticles: false,
-  enableFloatingParticles: false,
+  enableBloomParticles: true,
+  enableFloatingParticles: true,
   enableCoverParticles: true,
   cameraControl: 'auto',
 };
@@ -699,7 +728,9 @@ export interface NeteasePlaylist {
   trackUpdateTime: number;
   creator: NeteaseUser;
   description?: string;
-  specialType?: 'cloud';
+  specialType?: 'cloud' | 'provider-default';
+  musicProvider?: OnlineMusicProviderId;
+  providerPlaylistId?: string;
 }
 
 export interface Artist {
@@ -741,9 +772,17 @@ export interface SongResult {
   artists: Artist[];
   album: Album;
   duration: number; // milliseconds usually from API
+  musicProvider?: OnlineMusicProviderId;
+  providerSongId?: string;
   isPureMusic?: boolean;
   t?: 0 | 1 | 2;
   sourceType?: 'netease' | 'cloud';
+  /** Catalog content kind; podcast episodes use mainSong id for playback. */
+  contentType?: 'music' | 'podcast' | 'audiobook';
+  programId?: number;
+  radioId?: number;
+  radioName?: string;
+  serialNum?: number;
   // Netease API raw fields
   al?: {
     id: number;
@@ -762,6 +801,9 @@ export interface SongResult {
   matchedLyricsSource?: LyricProviderSource;
   matchedLyricsProviderPlatform?: AmllDbPlatform;
   qqMid?: string;
+  qqMediaMid?: string;
+  /** Upstream catalog id used by free aggregators such as Coco. */
+  providerCatalogSource?: string;
   kgHash?: string;
   amllDbPlatform?: AmllDbPlatform;
 }

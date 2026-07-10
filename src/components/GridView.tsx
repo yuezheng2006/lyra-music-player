@@ -1,6 +1,6 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useMotionValue, animate, AnimatePresence, useDragControls } from 'framer-motion';
-import { ChevronLeft, Disc, Play, Plus, Check, Loader2, Heart, ListPlus, Pencil, Search, X, RefreshCw, Trash2, Star, List, Rows3, Orbit } from 'lucide-react';
+import { ChevronLeft, Disc, Play, Pause, Plus, Check, Loader2, Heart, ListPlus, Pencil, Search, X, RefreshCw, Trash2, Star, List, Rows3, Orbit } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { SongResult, Theme } from '../types';
@@ -79,6 +79,8 @@ interface GridViewProps {
     externalTracks?: SongResult[];
     externalTracksLoading?: boolean;
     sourceActions?: GridViewSourceActions;
+    currentTrackId?: number | string | null;
+    isPlaying?: boolean;
 }
 
 type StoredGridViewNavigationState = {
@@ -118,6 +120,8 @@ export const PolaroidCard = React.memo<{
     onBeforeNestedNavigate?: () => void;
     openWhenFocusedOnCardClick?: boolean;
     isFocused?: boolean;
+    isNowPlaying?: boolean;
+    isPlaybackActive?: boolean;
 }>(
     ({
         item,
@@ -137,6 +141,8 @@ export const PolaroidCard = React.memo<{
         onBeforeNestedNavigate,
         openWhenFocusedOnCardClick = false,
         isFocused = false,
+        isNowPlaying = false,
+        isPlaybackActive = false,
     }) => {
         const isUnavailable = mode === 'tracks' && item.rawTrack ? isSongMarkedUnavailable(item.rawTrack) : false;
         const unavailableTagText = (mode === 'tracks' && item.rawTrack)
@@ -156,7 +162,7 @@ export const PolaroidCard = React.memo<{
         const triggerCoverPlayFeedback = useCallback(() => {
             setCoverPlayPulse(true);
             if (coverPulseTimeoutRef.current) window.clearTimeout(coverPulseTimeoutRef.current);
-            coverPulseTimeoutRef.current = window.setTimeout(() => setCoverPlayPulse(false), 420);
+            coverPulseTimeoutRef.current = window.setTimeout(() => setCoverPlayPulse(false), 520);
         }, []);
 
         const triggerQueueAddedFeedback = useCallback(() => {
@@ -212,22 +218,36 @@ export const PolaroidCard = React.memo<{
 
         const dynamicWidth = cardWidth * scaleFactor;
         const dynamicHeight = cardHeight * scaleFactor;
+        const showNowPlayingChrome = mode === 'tracks' && isNowPlaying && !isUnavailable;
+        const showPlayingEq = showNowPlayingChrome && isPlaybackActive;
+        const accent = theme.accentColor || theme.primaryColor;
 
         return (
             <div
-                className={`rounded-xl p-3 flex flex-col items-center border transition-all duration-300 theme-polaroid-card ${isFocused ? 'shadow-2xl' : 'shadow-lg hover:shadow-2xl'}`}
+                className={`rounded-xl p-3 flex flex-col items-center border transition-all duration-300 theme-polaroid-card ${isFocused || showNowPlayingChrome ? 'shadow-2xl' : 'shadow-lg hover:shadow-2xl'}`}
                 style={{
                     width: dynamicWidth,
                     minHeight: dynamicHeight,
                     height: 'auto',
-                    transform: isFocused ? 'translateY(-4px) scale(1.02)' : undefined,
-                    boxShadow: isFocused
-                        ? `0 24px 48px rgba(0,0,0,0.18), 0 0 0 2px color-mix(in srgb, ${theme.accentColor || theme.primaryColor} 70%, transparent)`
-                        : undefined,
+                    transform: isFocused || showNowPlayingChrome ? 'translateY(-4px) scale(1.02)' : undefined,
+                    boxShadow: showNowPlayingChrome
+                        ? `0 24px 48px rgba(0,0,0,0.18), 0 0 0 2px color-mix(in srgb, ${accent} 78%, transparent), 0 0 28px color-mix(in srgb, ${accent} 28%, transparent)`
+                        : isFocused
+                            ? `0 24px 48px rgba(0,0,0,0.18), 0 0 0 2px color-mix(in srgb, ${accent} 70%, transparent)`
+                            : undefined,
                 }}
                 onClick={(e) => {
                     if (isEditMode) {
                         e.stopPropagation();
+                        return;
+                    }
+                    // Track cards: click anywhere to play immediately (not just cover / focused play button).
+                    if (mode === 'tracks') {
+                        if (!isUnavailable) {
+                            triggerCoverPlayFeedback();
+                        }
+                        onCenter();
+                        onSelect();
                         return;
                     }
                     if (openWhenFocusedOnCardClick && isFocused) {
@@ -284,7 +304,7 @@ export const PolaroidCard = React.memo<{
                         </div>
                     )}
 
-                    {!isEditMode && !isUnavailable && mode === 'tracks' && (
+                    {!isEditMode && !isUnavailable && mode === 'tracks' && !showNowPlayingChrome && (
                         <>
                             <div className="absolute inset-0 z-[5] bg-black/0 transition-colors duration-200 group-hover/cover:bg-black/30 pointer-events-none" />
                             <div className="absolute inset-0 z-[6] flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover/cover:opacity-100 pointer-events-none">
@@ -296,12 +316,31 @@ export const PolaroidCard = React.memo<{
                                 {coverPlayPulse && (
                                     <motion.div
                                         key="cover-play-pulse"
-                                        initial={{ opacity: 0.55, scale: 0.92 }}
-                                        animate={{ opacity: 0, scale: 1.08 }}
+                                        initial={{ opacity: 0.7, scale: 0.88 }}
+                                        animate={{ opacity: 0, scale: 1.12 }}
                                         exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
-                                        className="absolute inset-0 z-[7] rounded-lg ring-2 ring-white/80 pointer-events-none"
+                                        transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
+                                        className="absolute inset-0 z-[7] rounded-lg ring-2 ring-white/90 pointer-events-none"
+                                        style={{
+                                            boxShadow: `0 0 0 8px color-mix(in srgb, ${theme.accentColor || theme.primaryColor} 35%, transparent)`,
+                                        }}
                                     />
+                                )}
+                            </AnimatePresence>
+                            <AnimatePresence>
+                                {coverPlayPulse && (
+                                    <motion.div
+                                        key="cover-play-burst"
+                                        initial={{ opacity: 0, scale: 0.6 }}
+                                        animate={{ opacity: [0, 1, 0], scale: [0.6, 1, 1.15] }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+                                        className="absolute inset-0 z-[8] flex items-center justify-center pointer-events-none"
+                                    >
+                                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/50 text-white shadow-xl backdrop-blur-md">
+                                            <Play size={26} fill="currentColor" className="ml-0.5" />
+                                        </div>
+                                    </motion.div>
                                 )}
                             </AnimatePresence>
                         </>
@@ -316,17 +355,62 @@ export const PolaroidCard = React.memo<{
                         </div>
                     )}
 
-                    {isFocused && mode === 'tracks' && !isUnavailable && (
-                        <div
-                            className="absolute top-2 left-2 z-20 rounded-full px-2 py-0.5 text-[9px] font-bold tracking-[0.16em] uppercase backdrop-blur-md"
-                            style={{
-                                backgroundColor: 'color-mix(in srgb, var(--text-accent) 24%, transparent)',
-                                color: 'var(--text-primary)',
-                                boxShadow: '0 8px 20px rgba(0,0,0,0.18)',
-                            }}
-                        >
-                            NOW
-                        </div>
+                    {showNowPlayingChrome && (
+                        <>
+                            <div
+                                className="absolute inset-0 z-[5] pointer-events-none"
+                                style={{
+                                    background: showPlayingEq
+                                        ? `linear-gradient(180deg, color-mix(in srgb, ${accent} 18%, transparent) 0%, transparent 42%, rgba(0,0,0,0.38) 100%)`
+                                        : 'linear-gradient(180deg, rgba(0,0,0,0.12) 0%, transparent 45%, rgba(0,0,0,0.28) 100%)',
+                                }}
+                            />
+                            <div className="absolute inset-0 z-[6] flex items-center justify-center pointer-events-none">
+                                <div
+                                    className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl backdrop-blur-md"
+                                    style={{
+                                        backgroundColor: showPlayingEq
+                                            ? `color-mix(in srgb, ${accent} 55%, rgba(0,0,0,0.55))`
+                                            : 'rgba(0,0,0,0.48)',
+                                        boxShadow: showPlayingEq
+                                            ? `0 10px 28px color-mix(in srgb, ${accent} 35%, transparent)`
+                                            : '0 10px 24px rgba(0,0,0,0.28)',
+                                    }}
+                                >
+                                    {showPlayingEq ? (
+                                        <span className="folia-eq folia-eq--xl text-white" aria-hidden>
+                                            <span className="folia-eq__bar" />
+                                            <span className="folia-eq__bar" />
+                                            <span className="folia-eq__bar" />
+                                            <span className="folia-eq__bar" />
+                                        </span>
+                                    ) : (
+                                        <Loader2 size={22} className="animate-spin opacity-90" />
+                                    )}
+                                </div>
+                            </div>
+                            <div
+                                className="absolute top-2 left-2 z-20 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[9px] font-bold tracking-[0.14em] uppercase backdrop-blur-md"
+                                style={{
+                                    backgroundColor: showPlayingEq
+                                        ? `color-mix(in srgb, ${accent} 42%, rgba(0,0,0,0.55))`
+                                        : 'rgba(0,0,0,0.55)',
+                                    color: '#fff',
+                                    boxShadow: '0 8px 20px rgba(0,0,0,0.22)',
+                                }}
+                            >
+                                {showPlayingEq ? (
+                                    <span className="folia-eq folia-eq--md text-white" aria-hidden>
+                                        <span className="folia-eq__bar" />
+                                        <span className="folia-eq__bar" />
+                                        <span className="folia-eq__bar" />
+                                    </span>
+                                ) : (
+                                    <Loader2 size={10} className="animate-spin opacity-90" />
+                                )}
+                                <span>{showPlayingEq ? 'NOW' : '...'}</span>
+                            </div>
+                        </>
                     )}
 
                     {/* Delete button overlay for Edit Mode */}
@@ -420,18 +504,37 @@ export const PolaroidCard = React.memo<{
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        if (!isUnavailable) {
+                                            triggerCoverPlayFeedback();
+                                        }
                                         onSelect();
                                     }}
                                     style={{
-                                        opacity: 'var(--play-opacity, 0)',
-                                        pointerEvents: 'var(--play-pe, none)' as any,
-                                        transform: 'scale(var(--play-scale, 0.8))',
+                                        opacity: showNowPlayingChrome ? 1 : 'var(--play-opacity, 0)',
+                                        pointerEvents: showNowPlayingChrome
+                                            ? 'auto'
+                                            : ('var(--play-pe, none)' as any),
+                                        transform: showNowPlayingChrome
+                                            ? 'scale(1)'
+                                            : 'scale(var(--play-scale, 0.8))',
+                                        backgroundColor: showPlayingEq
+                                            ? `color-mix(in srgb, ${accent} 22%, transparent)`
+                                            : undefined,
+                                        color: showPlayingEq ? accent : undefined,
                                         transition: 'opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, color 0.2s ease',
                                     }}
                                     className="w-9 h-9 rounded-full bg-zinc-800/10 dark:bg-zinc-100/10 hover:bg-zinc-900 hover:text-zinc-100 dark:hover:bg-zinc-100 dark:hover:text-zinc-900 text-current flex items-center justify-center shadow-sm pointer-events-auto z-10"
-                                    title={t('playlist.play') || 'Play'}
+                                    title={
+                                        showPlayingEq
+                                            ? (t('player.pause') || 'Pause')
+                                            : (t('playlist.play') || 'Play')
+                                    }
                                 >
-                                    <Play size={15} fill="currentColor" className="ml-0.5" />
+                                    {showPlayingEq ? (
+                                        <Pause size={15} fill="currentColor" />
+                                    ) : (
+                                        <Play size={15} fill="currentColor" className="ml-0.5" />
+                                    )}
                                 </button>
                             )}
                             {mode === 'tracks' && onAddQueue && !isUnavailable && !isEditMode && (
@@ -468,7 +571,9 @@ export const PolaroidCard = React.memo<{
             prev.cardHeight === next.cardHeight &&
             prev.isEditMode === next.isEditMode &&
             prev.openWhenFocusedOnCardClick === next.openWhenFocusedOnCardClick &&
-            prev.isFocused === next.isFocused
+            prev.isFocused === next.isFocused &&
+            prev.isNowPlaying === next.isNowPlaying &&
+            prev.isPlaybackActive === next.isPlaybackActive
         );
     }
 );
@@ -531,6 +636,8 @@ export const GridView: React.FC<GridViewProps> = ({
     externalTracks,
     externalTracksLoading = false,
     sourceActions,
+    currentTrackId = null,
+    isPlaying = false,
 }) => {
     const { t } = useTranslation();
     const { gridViewCardLayout, handleSetGridViewCardLayout } = useSettingsUiStore(useShallow(state => ({
@@ -1455,6 +1562,12 @@ export const GridView: React.FC<GridViewProps> = ({
                 return;
             }
 
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                onBack();
+                return;
+            }
+
             if (event.altKey || event.ctrlKey || event.metaKey) return;
             if (event.key === 'Process' || event.key === 'Unidentified') {
                 setShowSearchPanel(true);
@@ -1470,7 +1583,7 @@ export const GridView: React.FC<GridViewProps> = ({
 
         window.addEventListener('keydown', handleSearchTyping);
         return () => window.removeEventListener('keydown', handleSearchTyping);
-    }, [showSearchPanel]);
+    }, [onBack, showSearchPanel]);
 
     useEffect(() => {
         updateRenderedIndexesForViewport(dragX.get(), dragY.get(), true);
@@ -1547,6 +1660,8 @@ export const GridView: React.FC<GridViewProps> = ({
                             }
                         }}
                         isFocused={idx === focusedIndex}
+                        isNowPlaying={mode === 'tracks' && currentTrackId != null && item.rawTrack?.id === currentTrackId}
+                        isPlaybackActive={isPlaying}
                     />
                 </div>
             );
@@ -1572,6 +1687,8 @@ export const GridView: React.FC<GridViewProps> = ({
         handleRemoveTrack,
         persistNavigationState,
         focusedIndex,
+        currentTrackId,
+        isPlaying,
     ]);
 
     // Refs for direct DOM manipulation — eliminates per-card useTransform subscriptions
@@ -1697,7 +1814,7 @@ export const GridView: React.FC<GridViewProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] flex flex-col justify-between overflow-hidden select-none"
+            className="absolute inset-0 z-[110] flex flex-col justify-between overflow-hidden select-none"
             style={{
                 backgroundColor: 'var(--bg-color)',
                 color: 'var(--text-primary)',
@@ -1920,7 +2037,9 @@ export const GridView: React.FC<GridViewProps> = ({
                     </div>
                 ) : gridItems.length === 0 ? (
                     <div className="opacity-40 text-sm font-sans">
-                        {hasSearchQuery ? (t('home.gridSearchNoResults') || 'No matching cards') : (t('home.loadingLibrary') || 'No items found')}
+                        {hasSearchQuery
+                            ? (t('home.gridSearchNoResults') || 'No matching cards')
+                            : (t('home.gridEmptyTracks') || 'No tracks in this playlist')}
                     </div>
                 ) : (
                     <motion.div

@@ -18,10 +18,15 @@ import {
     LocalGridViewCollectionDescriptor,
     isLocalGridViewCollection,
     isNavidromeGridViewCollection,
+    isQQGridViewCollection,
     refreshLocalGridViewCollection,
     resolveLocalGridViewTracks,
     resolveNavidromeGridViewTracks,
+    resolveQQGridViewTracks,
 } from './gridViewCollectionAdapters';
+import { GRID_VIEW_ACTIVE_COLLECTION_KEY } from '../../../utils/onlineBrowseOverlays';
+
+export { GRID_VIEW_ACTIVE_COLLECTION_KEY } from '../../../utils/onlineBrowseOverlays';
 
 // src/components/app/home/GridViewOverlayHost.tsx
 // Hosts the GridView overlay outside Grid3D so it can be opened/restored independently.
@@ -42,8 +47,6 @@ type LocalTrackCoverObjectUrlEntry = {
     signature: string;
     url: string;
 };
-
-export const GRID_VIEW_ACTIVE_COLLECTION_KEY = 'folia_gridview_active_collection';
 
 const getPersistentCoverUrl = (url?: string) => (
     url && !url.startsWith('blob:') ? url : undefined
@@ -444,6 +447,44 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
         selectedCollection,
     ]);
 
+    useEffect(() => {
+        if (!selectedCollection || !isQQGridViewCollection(selectedCollection)) {
+            return;
+        }
+
+        let cancelled = false;
+        setExternalTracks([]);
+        setExternalTracksLoading(true);
+        setResolvedLocalCollectionCoverUrl(undefined);
+        clearLocalTrackCoverObjectUrls();
+
+        resolveQQGridViewTracks(selectedCollection)
+            .then((tracks) => {
+                if (!cancelled) {
+                    setExternalTracks(tracks);
+                }
+            })
+            .catch((error) => {
+                console.error('[GridViewOverlayHost] Failed to load QQ GridView tracks:', error);
+                if (!cancelled) {
+                    setExternalTracks([]);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setExternalTracksLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        clearLocalTrackCoverObjectUrls,
+        selectedCollection,
+        selectedCollectionKey,
+    ]);
+
     const refreshNavidromePlaylists = useCallback(async () => {
         const config = getNavidromeConfig();
         if (!config) {
@@ -466,6 +507,8 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
     }, [refreshNavidromePlaylists, selectedCollection]);
 
     const handleSelectTrack = useCallback((track: SongResult, queue: SongResult[]) => {
+        // Single-track play enters listening mode; GridView stays in store for soft return.
+        const playOptions = { shouldNavigateToPlayer: true };
         const unifiedTrack = track as UnifiedSong;
         if (unifiedTrack.isNavidrome) {
             const naviSong = resolveNavidromePlaybackCarrier(unifiedTrack);
@@ -473,7 +516,7 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
                 const naviQueue = queue
                     .map(t => resolveNavidromePlaybackCarrier(t))
                     .filter((t): t is NavidromeSong => Boolean(t));
-                legacyProps.onPlayNavidromeSong?.(naviSong, naviQueue);
+                legacyProps.onPlayNavidromeSong?.(naviSong, naviQueue, playOptions);
                 return;
             }
         }
@@ -481,10 +524,14 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
             const localQueue = queue
                 .map(t => (t as UnifiedSong).localData)
                 .filter((song): song is LocalSong => Boolean(song));
-            legacyProps.onPlayLocalSong?.(unifiedTrack.localData, localQueue);
+            legacyProps.onPlayLocalSong?.(unifiedTrack.localData, localQueue, playOptions);
             return;
         }
-        legacyProps.onPlaySong(track, queue);
+        legacyProps.onPlaySong(track, queue, false, playOptions);
+    }, [legacyProps]);
+
+    const handlePlayAll = useCallback((songs: SongResult[]) => {
+        legacyProps.onPlayAll?.(songs, { shouldNavigateToPlayer: false });
     }, [legacyProps]);
 
     const handleAddTrackToQueue = useCallback((track: SongResult) => {
@@ -600,7 +647,7 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                        className="fixed inset-0 z-[49] pointer-events-none"
+                        className="absolute inset-0 z-[49] pointer-events-none"
                         style={{ backgroundColor: 'var(--bg-color)' }}
                     />
                 )}
@@ -614,7 +661,7 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
                             onBack={handleBackCollection}
                             onSelectTrack={handleSelectTrack}
                             onAddTrackToQueue={handleAddTrackToQueue}
-                            onPlayAll={legacyProps.onPlayAll}
+                            onPlayAll={handlePlayAll}
                             onAddAllToQueue={legacyProps.onAddAllToQueue}
                             onSelectAlbum={handlePushAlbumCollection}
                             theme={legacyProps.theme}
@@ -631,7 +678,7 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
                             onBack={handleBackCollection}
                             onSelectTrack={handleSelectTrack}
                             onAddTrackToQueue={handleAddTrackToQueue}
-                            onPlayAll={legacyProps.onPlayAll}
+                            onPlayAll={handlePlayAll}
                             onAddAllToQueue={legacyProps.onAddAllToQueue}
                             onSelectAlbum={handlePushAlbumCollection}
                             onSelectArtist={(artistId) => {
@@ -668,6 +715,8 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
                             sourceActions={sourceActions}
                             theme={legacyProps.theme}
                             isDaylight={isDaylight}
+                            currentTrackId={legacyProps.currentTrack?.id ?? null}
+                            isPlaying={legacyProps.isPlaying}
                         />
                     )
                 )}

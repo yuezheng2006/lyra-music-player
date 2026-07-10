@@ -4,6 +4,7 @@ import type { GeometricBackgroundProps } from '@/components/visualizer/geometric
 import type { Line, Theme } from '@/types';
 
 const theme: Theme = {
+    name: 'fixture',
     backgroundColor: '#0f172a',
     primaryColor: '#ffffff',
     secondaryColor: '#94a3b8',

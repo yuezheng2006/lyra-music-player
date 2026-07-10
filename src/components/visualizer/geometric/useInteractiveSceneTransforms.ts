@@ -6,6 +6,7 @@ import {
     mapRhythmScaleBoost,
     resolvePresentationBeatPulse,
 } from '../../../utils/atmosphere/rhythmPresentation';
+import { scaleAtmosphereMotionSample } from '../../../utils/atmosphere/scaleAtmosphereMotion';
 import { subscribeGeometricCanvasFrame } from './geometricCanvasRuntime';
 
 // src/components/visualizer/geometric/useInteractiveSceneTransforms.ts
@@ -24,6 +25,8 @@ export type InteractiveSceneTransformInput = {
     atmosphereEnergy?: MotionValue<number>;
     cinemaShake?: number;
     rhythmIntensity?: number;
+    atmosphereSensitivity?: number;
+    cameraPunchStrength?: number;
     userRotateX?: MotionValue<number>;
     userRotateY?: MotionValue<number>;
     suppressPointerTilt?: boolean;
@@ -60,6 +63,8 @@ export const useInteractiveSceneTransforms = ({
     atmosphereEnergy,
     cinemaShake = 0.5,
     rhythmIntensity = 0.85,
+    atmosphereSensitivity = 1,
+    cameraPunchStrength = 1,
     userRotateX,
     userRotateY,
     suppressPointerTilt = false,
@@ -97,15 +102,22 @@ export const useInteractiveSceneTransforms = ({
     const sceneRotate = useTransform(roll, value => (value || 0) * 2.4);
     const sceneScale = useTransform(
         [pulse, punch, scale, energy, audioPower],
-        ([pulseValue, punchValue, scaleValue, energyValue, powerValue]: number[]) => mapRhythmScaleBoost({
-            beatPulse: resolvePresentationBeatPulse(
-                beatPulse ? (pulseValue || 0) : 0,
-                powerValue || 0,
-            ) * rhythmIntensity,
-            cameraPunch: beatPulse ? (punchValue || 0) * rhythmIntensity : 0,
-            cinemaScale: beatPulse ? (scaleValue || 0.82) : 0.82,
-            atmosphereEnergy: beatPulse ? (energyValue || 0.42) : 0.42,
-        }),
+        ([pulseValue, punchValue, scaleValue, energyValue, powerValue]: number[]) => {
+            const scaled = scaleAtmosphereMotionSample({
+                beatPulse: resolvePresentationBeatPulse(
+                    beatPulse ? (pulseValue || 0) : 0,
+                    powerValue || 0,
+                ),
+                cameraPunch: beatPulse ? (punchValue || 0) : 0,
+                atmosphereEnergy: beatPulse ? (energyValue || 0.42) : 0.42,
+            }, { atmosphereSensitivity, cameraPunchStrength });
+            return mapRhythmScaleBoost({
+                beatPulse: scaled.beatPulse * rhythmIntensity,
+                cameraPunch: scaled.cameraPunch * rhythmIntensity,
+                cinemaScale: beatPulse ? (scaleValue || 0.82) : 0.82,
+                atmosphereEnergy: scaled.atmosphereEnergy,
+            });
+        },
     );
     const tiltX = useTransform(
         suppressPointerTilt
@@ -131,14 +143,19 @@ export const useInteractiveSceneTransforms = ({
     const lyricGlow = useTransform(
         [pulse, punch, energy, audioPower],
         ([pulseValue, punchValue, energyValue, powerValue]: number[]) => {
-            const glow = mapRhythmGlow({
+            const scaled = scaleAtmosphereMotionSample({
                 beatPulse: resolvePresentationBeatPulse(
                     beatPulse ? (pulseValue || 0) : 0,
                     powerValue || 0,
-                ) * rhythmIntensity,
-                cameraPunch: beatPulse ? (punchValue || 0) * rhythmIntensity : 0,
-                cinemaScale: 0.82,
+                ),
+                cameraPunch: beatPulse ? (punchValue || 0) : 0,
                 atmosphereEnergy: beatPulse ? (energyValue || 0.42) : 0.42,
+            }, { atmosphereSensitivity, cameraPunchStrength });
+            const glow = mapRhythmGlow({
+                beatPulse: scaled.beatPulse * rhythmIntensity,
+                cameraPunch: scaled.cameraPunch * rhythmIntensity,
+                cinemaScale: 0.82,
+                atmosphereEnergy: scaled.atmosphereEnergy,
             });
             return 8 + glow * 28;
         },

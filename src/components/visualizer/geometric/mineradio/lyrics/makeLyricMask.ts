@@ -6,6 +6,7 @@ import {
     lyricMeasureText,
     type LyricFontStyle,
 } from './lyricCanvasHelpers';
+import { wrapLyricLines } from './wrapLyricLines';
 
 // src/components/visualizer/geometric/mineradio/lyrics/makeLyricMask.ts
 // Builds alpha mask textures for Mineradio WebGL stage lyrics.
@@ -25,9 +26,15 @@ export type LyricMask = {
     textMax: number;
 };
 
-const STAGE_LYRIC_MAX_LINES = 1;
+const STAGE_LYRIC_MAX_LINES = 2;
 const MASK_WIDTH = 2048;
-const MASK_HEIGHT = 384;
+const MASK_HEIGHT = 512;
+const MIN_FONT_SIZE = 28;
+const START_FONT_SIZE = 128;
+/** Horizontal padding inside the mask so glyphs never sit on the texture edge. */
+const MASK_EDGE_PADDING_PX = 280;
+/** Hard floor for horizontal squash after wrapping + font shrink. */
+const MIN_FIT_SCALE_X = 0.5;
 
 export const makeLyricMask = (
     text: string,
@@ -42,16 +49,23 @@ export const makeLyricMask = (
         throw new Error('Lyric mask canvas unavailable');
     }
 
-    const maxWidth = MASK_WIDTH - 190;
+    const maxWidth = MASK_WIDTH - MASK_EDGE_PADDING_PX * 2;
     const normalized = String(text || '').replace(/\s+/g, ' ').trim();
-    let fontSize = 128;
+    let fontSize = START_FONT_SIZE;
     let lines = [normalized];
     let widest = 1;
 
-    for (; fontSize >= 42; fontSize -= 4) {
-        ctx.font = lyricFontCss(fontSize, style);
-        lines = [normalized];
-        widest = lyricMeasureText(ctx, normalized, fontSize, style);
+    for (; fontSize >= MIN_FONT_SIZE; fontSize -= 4) {
+        const wrapped = wrapLyricLines(
+            ctx,
+            normalized,
+            fontSize,
+            maxWidth,
+            STAGE_LYRIC_MAX_LINES,
+            style,
+        );
+        lines = wrapped.lines;
+        widest = wrapped.widest;
         if (widest <= maxWidth) break;
     }
 
@@ -60,8 +74,8 @@ export const makeLyricMask = (
     widest = Math.max(1, ...lines.map(line => lyricMeasureText(ctx, line, fontSize, style)));
 
     let width = Math.min(maxWidth, widest);
-    const fitScaleX = STAGE_LYRIC_MAX_LINES <= 1 && widest > maxWidth
-        ? Math.max(0.68, maxWidth / widest)
+    const fitScaleX = widest > maxWidth
+        ? Math.max(MIN_FIT_SCALE_X, maxWidth / widest)
         : 1;
     if (fitScaleX < 1) width = Math.min(maxWidth, widest * fitScaleX);
 

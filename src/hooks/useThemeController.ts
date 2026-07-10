@@ -21,6 +21,7 @@ import {
 } from '../services/themePreferences';
 import { FALLBACK_AI_DUAL_THEME, sanitizeDualTheme, sanitizeTheme } from '../services/themeSanitizer';
 import { extractColors } from '../utils/colorExtractor';
+import { withDerivedAtmosphereHints } from '../utils/atmosphere/deriveAtmosphereThemeHints';
 import { isPureMusicLyricText } from '../utils/lyrics/pureMusic';
 import {
     buildThemeSourceModel,
@@ -121,6 +122,7 @@ export function useThemeController({
     setStatusMsg,
     coverUrl,
     t,
+    onAtmosphereHints,
 }: {
     defaultTheme: Theme;
     daylightTheme: Theme;
@@ -129,6 +131,7 @@ export function useThemeController({
     setStatusMsg: StatusSetter;
     coverUrl?: string | null;
     t: (key: string, options?: Record<string, unknown>) => string;
+    onAtmosphereHints?: (dualTheme: DualTheme) => void;
 }) {
     const getBaseTheme = () => getBaseThemeForMode({ defaultTheme, daylightTheme, isDaylight });
     const storedCustomTheme = useMemo(readStoredCustomTheme, []);
@@ -299,15 +302,20 @@ export function useThemeController({
 
     const applyDualTheme = (
         dualTheme: DualTheme,
-        options?: { respectCustomPreference?: boolean }
+        options?: { respectCustomPreference?: boolean; applyAtmosphereHints?: boolean }
     ) => {
-        const normalizedDualTheme = applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme));
+        const normalizedDualTheme = withDerivedAtmosphereHints(
+            applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme)),
+        );
         setLegacyTheme(null);
         setAiTheme(normalizedDualTheme);
         void saveToCache('last_dual_theme', normalizedDualTheme);
         const respectCustomPreference = options?.respectCustomPreference ?? true;
         if (!respectCustomPreference || !isCustomThemePreferred) {
             setBgMode('ai');
+        }
+        if (options?.applyAtmosphereHints !== false) {
+            onAtmosphereHints?.(normalizedDualTheme);
         }
     };
 
@@ -387,6 +395,33 @@ export function useThemeController({
     };
 
     const saveEditedAiDualTheme = (dualTheme: DualTheme, songKey?: ThemeCacheSongKey | null) => {
+        const sanitized = withDerivedAtmosphereHints(
+            applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme)),
+        );
+        setLegacyTheme(null);
+        setAiTheme(sanitized);
+        setBgMode('ai');
+        void saveToCache('last_dual_theme', sanitized);
+        if (songKey != null) {
+            void saveToCache(`dual_theme_${songKey}`, sanitized);
+        }
+        onAtmosphereHints?.(sanitized);
+        setStatusMsg({
+            type: 'success',
+            text: t('status.aiThemeUpdated', { themeName: getSelectedDualTheme(sanitized, isDaylight).name }),
+        });
+        return sanitized;
+    };
+
+    /**
+     * Persist lyric-color edits without switching theme source side-effects:
+     * no atmosphere → 3D preset bridge, no forced AI mode when already custom.
+     */
+    const saveLyricColorDualTheme = (dualTheme: DualTheme, songKey?: ThemeCacheSongKey | null) => {
+        if (bgMode === 'custom') {
+            return saveCustomDualTheme(dualTheme);
+        }
+
         const sanitized = applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme));
         setLegacyTheme(null);
         setAiTheme(sanitized);
@@ -550,7 +585,9 @@ export function useThemeController({
                 isPureMusic,
                 songTitle: songTitle || undefined,
             });
-            const normalizedDualTheme = applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme));
+            const normalizedDualTheme = withDerivedAtmosphereHints(
+                applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme)),
+            );
             if (currentSong) {
                 await saveToCache(`dual_theme_${currentSong.id}`, normalizedDualTheme);
             }
@@ -566,7 +603,7 @@ export function useThemeController({
             setStatusMsg({
                 type: 'success',
                 text: bgMode === 'custom' && customTheme
-                    ? 'AI 主题已更新，自定义主题仍为首选'
+                    ? t('status.aiThemeUpdated', { themeName: selectedTheme.name }) + '（自定义主题仍为首选）'
                     : t('status.themeApplied', { themeName: selectedTheme.name }),
             });
 
@@ -576,7 +613,9 @@ export function useThemeController({
             const shouldApply = options.shouldApply?.() ?? true;
             if (isMissingAiApiKeyError(error)) {
                 const coverColors = coverUrl ? await extractColors(coverUrl, 5) : [];
-                const fallbackTheme = applyStoredAnimationIntensityToDualTheme(buildBuiltinDualTheme({ coverColors }));
+                const fallbackTheme = withDerivedAtmosphereHints(
+                    applyStoredAnimationIntensityToDualTheme(buildBuiltinDualTheme({ coverColors })),
+                );
 
                 if (currentSong) {
                     await saveToCache(`dual_theme_${currentSong.id}`, fallbackTheme);
@@ -590,7 +629,7 @@ export function useThemeController({
                 setStatusMsg({
                     type: 'info',
                     text: bgMode === 'custom' && customTheme
-                        ? 'AI 主题已生成，但当前仍优先使用自定义主题'
+                        ? t('status.aiFallbackThemeUsed') + '（自定义主题仍为首选）'
                         : t('status.aiFallbackThemeUsed'),
                 });
                 return { status: 'generated', applied: true };
@@ -604,6 +643,55 @@ export function useThemeController({
             themeGenerationSongKeysRef.current.delete(songKey);
             endThemeGeneration();
         }
+    };
+
+    /**
+     * 启用智能主题：优先应用当前歌曲缓存分析，没有缓存则调用模型生成。
+     */
+    const activateSmartTheme = async (
+        lyrics: LyricData | null,
+        currentSong: SongResult | null,
+    ): Promise<GenerateAIThemeResult | { status: 'cached'; applied: true } | { status: 'switched' }> => {
+        if (currentSong?.id != null) {
+            const cachedTheme = await getCachedThemeState(currentSong.id);
+            if (cachedTheme.kind === 'dual') {
+                applyDualTheme(cachedTheme.theme, { respectCustomPreference: false });
+                setStatusMsg({
+                    type: 'success',
+                    text: t('status.smartThemeCachedApplied', {
+                        themeName: getSelectedDualTheme(cachedTheme.theme, isDaylight).name,
+                    }),
+                });
+                return { status: 'cached', applied: true };
+            }
+            if (cachedTheme.kind === 'legacy') {
+                applyLegacyTheme(cachedTheme.theme, { respectCustomPreference: false });
+                setStatusMsg({
+                    type: 'success',
+                    text: t('status.smartThemeCachedApplied', {
+                        themeName: cachedTheme.theme.name,
+                    }),
+                });
+                return { status: 'cached', applied: true };
+            }
+        }
+
+        const allText = lyrics?.lines.map(line => line.fullText).join('\n').trim() || '';
+        const songTitle = currentSong?.name?.trim() || lyrics?.title?.trim() || '';
+        const isPureMusic = Boolean(currentSong?.isPureMusic) || isPureMusicLyricText(allText);
+        const promptText = (isPureMusic ? songTitle : allText) || allText;
+
+        if (!promptText) {
+            setBgMode('ai');
+            if (aiTheme || legacyTheme) {
+                return { status: 'switched' };
+            }
+            setStatusMsg({ type: 'error', text: t('status.themeGenerationFailed') });
+            return { status: 'skipped', reason: 'empty-prompt' };
+        }
+
+        setBgMode('ai');
+        return generateAITheme(lyrics, currentSong, { source: 'manual' });
     };
 
     return {
@@ -627,6 +715,7 @@ export function useThemeController({
         isGeneratingTheme,
         handleToggleDaylight,
         handleBgModeChange,
+        activateSmartTheme,
         handleResetTheme,
         applyDefaultTheme,
         applyDualTheme,
@@ -637,6 +726,7 @@ export function useThemeController({
         getThemeParkSeedTheme,
         saveCustomDualTheme,
         saveEditedAiDualTheme,
+        saveLyricColorDualTheme,
         applyCustomTheme,
         handleCustomThemePreferenceChange,
         handleSongThemeAutoSwitchChange,

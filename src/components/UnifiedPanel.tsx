@@ -15,7 +15,7 @@ import PlaylistSelectionDialog from './shared/PlaylistSelectionDialog';
 import TextInputDialog from './shared/TextInputDialog';
 import type { OnlineLyricsState } from '../types';
 import type { ThemeSourceModel } from '../hooks/themeControllerState';
-import type { LyricColorPresetId } from '../../utils/theme/lyricColorPresets';
+import type { LyricColorPresetId } from '../utils/theme/lyricColorPresets';
 
 export type PanelTab = 'cover' | 'controls' | 'queue' | 'account' | 'local' | 'navi' | 'onlineLyrics';
 
@@ -35,6 +35,7 @@ type UnifiedPanelPlaybackProps = {
     onLike: () => void;
     isLiked: boolean;
     onGenerateAITheme: () => void;
+    onActivateSmartTheme: () => void;
     isGeneratingTheme: boolean;
     hasLyrics: boolean;
     canGenerateAITheme: boolean;
@@ -79,6 +80,7 @@ type UnifiedPanelPlaybackProps = {
     onOpenSettings?: () => void;
     onOpenCommandPalette?: () => void;
     isCommandPaletteOpen?: boolean;
+    onOpenIntegrationSettings?: () => void;
     visualizerBackgroundMode?: VisualizerBackgroundMode | null;
     interactive3dSceneTuning?: Interactive3dSceneTuning;
     enableSmartAtmosphere?: boolean;
@@ -107,6 +109,8 @@ type UnifiedPanelAccountProps = {
     onClearCache: () => void;
     onSyncData: () => void;
     isSyncing: boolean;
+    onRefreshUser: () => void;
+    onOpenIntegrationSettings?: () => void;
     useCoverColorBg: boolean;
     onToggleCoverColorBg: (enable: boolean) => void;
     isDaylight: boolean;
@@ -159,6 +163,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
         onLike,
         isLiked,
         onGenerateAITheme,
+        onActivateSmartTheme,
         isGeneratingTheme,
         hasLyrics,
         canGenerateAITheme,
@@ -203,6 +208,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
         onOpenSettings,
         onOpenCommandPalette,
         isCommandPaletteOpen = false,
+        onOpenIntegrationSettings,
         visualizerBackgroundMode = null,
         interactive3dSceneTuning,
         enableSmartAtmosphere = true,
@@ -233,12 +239,12 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     const {
         user,
         onLogout,
-        audioQuality,
-        onAudioQualityChange,
         cacheSize,
         onClearCache,
         onSyncData,
         isSyncing,
+        onRefreshUser,
+        onOpenIntegrationSettings: onOpenIntegrationSettingsFromAccount,
         useCoverColorBg,
         onToggleCoverColorBg,
         isDaylight,
@@ -640,7 +646,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
 
     return (
         <div
-            className="absolute bottom-8 right-0 z-[60] flex flex-col items-end gap-4 pointer-events-none"
+            className="absolute bottom-[calc(var(--app-player-bar-height,72px)+12px)] right-0 z-[60] flex flex-col items-end gap-4 pointer-events-none"
             onClick={(e) => e.stopPropagation()}
         >
             <div className="pr-4 md:pr-8">
@@ -650,10 +656,14 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                             initial={{ opacity: 0, scale: 0.9, originY: 1, originX: 1 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
-                            className={`pointer-events-auto w-80 max-h-[calc(100dvh-6rem)] ${glassBg} backdrop-blur-3xl rounded-3xl shadow-2xl flex flex-col mb-16 md:mb-2 overflow-y-auto hide-scrollbar`}
-                            style={{ color: theme.primaryColor }}
+                            className={`pointer-events-auto flex w-80 min-h-0 flex-col overflow-hidden rounded-3xl shadow-2xl backdrop-blur-3xl ${glassBg}`}
+                            style={{
+                                color: theme.primaryColor,
+                                // Cap panel height so Controls tab cannot dominate the viewport.
+                                maxHeight: 'min(68dvh, calc(100dvh - var(--app-player-bar-height, 84px) - 5.5rem))',
+                            }}
                         >
-                            <div className="p-5 flex flex-col">
+                            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5 hide-scrollbar">
                                 {/* Top: Cover Art */}
                                 <div
                                     ref={coverAreaRef}
@@ -798,6 +808,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                             onLike={onLike}
                                             isLiked={isLiked}
                                             onGenerateAITheme={onGenerateAITheme}
+                                            onActivateSmartTheme={onActivateSmartTheme}
                                             isGeneratingTheme={isGeneratingTheme}
                                             canGenerateAITheme={canGenerateAITheme}
                                             theme={theme}
@@ -850,8 +861,8 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col h-full max-h-[300px]">
                                                 <div className="flex items-center justify-center h-full px-4 text-center text-xs opacity-50">
                                                     {playbackControlsDisabled
-                                                        ? 'Now Playing 正由外部播放器控制，Folia 只负责展示歌词和视觉效果。'
-                                                        : 'Stage 现在是本地单项输入模式。外部可以推送一份完整歌词对象或一段媒体，播放与展示仍由 Folia 自己控制。'}
+                                                        ? 'Now Playing 正由外部播放器控制，Lyra 只负责展示歌词和视觉效果。'
+                                                        : 'Stage 现在是本地单项输入模式。外部可以推送一份完整歌词对象或一段媒体，播放与展示仍由 Lyra 自己控制。'}
                                                 </div>
                                             </motion.div>
                                         ) : (
@@ -872,15 +883,12 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                         <AccountTab
                                             user={user}
                                             onLogout={onLogout}
-                                            audioQuality={audioQuality}
-                                            onAudioQualityChange={onAudioQualityChange}
-                                            cacheSize={cacheSize}
-                                            onClearCache={onClearCache}
                                             onSyncData={onSyncData}
                                             isSyncing={isSyncing}
-                                            onNavigateHome={() => {
+                                            onRefreshUser={onRefreshUser}
+                                            onOpenQQMusicSettings={() => {
                                                 onToggle();
-                                                onNavigateHome();
+                                                (onOpenIntegrationSettingsFromAccount || onOpenIntegrationSettings)?.();
                                             }}
                                         />
                                     )}
@@ -991,7 +999,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                             : { opacity: 0, x: 20, y: 12, scale: 0.92 }
                         }
                         transition={{ duration: 0.24, ease: 'easeOut' }}
-                        className="pointer-events-auto fixed bottom-8 right-0 z-[60] pr-4 md:pr-8 group w-20 flex justify-end"
+                        className="pointer-events-auto fixed bottom-[calc(var(--app-player-bar-height,72px)+12px)] right-0 z-[60] pr-4 md:pr-8 group w-20 flex justify-end"
                     >
                         {/* Wrapper for both track and button to guarantee perfect alignment across browsers */}
                         <div className={`relative w-12 h-12 transition-all duration-300 transform ${toggleButtonMotionClass}`}>

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     resolvePlayerGeometricBackgroundDisabled,
     shouldDrawFumeCanvasBackground,
+    shouldEnableInteractive3dWebGlLyrics,
 } from '../../../src/components/visualizer/resolveInteractive3dFumeLayering';
 
 describe('interactive3d Fume layering', () => {
@@ -19,5 +20,10 @@ describe('interactive3d Fume layering', () => {
         expect(shouldDrawFumeCanvasBackground('interactive3d', false)).toBe(false);
         expect(shouldDrawFumeCanvasBackground('common', false)).toBe(true);
         expect(shouldDrawFumeCanvasBackground('common', true)).toBe(false);
+    });
+
+    it('keeps WebGL LyricStage off so DOM lyrics do not double-draw', () => {
+        expect(shouldEnableInteractive3dWebGlLyrics('interactive3d')).toBe(false);
+        expect(shouldEnableInteractive3dWebGlLyrics('common')).toBe(false);
     });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { buildHomeSurfacePresentation } from '@/components/app/presentation/buildHomeSurfacePresentation';
+import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
 
 interface UseAppHomeSurfaceVisibilityParams {
     currentView: string;
@@ -14,10 +15,12 @@ export function useAppHomeSurfaceVisibility({
     isPanelOpen,
 }: UseAppHomeSurfaceVisibilityParams) {
     const [isHomeFullyHidden, setIsHomeFullyHidden] = useState(false);
+    const hasActiveGridView = useSettingsUiStore(state => Boolean(state.activeGridViewCollection));
     const { shouldKeepHomeMounted, shouldShowHomeSurface } = buildHomeSurfacePresentation({
         currentView,
         isSettingsModalOpen,
         isPanelOpen,
+        hasActiveGridView,
     });
 
     useEffect(() => {

@@ -29,8 +29,8 @@ dist-ssr
 dev-dist/
 example/
 release/
-packaging/aur/folia-major-bin/FIRST_RELEASE.md
-packaging/aur/folia-major-bin/README.md
+packaging/aur/lyra-music-player-bin/FIRST_RELEASE.md
+packaging/aur/lyra-music-player-bin/README.md
 .codex
 .codex-tmp
 

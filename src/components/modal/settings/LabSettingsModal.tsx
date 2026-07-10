@@ -35,7 +35,6 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
     const { t } = useTranslation();
     const {
         disableHomeDynamicBackground,
-        hidePlayerProgressBar,
         hidePlayerRightPanelButton,
         hidePlayerTranslationSubtitle,
         isDaylight,
@@ -43,7 +42,6 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
         staticMode,
         visualizerFrameRate,
         onToggleDisableHomeDynamicBackground,
-        onToggleHidePlayerProgressBar,
         onToggleHidePlayerRightPanelButton,
         onToggleHidePlayerTranslationSubtitle,
         onToggleHideTaskbarIcon,
@@ -56,7 +54,6 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
         onTogglePlayerPageNativeBlur,
     } = useSettingsUiStore(useShallow(state => ({
         disableHomeDynamicBackground: state.disableHomeDynamicBackground,
-        hidePlayerProgressBar: state.hidePlayerProgressBar,
         hidePlayerRightPanelButton: state.hidePlayerRightPanelButton,
         hidePlayerTranslationSubtitle: state.hidePlayerTranslationSubtitle,
         isDaylight: state.isDaylight,
@@ -65,7 +62,6 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
         visualizerFrameRate: state.visualizerFrameRate,
         enablePlayerPageNativeBlur: state.enablePlayerPageNativeBlur,
         onToggleDisableHomeDynamicBackground: state.handleToggleDisableHomeDynamicBackground,
-        onToggleHidePlayerProgressBar: state.handleToggleHidePlayerProgressBar,
         onToggleHidePlayerRightPanelButton: state.handleToggleHidePlayerRightPanelButton,
         onToggleHidePlayerTranslationSubtitle: state.handleToggleHidePlayerTranslationSubtitle,
         onToggleHideTaskbarIcon: state.handleToggleHideTaskbarIcon,
@@ -171,7 +167,6 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                 onClick={() => {
                                     onToggleStaticMode(false);
                                     onToggleDisableHomeDynamicBackground(false);
-                                    onToggleHidePlayerProgressBar(false);
                                     onToggleHidePlayerTranslationSubtitle(false);
                                     onToggleHidePlayerRightPanelButton(false);
                                     onToggleOpenPanelCloseButton(true);
@@ -273,21 +268,10 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                             {t('options.labHidePlayerUi') || '隐藏播放页 UI'}
                                         </div>
                                         <div className="text-xs opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                                            {t('options.labHidePlayerUiDesc') || '仅对播放页生效。可分别隐藏进度条、翻译字幕和右侧按钮；隐藏右侧按钮后仍可使用 P 键打开或关闭右侧面板。'}
+                                            {t('options.labHidePlayerUiDesc') || '仅对播放页生效。可分别隐藏翻译字幕和右侧按钮；隐藏右侧按钮后仍可使用 P 键打开或关闭右侧面板。底栏请用「自动隐藏控制栏」或 H 键。'}
                                         </div>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => onToggleHidePlayerProgressBar(!hidePlayerProgressBar)}
-                                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors ${hidePlayerProgressBar ? 'bg-white/12 border-white/20' : utilityGhostButtonClass}`}
-                                            style={{ color: 'var(--text-primary)' }}
-                                        >
-                                            <span className={`flex h-4 w-4 items-center justify-center rounded-sm border ${hidePlayerProgressBar ? 'border-white/30 bg-white/15' : 'border-white/20 bg-transparent'}`}>
-                                                {hidePlayerProgressBar ? <Check size={12} /> : null}
-                                            </span>
-                                            <span>{t('options.hidePlayerProgressBar') || '隐藏播放页底部控制条'}</span>
-                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => onToggleHidePlayerTranslationSubtitle(!hidePlayerTranslationSubtitle)}

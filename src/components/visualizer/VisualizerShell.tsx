@@ -11,6 +11,7 @@ import MonetBackgroundLayer from './backgrounds/MonetBackgroundLayer';
 import UrlBackgroundLayer from './backgrounds/UrlBackgroundLayer';
 import SoraBackground from './SoraBackground';
 import LyricRhythmStage from './shared/LyricRhythmStage';
+import { shouldEnableInteractive3dWebGlLyrics } from './resolveInteractive3dFumeLayering';
 
 // Shared outer shell for all visualizers.
 type VisualizerShellSharedProps = Pick<
@@ -223,9 +224,9 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 <>
                     <div
                         className="absolute inset-0 z-0 transition-all duration-1000"
-                        style={{ backgroundColor: theme.backgroundColor, opacity: 0.22 }}
+                        style={{ backgroundColor: '#071922', opacity: 1 }}
                     />
-                    <div className="absolute inset-0 z-0 isolate pointer-events-none">
+                    <div className="absolute inset-0 z-0 isolate pointer-events-auto">
                         <GeometricInteractiveBackground
                             theme={theme}
                             audioPower={audioPower}
@@ -247,7 +248,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                             visualizerMode={resolvedVisualizerMode}
                             currentTime={resolvedCurrentTime}
                             lines={resolvedLines}
-                            showLyrics={resolvedShowText}
+                            showLyrics={shouldEnableInteractive3dWebGlLyrics(resolvedBackgroundMode) && resolvedShowText}
                             playing={resolvedAudioPlaying}
                         />
                     </div>

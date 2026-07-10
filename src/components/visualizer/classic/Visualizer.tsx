@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence, MotionValue, Variants, useMotionValueEvent } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_CLASSIC_TUNING, Line, Theme, Word as WordType, AudioBands, type ClassicTuning } from '../../../types';
@@ -11,6 +11,10 @@ import { buildPostLyricLayoutUnits, buildDisplayWordsFromLayoutUnits } from '../
 import { buildWordGraphemeTimings } from '../../../utils/lyrics/graphemeTiming';
 import { resolveThemeFontStack } from '../../../utils/fontStacks';
 import { resolveWordColor } from '../wordColoring';
+import {
+    clampLyricWordOffsetX,
+    resolveLyricContainerFit,
+} from '../resolveLyricContainerFit';
 
 // This mode is the most straightforward lyric pipeline in the folder.
 // First we ask runtime which line is active right now, then read renderHints from that line,
@@ -315,16 +319,27 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
     const activeWordRenderProfile = activeLineRenderProfile ?? (activeLine ? resolveClassicLineRenderProfile(activeLine) : null);
     const activeLineContainerMotion = getClassicLineContainerMotion(activeLineRenderProfile);
 
-    const [viewportWidth, setViewportWidth] = useState(() => (
-        typeof window === 'undefined' ? 1200 : window.innerWidth
+    const stageRef = useRef<HTMLDivElement | null>(null);
+    const [stageWidth, setStageWidth] = useState(() => (
+        typeof window === 'undefined' ? 960 : Math.max(320, window.innerWidth - 220)
     ));
 
-    useEffect(() => {
-        const handleResize = () => {
-            setViewportWidth(window.innerWidth);
+    // Measure the real lyric stage (excludes sidebar / DevTools), never window.innerWidth / vw.
+    useLayoutEffect(() => {
+        const node = stageRef.current;
+        if (!node || typeof ResizeObserver === 'undefined') return undefined;
+        const apply = (width: number) => {
+            const next = Math.max(240, Math.round(width));
+            setStageWidth(prev => (prev === next ? prev : next));
         };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        apply(node.getBoundingClientRect().width);
+        const observer = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (!entry) return;
+            apply(entry.contentRect.width);
+        });
+        observer.observe(node);
+        return () => observer.disconnect();
     }, []);
 
     const displayWords = useMemo(() => {
@@ -336,10 +351,22 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         return buildDisplayWordsFromLayoutUnits(layoutUnits);
     }, [activeLine, resolvedClassicTuning.useLegacyLayout]);
 
-    const mainFontSize = `clamp(${(2.25 * lyricsFontScale).toFixed(3)}rem, ${(6 * lyricsFontScale).toFixed(3)}vw, ${(4.5 * lyricsFontScale).toFixed(3)}rem)`;
-    const emptyFontSize = `clamp(${(1.5 * lyricsFontScale).toFixed(3)}rem, ${(3.5 * lyricsFontScale).toFixed(3)}vw, ${(2.25 * lyricsFontScale).toFixed(3)}rem)`;
-    const translationFontSize = `clamp(${(1.125 * lyricsFontScale).toFixed(3)}rem, ${(2.6 * lyricsFontScale).toFixed(3)}vw, ${(1.25 * lyricsFontScale).toFixed(3)}rem)`;
-    const upcomingFontSize = `clamp(${(0.875 * lyricsFontScale).toFixed(3)}rem, ${(2 * lyricsFontScale).toFixed(3)}vw, ${(1 * lyricsFontScale).toFixed(3)}rem)`;
+    const lyricFit = useMemo(
+        () => resolveLyricContainerFit({
+            containerWidth: stageWidth,
+            lyricsFontScale,
+            sidePaddingRatio: 0.09,
+            minSidePaddingPx: 32,
+            preferredWidthRatio: 0.068,
+            minFontPx: 22,
+            maxFontPx: 52,
+        }),
+        [stageWidth, lyricsFontScale],
+    );
+    const mainFontSize = lyricFit.fontSizeCss;
+    const emptyFontSize = `${Math.max(16, lyricFit.fontPx * 0.55).toFixed(2)}px`;
+    const translationFontSize = `${Math.max(14, lyricFit.fontPx * 0.42).toFixed(2)}px`;
+    const upcomingFontSize = `${Math.max(12, lyricFit.fontPx * 0.34).toFixed(2)}px`;
 
     // Generate a stable random layout configuration for the current line.
     // Use the line start time as seed so the same lyric does not reshuffle every rerender.
@@ -353,10 +380,8 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         const isChaotic = intensity === 'chaotic';
         const isCalm = intensity === 'calm';
 
-        // Container layout decides how the whole line sits in the visual field before word offsets kick in.
-        const justifyOptions = isCalm
-            ? ['justify-center']
-            : ['justify-start', 'justify-center', 'justify-end', 'justify-around', 'justify-between'];
+        // Keep lines centered in the measured stage so left/right chrome never clips text.
+        const justifyOptions = ['justify-center'];
         const alignOptions = isCalm
             ? ['items-center']
             : ['items-start', 'items-center', 'items-end'];
@@ -372,17 +397,10 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         // Word layouts stay deterministic for a given line.
         // That is important because time should change the animation state, not the base geometry.
         const fontStack = resolveThemeFontStack(theme);
-        const getPixelFontSize = (fontScale: number, width: number): number => {
-            const rem = 16;
-            const minPx = 2.25 * fontScale * rem;
-            const valPx = (6 * fontScale * width) / 100;
-            const maxPx = 4.5 * fontScale * rem;
-            return Math.max(minPx, Math.min(valPx, maxPx));
-        };
-        const pxFontSize = getPixelFontSize(lyricsFontScale, viewportWidth);
+        const pxFontSize = lyricFit.fontPx;
         const wordWidths = displayWords.map(w => measureWordWidth(w.text, pxFontSize, fontStack));
 
-        const baseSpread = isChaotic ? 60 : isCalm ? 0 : 20;
+        const baseSpread = isChaotic ? 36 : isCalm ? 0 : 14;
         const baseRotate = isChaotic ? 30 : isCalm ? 0 : 5;
 
         const wordConfigs: WordLayoutConfig[] = displayWords.map((w, i) => {
@@ -408,7 +426,13 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
             }
 
             const wordConfigScale = isChaotic ? 0.8 + random(4) * 0.6 : 1.1 + random(4) * 0.2;
-            const xVal = (random(1) - 0.5) * baseSpread * 2;
+            const rawX = (random(1) - 0.5) * baseSpread * 2;
+            const xVal = clampLyricWordOffsetX(
+                rawX,
+                wordWidths[i] ?? pxFontSize,
+                lyricFit.usableWidth,
+                wordConfigScale * 1.35,
+            );
             const yVal = (random(2) - 0.5) * baseSpread * 2;
 
             let marginRight = isChaotic ? `${random(5) * 1.5}rem` : '0.8rem';
@@ -459,7 +483,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         });
 
         return { wordConfigs, lineConfig };
-    }, [activeLine, displayWords, resolvedClassicTuning.enableWordRotation, resolvedClassicTuning.useLegacyLayout, resolvedClassicTuning.wordSpacing, theme, lyricsFontScale, viewportWidth]);
+    }, [activeLine, displayWords, resolvedClassicTuning.enableWordRotation, resolvedClassicTuning.useLegacyLayout, resolvedClassicTuning.wordSpacing, theme, lyricFit]);
 
     // Container motion is the "body" of each word.
     // waiting/active/passed all reuse the same layout config but interpret it differently.
@@ -658,7 +682,14 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         >
             {/* Main Container */}
             <motion.div
-                className="relative z-10 w-full h-[70vh] flex items-center justify-center p-8 pointer-events-none will-change-transform"
+                ref={stageRef}
+                className="relative z-10 w-full h-[70vh] flex items-center justify-center pointer-events-none will-change-transform overflow-hidden"
+                style={{
+                    paddingLeft: lyricFit.sidePaddingPx,
+                    paddingRight: lyricFit.sidePaddingPx,
+                    paddingTop: 32,
+                    paddingBottom: 32,
+                }}
                 animate={lyricContainerFloat?.animate}
                 transition={lyricContainerFloat?.transition}
             >
@@ -669,8 +700,13 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
                             initial={activeLineContainerMotion.initial}
                             animate={activeLineContainerMotion.animate}
                             exit={activeLineContainerMotion.exit}
-                            className={`flex flex-wrap w-full max-w-6xl content-center ${lineConfig.justifyContent} ${lineConfig.alignItems}`}
-                            style={{ perspective: `${lineConfig.perspective}px`, minHeight: '300px' }}
+                            className={`flex flex-wrap w-full content-center ${lineConfig.justifyContent} ${lineConfig.alignItems}`}
+                            style={{
+                                perspective: `${lineConfig.perspective}px`,
+                                minHeight: '300px',
+                                maxWidth: lyricFit.usableWidth,
+                                width: '100%',
+                            }}
                         >
                             {displayWords.map((word, idx) => {
                                 const config = wordConfigs[idx] || { id: `fallback-${idx}`, x: 0, y: 0, rotate: 0, scale: 1, marginRight: '0.5rem', alignSelf: 'auto', passedRotate: 0 };

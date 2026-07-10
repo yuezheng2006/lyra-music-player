@@ -3,7 +3,7 @@ import type { RefObject } from 'react';
 import { PlayerState } from '../types';
 import type { SongResult } from '../types';
 
-// Bridges Folia playback state to the browser Media Session API.
+// Bridges Lyra playback state to the browser Media Session API.
 type UseMediaSessionBridgeOptions = {
     audioRef: RefObject<HTMLAudioElement | null>;
     currentSong: SongResult | null;

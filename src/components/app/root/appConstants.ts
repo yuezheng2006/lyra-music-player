@@ -7,13 +7,13 @@ export const ONLINE_AUDIO_URL_REFRESH_BUFFER_MS = 60 * 1000;
 export const PLAYER_CHROME_HIDDEN_STORAGE_KEY = 'player_chrome_hidden';
 export const LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC = 3;
 
-/** 午夜墨染 */
+/** 午夜墨染 — dark 文字层级对齐 Mineradio：主文近纯白，次级银灰可读 */
 export const DEFAULT_THEME: Theme = {
     name: 'Midnight Default',
     backgroundColor: '#09090b',
-    primaryColor: '#f4f4f5',
-    accentColor: '#f4f4f5',
-    secondaryColor: '#71717a',
+    primaryColor: '#fafafa',
+    accentColor: '#ffffff',
+    secondaryColor: '#b8b8c2',
     fontStyle: 'sans',
     animationIntensity: 'normal',
 };

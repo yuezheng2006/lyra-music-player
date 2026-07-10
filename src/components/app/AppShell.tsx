@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, LockOpen } from 'lucide-react';
+import { Lock, LockOpen, Radio } from 'lucide-react';
 import TitlebarDragZone from '../TitlebarDragZone';
 import WindowControls from '../WindowControls';
 
@@ -37,6 +37,7 @@ const AppShell: React.FC<AppShellProps> = ({
     children,
 }) => {
     const [isWindowMaximized, setIsWindowMaximized] = useState(false);
+    const [isWindowFullscreen, setIsWindowFullscreen] = useState(false);
 
     useEffect(() => {
         if (!useCustomWindowRadius || !window.electron?.isWindowMaximized) {
@@ -68,7 +69,53 @@ const AppShell: React.FC<AppShellProps> = ({
         };
     }, [useCustomWindowRadius]);
 
-    const shouldApplyWindowRadius = useCustomWindowRadius && !isWindowMaximized;
+    useEffect(() => {
+        if (!useCustomWindowRadius) {
+            setIsWindowFullscreen(false);
+            return;
+        }
+
+        let isCancelled = false;
+
+        const syncFullscreenState = async () => {
+            try {
+                if (window.electron?.isWindowFullscreen) {
+                    const nextValue = await window.electron.isWindowFullscreen();
+                    if (!isCancelled) {
+                        setIsWindowFullscreen(nextValue);
+                    }
+                    return;
+                }
+                if (!isCancelled) {
+                    setIsWindowFullscreen(Boolean(document.fullscreenElement));
+                }
+            } catch {
+                if (!isCancelled) {
+                    setIsWindowFullscreen(false);
+                }
+            }
+        };
+
+        void syncFullscreenState();
+        const unsubscribe = window.electron?.onWindowFullscreenChanged?.((state) => {
+            setIsWindowFullscreen(Boolean(state?.isFullscreen));
+        });
+        const handleDocumentFullscreenChange = () => {
+            if (window.electron?.isWindowFullscreen) {
+                return;
+            }
+            setIsWindowFullscreen(Boolean(document.fullscreenElement));
+        };
+        document.addEventListener('fullscreenchange', handleDocumentFullscreenChange);
+
+        return () => {
+            isCancelled = true;
+            unsubscribe?.();
+            document.removeEventListener('fullscreenchange', handleDocumentFullscreenChange);
+        };
+    }, [useCustomWindowRadius]);
+
+    const shouldApplyWindowRadius = useCustomWindowRadius && !isWindowMaximized && !isWindowFullscreen;
     const shouldRenderTitlebarBackdrop = !isPlayerView || (useCustomWindowRadius && !isMainWindowClickThroughEnabled);
     const titlebarBackdropClassName = `absolute inset-0 backdrop-blur-sm ${
         isDaylight
@@ -99,14 +146,40 @@ const AppShell: React.FC<AppShellProps> = ({
                             }}
                             transition={{ duration: 0.18, ease: 'easeOut' }}
                             className={titlebarBackdropClassName}
+                            style={{ left: 'var(--app-sidebar-width, 0px)' }}
                         />
                     )}
                     <div className="relative h-full">
                         <TitlebarDragZone active={usesCustomWindowChrome} />
+                        <div className="pointer-events-auto absolute top-0 left-0 z-10 h-full">
+                            <WindowControls
+                                revealed={isTitlebarRevealed}
+                                isDaylight={isDaylight}
+                                isMainWindowClickThroughEnabled={isMainWindowClickThroughEnabled}
+                            />
+                        </div>
                         <div
-                            className="pointer-events-auto absolute top-0 right-[180px] z-20 h-full flex items-center"
+                            className="pointer-events-auto absolute top-0 right-0 z-20 h-full flex items-center gap-1 pr-1"
                             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                         >
+                            <button
+                                type="button"
+                                aria-label="Remote control"
+                                title="远程控制"
+                                tabIndex={isTitlebarRevealed && !isMainWindowClickThroughEnabled ? 0 : -1}
+                                onClick={() => void window.electron?.openRemoteControl?.()}
+                                className={`flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-200 ${
+                                    isTitlebarRevealed && !isMainWindowClickThroughEnabled
+                                        ? 'pointer-events-auto opacity-100 translate-y-0'
+                                        : 'pointer-events-none opacity-0 -translate-y-1'
+                                } ${
+                                    isDaylight
+                                        ? 'border-black/[0.06] bg-white/40 text-zinc-700 hover:bg-white/80 hover:text-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.04)]'
+                                        : 'border-white/15 bg-transparent text-white/75 hover:bg-black/20 hover:text-white'
+                                }`}
+                            >
+                                <Radio size={14} />
+                            </button>
                             <button
                                 type="button"
                                 aria-label={isMainWindowClickThroughEnabled ? 'Disable click-through' : 'Enable click-through'}
@@ -128,13 +201,6 @@ const AppShell: React.FC<AppShellProps> = ({
                             >
                                 {isMainWindowClickThroughEnabled ? <Lock size={14} /> : <LockOpen size={14} />}
                             </button>
-                        </div>
-                        <div className="pointer-events-auto absolute top-0 right-0 z-10 h-full">
-                            <WindowControls
-                                revealed={isTitlebarRevealed}
-                                isDaylight={isDaylight}
-                                isMainWindowClickThroughEnabled={isMainWindowClickThroughEnabled}
-                            />
                         </div>
                     </div>
                 </div>

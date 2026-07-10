@@ -753,11 +753,16 @@ const ArtistGridView: React.FC<ArtistGridViewProps> = ({
                     centerOnIndex(bestNextIdx, true);
                 }
             }
+
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                onBack();
+            }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [focusedIndex, baseCoords, gridItems.length]);
+    }, [focusedIndex, baseCoords, gridItems.length, onBack]);
 
     const renderedCards = useMemo(() => {
         return renderedIndexes.map((idx) => {
@@ -944,7 +949,7 @@ const ArtistGridView: React.FC<ArtistGridViewProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col font-sans select-none overflow-hidden"
+            className="absolute inset-0 z-50 flex flex-col font-sans select-none overflow-hidden"
             style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-color)' }}
         >
             {backgroundCoverUrl && (
@@ -994,7 +999,7 @@ const ArtistGridView: React.FC<ArtistGridViewProps> = ({
                         <span className="text-sm font-semibold">{t('playlist.loading') || 'Loading...'}</span>
                     </div>
                 ) : gridItems.length === 0 ? (
-                    <div className="opacity-40 text-sm">{t('home.loadingLibrary') || 'No items found'}</div>
+                    <div className="opacity-40 text-sm">{t('home.gridEmptyTracks') || 'No tracks found'}</div>
                 ) : (
                     <motion.div
                         drag

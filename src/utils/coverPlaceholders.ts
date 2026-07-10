@@ -1,4 +1,4 @@
-type PlaceholderVariant = 'artist' | 'playlist';
+type PlaceholderVariant = 'artist' | 'playlist' | 'song';
 
 const svgToDataUrl = (svg: string) => `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 const hashString = (value: string) => Array.from(value).reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -37,12 +37,22 @@ export const createCoverPlaceholder = (
             { start: '#fef3c7', end: '#fde68a', text: '#92400e' },
             { start: '#fee2e2', end: '#fecaca', text: '#991b1b' },
         ],
+        song: [
+            { start: '#1f2937', end: '#4b5563', text: '#f8fafc' },
+            { start: '#312e81', end: '#6366f1', text: '#eef2ff' },
+            { start: '#7c2d12', end: '#ea580c', text: '#fff7ed' },
+            { start: '#134e4a', end: '#0d9488', text: '#f0fdfa' },
+            { start: '#4c0519', end: '#be123c', text: '#fff1f2' },
+            { start: '#1e3a8a', end: '#3b82f6', text: '#eff6ff' },
+        ],
     };
 
-    const symbol = getDisplayText(label, variant === 'artist' ? 'A' : 'M');
+    const fallbackSymbol = variant === 'artist' ? 'A' : variant === 'song' ? '♪' : 'M';
+    const symbol = getDisplayText(label, fallbackSymbol);
     const paletteGroup = palettes[variant];
     const paletteIndex = hashString(`${variant}:${label.trim().toLowerCase()}`) % paletteGroup.length;
     const config = paletteGroup[paletteIndex];
+    const fontSize = symbol.length > 1 ? 148 : 168;
     const svg = `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
             <defs>
@@ -52,12 +62,14 @@ export const createCoverPlaceholder = (
                 </linearGradient>
             </defs>
             <rect width="600" height="600" fill="url(#bg)" />
+            <circle cx="300" cy="300" r="168" fill="rgba(255,255,255,0.08)" />
+            <circle cx="300" cy="300" r="54" fill="rgba(255,255,255,0.12)" />
             <text
                 x="300"
                 y="320"
                 text-anchor="middle"
                 dominant-baseline="middle"
-                font-size="148"
+                font-size="${fontSize}"
                 font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
                 font-weight="700"
                 letter-spacing="8"
@@ -67,6 +79,15 @@ export const createCoverPlaceholder = (
     `;
 
     return svgToDataUrl(svg);
+};
+
+/** Stable default cover when a track has no album art. */
+export const createSongCoverPlaceholder = (
+    songName?: string | null,
+    artistName?: string | null,
+): string => {
+    const label = [songName, artistName].map(part => part?.trim()).filter(Boolean).join(' · ') || 'Song';
+    return createCoverPlaceholder(label, 'song');
 };
 
 export const resolveNavidromeArtistCoverUrl = (

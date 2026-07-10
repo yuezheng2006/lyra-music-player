@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { clearCache, getCacheUsage, getFromCache, openDB, saveToCache } from '../services/db';
-import { neteaseApi } from '../services/netease';
+import { neteaseApi, isNeteaseAuthExpiredResponse } from '../services/netease';
 import { NeteasePlaylist, NeteaseUser, StatusMessage } from '../types';
+import { shouldUseQQGuestLibrary } from '../utils/neteaseGuestMode';
 
 type StatusSetter = Dispatch<SetStateAction<StatusMessage | null>>;
 
@@ -13,9 +14,10 @@ const formatBytes = (bytes: number) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const isAuthExpiredResponse = (response: any): boolean => {
-    const code = Number(response?.code ?? response?.data?.code);
-    return code === 301 || code === 401 || code === 403;
+const isAuthExpiredResponse = isNeteaseAuthExpiredResponse;
+
+const getAllFavoriteAlbums = async (): Promise<any[]> => {
+    return neteaseApi.collectAllFavoriteAlbums();
 };
 
 // Confirms the cached cookie can still access account-only Netease endpoints.
@@ -109,6 +111,9 @@ export function useNeteaseLibrary({
     const [user, setUser] = useState<NeteaseUser | null>(null);
     const [playlists, setPlaylists] = useState<NeteasePlaylist[]>([]);
     const [cloudPlaylist, setCloudPlaylist] = useState<NeteasePlaylist | null>(null);
+    const [favoriteAlbums, setFavoriteAlbums] = useState<any[]>([]);
+    const [isFavoriteAlbumsLoading, setIsFavoriteAlbumsLoading] = useState(false);
+    const [favoriteAlbumsLoadFailed, setFavoriteAlbumsLoadFailed] = useState(false);
     const [likedSongIds, setLikedSongIds] = useState<Set<number>>(new Set());
     const [isSyncing, setIsSyncing] = useState(false);
     const [cacheSize, setCacheSize] = useState<string>('0 B');
@@ -121,6 +126,9 @@ export function useNeteaseLibrary({
         setUser(null);
         setPlaylists([]);
         setCloudPlaylist(null);
+        setFavoriteAlbums([]);
+        setFavoriteAlbumsLoadFailed(false);
+        setIsFavoriteAlbumsLoading(false);
         setLikedSongIds(new Set());
 
         try {
@@ -129,7 +137,7 @@ export function useNeteaseLibrary({
             const userStore = tx.objectStore('user_cache');
             const legacyStore = tx.objectStore('api_cache');
 
-            ['user_profile', 'user_playlists', 'user_liked_songs', 'user_cloud_playlist'].forEach((key) => {
+            ['user_profile', 'user_playlists', 'user_liked_songs', 'user_cloud_playlist', 'user_favorite_albums'].forEach((key) => {
                 userStore.delete(key);
                 legacyStore.delete(key);
             });
@@ -146,6 +154,26 @@ export function useNeteaseLibrary({
     const updateCacheSize = useCallback(async () => {
         const size = await getCacheUsage();
         setCacheSize(formatBytes(size));
+    }, []);
+
+    const refreshFavoriteAlbums = useCallback(async () => {
+        setIsFavoriteAlbumsLoading(true);
+        setFavoriteAlbumsLoadFailed(false);
+        try {
+            const albums = await getAllFavoriteAlbums();
+            setFavoriteAlbums(albums);
+            await saveToCache('user_favorite_albums', albums);
+            return albums;
+        } catch (error) {
+            console.warn('Failed to fetch favorite albums', error);
+            if (error instanceof Error && error.message === 'NETEASE_AUTH_EXPIRED') {
+                throw error;
+            }
+            setFavoriteAlbumsLoadFailed(true);
+            return null;
+        } finally {
+            setIsFavoriteAlbumsLoading(false);
+        }
     }, []);
 
     const refreshUserData = useCallback(async (uid?: number) => {
@@ -184,6 +212,14 @@ export function useNeteaseLibrary({
                     console.warn('Failed to fetch liked songs', error);
                 }
 
+                try {
+                    await refreshFavoriteAlbums();
+                } catch (error) {
+                    if (error instanceof Error && error.message === 'NETEASE_AUTH_EXPIRED') {
+                        throw error;
+                    }
+                }
+
                 return true;
             }
 
@@ -197,14 +233,20 @@ export function useNeteaseLibrary({
             }
         }
         return false;
-    }, [clearAuthState]);
+    }, [clearAuthState, refreshFavoriteAlbums]);
 
     const loadUserData = useCallback(async () => {
         try {
+            if (shouldUseQQGuestLibrary()) {
+                setIsUserDataReady(true);
+                return;
+            }
+
             const cachedUser = await getFromCache<NeteaseUser>('user_profile');
             const cachedPlaylists = await getFromCache<NeteasePlaylist[]>('user_playlists');
             const cachedLikedSongs = await getFromCache<number[]>('user_liked_songs');
             const cachedCloudPlaylist = await getFromCache<NeteasePlaylist | null>('user_cloud_playlist');
+            const cachedFavoriteAlbums = await getFromCache<any[]>('user_favorite_albums');
 
             if (cachedUser) {
                 setUser(cachedUser);
@@ -220,6 +262,11 @@ export function useNeteaseLibrary({
                 if (cachedCloudPlaylist) {
                     setCloudPlaylist(cachedCloudPlaylist);
                 }
+                if (cachedFavoriteAlbums) {
+                    setFavoriteAlbums(cachedFavoriteAlbums);
+                } else if (cachedUser) {
+                    void refreshFavoriteAlbums();
+                }
                 return;
             }
 
@@ -227,7 +274,7 @@ export function useNeteaseLibrary({
         } finally {
             setIsUserDataReady(true);
         }
-    }, [refreshUserData]);
+    }, [refreshFavoriteAlbums, refreshUserData]);
 
     const checkAndUpdatePlaylists = useCallback(async () => {
         if (!user) return;
@@ -410,6 +457,16 @@ export function useNeteaseLibrary({
     }, [loadUserData]);
 
     useEffect(() => {
+        const handleRefreshAlbums = () => {
+            if (!user) return;
+            void refreshFavoriteAlbums();
+        };
+
+        window.addEventListener('folia-refresh-favorite-albums', handleRefreshAlbums);
+        return () => window.removeEventListener('folia-refresh-favorite-albums', handleRefreshAlbums);
+    }, [refreshFavoriteAlbums, user]);
+
+    useEffect(() => {
         if (currentView === 'home' && user && !hasOverlay) {
             const now = Date.now();
             if (now - lastCheckTimeRef.current > 10000) {
@@ -423,11 +480,15 @@ export function useNeteaseLibrary({
         user,
         playlists,
         cloudPlaylist,
+        favoriteAlbums,
+        isFavoriteAlbumsLoading,
+        favoriteAlbumsLoadFailed,
         likedSongIds,
         isSyncing,
         isUserDataReady,
         cacheSize,
         refreshUserData,
+        refreshFavoriteAlbums,
         updateCacheSize,
         handleClearCache,
         handleSyncData,

@@ -13,9 +13,10 @@ import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
 import {
     applyLyricColorPresetToDualTheme,
     getLyricColorPresetById,
+    resolveActiveLyricColorPresetId,
     type LyricColorPresetId,
 } from '../../utils/theme/lyricColorPresets';
-import { useThemeQuickEditorStore } from '../../stores/useThemeQuickEditorStore';
+import { useThemeQuickEditorStore, type ThemeQuickEditorKind } from '../../stores/useThemeQuickEditorStore';
 
 // src/components/panelTab/ThemeQuickEditor.tsx
 // Lightweight theme color editor launched from the player controls tab.
@@ -233,7 +234,7 @@ const ThemeQuickEditor: React.FC<ThemeQuickEditorProps> = ({
         if (!preset) {
             return;
         }
-        setDraftTheme(previous => applyLyricColorPresetToDualTheme(previous, preset));
+        setDraftTheme(previous => applyLyricColorPresetToDualTheme(previous, preset, { includeMotion: false }));
     };
 
     const handleSave = () => {
@@ -534,7 +535,10 @@ const ThemeQuickEditor: React.FC<ThemeQuickEditorProps> = ({
                                     </p>
                                     <LyricColorPresetGrid
                                         onSelect={applyLyricColorPreset}
-                                        inactiveButtonClassName={`opacity-85 hover:opacity-100 ${allTransitionClass}`}
+                                        activePresetId={resolveActiveLyricColorPresetId(activeTheme, mode)}
+                                        isDaylight={isDaylight}
+                                        inactiveButtonClassName={`text-current opacity-95 hover:opacity-100 ${allTransitionClass}`}
+                                        activeButtonClassName={`bg-white/90 text-stone-950 shadow-sm ring-1 ring-black/10 ${allTransitionClass}`}
                                         buttonClassName={allTransitionClass}
                                     />
                                 </div>

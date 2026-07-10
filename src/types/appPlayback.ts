@@ -15,6 +15,10 @@ import type {
 export type PlaybackNavigationOptions = {
     shouldNavigateToPlayer?: boolean;
     unavailableSkipCount?: number;
+    /** Override default audio quality for this play request. */
+    quality?: string;
+    /** Resume playback near this time after reloading the stream. */
+    resumeTimeSec?: number;
 };
 
 export type NextTrackOptions = PlaybackNavigationOptions & {
