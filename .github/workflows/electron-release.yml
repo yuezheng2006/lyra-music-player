@@ -10,11 +10,6 @@ on:
         description: 'Version (e.g. 1.0.1). Leave empty to use package.json version.'
         required: false
         type: string
-      publish_aur_only:
-        description: 'Skip desktop builds and only publish the AUR package'
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: write # Required to upload artifacts and publish releases
@@ -55,7 +50,7 @@ jobs:
   prepare-release:
     name: Prepare release target
     needs: check-version
-    if: needs.check-version.outputs.changed == 'true' && github.event.inputs.publish_aur_only != 'true'
+    if: needs.check-version.outputs.changed == 'true'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.meta.outputs.version }}
@@ -99,12 +94,12 @@ jobs:
   release:
     name: Build on ${{ matrix.os }}
     needs: [check-version, prepare-release]
-    if: needs.check-version.outputs.changed == 'true' && github.event.inputs.publish_aur_only != 'true'
+    if: needs.check-version.outputs.changed == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
 
     steps:
       - name: Check out Git repository
@@ -181,9 +176,6 @@ jobs:
             release/*.exe
             release/*.blockmap
             release/latest*.yml
-            release/*.deb
-            release/*.rpm
-            release/*.tar.gz
             build/release-notes.md
           if-no-files-found: error
           retention-days: 14
@@ -191,7 +183,7 @@ jobs:
   publish-release:
     name: Publish draft release
     needs: [check-version, prepare-release, release]
-    if: needs.check-version.outputs.changed == 'true' && github.event.inputs.publish_aur_only != 'true'
+    if: needs.check-version.outputs.changed == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -237,71 +229,3 @@ jobs:
               --draft
           fi
 
-  publish-aur:
-    name: Publish AUR package
-    needs: check-version
-    if: needs.check-version.outputs.changed == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v6
-
-      - name: Install Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-
-      - name: Check AUR secrets
-        id: aur-secrets
-        shell: bash
-        env:
-          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          AUR_REPO_SSH_URL: ${{ secrets.AUR_REPO_SSH_URL }}
-        run: |
-          if [[ -z "${AUR_SSH_PRIVATE_KEY}" || -z "${AUR_REPO_SSH_URL}" ]]; then
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "AUR secrets are not configured; skipping AUR publish."
-          else
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Prepare AUR metadata
-        if: steps.aur-secrets.outputs.configured == 'true'
-        run: ./packaging/aur/lyra-music-player-bin/update.sh
-
-      - name: Set up SSH key
-        if: steps.aur-secrets.outputs.configured == 'true'
-        shell: bash
-        run: |
-          install -dm700 ~/.ssh
-          printf '%s\n' "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur
-          chmod 600 ~/.ssh/aur
-          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
-          cat > ~/.ssh/config <<'EOF'
-          Host aur.archlinux.org
-            IdentityFile ~/.ssh/aur
-            IdentitiesOnly yes
-          EOF
-
-      - name: Push package to AUR
-        if: steps.aur-secrets.outputs.configured == 'true'
-        shell: bash
-        env:
-          AUR_REPO_SSH_URL: ${{ secrets.AUR_REPO_SSH_URL }}
-        run: |
-          git clone "${AUR_REPO_SSH_URL}" aur-repo
-          cp packaging/aur/lyra-music-player-bin/PKGBUILD aur-repo/PKGBUILD
-          cp packaging/aur/lyra-music-player-bin/.SRCINFO aur-repo/.SRCINFO
-          cp packaging/aur/lyra-music-player-bin/lyra-music-player.desktop aur-repo/lyra-music-player.desktop
-          cp packaging/aur/lyra-music-player-bin/lyra-music-player.png aur-repo/lyra-music-player.png
-          cd aur-repo
-          if git diff --quiet -- PKGBUILD .SRCINFO lyra-music-player.desktop lyra-music-player.png; then
-            echo "No AUR changes to publish"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add PKGBUILD .SRCINFO lyra-music-player.desktop lyra-music-player.png
-          git commit -m "Update to v$(jq -r .version ../package.json)"
-          git push

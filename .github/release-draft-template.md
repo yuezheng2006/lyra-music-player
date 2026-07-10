@@ -4,11 +4,6 @@
 - macOS：
   - Apple Silicon：下载 `Lyra-{{VERSION}}-arm64.dmg`
   - Intel Mac：下载 `Lyra-{{VERSION}}-x64.dmg`
-- Linux：
-  - Arch Linux / Manjaro：通过 AUR 安装 `yay -S lyra-music-player-bin`
-  - Debian / Ubuntu：下载 `lyra-music-player-{{VERSION}}-linux-amd64.deb`
-  - Fedora / openSUSE：下载 `lyra-music-player-{{VERSION}}-linux-x86_64.rpm`
-  - 其他发行版：下载 `lyra-music-player-{{VERSION}}-linux-x64.tar.gz`
 
 ## macOS：若提示「应用已损坏」
 

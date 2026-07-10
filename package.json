@@ -36,10 +36,7 @@
     "probe:netease-xeapi": "node test/manual/netease_xeapi_probe.cjs",
     "stage:client": "vite --open /stage-client.html",
     "dev:electron": "cross-env ELECTRON_DEV=true LYRA_EXTERNAL_DEV_APIS=true LYRA_DISABLE_SINGLE_INSTANCE_LOCK=true concurrently -k \"npm run dev:netease-api\" \"npm run dev:music-provider\" \"vite --port 3000 --strictPort\" \"wait-on tcp:3000 tcp:3001 tcp:3002 && electron .\"",
-    "dev:electron:dist": "cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true vite build && electron .",
-    "dev:electron:dist:swiftshader": "cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true FOLIA_LINUX_GRAPHICS_MODE=swiftshader vite build && electron .",
-    "dev:electron:dist:software": "cross-env ELECTRON_DEV=false ELECTRON=true ELECTRON_LINUX_PACKAGED_GRAPHICS=true FOLIA_LINUX_GRAPHICS_MODE=software vite build && electron .",
-    "build:electron:dir": "cross-env ELECTRON_DEV=false ELECTRON=true vite build && electron-builder --linux dir",
+    "dev:electron:dist": "cross-env ELECTRON_DEV=false ELECTRON=true vite build && electron .",
     "build:electron": "cross-env ELECTRON_DEV=false ELECTRON=true vite build && electron-builder",
     "contributors:add": "npx all-contributors-cli add",
     "contributors:generate": "npx all-contributors-cli generate"
@@ -78,24 +75,12 @@
         "to": "icon.png"
       },
       {
-        "from": "build/icon.png",
-        "to": "linux/icon.png"
-      },
-      {
         "from": "build/trayTemplate.png",
         "to": "trayTemplate.png"
       },
       {
         "from": "build/trayTemplate@2x.png",
         "to": "trayTemplate@2x.png"
-      },
-      {
-        "from": "packaging/linux/lyra-music-player.desktop",
-        "to": "linux/lyra-music-player.desktop"
-      },
-      {
-        "from": "packaging/linux/README-LINUX.txt",
-        "to": "linux/README-LINUX.txt"
       }
     ],
     "mac": {
@@ -160,21 +145,6 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    },
-    "linux": {
-      "artifactName": "${name}-${version}-linux-${arch}.${ext}",
-      "target": [
-        "tar.gz",
-        "deb",
-        "rpm"
-      ],
-      "publish": {
-        "provider": "github",
-        "publishAutoUpdate": false
-      },
-      "icon": "build/icon.png",
-      "category": "AudioVideo",
-      "executableName": "lyra-music-player"
     }
   },
   "dependencies": {
