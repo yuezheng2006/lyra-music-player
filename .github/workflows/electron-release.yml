@@ -268,7 +268,7 @@ jobs:
 
       - name: Prepare AUR metadata
         if: steps.aur-secrets.outputs.configured == 'true'
-        run: ./packaging/aur/folia-major-bin/update.sh
+        run: ./packaging/aur/lyra-music-player-bin/update.sh
 
       - name: Set up SSH key
         if: steps.aur-secrets.outputs.configured == 'true'
@@ -291,17 +291,17 @@ jobs:
           AUR_REPO_SSH_URL: ${{ secrets.AUR_REPO_SSH_URL }}
         run: |
           git clone "${AUR_REPO_SSH_URL}" aur-repo
-          cp packaging/aur/folia-major-bin/PKGBUILD aur-repo/PKGBUILD
-          cp packaging/aur/folia-major-bin/.SRCINFO aur-repo/.SRCINFO
-          cp packaging/aur/folia-major-bin/folia-major.desktop aur-repo/folia-major.desktop
-          cp packaging/aur/folia-major-bin/folia-major.png aur-repo/folia-major.png
+          cp packaging/aur/lyra-music-player-bin/PKGBUILD aur-repo/PKGBUILD
+          cp packaging/aur/lyra-music-player-bin/.SRCINFO aur-repo/.SRCINFO
+          cp packaging/aur/lyra-music-player-bin/lyra-music-player.desktop aur-repo/lyra-music-player.desktop
+          cp packaging/aur/lyra-music-player-bin/lyra-music-player.png aur-repo/lyra-music-player.png
           cd aur-repo
-          if git diff --quiet -- PKGBUILD .SRCINFO folia-major.desktop folia-major.png; then
+          if git diff --quiet -- PKGBUILD .SRCINFO lyra-music-player.desktop lyra-music-player.png; then
             echo "No AUR changes to publish"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add PKGBUILD .SRCINFO folia-major.desktop folia-major.png
+          git add PKGBUILD .SRCINFO lyra-music-player.desktop lyra-music-player.png
           git commit -m "Update to v$(jq -r .version ../package.json)"
           git push
