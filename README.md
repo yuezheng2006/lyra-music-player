@@ -4,7 +4,7 @@
 
 <div align="center">
 
-# Lyra
+# Lyra（音波播放器）
 
 Sound, Stage, Sense // 声随境转
 
@@ -33,6 +33,34 @@ Lyra（音波）是打通个人多音乐平台的 3D 歌词音乐播放器：把
 如果希望在浏览器上使用，可以参考 [部署指南](VERCEL_DEPLOYMENT.md) 部署 Web 版本到 Vercel 或其他支持 Node.js 的平台。
 
 ## 展示
+
+### 截图预览
+
+#### 主界面 - 六边形网格布局
+> 3D 交互式专辑浏览，支持六边形蜂巢布局
+
+<!-- 截图占位符：录制视频后添加 -->
+<!-- ![主界面](/img/screenshots/main-interface.png) -->
+
+#### 3D 交互舞台
+> WebGL 实时渲染的 3D 音乐可视化效果
+
+<!-- 截图占位符：录制视频后添加 -->
+<!-- ![3D 舞台](/img/screenshots/3d-stage.png) -->
+
+#### Monet 歌词页面
+> 沉浸式歌词展示，支持逐字滚动和智能主题
+
+<!-- 截图占位符：录制视频后添加 -->
+<!-- ![Monet 歌词](/img/screenshots/monet-lyrics.png) -->
+
+#### AI 智能主题
+> 基于歌曲情绪自动生成的视觉主题
+
+<!-- 截图占位符：录制视频后添加 -->
+<!-- ![AI 主题](/img/screenshots/ai-themes.png) -->
+
+**📝 说明**：上述截图占位符可在录制演示视频后，截取关键帧添加到 `/img/screenshots/` 目录，然后取消注释即可显示。
 
 ### 演示视频
 
