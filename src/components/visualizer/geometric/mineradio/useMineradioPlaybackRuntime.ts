@@ -26,6 +26,8 @@ interface UseMineradioPlaybackRuntimeOptions {
     currentTime?: MotionValue<number>;
     lines?: Line[];
     showLyrics?: boolean;
+    /** Fullscreen / desktop-lyrics presentation for stage lyrics. */
+    immersiveLyrics?: boolean;
     playing?: boolean;
     paused?: boolean;
     cameraSnapshotRef?: React.RefObject<InteractiveCameraSnapshot>;
@@ -47,6 +49,7 @@ export const useMineradioPlaybackRuntime = ({
     currentTime,
     lines = [],
     showLyrics = true,
+    immersiveLyrics = false,
     playing = true,
     paused = false,
     cameraSnapshotRef,
@@ -57,12 +60,14 @@ export const useMineradioPlaybackRuntime = ({
     const themeRef = useRef(theme);
     const linesRef = useRef(lines);
     const showLyricsRef = useRef(showLyrics);
+    const immersiveLyricsRef = useRef(immersiveLyrics);
     const playingRef = useRef(playing);
     audioBandsRef.current = audioBands;
     pausedRef.current = paused;
     themeRef.current = theme;
     linesRef.current = lines;
     showLyricsRef.current = showLyrics;
+    immersiveLyricsRef.current = immersiveLyrics;
     playingRef.current = playing;
 
     useLayoutEffect(() => {
@@ -74,6 +79,7 @@ export const useMineradioPlaybackRuntime = ({
         runtime.mount(container);
         runtime.configure(coverUrl ?? null, sceneTuning, qualityProfile);
         runtime.setLyricStageEnabled(showLyricsRef.current);
+        runtime.setLyricImmersive(immersiveLyricsRef.current);
         runtime.setInputProvider(() => ({
             audioBands: audioBandsRef.current,
             beat: smartAtmosphereEnabled ? (beatPulse?.get() ?? 0) : 0,
@@ -138,4 +144,8 @@ export const useMineradioPlaybackRuntime = ({
     useEffect(() => {
         coverRuntimeRef.current?.setLyricStageEnabled(showLyrics);
     }, [showLyrics]);
+
+    useEffect(() => {
+        coverRuntimeRef.current?.setLyricImmersive(immersiveLyrics);
+    }, [immersiveLyrics]);
 };

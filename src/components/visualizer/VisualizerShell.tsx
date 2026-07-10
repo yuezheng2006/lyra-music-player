@@ -51,6 +51,7 @@ type VisualizerShellSharedProps = Pick<
     | 'lines'
     | 'showText'
     | 'audioPlaying'
+    | 'immersiveLyrics'
 >;
 
 interface VisualizerShellProps {
@@ -132,6 +133,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const resolvedLines = sharedProps?.lines ?? [];
     const resolvedShowText = sharedProps?.showText ?? true;
     const resolvedAudioPlaying = sharedProps?.audioPlaying ?? !resolvedPaused;
+    const resolvedImmersiveLyrics = sharedProps?.immersiveLyrics ?? false;
     const shouldRenderCommonBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'common';
     const shouldRenderInteractive3dBackground = !resolvedTransparentBackground
         && resolvedBackgroundMode === 'interactive3d'
@@ -249,6 +251,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                             currentTime={resolvedCurrentTime}
                             lines={resolvedLines}
                             showLyrics={shouldEnableInteractive3dWebGlLyrics(resolvedBackgroundMode) && resolvedShowText}
+                            immersiveLyrics={resolvedImmersiveLyrics}
                             playing={resolvedAudioPlaying}
                         />
                     </div>

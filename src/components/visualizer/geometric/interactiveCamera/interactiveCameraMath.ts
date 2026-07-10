@@ -12,6 +12,40 @@ export const ORBIT_MIN_PHI = -Math.PI * 0.45;
 export const ORBIT_MAX_PHI = Math.PI * 0.45;
 export const ORBIT_MIN_RADIUS = 2.4;
 export const ORBIT_MAX_RADIUS = 14;
+/** Orbit fit may pull the camera farther than manual zoom so the sphere stays on-screen. */
+export const ORBIT_FIT_MAX_RADIUS = 18;
+
+/** Shader `baseR` for mineradioOrbit (uPreset 8). */
+export const MINERADIO_ORBIT_SPHERE_RADIUS = 2.0;
+/**
+ * Fraction of the shorter frustum half-axis the sphere should fill.
+ * ~0.58 leaves room for cinema drift + bass expand without cropping.
+ */
+export const MINERADIO_ORBIT_FIT_FILL = 0.58;
+
+/**
+ * Camera orbit radius so a sphere of `sphereRadius` fits the current viewport.
+ * Three.js PerspectiveCamera FOV is vertical; portrait uses the narrower horizontal axis.
+ */
+export const resolveOrbitFitCameraRadius = ({
+    sphereRadius = MINERADIO_ORBIT_SPHERE_RADIUS,
+    fovDeg,
+    aspect,
+    fillFraction = MINERADIO_ORBIT_FIT_FILL,
+}: {
+    sphereRadius?: number;
+    fovDeg: number;
+    aspect: number;
+    fillFraction?: number;
+}): number => {
+    const safeAspect = Number.isFinite(aspect) && aspect > 0.05 ? aspect : 1;
+    const safeFov = Number.isFinite(fovDeg) && fovDeg > 1 ? fovDeg : 45;
+    const fill = Math.min(0.92, Math.max(0.35, fillFraction));
+    const halfFovTan = Math.tan((safeFov * Math.PI) / 360);
+    const shortAxisTan = halfFovTan * Math.min(1, safeAspect);
+    const radius = sphereRadius / Math.max(0.0001, shortAxisTan * fill);
+    return clamp(radius, ORBIT_MIN_RADIUS, ORBIT_FIT_MAX_RADIUS);
+};
 
 /** 指针拖拽轨道角速度，对齐 Mineradio 自由镜头鼠标系数 0.00125 的量级。 */
 export const ORBIT_DRAG_SENSITIVITY = 0.002;

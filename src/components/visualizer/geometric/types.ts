@@ -30,6 +30,7 @@ export interface GeometricBackgroundProps {
     currentTime?: MotionValue<number>;
     lines?: Line[];
     showLyrics?: boolean;
+    immersiveLyrics?: boolean;
     playing?: boolean;
 }
 

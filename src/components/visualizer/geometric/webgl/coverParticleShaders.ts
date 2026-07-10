@@ -384,13 +384,13 @@ void main(){
     vColor = mix(defaultColor, coverColor, uHasCover) * (0.4 + depthFade * 0.7);
     maxRippleAmp = max(maxRippleAmp, abs(ripG) * 0.56 + uBass * 0.10 + uBeat * 0.08);
   } else if (uPreset < 8.5) {
-    // Mineradio orbit: sphere displacement + yaw only; keep cover color / vAlpha=1.
+    // Mineradio orbit: keep a readable sphere. Equal-area latitude + gentle audio breath only.
     float theta = aUv.x * 2.0 * PI;
-    float phi = (aUv.y - 0.5) * PI;
-    float baseR = 2.2;
-    float trebFlare = snoise(vec3(theta * 1.5, phi * 1.5, t * 0.7)) * uTreble * 0.85 * K;
-    float bassExpand = uBass * 0.35 * K;
-    float r = baseR * (1.0 + bassExpand) + trebFlare;
+    float phi = asin(clamp(aUv.y * 2.0 - 1.0, -1.0, 1.0));
+    float baseR = 2.0;
+    float trebFlare = snoise(vec3(theta * 1.5, phi * 1.5, t * 0.7)) * uTreble * 0.14 * K;
+    float bassExpand = uBass * 0.06 * K + uBeat * 0.03 * K;
+    float r = baseR * (1.0 + clamp(bassExpand, 0.0, 0.10)) + clamp(trebFlare, -0.10, 0.14);
 
     pos.x = r * cos(phi) * cos(theta);
     pos.y = r * sin(phi);

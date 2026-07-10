@@ -7,6 +7,7 @@ import { useSearchNavigationStore } from '../../stores/useSearchNavigationStore'
 import GridViewOverlayHost from './home/GridViewOverlayHost';
 import DailyRecommendSurface from './home/DailyRecommendSurface';
 import PodcastBrowseSurface from './home/PodcastBrowseSurface';
+import LocalBrowseSurface from './home/LocalBrowseSurface';
 import {
     HOME_HEADER_TOP_PADDING_CLASS,
     resolveHomeSolidBackgroundClass,
@@ -26,6 +27,10 @@ const Home: React.FC<AppHomeProps> = ({ model, isHomeFullyHidden }) => {
 
     if (isHomeFullyHidden) {
         return null;
+    }
+
+    if (homeViewTab === 'local') {
+        return <LocalBrowseSurface model={model} isDaylight={isDaylight} />;
     }
 
     if (homeViewTab === 'daily' || homeViewTab === 'podcast') {

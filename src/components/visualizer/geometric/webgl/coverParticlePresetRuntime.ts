@@ -65,9 +65,10 @@ const PROFILES: Record<MineradioVisualPresetId, CoverParticlePresetRuntimeProfil
     mineradioOrbit: {
         speedMul: 1.00,
         pointScale: 1.00,
-        cameraZ: 7.00,
+        // Fallback before viewport fit; runtime overrides via resolveOrbitFitCameraRadius.
+        cameraZ: 8.80,
         fov: 45,
-        bassCameraPunch: 0.24,
+        bassCameraPunch: 0.06,
     },
     mineradioVoid: {
         speedMul: 1.00,

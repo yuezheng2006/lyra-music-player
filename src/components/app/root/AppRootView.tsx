@@ -191,6 +191,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                             if (currentView === 'player') return 'listening';
                             if (homeViewTab === 'daily') return 'daily';
                             if (homeViewTab === 'podcast') return 'podcast';
+                            if (homeViewTab === 'local') return 'local';
                             return 'home';
                         })()}
                         isDaylight={isDaylight}
@@ -207,6 +208,10 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         }}
                         onOpenPodcast={() => {
                             setHomeViewTab('podcast');
+                            navigateDirectHome({ clearContext: false });
+                        }}
+                        onOpenLocal={() => {
+                            setHomeViewTab('local');
                             navigateDirectHome({ clearContext: false });
                         }}
                         onOpenListeningMode={navigateToPlayer}
@@ -285,6 +290,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         lyricsFontScale={lyricsFontScale}
                         subtitleOverlayOpacity={subtitleOverlayOpacity}
                         isPlayerChromeHidden={isPlayerChromeHidden}
+                        immersiveLyrics={immersiveCanvas}
                         hideTranslationSubtitle={shouldHidePlayerTranslationSubtitle}
                         showSubtitleTranslation={showSubtitleTranslation}
                         classicTuning={classicTuning}

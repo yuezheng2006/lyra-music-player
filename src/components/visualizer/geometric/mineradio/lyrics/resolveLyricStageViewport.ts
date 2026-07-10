@@ -13,6 +13,8 @@ export type LyricStageViewport = {
     margin?: number;
     /** Extra horizontal inset as a fraction of frustum width (each side). */
     edgeInset?: number;
+    /** Allow a larger on-screen lyric plane (fullscreen / desktop-lyrics feel). */
+    immersive?: boolean;
 };
 
 /** Camera-local distance for screen-locked stage lyrics. */
@@ -24,8 +26,12 @@ export const LYRIC_STAGE_CAMERA_Y = 0.12;
 export const LYRIC_STAGE_DEFAULT_MARGIN = 0.72;
 /** Extra inset per side on top of margin (bloom / glow / sidebar chrome). */
 export const LYRIC_STAGE_DEFAULT_EDGE_INSET = 0.08;
+/** Immersive fullscreen: fill more of the stage like desktop lyrics. */
+export const LYRIC_STAGE_IMMERSIVE_MARGIN = 0.90;
+export const LYRIC_STAGE_IMMERSIVE_EDGE_INSET = 0.03;
 const MIN_WORLD_WIDTH = 0.9;
 const MAX_WORLD_WIDTH = 4.8;
+const IMMERSIVE_MAX_WORLD_WIDTH = 7.2;
 
 /** Visible frustum width at the lyric plane, then clamped for stage layout. */
 export const resolveLyricStageMaxWorldWidth = (viewport: LyricStageViewport): number => {
@@ -34,10 +40,18 @@ export const resolveLyricStageMaxWorldWidth = (viewport: LyricStageViewport): nu
     const distance = Math.max(0.5, viewport.cameraDistance || LYRIC_STAGE_CAMERA_DISTANCE);
     const visibleHeight = 2 * Math.tan(fovRad * 0.5) * distance;
     const visibleWidth = visibleHeight * aspect;
-    const margin = Math.min(0.9, Math.max(0.4, viewport.margin ?? LYRIC_STAGE_DEFAULT_MARGIN));
-    const edgeInset = Math.min(0.18, Math.max(0, viewport.edgeInset ?? LYRIC_STAGE_DEFAULT_EDGE_INSET));
+    const immersive = Boolean(viewport.immersive);
+    const margin = Math.min(
+        0.94,
+        Math.max(0.4, viewport.margin ?? (immersive ? LYRIC_STAGE_IMMERSIVE_MARGIN : LYRIC_STAGE_DEFAULT_MARGIN)),
+    );
+    const edgeInset = Math.min(
+        0.18,
+        Math.max(0, viewport.edgeInset ?? (immersive ? LYRIC_STAGE_IMMERSIVE_EDGE_INSET : LYRIC_STAGE_DEFAULT_EDGE_INSET)),
+    );
     const usable = visibleWidth * Math.max(0.35, margin - edgeInset * 2);
-    return Math.min(MAX_WORLD_WIDTH, Math.max(MIN_WORLD_WIDTH, usable));
+    const maxWidth = immersive ? IMMERSIVE_MAX_WORLD_WIDTH : MAX_WORLD_WIDTH;
+    return Math.min(maxWidth, Math.max(MIN_WORLD_WIDTH, usable));
 };
 
 /** Scale factor so a lyric plane of `textWorldWidth` stays inside the viewport. */

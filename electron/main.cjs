@@ -2276,10 +2276,23 @@ async function startApi() {
   }
 }
 
+// ELECTRON_RUN_AS_NODE cannot read files inside app.asar; prefer asar.unpacked copies.
+function resolveNodeReadableAppPath(...relativeParts) {
+  const asarCandidate = path.join(__dirname, '..', ...relativeParts);
+  const unpackedCandidate = asarCandidate.replace(
+    `${path.sep}app.asar${path.sep}`,
+    `${path.sep}app.asar.unpacked${path.sep}`,
+  );
+  if (unpackedCandidate !== asarCandidate && fs.existsSync(unpackedCandidate)) {
+    return unpackedCandidate;
+  }
+  return asarCandidate;
+}
+
 async function startMusicProviderSidecar() {
   try {
     const freePort = await getFreePort();
-    const sidecarScript = path.join(__dirname, '..', 'scripts', 'music-provider-sidecar.cjs');
+    const sidecarScript = resolveNodeReadableAppPath('scripts', 'music-provider-sidecar.cjs');
     if (!fs.existsSync(sidecarScript)) {
       console.warn('[MusicProvider] Sidecar script not found:', sidecarScript);
       return;

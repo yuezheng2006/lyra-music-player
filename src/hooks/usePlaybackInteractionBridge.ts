@@ -33,6 +33,7 @@ type UsePlaybackInteractionBridgeParams = {
     }>;
     setIsDevDebugOverlayVisible: React.Dispatch<React.SetStateAction<boolean>>;
     setIsPlayerChromeHidden: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsFloatingDockRevealed: React.Dispatch<React.SetStateAction<boolean>>;
     setIsPanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setReplayGainMode: React.Dispatch<React.SetStateAction<ReplayGainMode>>;
     setStatusMsg: React.Dispatch<React.SetStateAction<StatusMessage | null>>;
@@ -63,6 +64,7 @@ export function usePlaybackInteractionBridge({
     stageLyricsClockRef,
     setIsDevDebugOverlayVisible,
     setIsPlayerChromeHidden,
+    setIsFloatingDockRevealed,
     setIsPanelOpen,
     setReplayGainMode,
     setStatusMsg,
@@ -117,11 +119,12 @@ export function usePlaybackInteractionBridge({
             setIsPanelOpen(false);
             return;
         }
-        // Immersive fullscreen: click canvas to restore chrome.
+        // Immersive fullscreen: click canvas to restore floating dock only.
+        // Do not clear chrome-hidden — that would re-show sidebar and feel like exiting fullscreen.
         if (currentView === 'player' && isPlayerChromeHidden) {
-            setIsPlayerChromeHidden(false);
+            setIsFloatingDockRevealed(true);
         }
-    }, [currentView, isPanelOpen, isPlayerChromeHidden, setIsPanelOpen, setIsPlayerChromeHidden]);
+    }, [currentView, isPanelOpen, isPlayerChromeHidden, setIsFloatingDockRevealed, setIsPanelOpen]);
 
     const handleFmTrash = useCallback(async () => {
         if (isNowPlayingStageActive) {

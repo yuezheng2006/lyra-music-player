@@ -7,6 +7,7 @@ export default {
     "sidebarHome": "Home",
     "sidebarDaily": "Daily",
     "sidebarPodcast": "Podcast",
+    "sidebarLocal": "Local Songs",
     "sidebarListeningDisabled": "Pick a song before entering listening mode",
     "sidebarSettings": "Settings",
     "sidebarUpdateAvailable": "Update",
@@ -856,6 +857,7 @@ export default {
     "lyricColorPresetTitle": "Trending lyric colors",
     "lyricColorPresetDesc": "Lyric text colors only — does not change font, motion, or 3D background.",
     "lyricColorPreset": {
+      "midnightDefault": "Default White",
       "douyinNeon": "Douyin Neon",
       "douyinPurple": "Douyin Purple",
       "xhsMorandi": "XHS Morandi",

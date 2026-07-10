@@ -189,6 +189,14 @@ export const applyAudioReactiveGradient = (
  * 为流行歌词色预设创建增强渐变配置
  */
 export const ENHANCED_LYRIC_GRADIENTS: Record<string, AudioReactiveGradientConfig> = {
+    'midnight-default': {
+        type: 'linear',
+        colors: ['#fafafa', '#ffffff', '#b8b8c2'],
+        angle: 90,
+        animated: false,
+        audioReactive: false,
+    },
+
     'douyin-neon': {
         type: 'linear',
         colors: ['#fe2c55', '#00f5ff', '#fe2c55'],

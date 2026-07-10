@@ -40,14 +40,15 @@ const getExtractorCommand = (provider, action) => {
   return generic && generic.trim() ? generic.trim() : null;
 };
 
+// Resolve adapters next to this sidecar script so packaged apps do not depend on process.cwd().
 const getAdapterModulePath = (provider) => {
   const specific = process.env[providerAdapterEnvName(provider)];
   if (specific && specific.trim()) return specific.trim();
   if (provider === 'qq') {
-    return path.resolve(process.cwd(), 'scripts/music-provider-adapters/qq-provider-adapter.mjs');
+    return path.join(__dirname, 'music-provider-adapters', 'qq-provider-adapter.mjs');
   }
   if (provider === 'coco') {
-    return path.resolve(process.cwd(), 'scripts/music-provider-adapters/coco-provider-adapter.mjs');
+    return path.join(__dirname, 'music-provider-adapters', 'coco-provider-adapter.mjs');
   }
   const generic = process.env.MUSIC_PROVIDER_ADAPTER;
   return generic && generic.trim() ? generic.trim() : null;
@@ -58,7 +59,16 @@ const loadAdapter = async (provider) => {
   if (!modulePath) return null;
   const resolvedPath = path.isAbsolute(modulePath)
     ? modulePath
-    : path.resolve(process.cwd(), modulePath);
+    : path.resolve(__dirname, modulePath);
+  if (!fs.existsSync(resolvedPath)) {
+    const error = new Error(`[music-provider-sidecar] adapter missing for ${provider}: ${resolvedPath}`);
+    // Built-in qq/coco adapters are required; missing files are transport failures, not "song unavailable".
+    if (provider === 'qq' || provider === 'coco') {
+      throw error;
+    }
+    console.warn(error.message);
+    return null;
+  }
   // Bust ESM import cache when the adapter file changes (dev-friendly hot reload).
   let cacheToken = '0';
   try {

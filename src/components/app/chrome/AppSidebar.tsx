@@ -4,6 +4,7 @@ import {
     AudioLines,
     ChevronLeft,
     ChevronRight,
+    FolderOpen,
     Home as HomeIcon,
     Podcast,
     Settings,
@@ -13,7 +14,7 @@ import {
 // src/components/app/chrome/AppSidebar.tsx
 // Expanded: full Qishui rail. Collapsed: zero-width, only a translucent expand toggle.
 
-export type AppSidebarActive = 'home' | 'daily' | 'podcast' | 'listening';
+export type AppSidebarActive = 'home' | 'daily' | 'podcast' | 'local' | 'listening';
 
 type AppSidebarProps = {
     active: AppSidebarActive;
@@ -24,6 +25,7 @@ type AppSidebarProps = {
     onOpenHome: () => void;
     onOpenDaily: () => void;
     onOpenPodcast: () => void;
+    onOpenLocal: () => void;
     onOpenListeningMode: () => void;
     onOpenSettings?: () => void;
 };
@@ -46,6 +48,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
     onOpenHome,
     onOpenDaily,
     onOpenPodcast,
+    onOpenLocal,
     onOpenListeningMode,
     onOpenSettings,
 }) => {
@@ -192,6 +195,18 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                 >
                     <AudioLines size={18} strokeWidth={2} />
                     <span>{t('player.listeningMode')}</span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={onOpenLocal}
+                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'local', isDaylight)}`}
+                    aria-current={active === 'local' ? 'page' : undefined}
+                    title={t('app.sidebarLocal')}
+                    aria-label={t('app.sidebarLocal')}
+                >
+                    <FolderOpen size={18} strokeWidth={2} />
+                    <span>{t('app.sidebarLocal')}</span>
                 </button>
             </nav>
 

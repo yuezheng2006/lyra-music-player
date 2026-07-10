@@ -14,6 +14,8 @@ import {
     LYRIC_STAGE_CAMERA_Y,
     LYRIC_STAGE_DEFAULT_EDGE_INSET,
     LYRIC_STAGE_DEFAULT_MARGIN,
+    LYRIC_STAGE_IMMERSIVE_EDGE_INSET,
+    LYRIC_STAGE_IMMERSIVE_MARGIN,
     resolveLyricStageMaxWorldWidth,
 } from './resolveLyricStageViewport';
 
@@ -39,6 +41,8 @@ export type LyricStageCameraSnapshot = {
     margin?: number;
     /** Extra horizontal inset as a fraction of frustum width per side. */
     edgeInset?: number;
+    /** Fullscreen / desktop-lyrics presentation. */
+    immersive?: boolean;
 };
 
 const buildPaletteFromTheme = (theme: Theme): LyricPalette => ({
@@ -73,7 +77,19 @@ export class LyricStageRuntime {
 
     private maxWorldWidth = 3.6;
 
+    private immersive = false;
+
     private lastViewportKey = '';
+
+    /** Toggle larger desktop-lyrics presentation used in fullscreen. */
+    setImmersive(enabled: boolean) {
+        if (this.immersive === enabled) return;
+        this.immersive = enabled;
+        this.lastViewportKey = '';
+        if (this.camera) {
+            this.syncScreenLock(this.camera);
+        }
+    }
 
     /**
      * Mount lyrics as a camera child so orbit / cinema never push text off-screen.
@@ -117,14 +133,16 @@ export class LyricStageRuntime {
 
     /** Update safe on-screen width from the live camera frustum. */
     setCameraViewport(snapshot: LyricStageCameraSnapshot) {
+        const immersive = snapshot.immersive ?? this.immersive;
         const nextWidth = resolveLyricStageMaxWorldWidth({
             aspect: snapshot.aspect,
             fovDeg: snapshot.fovDeg,
             cameraDistance: snapshot.cameraDistance,
             margin: snapshot.margin,
             edgeInset: snapshot.edgeInset,
+            immersive,
         });
-        const key = `${snapshot.aspect.toFixed(3)}:${snapshot.fovDeg.toFixed(1)}:${snapshot.cameraDistance.toFixed(2)}:${(snapshot.margin ?? 0).toFixed(2)}:${(snapshot.edgeInset ?? 0).toFixed(2)}:${nextWidth.toFixed(3)}`;
+        const key = `${snapshot.aspect.toFixed(3)}:${snapshot.fovDeg.toFixed(1)}:${snapshot.cameraDistance.toFixed(2)}:${(snapshot.margin ?? 0).toFixed(2)}:${(snapshot.edgeInset ?? 0).toFixed(2)}:${immersive ? 1 : 0}:${nextWidth.toFixed(3)}`;
         if (key === this.lastViewportKey) return;
         this.lastViewportKey = key;
         this.maxWorldWidth = nextWidth;
@@ -147,10 +165,11 @@ export class LyricStageRuntime {
         // Size against a stable FOV so beat punch does not thrash scale; aspect stays live.
         this.setCameraViewport({
             aspect: Math.max(0.2, camera.aspect || 1),
-            fovDeg: 45,
+            fovDeg: this.immersive ? 42 : 45,
             cameraDistance: LYRIC_STAGE_CAMERA_DISTANCE,
-            margin: LYRIC_STAGE_DEFAULT_MARGIN,
-            edgeInset: LYRIC_STAGE_DEFAULT_EDGE_INSET,
+            margin: this.immersive ? LYRIC_STAGE_IMMERSIVE_MARGIN : LYRIC_STAGE_DEFAULT_MARGIN,
+            edgeInset: this.immersive ? LYRIC_STAGE_IMMERSIVE_EDGE_INSET : LYRIC_STAGE_DEFAULT_EDGE_INSET,
+            immersive: this.immersive,
         });
     }
 
@@ -216,6 +235,7 @@ export class LyricStageRuntime {
         this.currentText = text;
         const mesh = buildLyricMesh(text, this.renderer, palette, {
             maxWorldWidth: this.maxWorldWidth,
+            immersive: this.immersive,
         });
         this.group.add(mesh);
         this.current = mesh;

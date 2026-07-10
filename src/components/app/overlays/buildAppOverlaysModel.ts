@@ -98,6 +98,9 @@ type BuildAppOverlaysModelParams = {
     navigateToPlayer: () => void;
     navigateToHome: () => void;
     isPlayerChromeHidden: boolean;
+    isFloatingDockRevealed?: boolean;
+    isFloatingDockPopoverOpen?: boolean;
+    onDockPopoverOpenChange?: (open: boolean) => void;
     shouldHidePlayerProgressBar: boolean;
     onSeekMainAudio: (time: number) => void;
     onStagePlayerSeek: () => Promise<unknown>;
@@ -197,6 +200,9 @@ export const buildAppOverlaysModel = ({
     navigateToPlayer,
     navigateToHome,
     isPlayerChromeHidden,
+    isFloatingDockRevealed = false,
+    isFloatingDockPopoverOpen = false,
+    onDockPopoverOpenChange,
     shouldHidePlayerProgressBar,
     onSeekMainAudio,
     onStagePlayerSeek,
@@ -383,7 +389,10 @@ export const buildAppOverlaysModel = ({
             secondaryColor: 'var(--text-secondary)',
             theme,
             isDaylight,
-            isHidden: currentView === 'player' && isPlayerChromeHidden,
+            isHidden: currentView === 'player'
+                && isPlayerChromeHidden
+                && !isFloatingDockRevealed
+                && !isFloatingDockPopoverOpen,
             hideControlBar: shouldHidePlayerProgressBar,
             audioQuality,
             onAudioQualityChange,
@@ -399,6 +408,7 @@ export const buildAppOverlaysModel = ({
             visualizerMode,
             onVisualizerModeChange,
             onApplyLyricColorPreset,
+            onDockPopoverOpenChange,
             backgroundMenuLabel,
             backgroundModeInteractive3dLabel,
             backgroundModeCommonLabel,

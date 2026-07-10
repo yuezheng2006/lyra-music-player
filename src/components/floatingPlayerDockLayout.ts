@@ -21,6 +21,16 @@ export const FLOATING_PLAYER_DOCK_MAX_WIDTH_PX = 1080;
 /** Horizontal inset so the edge scrubber clears the capsule corners. */
 export const FLOATING_PLAYER_PROGRESS_INSET_PX = 48;
 
+/**
+ * Dock tool buttons are ~36px and vertically centered in the 76px dock.
+ * Popovers anchored to a button need this extra lift so their bottom clears the dock chrome.
+ */
+export const FLOATING_PLAYER_DOCK_TOOL_BUTTON_HEIGHT_PX = 36;
+export const FLOATING_PLAYER_DOCK_POPOVER_GAP_PX = 14;
+export const FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX =
+    Math.ceil((FLOATING_PLAYER_DOCK_HEIGHT_PX - FLOATING_PLAYER_DOCK_TOOL_BUTTON_HEIGHT_PX) / 2)
+    + FLOATING_PLAYER_DOCK_POPOVER_GAP_PX;
+
 /** CSS length reserved under content / subtitles for the floating dock. */
 export const resolveFloatingPlayerBarReserve = (immersive: boolean): string => (
     immersive

@@ -7,6 +7,7 @@ export default {
     "sidebarHome": "首页",
     "sidebarDaily": "每日推荐",
     "sidebarPodcast": "播客",
+    "sidebarLocal": "本地歌曲",
     "sidebarListeningDisabled": "先选一首歌再进入听歌模式",
     "sidebarSettings": "设置",
     "sidebarUpdateAvailable": "有更新",
@@ -859,6 +860,7 @@ export default {
     "lyricColorPresetTitle": "流行歌词色",
     "lyricColorPresetDesc": "只改歌词主色 / 强调色，不影响字体、动效和 3D 背景。",
     "lyricColorPreset": {
+      "midnightDefault": "默认素白",
       "douyinNeon": "抖音霓虹",
       "douyinPurple": "抖音紫电",
       "xhsMorandi": "小红书莫兰迪",
