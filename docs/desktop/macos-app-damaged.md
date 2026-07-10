@@ -14,7 +14,7 @@ xattr -dr com.apple.quarantine /Applications/Lyra.app
 
 4. 再打开 `/Applications/Lyra.app`
 
-从 **1.0.3** 起，dmg 里也带了「若提示已损坏请双击.command」：先拖到 Applications，再双击该脚本即可。
+从当前 dmg 起，安装盘里也带了「若提示已损坏请双击.command」：先拖到 Applications，再双击该脚本即可。
 
 ## 备选：Control 点击打开
 
