@@ -3,7 +3,6 @@
 </p>
 
 <div align="center">
-<a href="https://trendshift.io/repositories/71740?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-71740" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/71740" alt="yuezheng2006%2Flyra-music-player | Trendshift" width="250" height="55"/></a>
 
 # Lyra
 
@@ -19,11 +18,9 @@ Sound, Stage, Sense // 声随境转
 
 [桌面版下载](https://github.com/yuezheng2006/lyra-music-player/releases)
 ·
-[Vercel 部署](https://vercel.com/new/clone?repository-url=https://github.com/yuezheng2006/lyra-music-player)
-·
-[使用指南](https://lyra-site.vercel.app/guide/)
-·
 [技术说明](docs/technical.md)
+·
+[使用指南](README_HACKATHON.md)
 
 </div>
 
@@ -33,13 +30,13 @@ Lyra（音波）是打通个人多音乐平台的 3D 歌词音乐播放器：把
 
 如果你希望直接开箱即用，马上体验，推荐直接使用基于 Electron 的 Windows / macOS / Linux 桌面端版本。
 
-如果希望能够在移动设备上使用，或在浏览器上体验云端多平台，可以选择[一键部署到 Vercel](https://lyra-site.vercel.app/guide/deploy-vercel) 的 Web 版本，或自行部署到其他支持 Node.js 的平台。
+如果希望在浏览器上使用，可以参考 [部署指南](VERCEL_DEPLOYMENT.md) 部署 Web 版本到 Vercel 或其他支持 Node.js 的平台。
 
 ## 展示
 
 ### 演示视频
 
-演示视频正在按 Lyra（音波）重新录制，完成后会替换到这里。录制脚本见 [`VIDEO_SCRIPT.md`](./VIDEO_SCRIPT.md)；Hackathon 提交稿见 [`docs/hackathon-form.md`](./docs/hackathon-form.md)。
+完整演示视频请访问 [GitHub Releases](https://github.com/yuezheng2006/lyra-music-player/releases) 查看最新版本附件。
 
 ### 主题预览
 
