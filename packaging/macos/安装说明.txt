@@ -1,0 +1,14 @@
+Lyra（音波）macOS 安装说明
+========================
+
+1. 把 Lyra 拖到右侧「应用程序」(Applications)
+2. 关闭本窗口（不要在 DMG 里直接打开）
+3. 若系统提示「已损坏，无法打开」——不是安装包坏了
+4. 双击同目录的「若提示已损坏请双击.command」
+   或在「终端」执行：
+
+   xattr -dr com.apple.quarantine /Applications/Lyra.app
+
+5. 再打开 /Applications/Lyra.app
+
+原因：当前发布包尚未接入 Apple 签名 / 公证，Chrome 等浏览器下载会带上隔离属性，Gatekeeper 会误报「已损坏」。

@@ -1,60 +1,42 @@
-# macOS 提示：`Lyra.app` 显示“应用已损坏”
+# macOS 提示：`Lyra.app` 显示「应用已损坏」
 
-如果你从 GitHub Releases 下载桌面版后，macOS 弹出“`Lyra.app` 已损坏，无法打开。你应该将它移到废纸篓”，通常不是安装包真的坏了，而是因为当前发布的 macOS 版本还没有做 Apple Developer 签名和 notarization。
+**不是安装包坏了。** 当前 macOS 包尚未做 Apple Developer 签名和 notarization；从浏览器（尤其是 Chrome）下载后会带上 quarantine 隔离属性，Gatekeeper 就会把提示写成「已损坏」。
 
-macOS Gatekeeper 会把未签名或未公证的应用标成高风险，再加上下载文件自带的 quarantine 属性，就可能把提示文案显示成“已损坏”。
+## 最快处理（推荐）
 
-## 使用前先确认
-
-- 只从官方 Releases 页面下载对应版本的 macOS 安装包，例如 `Lyra-0.5.17-arm64.dmg`
-- 先把 `Lyra.app` 从 dmg 窗口拖到 `Applications`，不要直接在 dmg 挂载盘里运行
-- 如果下载过程中中断过，先重新下载一次再试
-
-## 方案一：通过 Finder 手动允许打开
-
-1. 打开 `Applications`
-2. 找到 `Lyra.app`
-3. 按住 `Control` 点击应用，选择“打开”
-4. 在弹窗里再次选择“打开”
-
-这一步会把它加入 Gatekeeper 的允许列表，后续通常可以正常启动。
-
-## 方案二：在“隐私与安全性”里允许
-
-如果第一次双击后被拦截：
-
-1. 打开“系统设置”
-2. 进入“隐私与安全性”
-3. 滚动到页面底部
-4. 找到关于 `Lyra.app` 被阻止的提示
-5. 点击“仍要打开”
-
-然后再回到 `Applications` 启动一次。
-
-## 方案三：移除下载隔离属性
-
-如果前两种方式仍然报“已损坏”，可以在终端执行：
+1. 打开 dmg，把 `Lyra` 拖到 `Applications`（应用程序）
+2. 关闭 dmg，不要在挂载盘里直接运行
+3. 打开「终端」，执行：
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Lyra.app
 ```
 
-如果你的应用不在 `Applications`，把路径改成实际位置，例如：
+4. 再打开 `/Applications/Lyra.app`
 
-```bash
-xattr -dr com.apple.quarantine ~/Downloads/Lyra.app
-```
+从 **1.0.3** 起，dmg 里也带了「若提示已损坏请双击.command」：先拖到 Applications，再双击该脚本即可。
 
-执行后重新打开应用即可。
+## 备选：Control 点击打开
+
+部分系统仍可用：
+
+1. 打开 `Applications`
+2. 按住 `Control` 点击 `Lyra.app` →「打开」
+3. 弹窗里再点「打开」
+
+若弹窗只有「移到废纸篓」而没有「打开」，请直接用上面的终端命令。
+
+## 备选：隐私与安全性
+
+1. 系统设置 → 隐私与安全性
+2. 底部若有「已阻止 Lyra」类提示，点「仍要打开」
 
 ## 如果还是打不开
 
-- 删除当前 `Lyra.app` 和已下载的 `dmg`，重新从 Releases 下载
-- 确认你运行的是拖拽后的 `Lyra.app`，不是 dmg 里的临时挂载版本
-- 在终端执行 `spctl --assess -vv /Applications/Lyra.app` 查看 Gatekeeper 的当前判断结果
+- 删掉当前 `Lyra.app` 和已下载的 dmg，重新从 [Releases](https://github.com/yuezheng2006/lyra-music-player/releases) 下载
+- 确认打开的是拖进 Applications 后的副本，不是 dmg 里的临时挂载版
+- 诊断：`spctl --assess -vv /Applications/Lyra.app`
 
-## 为什么现在会这样
+## 为什么会这样
 
-目前发布流程会正常打出 macOS 安装包，但还没有接入 Apple 签名和 notarization。只要没有这一步，部分 macOS 版本就会把未签名应用直接提示为“已损坏”或“无法验证开发者”。
-
-如果后续接入签名与 notarization，这个提示可以随之移除。
+发布流程会打出可用的 macOS 安装包，但未接入 Apple 签名 / 公证时，较新的 macOS 常把未签名下载标成「已损坏」。接入签名与 notarization 后，这个提示可以消失。

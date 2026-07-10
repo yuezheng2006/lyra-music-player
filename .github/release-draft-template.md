@@ -10,22 +10,19 @@
   - Fedora / openSUSE：下载 `lyra-music-player-{{VERSION}}-linux-x86_64.rpm`
   - 其他发行版：下载 `lyra-music-player-{{VERSION}}-linux-x64.tar.gz`
 
-## macOS 安装与「应用已损坏」处理
+## macOS：若提示「应用已损坏」
 
-当前 macOS 包尚未做 Apple 签名 / notarization，Gatekeeper 可能提示「已损坏」。**不是安装包坏了。**
+**不是安装包坏了**（未签名 / 未公证 + 下载隔离属性）。
 
-1. 打开 dmg，把 `Lyra` 拖到 `Applications`
-2. 关闭 dmg，不要在挂载盘里直接运行
-3. 终端执行：
+1. 打开 dmg，把 `Lyra` 拖到 `Applications`，然后关闭 dmg
+2. **优先**：双击 dmg 里的「若提示已损坏请双击.command」  
+   或终端执行：
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Lyra.app
 ```
 
-4. 再打开 `/Applications/Lyra.app`
-
-备选：按住 Control 点击 `Lyra.app` →「打开」→ 再点「打开」。  
-或：系统设置 → 隐私与安全性 →「仍要打开」。
+3. 再打开 `/Applications/Lyra.app`
 
 完整说明：[{{MACOS_UNSIGNED_HELP_URL}}]({{MACOS_UNSIGNED_HELP_URL}})
 

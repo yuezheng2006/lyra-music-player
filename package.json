@@ -6,7 +6,7 @@
     "name": "yuezheng2006",
     "email": "yuezheng2006@users.noreply.github.com"
   },
-  "version": "1.0.2",
+  "version": "1.0.3",
   "license": "AGPL-3.0",
   "type": "module",
   "main": "electron/main.cjs",
@@ -47,6 +47,7 @@
   "build": {
     "appId": "top.izuna.lyramusicplayer",
     "productName": "Lyra",
+    "afterPack": "./scripts/electron-after-pack.cjs",
     "directories": {
       "output": "release"
     },
@@ -115,7 +116,39 @@
         }
       ],
       "icon": "build/icon.png",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "identity": null
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "window": {
+        "width": 560,
+        "height": 420
+      },
+      "contents": [
+        {
+          "x": 140,
+          "y": 150
+        },
+        {
+          "x": 400,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 140,
+          "y": 320,
+          "type": "file",
+          "path": "packaging/macos/若提示已损坏请双击.command"
+        },
+        {
+          "x": 400,
+          "y": 320,
+          "type": "file",
+          "path": "packaging/macos/安装说明.txt"
+        }
+      ]
     },
     "win": {
       "artifactName": "${productName}-Setup-${version}.${ext}",
