@@ -59,7 +59,9 @@ export const LYRIC_COLOR_PRESETS: readonly LyricColorPreset[] = [
         labelKey: 'options.lyricColorPreset.douyinNeon',
         labelFallback: '抖音霓虹',
         light: { primaryColor: '#111113', accentColor: '#ff2d55', secondaryColor: '#1bd8e8' },
-        dark: { primaryColor: '#f8fbff', accentColor: '#12f7d6', secondaryColor: '#ff3b6b' },
+        // Dark primaries stay light for readability but carry a clear palette tint
+        // so title / meta text also shift when switching presets (not only accent).
+        dark: { primaryColor: '#d8fffa', accentColor: '#12f7d6', secondaryColor: '#ff3b6b' },
         motion: {
             fontStyle: 'sans',
             animationIntensity: 'chaotic',
@@ -72,7 +74,7 @@ export const LYRIC_COLOR_PRESETS: readonly LyricColorPreset[] = [
         labelKey: 'options.lyricColorPreset.douyinPurple',
         labelFallback: '抖音紫电',
         light: { primaryColor: '#160826', accentColor: '#8b5cf6', secondaryColor: '#ec4899' },
-        dark: { primaryColor: '#fbf7ff', accentColor: '#d946ef', secondaryColor: '#7dd3fc' },
+        dark: { primaryColor: '#f0d9ff', accentColor: '#d946ef', secondaryColor: '#7dd3fc' },
         motion: {
             fontStyle: 'sans',
             animationIntensity: 'chaotic',
@@ -85,7 +87,7 @@ export const LYRIC_COLOR_PRESETS: readonly LyricColorPreset[] = [
         labelKey: 'options.lyricColorPreset.xhsMorandi',
         labelFallback: '小红书莫兰迪',
         light: { primaryColor: '#2f2927', accentColor: '#df6f8f', secondaryColor: '#8f7b72' },
-        dark: { primaryColor: '#fff1f5', accentColor: '#fb7185', secondaryColor: '#f0abfc' },
+        dark: { primaryColor: '#ffd6e4', accentColor: '#fb7185', secondaryColor: '#f0abfc' },
         motion: {
             fontStyle: 'serif',
             animationIntensity: 'calm',
@@ -98,7 +100,7 @@ export const LYRIC_COLOR_PRESETS: readonly LyricColorPreset[] = [
         labelKey: 'options.lyricColorPreset.xhsNoteRed',
         labelFallback: '笔记红字',
         light: { primaryColor: '#18181b', accentColor: '#ff2442', secondaryColor: '#fb7185' },
-        dark: { primaryColor: '#fff7f8', accentColor: '#ff2d55', secondaryColor: '#fecdd3' },
+        dark: { primaryColor: '#ffd0d9', accentColor: '#ff2d55', secondaryColor: '#fecdd3' },
         motion: {
             fontStyle: 'sans',
             animationIntensity: 'normal',
@@ -116,7 +118,7 @@ export const LYRIC_COLOR_PRESETS: readonly LyricColorPreset[] = [
             secondaryColor: '#ff6b35',
         },
         dark: {
-            primaryColor: '#fff4df',
+            primaryColor: '#ffe0a8',
             accentColor: '#ff3b30',
             secondaryColor: '#ffd166',
         },
@@ -199,6 +201,18 @@ export const saveStoredLyricColorPresetId = (presetId: LyricColorPresetId | null
     }
     localStorage.setItem(LYRIC_COLOR_PRESET_STORAGE_KEY, presetId);
 };
+
+/**
+ * Stage text inks from the lyric-color triad.
+ * title = primary, active lyric = accent, hints / inactive = secondary.
+ */
+export const resolveLyricStageInkColors = (
+    theme: Pick<Theme, 'primaryColor' | 'accentColor' | 'secondaryColor'>,
+) => ({
+    titleColor: theme.primaryColor,
+    activeColor: theme.accentColor,
+    hintColor: theme.secondaryColor,
+});
 
 /** Patches lyric text colors on both light/dark themes. Motion is opt-in. */
 export const applyLyricColorPresetToDualTheme = (

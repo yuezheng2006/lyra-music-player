@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
     createCoverPlaceholder,
+    createLocalAllSongsCover,
     createSongCoverPlaceholder,
     pickRandomSongCoverUrl,
     resolveNavidromeArtistCoverUrl,
@@ -24,6 +25,17 @@ describe('coverPlaceholders', () => {
         expect(placeholder.startsWith('data:image/svg+xml')).toBe(true);
         expect(decoded).toContain('刀');
         expect(decoded).toContain('linearGradient');
+    });
+
+    it('creates a stable dedicated cover for local all songs', () => {
+        const first = createLocalAllSongsCover();
+        const second = createLocalAllSongsCover();
+        const decoded = decodeURIComponent(first);
+
+        expect(first).toBe(second);
+        expect(first.startsWith('data:image/svg+xml')).toBe(true);
+        expect(decoded).toContain('allSongsBg');
+        expect(decoded).toContain('stop-color="#0f172a"');
     });
 
     it('prefers artistImageUrl over coverArt for navidrome artists', () => {

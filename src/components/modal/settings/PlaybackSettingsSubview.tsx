@@ -7,6 +7,17 @@ import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { CustomSelect } from '../../shared/CustomSelect';
 import { LYRIC_MATCH_SOURCES } from '../../../utils/lyrics/lyricMatchSources';
 import { getLyricProviderPreferenceLabel } from '../../../utils/lyrics/lyricSourceLabels';
+import SettingsAdvancedSection from './SettingsAdvancedSection';
+import {
+    settingsDescClass,
+    settingsDescStyle,
+    settingsFootnoteClass,
+    settingsFootnoteStyle,
+    settingsSectionTitleClass,
+    settingsSectionTitleStyle,
+    settingsTitleClass,
+    settingsTitleStyle,
+} from './settingsTextStyles';
 
 // src/components/modal/settings/PlaybackSettingsSubview.tsx
 // Playback behavior and output-device settings extracted from the global settings modal.
@@ -183,15 +194,15 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
     return (
         <div className="space-y-5">
             <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                     <PlayCircle size={14} /> 播放队列
                 </h3>
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
                     <div className="space-y-1">
-                        <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                        <div className={settingsTitleClass} style={settingsTitleStyle}>
                             加入队列的默认位置
                         </div>
-                        <div className="text-[11px] opacity-50 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
+                        <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
                             加入播放队列按钮的默认行为。
                         </div>
                     </div>
@@ -209,10 +220,10 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                                     className="rounded-xl border px-3 py-3 text-left transition-colors"
                                     style={getAccentOptionStyle(selected)}
                                 >
-                                    <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                    <div className={settingsTitleClass} style={settingsTitleStyle}>
                                         {option.label}
                                     </div>
-                                    <div className="mt-1 text-[11px] opacity-50" style={{ color: 'var(--text-secondary)' }}>
+                                    <div className={`mt-1 ${settingsDescClass}`} style={settingsDescStyle}>
                                         {option.desc}
                                     </div>
                                 </button>
@@ -222,82 +233,84 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                 </div>
             </section>
 
-            <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+            <section className="space-y-3">
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                     <Settings2 size={14} /> {t('options.lyrics') || '歌词'}
                 </h3>
                 <div className={`rounded-xl border overflow-hidden ${settingsCardClass}`}>
                     <div className="p-4 flex items-center justify-between gap-4">
                         <div className="space-y-1">
-                            <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                            <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
                                 <Settings2 size={14} />
                                 {t('options.enableAlternativeLyricSources') || '更多歌词源'}
                             </div>
-                            <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                            <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
                                 {t('options.enableAlternativeLyricSourcesDesc') || '启用备选歌词源（QQ音乐、酷狗音乐）'}
                             </div>
                         </div>
                         {renderToggle(enableAlternativeLyricSources, () => onToggleAlternativeLyricSources(!enableAlternativeLyricSources))}
                     </div>
-                    {enableAlternativeLyricSources && (
-                        <div className="p-4 flex items-center justify-between gap-4 border-t" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
-                            <div className="space-y-1">
-                                <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                                    <Settings2 size={14} />
-                                    {t('options.autoUseBestLyric') || '自动使用最佳歌词'}
-                                </div>
-                                <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                                    {t('options.autoUseBestLyricDesc') || '自动检索所有歌词源，若存在完美匹配的逐字歌词则自动优先采用。'}
-                                </div>
-                            </div>
-                            {renderToggle(autoUseBestLyric, () => onToggleAutoUseBestLyric(!autoUseBestLyric))}
-                        </div>
-                    )}
-                    {enableAlternativeLyricSources && (
-                        <div className="p-4 space-y-3 border-t" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
-                            <div className="space-y-1">
-                                <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                    {t('settings.lyricMatchPriority')}
-                                </div>
-                                <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
-                                    {t('settings.lyricMatchPriorityDesc')}
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-                                {LYRIC_MATCH_SOURCES.map((source) => {
-                                    const option = { value: source, label: getLyricProviderPreferenceLabel(source) };
-                                    const selected = preferredAlternativeLyricSource === option.value;
-                                    return (
-                                        <button
-                                            key={option.value}
-                                            type="button"
-                                            onClick={() => onPreferredAlternativeLyricSourceChange(option.value)}
-                                            className="rounded-xl border px-3 py-2 text-center transition-colors"
-                                            style={getAccentOptionStyle(selected)}
-                                        >
-                                            <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-                                                {option.label}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
                 </div>
+                {enableAlternativeLyricSources && (
+                    <SettingsAdvancedSection>
+                        <div className={`rounded-xl border overflow-hidden ${settingsCardClass}`}>
+                            <div className="p-4 flex items-center justify-between gap-4">
+                                <div className="space-y-1">
+                                    <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                        <Settings2 size={14} />
+                                        {t('options.autoUseBestLyric') || '自动使用最佳歌词'}
+                                    </div>
+                                    <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
+                                        {t('options.autoUseBestLyricDesc') || '自动检索所有歌词源，若存在完美匹配的逐字歌词则自动优先采用。'}
+                                    </div>
+                                </div>
+                                {renderToggle(autoUseBestLyric, () => onToggleAutoUseBestLyric(!autoUseBestLyric))}
+                            </div>
+                            <div className="p-4 space-y-3 border-t" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
+                                <div className="space-y-1">
+                                    <div className={settingsTitleClass} style={settingsTitleStyle}>
+                                        {t('settings.lyricMatchPriority')}
+                                    </div>
+                                    <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
+                                        {t('settings.lyricMatchPriorityDesc')}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+                                    {LYRIC_MATCH_SOURCES.map((source) => {
+                                        const option = { value: source, label: getLyricProviderPreferenceLabel(source) };
+                                        const selected = preferredAlternativeLyricSource === option.value;
+                                        return (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => onPreferredAlternativeLyricSourceChange(option.value)}
+                                                className="rounded-xl border px-3 py-2 text-center transition-colors"
+                                                style={getAccentOptionStyle(selected)}
+                                            >
+                                                <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                                                    {option.label}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    </SettingsAdvancedSection>
+                )}
             </section>
 
             <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                     <Monitor size={14} /> {t('options.audioOutputSettings') || '播放设备'}
                 </h3>
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
                     <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
-                            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                            <div className={settingsTitleClass} style={settingsTitleStyle}>
                                 {t('options.audioOutputDevice') || '当前播放声卡'}
                             </div>
-                            <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                            <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
                                 {t('options.audioOutputDeviceDesc') || '切换当前播放器的音频输出设备。Electron 桌面版优先支持，浏览器环境在支持 setSinkId 时也可使用。'}
                             </div>
                         </div>
@@ -314,7 +327,7 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                     </div>
 
                     {!supportsAudioOutputSelection ? (
-                        <div className="text-xs opacity-60" style={{ color: 'var(--text-secondary)' }}>
+                        <div className={settingsFootnoteClass} style={settingsFootnoteStyle}>
                             {t('options.audioOutputUnsupported') || '当前环境不支持切换播放设备。'}
                         </div>
                     ) : (
@@ -336,7 +349,7 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                                 theme={theme}
                             />
 
-                            <div className="text-[11px] opacity-50" style={{ color: 'var(--text-secondary)' }}>
+                            <div className={settingsDescClass} style={settingsDescStyle}>
                                 {isSelectingAudioOutput
                                     ? (t('options.audioOutputSelecting') || '正在切换播放设备...')
                                     : isAudioOutputDevicesLoading
@@ -345,13 +358,13 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                             </div>
 
                             {audioOutputDevicesError && (
-                                <div className="text-xs opacity-60" style={{ color: 'var(--text-secondary)' }}>
+                                <div className={settingsFootnoteClass} style={settingsFootnoteStyle}>
                                     {audioOutputDevicesError}
                                 </div>
                             )}
 
                             {!isAudioOutputDevicesLoading && audioOutputDevices.length === 0 && !audioOutputDevicesError && (
-                                <div className="text-xs opacity-60" style={{ color: 'var(--text-secondary)' }}>
+                                <div className={settingsFootnoteClass} style={settingsFootnoteStyle}>
                                     {t('options.audioOutputEmpty') || '没有检测到可切换的播放设备。'}
                                 </div>
                             )}

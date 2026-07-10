@@ -11,6 +11,7 @@ import Carousel3D from './Carousel3D';
 import LocalArtistView from './local/LocalArtistView';
 import { deleteLocalPlaylist, updateLocalPlaylist } from '../services/localPlaylistService';
 import { isBlob } from '../utils/blobGuards';
+import { createLocalAllSongsCover } from '../utils/coverPlaceholders';
 
 interface LocalMusicViewProps {
     localSongs: LocalSong[];
@@ -216,7 +217,7 @@ const LocalMusicView: React.FC<LocalMusicViewProps> = ({
 
         if (localSongs.length > 0) {
             const allSongsId = 'folder-__all-songs__';
-            sourceMap.set(allSongsId, getGroupCoverSource(localSongs));
+            sourceMap.set(allSongsId, createLocalAllSongsCover());
             folderList.unshift({
                 id: allSongsId,
                 name: resolvedAllSongsLabel,

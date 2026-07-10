@@ -27,7 +27,8 @@ import OnlineProviderFilterBar from './shared/OnlineProviderFilterBar';
 import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterStore';
 import { hasNeteaseSession, hasQQMusicSession } from '../utils/onlineLibraryAccess';
 import { resolveSearchableLibraryProviders } from '../utils/onlineSearchRouting';
-import { isProviderDefaultPlaylist } from '../utils/onlineDefaultPlaylists';
+import { isProviderDefaultPlaylist, QISHUI_DEFAULT_PLAYLIST_ID } from '../utils/onlineDefaultPlaylists';
+import { SearchClearButton } from './shared/SearchClearButton';
 import { resolveOnlineSearchProvider } from '../utils/onlineSearchRouting';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
 
@@ -124,17 +125,19 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
     const playlistProviders = useOnlineLibraryFilterStore(state => state.playlistProviders);
     const setSearchProvider = useOnlineLibraryFilterStore(state => state.setSearchProvider);
     const {
-        searchQuery,
-        setSearchQuery,
+        homeSearchQuery,
+        setHomeSearchQuery,
         isSearching,
         submitSearch,
         restoreSearch,
+        openPeerSearchChannel,
     } = useSearchNavigationStore(useShallow(state => ({
-        searchQuery: state.searchQuery,
-        setSearchQuery: state.setSearchQuery,
+        homeSearchQuery: state.homeSearchQuery,
+        setHomeSearchQuery: state.setHomeSearchQuery,
         isSearching: state.isSearching,
         submitSearch: state.submitSearch,
         restoreSearch: state.restoreSearch,
+        openPeerSearchChannel: state.openPeerSearchChannel,
     })));
     const hasNeteaseLogin = hasNeteaseSession(user);
     const hasQQLogin = hasQQMusicSession();
@@ -151,28 +154,49 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         }
         const only = searchableProviders[0] || searchProvider;
         if (only === 'qq') return t('home.searchQQMusic');
+        if (only === 'qishui') return t('home.searchQishuiMusic');
         if (only === 'coco') return t('home.searchCocoMusic');
         return t('home.searchDatabase');
     }, [searchProvider, searchableProviders, t]);
 
+    const resolveDefaultPlaylistDescription = (provider?: string) => {
+        if (provider === 'qishui') return t('home.qishuiDefaultDescription');
+        return t('home.cocoDefaultDescription');
+    };
+
+    const resolveDefaultPlaylistName = (provider?: string) => {
+        if (provider === 'qishui') return t('home.qishuiProvider');
+        return t('home.cocoProvider');
+    };
+
     const playlistCards = useMemo(() => playlists.map(p => ({
         id: p.id,
-        name: p.name,
+        name: p.specialType === 'provider-default'
+            ? resolveDefaultPlaylistName(p.musicProvider)
+            : p.name,
         coverUrl: p.coverImgUrl || (p as any).coverUrl,
         trackCount: p.trackCount,
         musicProvider: resolvePlaylistProvider(p),
         description: p.specialType === 'cloud'
             ? t('home.cloud')
             : p.specialType === 'provider-default'
-                ? t('home.cocoDefaultDescription')
+                ? resolveDefaultPlaylistDescription(p.musicProvider)
                 : (p.creator?.nickname || t('home.playlists')),
         raw: p,
     })), [playlists, t]);
 
     const openSearchChannel = (provider: OnlineLibraryProviderId) => {
         setSearchProvider(provider);
+        if (provider === 'coco' || provider === 'qishui') {
+            openPeerSearchChannel({
+                sourceTab: provider,
+                returnView: 'home',
+            });
+            return;
+        }
+        // Independent login-provider entry starts empty — never borrow the home bar draft.
         restoreSearch({
-            query: searchQuery.trim(),
+            query: '',
             sourceTab: provider,
             returnView: 'home',
         });
@@ -181,7 +205,11 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
     const handleSelectCollectionCard = (card: { raw: NeteasePlaylist }) => {
         const playlist = card.raw;
         if (isProviderDefaultPlaylist(playlist)) {
-            openSearchChannel('coco');
+            const provider = playlist.musicProvider === 'qishui'
+                || (playlist.musicProvider !== 'coco' && playlist.id === QISHUI_DEFAULT_PLAYLIST_ID)
+                ? 'qishui'
+                : 'coco';
+            openSearchChannel(provider);
             return;
         }
         onOpenGridView?.(createOnlinePlaylistGridViewCollection(playlist));
@@ -189,7 +217,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
 
     const handleSearch = async (e?: React.FormEvent) => {
         e?.preventDefault();
-        const query = searchQuery.trim();
+        const query = homeSearchQuery.trim();
         if (!query) {
             openSearchChannel(searchProvider);
             return;
@@ -208,7 +236,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
             sourceTab: resolvedProvider,
             providers: searchableProviders.length > 0
                 ? [...searchableProviders]
-                : [resolvedProvider === 'qishui' ? 'coco' : resolvedProvider],
+                : [resolvedProvider],
             deps: {
                 localSongs,
                 t: (key, fallback) => t(key, fallback ?? ''),
@@ -257,10 +285,16 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                             <input
                                 type="text"
                                 placeholder={homeSearchPlaceholder}
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                className={`w-full ${inputBg} border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-white/20 transition-all placeholder:text-current placeholder:opacity-40`}
+                                value={homeSearchQuery}
+                                onChange={e => setHomeSearchQuery(e.target.value)}
+                                className={`w-full ${inputBg} border border-white/10 rounded-full py-2 pl-10 pr-9 text-sm focus:outline-none focus:border-white/20 transition-all placeholder:text-current placeholder:opacity-40`}
                                 style={{ color: 'var(--text-primary)' }}
+                            />
+                            <SearchClearButton
+                                visible={Boolean(homeSearchQuery)}
+                                onClear={() => setHomeSearchQuery('')}
+                                label={t('app.clearSearch')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2"
                             />
                         </form>
                     </div>

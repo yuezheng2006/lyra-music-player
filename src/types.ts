@@ -631,7 +631,7 @@ export const DEFAULT_MONET_TUNING: MonetTuning = {
   keywordColoringEnabled: true,
   showDescription: false,
   audioStyle: 'bar',
-  fontScale: 1.2,
+  fontScale: 1.32,
   portraitSource: 'cover',
   portraitOffsetX: 0,
   portraitStyle: 'square',

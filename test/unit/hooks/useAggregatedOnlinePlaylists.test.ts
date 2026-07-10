@@ -20,6 +20,7 @@ const makePlaylist = (overrides: Partial<NeteasePlaylist> = {}): NeteasePlaylist
 const allProviders = {
     netease: true,
     qq: true,
+    qishui: true,
     coco: true,
 };
 
@@ -31,7 +32,7 @@ describe('aggregateOnlinePlaylists', () => {
         const result = aggregateOnlinePlaylists({
             neteasePlaylists,
             qqPlaylists,
-            enabledProviders: { ...allProviders, coco: false },
+            enabledProviders: { ...allProviders, coco: false, qishui: false },
             moduleFilter: 'all',
         });
 
@@ -44,7 +45,7 @@ describe('aggregateOnlinePlaylists', () => {
         const result = aggregateOnlinePlaylists({
             neteasePlaylists: [],
             qqPlaylists: [],
-            enabledProviders: { ...allProviders, netease: false, qq: false },
+            enabledProviders: { ...allProviders, netease: false, qq: false, qishui: false },
             moduleFilter: 'all',
         });
 
@@ -53,17 +54,30 @@ describe('aggregateOnlinePlaylists', () => {
         expect(result[0].specialType).toBe('provider-default');
     });
 
+    it('injects qishui default playlist when enabled', () => {
+        const result = aggregateOnlinePlaylists({
+            neteasePlaylists: [],
+            qqPlaylists: [],
+            enabledProviders: { ...allProviders, netease: false, qq: false, coco: false },
+            moduleFilter: 'all',
+        });
+
+        expect(result).toHaveLength(1);
+        expect(result[0].musicProvider).toBe('qishui');
+        expect(result[0].specialType).toBe('provider-default');
+    });
+
     it('excludes coco default from liked and created module filters', () => {
         const liked = aggregateOnlinePlaylists({
             neteasePlaylists: [],
             qqPlaylists: [],
-            enabledProviders: { ...allProviders, netease: false, qq: false },
+            enabledProviders: { ...allProviders, netease: false, qq: false, qishui: false },
             moduleFilter: 'liked',
         });
         const created = aggregateOnlinePlaylists({
             neteasePlaylists: [],
             qqPlaylists: [],
-            enabledProviders: { ...allProviders, netease: false, qq: false },
+            enabledProviders: { ...allProviders, netease: false, qq: false, qishui: false },
             moduleFilter: 'created',
         });
 
@@ -81,7 +95,7 @@ describe('aggregateOnlinePlaylists', () => {
         const result = aggregateOnlinePlaylists({
             neteasePlaylists,
             qqPlaylists,
-            enabledProviders: { ...allProviders, qq: false, coco: false },
+            enabledProviders: { ...allProviders, qq: false, coco: false, qishui: false },
             moduleFilter: 'liked',
         });
 
@@ -97,7 +111,7 @@ describe('aggregateOnlinePlaylists', () => {
             neteasePlaylists,
             qqPlaylists: [],
             cloudPlaylist,
-            enabledProviders: { ...allProviders, qq: false, coco: false },
+            enabledProviders: { ...allProviders, qq: false, coco: false, qishui: false },
             moduleFilter: 'all',
         });
 

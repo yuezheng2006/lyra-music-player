@@ -38,17 +38,24 @@ const flattenArtistNames = (value) => {
   return [];
 };
 
-const fetchJson = async (url) => {
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'Auralis/1.0',
-      Accept: 'application/json',
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`Coco adapter request failed: ${response.status}`);
+const fetchJson = async (url, timeoutMs = 4_000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Auralis/1.0',
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`Coco adapter request failed: ${response.status}`);
+    }
+    return response.json();
+  } finally {
+    clearTimeout(timer);
   }
-  return response.json();
 };
 
 const pickSearchCounts = (limit) => {
@@ -276,4 +283,43 @@ export async function resolveSongCover(song) {
   if (!song) return '';
   if (typeof song.coverUrl === 'string' && song.coverUrl) return song.coverUrl;
   return resolveCoverUrl(song, song.source || 'netease');
+}
+
+const COCO_DAILY_QUERIES = ['晴天', '起风了', '海阔天空', '夜曲', '告白气球', '稻香', '演员'];
+
+const pickCocoDailyQuery = () => {
+  const now = new Date();
+  const seed = now.getFullYear() * 372 + (now.getMonth() + 1) * 31 + now.getDate() + 3;
+  return COCO_DAILY_QUERIES[seed % COCO_DAILY_QUERIES.length];
+};
+
+/** Fast day picks: one source, no cover fan-out (daily page must stay snappy). */
+export async function recommend({ limit = 8 } = {}) {
+  const query = pickCocoDailyQuery();
+  const capped = Math.max(1, Math.min(Number(limit) || 8, 12));
+  const trimmed = String(query || '').trim();
+  if (!trimmed) {
+    return { songs: [], total: 0, hasMore: false, kind: 'picks', query };
+  }
+
+  const preferredSources = SEARCH_SOURCES.length > 0 ? SEARCH_SOURCES.slice(0, 2) : ['netease'];
+  for (const source of preferredSources) {
+    try {
+      const rows = await requestSearchPage({
+        query: trimmed,
+        source,
+        count: Math.max(capped, 10),
+        page: 1,
+      });
+      if (!rows.length) continue;
+      const songs = rows.slice(0, capped).map((row, index) =>
+        normalizeSong({ ...row, source: row?.source || source }, index),
+      );
+      return { songs, total: songs.length, hasMore: false, kind: 'picks', query };
+    } catch (error) {
+      console.warn('[coco-adapter] recommend source failed:', source, error instanceof Error ? error.message : error);
+    }
+  }
+
+  return { songs: [], total: 0, hasMore: false, kind: 'picks', query };
 }

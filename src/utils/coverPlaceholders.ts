@@ -90,6 +90,29 @@ export const createSongCoverPlaceholder = (
     return createCoverPlaceholder(label, 'song');
 };
 
+/** Fixed cover for the virtual local "All Songs" group — never derived from track art. */
+export const createLocalAllSongsCover = (): string => {
+    const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
+            <defs>
+                <linearGradient id="allSongsBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#0f172a" />
+                    <stop offset="100%" stop-color="#1e293b" />
+                </linearGradient>
+            </defs>
+            <rect width="600" height="600" fill="url(#allSongsBg)" />
+            <rect x="150" y="210" width="300" height="220" rx="28" fill="rgba(148,163,184,0.18)" />
+            <rect x="178" y="178" width="244" height="36" rx="12" fill="rgba(148,163,184,0.12)" />
+            <rect x="198" y="146" width="204" height="28" rx="10" fill="rgba(148,163,184,0.08)" />
+            <circle cx="300" cy="318" r="54" fill="rgba(226,232,240,0.92)" />
+            <circle cx="300" cy="318" r="18" fill="#0f172a" />
+            <path d="M318 286 L348 274 L348 336 L330 342 L330 302 Z" fill="rgba(226,232,240,0.92)" />
+        </svg>
+    `;
+
+    return svgToDataUrl(svg);
+};
+
 export const resolveNavidromeArtistCoverUrl = (
     artist: { coverArt?: string; artistImageUrl?: string; },
     getCoverArtUrl: (coverArtId: string, size?: number) => string,

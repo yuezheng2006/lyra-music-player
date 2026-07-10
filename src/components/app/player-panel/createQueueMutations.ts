@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { buildNavidromeQueue } from '../../../services/playbackAdapters';
 import { applyQueueAddBehavior } from '../../../utils/queueAddBehavior';
+import { useRequestedQueueStore } from '../../../stores/useRequestedQueueStore';
 import type { NavidromeSong } from '../../../types/navidrome';
 import type { QueueAddBehavior, SongResult, StatusMessage } from '../../../types';
 
@@ -44,6 +45,10 @@ export const createQueueMutations = ({
         void persistLastPlaybackCache(currentSong, nextQueue);
 
         if (changed && affectedSongs.length > 0) {
+            useRequestedQueueStore.getState().addSongs(affectedSongs, {
+                currentSong,
+                behavior: queueAddBehavior,
+            });
             setStatusMsg({
                 type: 'success',
                 text: queueAddBehavior === 'next' ? '已插入到下一首' : (t('status.queueUpdated') || '已添加到播放队列'),

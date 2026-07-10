@@ -13,6 +13,7 @@ import { getBlobObjectUrlSignature, isBlob } from '../utils/blobGuards';
 import { PolaroidCard } from './GridView';
 import { HexGridCoord, CubeCoord, getHexCubicSpiral } from './folia-grid/hexViewport';
 import { useFoliaHexViewport } from './folia-grid/useFoliaHexViewport';
+import { APP_CONTENT_TOP_PADDING_CLASS } from './app/home/homeSurfaceStyles';
 
 /*
  * ArtistGridView.tsx
@@ -966,7 +967,7 @@ const ArtistGridView: React.FC<ArtistGridViewProps> = ({
             )}
 
             {/* Header Area */}
-            <div className="absolute top-0 left-0 p-6 z-30 flex items-center gap-4">
+            <div className={`absolute top-0 left-0 z-30 flex items-center gap-4 px-6 pb-6 ${APP_CONTENT_TOP_PADDING_CLASS}`}>
                 <button
                     onClick={onBack}
                     className={`w-10 h-10 rounded-full ${closeBtnBg} flex items-center justify-center transition-colors backdrop-blur-md cursor-pointer`}

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { OnlineMusicProviderId } from '../../types';
+import { resolveOnlineProviderIconUrl } from '../../utils/onlineProviderAssets';
 
 // src/components/shared/OnlineProviderBadge.tsx
 // Compact source chip for playlist cards and search/result affordances.
@@ -39,7 +40,7 @@ const PROVIDER_META: Record<OnlineProviderVisualId, {
         glassNight: 'bg-[#2F6BFF]/22 text-[#B4C8FF] border border-white/10',
     },
     coco: {
-        short: 'Coco',
+        short: 'coco-免费',
         solid: 'bg-[#D97706] text-white shadow-[0_1px_6px_rgba(217,119,6,0.35)]',
         glassDay: 'bg-[#D97706]/14 text-[#B45309] border border-[#D97706]/20',
         glassNight: 'bg-[#D97706]/22 text-[#FCD34D] border border-white/10',
@@ -66,9 +67,11 @@ export const OnlineProviderBadge: React.FC<OnlineProviderBadgeProps & {
 }) => {
     const id = resolveOnlineProviderVisualId(provider);
     const meta = PROVIDER_META[id];
+    const iconUrl = resolveOnlineProviderIconUrl(id);
     const sizeClass = size === 'md'
-        ? 'text-[11px] px-2 py-0.5'
-        : 'text-[10px] px-1.5 py-0.5';
+        ? 'text-[11px] px-2 py-0.5 gap-1'
+        : 'text-[10px] px-1.5 py-0.5 gap-0.5';
+    const iconClass = size === 'md' ? 'h-3.5 w-3.5' : 'h-3 w-3';
     const tone = variant === 'glass'
         ? (isDaylight ? meta.glassDay : meta.glassNight)
         : meta.solid;
@@ -77,6 +80,14 @@ export const OnlineProviderBadge: React.FC<OnlineProviderBadgeProps & {
         <span
             className={`inline-flex items-center rounded-full font-semibold tracking-wide backdrop-blur-md ${sizeClass} ${tone} ${className}`}
         >
+            {iconUrl ? (
+                <img
+                    src={iconUrl}
+                    alt=""
+                    aria-hidden="true"
+                    className={`${iconClass} rounded-[3px] object-cover`}
+                />
+            ) : null}
             {meta.short}
         </span>
     );

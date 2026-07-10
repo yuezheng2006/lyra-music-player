@@ -5,6 +5,7 @@ import { getSongUnavailableTagText, isSongMarkedUnavailable, neteaseApi } from '
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { formatSongName } from '../utils/songNameFormatter';
+import { APP_CONTENT_TOP_OFFSET_CLASS } from './app/home/homeSurfaceStyles';
 
 interface AlbumViewProps {
     albumId: number;
@@ -115,7 +116,7 @@ const AlbumView: React.FC<AlbumViewProps> = ({ albumId, onBack, onPlaySong, onPl
                 {/* Close Button */}
                 <button
                     onClick={onBack}
-                    className={`fixed md:absolute top-6 left-6 z-30 w-10 h-10 rounded-full ${closeBtnBg} flex items-center justify-center transition-colors backdrop-blur-md`}
+                    className={`fixed md:absolute ${APP_CONTENT_TOP_OFFSET_CLASS} left-6 z-30 w-10 h-10 rounded-full ${closeBtnBg} flex items-center justify-center transition-colors backdrop-blur-md`}
                     style={{ color: 'var(--text-primary)' }}
                 >
                     <ChevronLeft size={20} />

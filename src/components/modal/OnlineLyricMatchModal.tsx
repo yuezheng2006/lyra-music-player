@@ -15,6 +15,7 @@ import {
     getMatchResultAlbumName,
 } from './lyricMatchResultHelpers';
 import { LyricPreviewPanel } from './LyricPreviewPanel';
+import { SearchClearButton } from '../shared/SearchClearButton';
 
 // src/components/modal/OnlineLyricMatchModal.tsx
 
@@ -220,6 +221,11 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                                             }
                                         }}
                                         className={`flex-1 bg-transparent outline-none text-sm ${textPrimary}`}
+                                    />
+                                    <SearchClearButton
+                                        visible={Boolean(searchQuery)}
+                                        onClear={() => setSearchQuery('')}
+                                        label={t('app.clearSearch')}
                                     />
                                 </div>
                                 <button

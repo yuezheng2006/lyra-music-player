@@ -191,6 +191,10 @@ const mapOpenSearchItem = (item) => {
 
     const title = String(item?.song_title || 'Unknown Song').trim();
     const artist = String(item?.singer_name || 'Unknown Artist').trim();
+    const albumMid = String(item?.album_mid || item?.albumMid || '').trim();
+    const coverUrl = albumMid
+        ? `https://y.gtimg.cn/music/photo_new/T002R300x300M000${albumMid}.jpg?max_age=2592000`
+        : (typeof item?.album_pic === 'string' ? item.album_pic : undefined);
 
     return {
         id: hashProviderSongId('qq', mid),
@@ -198,7 +202,18 @@ const mapOpenSearchItem = (item) => {
         title,
         artist,
         artists: [artist],
-        album: '',
+        album: {
+            id: 0,
+            name: String(item?.album_name || item?.album || '').trim() || 'Unknown Album',
+            picUrl: coverUrl,
+        },
+        coverUrl,
+        picUrl: coverUrl,
+        durationMs: (() => {
+            const raw = Number(item?.song_play_time || item?.interval || 0);
+            if (!Number.isFinite(raw) || raw <= 0) return 0;
+            return raw > 10_000 ? raw : raw * 1000;
+        })(),
         qqMid: mid,
         qqMediaMid: mid,
         musicProvider: 'qq',
@@ -393,4 +408,92 @@ export async function lyrics({ song, qqAuth }) {
     }
 
     return { lyricsText };
+}
+
+const DAILY_PICK_QUERIES = ['晴天', '起风了', '海阔天空', '夜曲', '告白气球', '消愁', '演员', '稻香'];
+
+const pickDailyQuery = () => {
+    const now = new Date();
+    const seed = now.getFullYear() * 372 + (now.getMonth() + 1) * 31 + now.getDate();
+    return DAILY_PICK_QUERIES[seed % DAILY_PICK_QUERIES.length];
+};
+
+const extractRecommendSongs = (data) => {
+    const candidates = [
+        data?.songlist,
+        data?.song_list,
+        data?.v_songinfo,
+        data?.songlistInfo,
+        data?.songInfoList,
+        data?.tracks,
+        data?.list,
+        data?.data?.songlist,
+        data?.data?.list,
+    ];
+    for (const list of candidates) {
+        if (Array.isArray(list) && list.length > 0) {
+            return list;
+        }
+    }
+    return [];
+};
+
+const mapRecommendItem = (item) => {
+    const info = item?.songInfo || item?.song || item?.track || item || {};
+    if (info.mid || info.songmid) {
+        return mapOfficialSearchItem({
+            ...info,
+            mid: info.mid || info.songmid,
+            title: info.title || info.name || info.songname,
+            album: info.album || { mid: info.albummid, name: info.albumname, id: info.albumid },
+            singer: info.singer || info.singer_list || [],
+            interval: info.interval || info.songTime || 0,
+            file: info.file || { media_mid: info.strMediaMid || info.mid },
+            id: info.id || info.songid,
+        });
+    }
+    return null;
+};
+
+/** Personalized daily songs when logged in; otherwise day-seeded open-API picks. */
+export async function recommend({ limit = 12, qqAuth } = {}) {
+    const capped = Math.max(1, Math.min(Number(limit) || 12, 20));
+
+    if (qqAuth?.isLoggedIn) {
+        try {
+            const data = await requestOfficialQQ(
+                'GetDailyRecommendSongs',
+                'music.playlist.DailyRecommendServer',
+                {},
+                { qqAuth },
+            );
+            const songs = extractRecommendSongs(data)
+                .map(mapRecommendItem)
+                .filter(Boolean)
+                .slice(0, capped);
+            if (songs.length > 0) {
+                return { songs, total: songs.length, hasMore: false, kind: 'personalized' };
+            }
+        } catch (error) {
+            console.warn('[qq-provider-adapter] daily recommend failed, falling back to picks', error);
+        }
+    }
+
+    // Prefer open API for anonymous daily picks — official search is slower and often needs auth.
+    const query = pickDailyQuery();
+    try {
+        const open = await searchOpenQQ(query, capped, 0);
+        if (open.songs.length > 0) {
+            return { ...open, kind: 'picks', query };
+        }
+    } catch (error) {
+        console.warn('[qq-provider-adapter] open picks failed, trying official search', error);
+    }
+
+    const result = await search({ query, limit: capped, offset: 0, qqAuth });
+    return {
+        ...result,
+        kind: 'picks',
+        query,
+    };
 }

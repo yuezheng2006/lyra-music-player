@@ -13,6 +13,9 @@ describe('lyricProxyHosts', () => {
     expect(isAllowedLyricProxyHost('music.126.net')).toBe(true);
     expect(isAllowedLyricProxyHost('y.gtimg.cn')).toBe(true);
     expect(isAllowedLyricProxyHost('c.y.qq.com')).toBe(true);
+    expect(isAllowedLyricProxyHost('p3-luna.douyinpic.com')).toBe(true);
+    expect(isAllowedLyricProxyHost('p3.douyinpic.com')).toBe(true);
+    expect(isAllowedLyricProxyHost('p26-sign.byteimg.com')).toBe(true);
   });
 
   it('rejects unrelated hosts', () => {

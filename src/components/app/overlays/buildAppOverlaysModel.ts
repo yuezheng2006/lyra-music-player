@@ -47,7 +47,7 @@ type BuildAppOverlaysModelParams = {
     theme: any;
     isDaylight: boolean;
     closeSearchView: () => void;
-    handleSearchOverlaySubmit: () => Promise<void>;
+    handleSearchOverlaySubmit: (query?: string) => Promise<void>;
     handleSearchLoadMore: () => Promise<void>;
     handleSearchResultPlay: (track: UnifiedSong) => void;
     handleSearchResultArtistSelect: (track: UnifiedSong, artistName: string, artistId?: number) => void;
@@ -81,6 +81,7 @@ type BuildAppOverlaysModelParams = {
     effectiveLoopMode: 'off' | 'all' | 'one';
     playerLyricsVisible: boolean;
     playQueueLength: number;
+    playQueue: SongResult[];
     audioSrc: string | null;
     canToggleCurrentPlayback: boolean;
     isNowPlayingControlDisabled: boolean;
@@ -108,7 +109,8 @@ type BuildAppOverlaysModelParams = {
     showLyricsLabel: string;
     hideLyricsLabel: string;
     listeningModeLabel: string;
-    backToPlaylistLabel?: string;
+    listeningModeShortLabel: string;
+    queueLabel?: string;
     previousTrackLabel?: string;
     nextTrackLabel?: string;
     playLabel?: string;
@@ -183,6 +185,7 @@ export const buildAppOverlaysModel = ({
     effectiveLoopMode,
     playerLyricsVisible,
     playQueueLength,
+    playQueue,
     audioSrc,
     canToggleCurrentPlayback,
     isNowPlayingControlDisabled,
@@ -210,7 +213,8 @@ export const buildAppOverlaysModel = ({
     showLyricsLabel,
     hideLyricsLabel,
     listeningModeLabel,
-    backToPlaylistLabel = 'Back to playlist',
+    listeningModeShortLabel,
+    queueLabel = 'Play queue',
     previousTrackLabel = 'Previous track',
     nextTrackLabel = 'Next track',
     playLabel = 'Play',
@@ -366,12 +370,12 @@ export const buildAppOverlaysModel = ({
             onNextTrack,
             onTogglePlayerLyricsVisible,
             onNavigateToPlayer: navigateToPlayer,
-            onNavigateToPlaylist: navigateToHome,
+            onNavigateToHome: navigateToHome,
             noTrackText,
             showLyricsLabel,
             hideLyricsLabel,
             listeningModeLabel,
-            backToPlaylistLabel,
+            listeningModeShortLabel,
             previousTrackLabel,
             nextTrackLabel,
             playLabel,
@@ -379,6 +383,11 @@ export const buildAppOverlaysModel = ({
             loopOffLabel,
             loopListLabel,
             loopOneLabel,
+            playQueue,
+            onPlayQueueSong: (song, queue) => {
+                void playSong(song, queue, false, { shouldNavigateToPlayer: false });
+            },
+            queueLabel,
             isImmersiveFullscreen,
             onToggleImmersiveFullscreen,
             enterFullscreenLabel,

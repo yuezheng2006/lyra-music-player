@@ -11,6 +11,7 @@ import {
     resolveTokenColorMap,
     type WordColorMatcher,
 } from '../wordColoring';
+import { resolveLyricStageInkColors } from '../../../utils/theme/lyricColorPresets';
 import {
     buildMonetDisplayTokens,
     measureMonetGraphemeOffsets,
@@ -107,12 +108,15 @@ const resolveLineTone = (
     theme: Theme,
     inactiveScale: number,
 ): MonetLineTone => {
+    const { titleColor, hintColor } = resolveLyricStageInkColors(theme);
+
     if (entry.status === 'active') {
         return {
             opacity: 1,
             scale: 1,
             blurPx: 0,
-            baseColor: colorWithAlpha(theme.primaryColor, 0.34),
+            // Unsung underlay stays on primary; sung fill uses accent (see MonetTimedTokenSpan).
+            baseColor: colorWithAlpha(titleColor, 0.34),
             fontWeight: 600,
             zIndex: 4,
         };
@@ -130,7 +134,8 @@ const resolveLineTone = (
         blurPx: isWaiting
             ? distance === 1 ? 0.7 : 1.8 + (distance - 2) * 0.8
             : 1.1 + (distance - 1) * 0.7,
-        baseColor: colorWithAlpha(theme.primaryColor, isWaiting ? 0.46 : 0.36),
+        // Waiting / passed lines are "hints" — follow secondary from the lyric-color preset.
+        baseColor: colorWithAlpha(hintColor, isWaiting ? 0.72 : 0.52),
         fontWeight: 500,
         zIndex: isWaiting ? 3 - distance : 2 - distance,
     };
@@ -538,9 +543,9 @@ const MonetWordSweep: React.FC<{
 
             if (intensity <= 0) return 'none';
 
-            const radiusOne = Math.round(fontPx * (isChorus ? 0.45 : 0.28));
-            const radiusTwo = Math.round(fontPx * (isChorus ? 0.90 : 0.65));
-            const maxAlpha = isChorus ? 1.0 : 0.88;
+            const radiusOne = Math.round(fontPx * (isChorus ? 0.55 : 0.36));
+            const radiusTwo = Math.round(fontPx * (isChorus ? 1.1 : 0.82));
+            const maxAlpha = isChorus ? 1.0 : 0.94;
             const glowColor = mixColors(baseColor, wordColor, intensity, intensity * maxAlpha);
             return `0 0 ${radiusOne}px ${glowColor}, 0 0 ${radiusTwo}px ${glowColor}`;
         }) as unknown as MotionValue<string>;
@@ -599,6 +604,7 @@ const MonetRailLine: React.FC<{
     disableEntryMotion?: boolean;
     renderStaticPassed?: boolean;
 }> = ({ entry, currentTime, theme, lyricFontPx, translationFontPx, fontStack, glowBufferPx, vGlowBufferPx, wordColorMatchers, showSubtitleTranslation, audioPower, onLineSeek, canSeek = false, disableEntryMotion = false, renderStaticPassed = false }) => {
+    const { activeColor, hintColor } = resolveLyricStageInkColors(theme);
     const initialOffset = entry.offset >= 0 ? 34 : -34;
     const exitOffset = entry.status === 'passed' || entry.offset < 0 ? -38 : 38;
     const textMask = getLineMask(entry.layout.isTextClipped, Math.max(lyricFontPx * 0.55, 12));
@@ -662,7 +668,7 @@ const MonetRailLine: React.FC<{
                     }}
                     transition={{ duration: 0.45, ease: 'easeOut' }}
                     style={{
-                        background: `radial-gradient(circle at 50% 45%, ${colorWithAlpha(theme.accentColor, 0.14)} 0%, ${colorWithAlpha(theme.accentColor, 0.04)} 55%, transparent 82%)`,
+                        background: `radial-gradient(circle at 50% 45%, ${colorWithAlpha(activeColor, 0.14)} 0%, ${colorWithAlpha(activeColor, 0.04)} 55%, transparent 82%)`,
                         filter: 'blur(10px)',
                     }}
                 />
@@ -692,19 +698,21 @@ const MonetRailLine: React.FC<{
                     WebkitMaskSize: '100% 100%',
                     maskSize: '100% 100%',
                     textShadow: entry.status === 'active'
-                        ? `0 14px 34px ${colorWithAlpha(theme.backgroundColor, 0.22)}`
-                        : 'none',
+                        ? `0 16px 42px ${colorWithAlpha(theme.backgroundColor, 0.32)}, 0 0 28px ${colorWithAlpha(activeColor, 0.22)}`
+                        : entry.status === 'upcoming'
+                            ? `0 10px 24px ${colorWithAlpha(theme.backgroundColor, 0.18)}`
+                            : 'none',
                 }}
             >
                 <MonetTimedTokenSpan
                     entry={entry}
                     currentTime={currentTime}
-                    accentColor={colorWithAlpha(theme.primaryColor, 0.98)}
+                    accentColor={colorWithAlpha(activeColor, 0.98)}
                     fontPx={lyricFontPx}
                     fontStack={fontStack}
                     wordColorMatchers={wordColorMatchers}
                     isChorus={entry.line.isChorus}
-                    chorusAccentColor={theme.accentColor}
+                    chorusAccentColor={activeColor}
                     audioPower={audioPower}
                     renderStaticPassed={renderStaticPassed}
                 />
@@ -724,7 +732,7 @@ const MonetRailLine: React.FC<{
                         paddingTop: entry.layout.translationPaddingTopPx,
                         paddingBottom: entry.layout.translationPaddingBottomPx,
                         boxSizing: 'border-box',
-                        color: colorWithAlpha(theme.primaryColor, 0.68),
+                        color: colorWithAlpha(hintColor, 0.84),
                         fontFamily: fontStack,
                         fontSize: translationFontPx,
                         fontWeight: 500,
@@ -773,8 +781,8 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
     const touchDirectionRef = useRef(0);
     const [manualScrollAnchorIndex, setManualScrollAnchorIndex] = useState<number | null>(null);
     const railSize = useMonetRailSize(railRef);
-    const glowBufferPx = Math.round(lyricFontPx * 1.2);
-    const vGlowBufferPx = Math.round(lyricFontPx * 1.2);
+    const glowBufferPx = Math.round(lyricFontPx * 1.35);
+    const vGlowBufferPx = Math.round(lyricFontPx * 1.35);
     const canSeek = Boolean(onLyricLineSeek) && !seekDisabled;
 
     const visibleEntries = useMemo(
@@ -953,7 +961,7 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
     return (
         <div
             ref={railRef}
-            className="relative h-[clamp(260px,42vh,400px)] max-w-[720px] select-none overflow-hidden"
+            className="relative h-[clamp(220px,46%,420px)] w-full max-w-full select-none overflow-hidden"
             style={{
                 marginLeft: `-${glowBufferPx}px`,
                 marginRight: `-${glowBufferPx}px`,
@@ -993,8 +1001,8 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
                 <div
                     className="absolute left-0 top-1/2 -translate-y-1/2 font-semibold"
                     style={{
-                        color: theme.primaryColor,
-                        fontSize: 'clamp(1.8rem, 4.2vw, 3.2rem)',
+                        color: resolveLyricStageInkColors(theme).hintColor,
+                        fontSize: `${Math.max(lyricFontPx * 0.85, 18)}px`,
                         letterSpacing: 0,
                         opacity: 0.72,
                     }}

@@ -145,7 +145,7 @@ export const MonetSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
         keywordColoringEnabled: monetTuning.keywordColoringEnabled ?? DEFAULT_MONET_TUNING.keywordColoringEnabled,
         showDescription: monetTuning.showDescription ?? DEFAULT_MONET_TUNING.showDescription,
         audioStyle: monetTuning.audioStyle ?? DEFAULT_MONET_TUNING.audioStyle,
-        fontScale: clampValue(monetTuning.fontScale ?? DEFAULT_MONET_TUNING.fontScale, 0.7, 1.5, DEFAULT_MONET_TUNING.fontScale),
+        fontScale: clampValue(monetTuning.fontScale ?? DEFAULT_MONET_TUNING.fontScale, 0.7, 1.65, DEFAULT_MONET_TUNING.fontScale),
         portraitSource: monetTuning.portraitSource ?? DEFAULT_MONET_TUNING.portraitSource,
         portraitStyle: monetTuning.portraitStyle ?? DEFAULT_MONET_TUNING.portraitStyle ?? 'rectangular',
         showPortraitDragHanger: monetTuning.showPortraitDragHanger ?? DEFAULT_MONET_TUNING.showPortraitDragHanger,
@@ -221,7 +221,7 @@ export const MonetSettingsPanel: React.FC<VisualizerSettingsPanelProps> = ({
                     label={t('options.monetFontScale') || '字体缩放'}
                     valueLabel={`${resolvedTuning.fontScale.toFixed(2)}x`}
                     min={0.7}
-                    max={1.5}
+                    max={1.65}
                     step={0.05}
                     value={resolvedTuning.fontScale}
                     onChange={(value) => onMonetTuningChange?.({ fontScale: value })}

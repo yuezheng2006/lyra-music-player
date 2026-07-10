@@ -60,7 +60,7 @@ QQ 音乐和汽水音乐通过本地 sidecar 接入。推荐实现方式是 JS a
 当前内置能力：
 
 - QQ 音乐：支持关键词搜索、登录 Cookie 模式下获取播放 URL，以及 QQ 歌词获取。播放 URL 按登录模式处理，必须在“账号面板 -> QQ 音乐 -> 配置”或“选项 -> 集成设置 -> QQ Music Account”填入包含 `qm_keyst` / `qqmusic_key` / `music_key` / `wxskey` 等有效票据的 QQ 音乐 Cookie；请求会自动带上 Cookie、UIN、`authst` 和稳定 GUID。
-- 汽水音乐：支持解析 `https://qishui.douyin.com/s/...` 分享链接并获取播放 URL；暂不支持关键词搜索曲库。
+- 汽水音乐：支持关键词搜索与试听播放（LunaPC 官方 search + 分享页试听链）；分享短链仍可作为兜底。Cookie / `track_v2` 高音质与 `play_auth` 解密尚未接入。
 
 本地 Web / Electron 开发时，`npm run dev:web` 与 `npm run dev:electron` 会同时启动：
 

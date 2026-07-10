@@ -9,8 +9,19 @@ import { useShallow } from 'zustand/react/shallow';
 import { getSongUnavailableTagText, isSongMarkedUnavailable } from '../services/netease';
 import { isBlob } from '../utils/blobGuards';
 import { OnlineProviderBadge } from './shared/OnlineProviderBadge';
+import { FreeSourceNotice } from './shared/FreeSourceNotice';
+import { SearchClearButton } from './shared/SearchClearButton';
+import { SearchShortcutChips } from './shared/SearchShortcutChips';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
 import { createSongCoverPlaceholder } from '../utils/coverPlaceholders';
+import {
+    getOnlineSearchShortcutGroups,
+    isSearchShortcutProvider,
+} from '../utils/onlineSearchShortcuts';
+import {
+    APP_CONTENT_BOTTOM_PADDING_CLASS,
+    APP_CONTENT_TOP_PADDING_CLASS,
+} from './app/home/homeSurfaceStyles';
 
 // src/components/SearchResultsOverlay.tsx
 // Home-embedded search panel. Channel is driven by home source pills; no in-panel picker.
@@ -35,7 +46,7 @@ interface SearchResultsOverlayProps {
     theme: Theme;
     isDaylight: boolean;
     onClose: () => void;
-    onSubmitSearch: () => void;
+    onSubmitSearch: (query?: string) => void;
     onLoadMore: () => void;
     onPlayTrack: (track: UnifiedSong) => void;
     onAddSongToQueue: (track: UnifiedSong) => void;
@@ -90,6 +101,7 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
     const {
         searchQuery,
         searchProviders,
+        searchSourceTab,
         searchResults,
         isSearchOpen,
         isSearching,
@@ -97,10 +109,12 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         hasMore,
         scrollTop,
         setSearchQuery,
+        clearSearchInput,
         setSearchScrollTop,
     } = useSearchNavigationStore(useShallow(state => ({
         searchQuery: state.searchQuery,
         searchProviders: state.searchProviders,
+        searchSourceTab: state.searchSourceTab,
         searchResults: state.searchResults,
         isSearchOpen: state.isSearchOpen,
         isSearching: state.isSearching,
@@ -108,33 +122,50 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         hasMore: state.hasMore,
         scrollTop: state.scrollTop,
         setSearchQuery: state.setSearchQuery,
+        clearSearchInput: state.clearSearchInput,
         setSearchScrollTop: state.setSearchScrollTop,
     })));
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
     const activeProviders = searchProviders.filter(
-        (id): id is OnlineLibraryProviderId => id === 'netease' || id === 'qq' || id === 'coco',
+        (id): id is OnlineLibraryProviderId => (
+            id === 'netease' || id === 'qq' || id === 'qishui' || id === 'coco'
+        ),
     );
+    const sourceFallback = (
+        searchSourceTab === 'netease'
+        || searchSourceTab === 'qq'
+        || searchSourceTab === 'qishui'
+        || searchSourceTab === 'coco'
+    ) ? searchSourceTab : null;
     const isMultiSource = activeProviders.length > 1;
-    const isCocoOnly = activeProviders.length === 1 && activeProviders[0] === 'coco';
-    const activeProvider = activeProviders[0] || 'coco';
+    const activeProvider = activeProviders[0] || sourceFallback || 'coco';
+    const isPeerOnly = !isMultiSource && isSearchShortcutProvider(activeProvider);
+    const shortcutGroups = useMemo(
+        () => (isPeerOnly ? getOnlineSearchShortcutGroups(activeProvider) : []),
+        [activeProvider, isPeerOnly],
+    );
 
     const searchPlaceholder = useMemo(() => {
         if (isMultiSource) return t('home.searchMultiSources');
         if (activeProvider === 'qq') return t('home.searchQQMusic');
+        if (activeProvider === 'qishui') return t('home.searchQishuiMusic');
         if (activeProvider === 'coco') return t('home.searchCocoMusic');
         return t('search.placeholder');
     }, [activeProvider, isMultiSource, t]);
 
     const searchSubtitle = useMemo(() => {
         if (isMultiSource) return t('search.subtitleMulti');
+        if (activeProvider === 'qishui') return t('search.subtitleQishui');
         if (activeProvider === 'coco') return t('search.subtitleCoco');
         return t('search.subtitle');
     }, [activeProvider, isMultiSource, t]);
 
     const searchTitle = isMultiSource
         ? t('search.title')
-        : (isCocoOnly ? t('home.cocoProvider') : t('search.title'));
+        : (activeProvider === 'qishui'
+            ? t('home.qishuiProvider')
+            : (activeProvider === 'coco' ? t('home.cocoProvider') : t('search.title')));
 
     const shellBg = isDaylight ? 'bg-[#f4f7fb]/92' : 'bg-black/80';
     const panelBg = isDaylight
@@ -153,8 +184,9 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
 
     useEffect(() => {
         if (!isSearchOpen || !scrollContainerRef.current) return;
+        // Only restore when opening search — do not fight user scroll on result updates.
         scrollContainerRef.current.scrollTop = scrollTop;
-    }, [isSearchOpen, scrollTop, searchResults]);
+    }, [isSearchOpen]);
 
     useEffect(() => {
         if (!isSearchOpen) return;
@@ -168,8 +200,19 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isSearchOpen, onClose]);
 
-    const resultCount = searchResults?.length ?? 0;
-    const showProviderBadge = isMultiSource || !isCocoOnly;
+    const showProviderBadge = isMultiSource || !isPeerOnly;
+    // Peer channels only render their own hits — ignore any leaked cross-source cache.
+    const visibleResults = !searchResults
+        ? null
+        : (isPeerOnly
+            ? searchResults.filter(track => (track.musicProvider || activeProvider) === activeProvider)
+            : searchResults);
+    const visibleResultCount = visibleResults?.length ?? 0;
+
+    const handleShortcutSelect = (query: string) => {
+        setSearchQuery(query);
+        onSubmitSearch(query);
+    };
 
     return (
         <AnimatePresence>
@@ -179,13 +222,14 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.16 }}
+                    data-app-ui-surface="search-overlay"
                     className={`absolute inset-0 z-40 ${shellBg} backdrop-blur-md flex flex-col overflow-hidden pointer-events-auto`}
                     style={{
                         color: 'var(--text-primary)',
                         WebkitAppRegion: 'no-drag',
                     } as React.CSSProperties}
                 >
-                    <div className="w-full max-w-5xl mx-auto px-4 md:px-6 pt-4 md:pt-5 pb-3 shrink-0">
+                    <div className={`w-full max-w-5xl mx-auto px-4 md:px-6 ${APP_CONTENT_TOP_PADDING_CLASS} pb-3 shrink-0`}>
                         <div className="flex items-start gap-3">
                             <button
                                 type="button"
@@ -200,8 +244,8 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                     <h1 className={`text-lg md:text-xl font-bold tracking-tight ${headingText}`}>
                                         {searchTitle}
                                     </h1>
-                                    {isCocoOnly && (
-                                        <OnlineProviderBadge provider="coco" size="md" />
+                                    {isPeerOnly && (
+                                        <OnlineProviderBadge provider={activeProvider} size="md" />
                                     )}
                                     {isMultiSource && activeProviders.map(provider => (
                                         <OnlineProviderBadge key={provider} provider={provider} size="md" />
@@ -212,6 +256,10 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                 </p>
                             </div>
                         </div>
+
+                        {isPeerOnly ? (
+                            <FreeSourceNotice isDaylight={isDaylight} className="mt-3" compact />
+                        ) : null}
 
                         <form
                             onSubmit={(event) => {
@@ -232,8 +280,14 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                     value={searchQuery}
                                     onChange={(event) => setSearchQuery(event.target.value)}
                                     placeholder={searchPlaceholder}
-                                    className="w-full bg-transparent rounded-xl min-h-11 py-2.5 pl-10 pr-4 text-sm focus:outline-none"
+                                    className="w-full bg-transparent rounded-xl min-h-11 py-2.5 pl-10 pr-10 text-sm focus:outline-none"
                                     autoFocus
+                                />
+                                <SearchClearButton
+                                    visible={Boolean(searchQuery)}
+                                    onClear={clearSearchInput}
+                                    label={t('app.clearSearch')}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2"
                                 />
                             </div>
 
@@ -250,25 +304,30 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
 
                     <div
                         ref={scrollContainerRef}
-                        className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 md:px-6 pb-28"
+                        data-app-ui-surface="search-results"
+                        className={`flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar px-4 md:px-6 ${APP_CONTENT_BOTTOM_PADDING_CLASS}`}
                         onScroll={(event) => setSearchScrollTop(event.currentTarget.scrollTop)}
+                        onWheel={(event) => {
+                            // Keep wheel on this list; do not let 3D background steal it.
+                            event.stopPropagation();
+                        }}
                     >
                         <div className="max-w-5xl mx-auto">
                             {isSearching ? (
                                 <div className="flex justify-center py-16">
                                     <Loader2 className="animate-spin w-8 h-8 opacity-50" />
                                 </div>
-                            ) : searchResults && searchResults.length > 0 ? (
+                            ) : visibleResults && visibleResults.length > 0 ? (
                                 <>
                                     <div className="mb-3 flex items-baseline justify-between gap-3">
                                         <h2 className={`text-sm font-semibold ${headingText}`}>{t('search.resultsTitle')}</h2>
                                         <p className={`text-xs ${mutedText}`}>
-                                            {t('search.resultsCount', { count: resultCount })}
+                                            {t('search.resultsCount', { count: visibleResultCount })}
                                         </p>
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        {searchResults.map((track, index) => {
+                                        {visibleResults.map((track, index) => {
                                             const isUnavailable = isSongMarkedUnavailable(track);
                                             const unavailableTagText = getSongUnavailableTagText(track, t('status.songUnavailableTag'));
                                             const artistNames = track.ar?.map(artist => artist.name).filter(Boolean).join(', ')
@@ -279,14 +338,21 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                             return (
                                                 <div
                                                     key={`${track.id}-${index}`}
-                                                    className={`rounded-xl border px-3 py-2.5 md:px-3.5 transition-colors ${rowBg} ${isUnavailable ? 'opacity-55' : ''}`}
+                                                    role="button"
+                                                    tabIndex={isUnavailable ? -1 : 0}
+                                                    onClick={() => !isUnavailable && onPlayTrack(track)}
+                                                    onKeyDown={(event) => {
+                                                        if (isUnavailable) return;
+                                                        if (event.key === 'Enter' || event.key === ' ') {
+                                                            event.preventDefault();
+                                                            onPlayTrack(track);
+                                                        }
+                                                    }}
+                                                    className={`rounded-xl border px-3 py-2.5 md:px-3.5 transition-colors ${rowBg} ${isUnavailable ? 'opacity-55' : 'cursor-pointer'}`}
                                                 >
                                                     <div className="flex items-center gap-3 min-w-0">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => !isUnavailable && onPlayTrack(track)}
-                                                            disabled={isUnavailable}
-                                                            className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 touch-manipulation group/cover disabled:cursor-default"
+                                                        <div
+                                                            className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 touch-manipulation group/cover"
                                                             title={t('search.play')}
                                                         >
                                                             <SearchResultCover track={track} />
@@ -295,7 +361,7 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                                     <Play size={16} className="text-white fill-white" />
                                                                 </span>
                                                             )}
-                                                        </button>
+                                                        </div>
 
                                                         <div className="min-w-0 flex-1">
                                                             <div className={`font-semibold text-sm truncate ${headingText}`}>
@@ -316,7 +382,8 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                                 <button
                                                                     type="button"
                                                                     className="hover:underline"
-                                                                    onClick={() => {
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
                                                                         const first = track.ar?.[0] || track.artists?.[0];
                                                                         onSelectArtist(track, first?.name || artistNames, first?.id);
                                                                     }}
@@ -327,7 +394,8 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                                 <button
                                                                     type="button"
                                                                     className="hover:underline"
-                                                                    onClick={() => {
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
                                                                         const albumId = track.al?.id || track.album?.id;
                                                                         if (albumName) onSelectAlbum(track, albumName, albumId);
                                                                     }}
@@ -345,7 +413,10 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                                 <>
                                                                     <button
                                                                         type="button"
-                                                                        onClick={() => onPlayTrack(track)}
+                                                                        onClick={(event) => {
+                                                                            event.stopPropagation();
+                                                                            onPlayTrack(track);
+                                                                        }}
                                                                         className={`inline-flex items-center justify-center min-h-10 min-w-10 rounded-full transition-colors touch-manipulation active:scale-95 ${isDaylight ? 'bg-[#eff6ff] text-[#2563eb] hover:bg-[#dbeafe]' : 'bg-[#1d4ed8]/20 text-[#93c5fd] hover:bg-[#1d4ed8]/30'}`}
                                                                         title={t('search.play')}
                                                                     >
@@ -353,7 +424,10 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                                     </button>
                                                                     <button
                                                                         type="button"
-                                                                        onClick={() => onAddSongToQueue(track)}
+                                                                        onClick={(event) => {
+                                                                            event.stopPropagation();
+                                                                            onAddSongToQueue(track);
+                                                                        }}
                                                                         className={`inline-flex items-center justify-center min-h-10 min-w-10 rounded-full transition-colors touch-manipulation active:scale-95 ${isDaylight ? 'hover:bg-black/5 text-slate-600' : 'hover:bg-white/10 text-white/70'}`}
                                                                         title={t('search.addToQueue')}
                                                                     >
@@ -383,6 +457,13 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                 </>
                             ) : searchQuery.trim() && !isSearching ? (
                                 <div className={`text-center py-16 text-sm ${mutedText}`}>{t('home.noResults')}</div>
+                            ) : shortcutGroups.length > 0 ? (
+                                <SearchShortcutChips
+                                    groups={shortcutGroups}
+                                    isDaylight={isDaylight}
+                                    disabled={isSearching}
+                                    onSelect={handleShortcutSelect}
+                                />
                             ) : (
                                 <div className={`text-center py-16 text-sm ${mutedText}`}>
                                     {searchPlaceholder}

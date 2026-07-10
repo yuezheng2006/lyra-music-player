@@ -1,4 +1,4 @@
-import React, { forwardRef, useState } from 'react';
+import React, { forwardRef } from 'react';
 import { AnimatePresence, motion, MotionValue } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft } from 'lucide-react';
@@ -44,6 +44,7 @@ type VisualizerShellSharedProps = Pick<
     | 'staticMode'
     | 'paused'
     | 'onBack'
+    | 'isPlayerChromeHidden'
     | 'playlistShelfItems'
     | 'visualizerMode'
     | 'mineradioStageActive'
@@ -100,7 +101,6 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     className = '',
 }, ref) => {
     const { t } = useTranslation();
-    const [showBackButton, setShowBackButton] = useState(false);
     const resolvedCoverUrl = sharedProps?.coverUrl ?? coverUrl;
     const resolvedIsDaylight = sharedProps?.isDaylight ?? true;
     const resolvedUseCoverColorBg = sharedProps?.useCoverColorBg ?? useCoverColorBg;
@@ -128,6 +128,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const resolvedStaticMode = sharedProps?.staticMode ?? staticMode;
     const resolvedPaused = sharedProps?.paused ?? paused;
     const resolvedOnBack = sharedProps?.onBack ?? onBack;
+    const hideBackButton = Boolean(sharedProps?.isPlayerChromeHidden);
     const resolvedVisualizerMode = sharedProps?.visualizerMode;
     const resolvedCurrentTime = sharedProps?.currentTime;
     const resolvedLines = sharedProps?.lines ?? [];
@@ -142,6 +143,8 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const shouldRenderMonetBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'monet';
     const shouldRenderUrlBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'url';
     const shouldRenderSoraBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'sora';
+    // Left-column modes (Monet) must not rhythm-scale — scale > 1 clips lyrics past the stage edge.
+    const shouldApplyLyricRhythm = shouldRenderInteractive3dBackground && resolvedVisualizerMode !== 'monet';
 
     const fontClassName = theme.fontStyle === 'mono'
         ? 'font-mono'
@@ -152,44 +155,26 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     return (
         <div
             ref={ref}
+            data-visualizer-shell="true"
             className={`w-full h-full flex flex-col items-center justify-center overflow-hidden relative ${fontClassName} transition-colors duration-1000 ${className}`.trim()}
             style={{
                 backgroundColor: 'transparent',
                 fontFamily: resolveThemeFontStack(theme),
                 opacity: resolvedVisualizerOpacity,
             }}
-            onMouseMove={(event) => {
-                const nearBackArea = event.clientX <= 120 && event.clientY <= 120;
-                if (nearBackArea !== showBackButton) {
-                    setShowBackButton(nearBackArea);
-                }
-            }}
-            onMouseLeave={() => {
-                if (showBackButton) {
-                    setShowBackButton(false);
-                }
-            }}
         >
-            {resolvedOnBack && (
-                <motion.button
+            {resolvedOnBack && !hideBackButton && (
+                <button
                     type="button"
                     aria-label={t('ui.backToHome')}
-                    initial={false}
-                    animate={{
-                        opacity: showBackButton ? 1 : 0,
-                        scale: showBackButton ? 1 : 0.92,
-                        x: showBackButton ? 0 : -6,
-                    }}
-                    transition={{ duration: 0.2, ease: 'easeOut' }}
                     onClick={(event) => {
                         event.stopPropagation();
                         resolvedOnBack();
                     }}
-                    className="absolute top-6 left-6 z-30 h-10 w-10 rounded-full flex items-center justify-center transition-colors backdrop-blur-md bg-black/20 hover:bg-white/10 text-white/60 pointer-events-auto"
-                    style={{ pointerEvents: showBackButton ? 'auto' : 'none' }}
+                    className="absolute top-5 left-5 z-40 h-10 w-10 rounded-full flex items-center justify-center transition-colors backdrop-blur-md bg-black/45 hover:bg-black/60 text-white/90 pointer-events-auto border border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
                 >
                     <ChevronLeft size={20} />
-                </motion.button>
+                </button>
             )}
 
             <AnimatePresence>
@@ -286,8 +271,8 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 </div>
             )}
 
-            <div className="relative z-30 isolate w-full h-full pointer-events-none">
-                {shouldRenderInteractive3dBackground ? (
+            <div className="relative z-30 isolate w-full h-full overflow-hidden pointer-events-none">
+                {shouldApplyLyricRhythm ? (
                     <LyricRhythmStage
                         audioPower={audioPower}
                         beatPulse={resolvedBeatPulse}
@@ -296,7 +281,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                         atmosphereEnergy={resolvedAtmosphereEnergy}
                         scaleMultiplier={theme.lyricRhythmScaleMultiplier}
                         glowColor={theme.lyricGlowUsesAccent ? theme.accentColor : null}
-                        className="w-full h-full"
+                        className="w-full h-full overflow-hidden"
                     >
                         {children}
                     </LyricRhythmStage>

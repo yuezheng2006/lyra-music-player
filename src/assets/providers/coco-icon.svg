@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <!-- Coco peer-source mark: no stable upstream brand mark; keep a clear in-app identity. -->
+  <rect width="512" height="512" rx="96" fill="#111111"/>
+  <defs>
+    <linearGradient id="cocoGlow" x1="96" y1="72" x2="420" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FBBF24"/>
+      <stop offset="0.55" stop-color="#F59E0B"/>
+      <stop offset="1" stop-color="#D97706"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="168" fill="url(#cocoGlow)"/>
+  <circle cx="256" cy="256" r="118" fill="#111111"/>
+  <path d="M214 188c28-34 78-40 112-18 8 5 10 16 4 24l-14 18c-5 7-15 8-22 3-18-12-44-10-58 6-16 18-14 46 4 62 16 14 42 16 60 4 7-5 17-4 22 3l14 18c5 7 4 18-4 24-36 24-90 16-120-18-36-40-34-104 2-146z" fill="#FFF7ED"/>
+  <circle cx="318" cy="214" r="18" fill="#FFF7ED"/>
+</svg>

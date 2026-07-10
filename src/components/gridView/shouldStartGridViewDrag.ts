@@ -7,10 +7,12 @@ type ClosestCapable = {
     parentElement?: ClosestCapable | null;
 };
 
-const isClosestCapable = (target: EventTarget | null): target is ClosestCapable => (
-    Boolean(target)
-    && typeof (target as ClosestCapable).closest === 'function'
-);
+const asClosestCapable = (target: EventTarget | null): ClosestCapable | null => {
+    if (!target || typeof (target as unknown as ClosestCapable).closest !== 'function') {
+        return null;
+    }
+    return target as unknown as ClosestCapable;
+};
 
 /**
  * Track cards need reliable click-to-play. Starting a Framer drag on the same
@@ -21,28 +23,29 @@ export function shouldStartGridViewDrag(
     target: EventTarget | null,
     mode: 'tracks' | 'collection' | string,
 ): boolean {
-    if (!isClosestCapable(target)) {
+    const root = asClosestCapable(target);
+    if (!root) {
         return false;
     }
 
     if (
-        target.closest('button')
-        || target.closest('input')
-        || target.closest('a')
-        || target.closest('textarea')
-        || target.closest('.theme-glass-panel')
+        root.closest('button')
+        || root.closest('input')
+        || root.closest('a')
+        || root.closest('textarea')
+        || root.closest('.theme-glass-panel')
     ) {
         return false;
     }
 
     // Tracks mode: never start drag from inside a song card.
-    if (mode === 'tracks' && target.closest('.theme-polaroid-card')) {
+    if (mode === 'tracks' && root.closest('.theme-polaroid-card')) {
         return false;
     }
 
     // Collection mode: allow drag from the card chrome, but not from nested
     // cursor-pointer controls (artist / album links, etc.).
-    let current: ClosestCapable | null = target;
+    let current: ClosestCapable | null = root;
     while (current && !current.classList?.contains('theme-polaroid-card')) {
         if (current.classList?.contains('cursor-pointer')) {
             return false;

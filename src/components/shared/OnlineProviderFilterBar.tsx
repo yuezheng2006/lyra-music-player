@@ -11,9 +11,10 @@ import {
 } from '../../stores/useOnlineLibraryFilterStore';
 import { useNeteaseQrLogin } from '../../hooks/useNeteaseQrLogin';
 import { useQQMusicLogin } from '../../hooks/useQQMusicLogin';
+import { resolveOnlineProviderIconUrl } from '../../utils/onlineProviderAssets';
 
 // src/components/shared/OnlineProviderFilterBar.tsx
-// Peer library sources only: Netease / QQ / Coco. Qishui is link-parse via search box.
+// Peer library sources: Netease / QQ / Qishui / Coco.
 
 type OnlineProviderFilterBarProps = {
     neteaseConnected: boolean;
@@ -84,10 +85,12 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
     const providerLabels: Record<OnlineLibraryProviderId, string> = {
         netease: t('home.neteaseProvider'),
         qq: t('home.qqMusicProvider'),
+        qishui: t('home.qishuiProvider'),
         coco: t('home.cocoProvider'),
     };
 
     const providerHints: Partial<Record<OnlineLibraryProviderId, string>> = {
+        qishui: t('home.qishuiProviderHint'),
         coco: t('home.cocoProviderHint'),
     };
 
@@ -103,7 +106,7 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
         { id: 'liked', label: t('home.moduleLiked') },
     ];
 
-    // Coco has no personal library, so created/liked modules are meaningless when it is the only source.
+    // Coco / Qishui have no personal library, so created/liked modules are meaningless when they are the only sources.
     const showModuleFilter = useMemo(() => {
         const enabledConnected = ONLINE_LIBRARY_PROVIDER_IDS.filter((id) => {
             if (!playlistProviders[id]) return false;
@@ -150,16 +153,17 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
 
     return (
         <div
-            className="w-full max-w-6xl mx-auto px-4 md:px-6 space-y-3.5 pointer-events-auto"
+            className="w-full max-w-6xl mx-auto px-4 md:px-6 space-y-2 pointer-events-auto"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
-            <div className="flex flex-wrap items-center gap-2.5">
-                <span className={`text-xs font-semibold uppercase tracking-wide shrink-0 ${labelClass}`}>
+            <div className="flex flex-wrap items-center gap-2">
+                <span className={`text-[11px] font-semibold uppercase tracking-wide shrink-0 ${labelClass}`}>
                     {t('home.providerFilter')}
                 </span>
                 {ONLINE_LIBRARY_PROVIDER_IDS.map(id => {
                     const connected = isConnected(id);
                     const enabled = connected && playlistProviders[id];
+                    const iconUrl = resolveOnlineProviderIconUrl(id);
                     return (
                         <button
                             key={id}
@@ -172,7 +176,7 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
                                 event.stopPropagation();
                                 handleProviderClick(id);
                             }}
-                            className={`inline-flex items-center justify-center gap-1.5 min-h-10 px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none touch-manipulation active:scale-[0.97] transition-all ${peerPillClass(enabled, isDaylight, connected)}`}
+                            className={`inline-flex items-center justify-center gap-1.5 min-h-8 px-3 py-1.5 rounded-full text-[13px] font-medium cursor-pointer select-none touch-manipulation active:scale-[0.97] transition-all ${peerPillClass(enabled, isDaylight, connected)}`}
                             title={providerHints[id] || (connected ? undefined : t('home.connectProvider'))}
                             aria-pressed={enabled}
                             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -181,6 +185,14 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
                             {connected && enabled && (
                                 <Check size={14} strokeWidth={2.5} className="opacity-80 shrink-0" />
                             )}
+                            {iconUrl ? (
+                                <img
+                                    src={iconUrl}
+                                    alt=""
+                                    aria-hidden="true"
+                                    className="h-4 w-4 rounded-[4px] object-cover shrink-0"
+                                />
+                            ) : null}
                             <span>{providerLabels[id]}</span>
                             {!connected && (
                                 <span className="opacity-70">{t('home.connectShort')}</span>
@@ -191,7 +203,7 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
             </div>
 
             {showModuleFilter && (
-                <div className={`inline-flex flex-wrap items-center gap-1 rounded-full p-1.5 ${shellClass}`}>
+                <div className={`inline-flex flex-wrap items-center gap-0.5 rounded-full p-1 ${shellClass}`}>
                     {modulePills.map(item => {
                         const active = moduleFilter === item.id;
                         return (
@@ -203,7 +215,7 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
                                     event.stopPropagation();
                                     setModuleFilter(item.id);
                                 }}
-                                className={`min-h-10 px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none touch-manipulation active:scale-[0.97] transition-colors ${modulePillClass(active, isDaylight)}`}
+                                className={`min-h-8 px-3.5 py-1.5 rounded-full text-[13px] font-medium cursor-pointer select-none touch-manipulation active:scale-[0.97] transition-colors ${modulePillClass(active, isDaylight)}`}
                                 style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                             >
                                 {item.label}

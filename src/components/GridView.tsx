@@ -23,6 +23,7 @@ import PlaylistSelectionDialog from './shared/PlaylistSelectionDialog';
 import TextInputDialog from './shared/TextInputDialog';
 import { SidePanelList, TrackListItem } from './shared/SidePanelList';
 import { shouldStartGridViewDrag } from './gridView/shouldStartGridViewDrag';
+import { APP_CONTENT_TOP_OFFSET_CLASS } from './app/home/homeSurfaceStyles';
 
 export interface GridViewSourceActions {
     local?: {
@@ -1845,7 +1846,7 @@ export const GridView: React.FC<GridViewProps> = ({
                     }
                     onBack();
                 }}
-                className="absolute left-6 top-5 w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg hover:scale-105 active:scale-95 z-[70]"
+                className={`absolute left-6 ${APP_CONTENT_TOP_OFFSET_CLASS} w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg hover:scale-105 active:scale-95 z-[70]`}
                 style={{
                     backgroundColor: isDaylight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)',
                     backdropFilter: 'blur(8px)',

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Orbit } from 'lucide-react';
+import { Settings2 } from 'lucide-react';
 import type {
     Interactive3dSceneTuning,
     MineradioVisualPresetId,
@@ -133,20 +133,20 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                     setOpen(value => !value);
                 }}
                 disabled={disabled}
-                className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(disabled, open || isInteractive3d)}`}
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(disabled, open)}`}
                 title={backgroundMenuLabel}
                 aria-label={backgroundMenuLabel}
                 aria-expanded={open}
                 aria-haspopup="menu"
             >
-                <Orbit size={17} strokeWidth={1.9} />
+                <Settings2 size={16} strokeWidth={1.9} />
             </button>
 
             {open ? (
                 <div
                     role="menu"
                     data-testid="floating-player-background-menu"
-                    className={`absolute right-0 z-40 w-[268px] overflow-visible rounded-2xl border p-2 pb-3 shadow-[0_18px_48px_rgba(0,0,0,0.35)] backdrop-blur-2xl ${
+                    className={`absolute right-0 z-40 w-[256px] max-h-[min(72vh,460px)] overflow-y-auto overflow-x-hidden rounded-2xl border p-1.5 pb-2 shadow-[0_18px_48px_rgba(0,0,0,0.35)] backdrop-blur-2xl ${
                         isDaylight
                             ? 'border-black/10 bg-white/92'
                             : 'border-white/12 bg-black/82'
@@ -158,7 +158,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                     }`}>
                         {backgroundMenuLabel}
                     </div>
-                    <div className={`mb-1.5 grid grid-cols-3 gap-1 rounded-xl p-1 ${
+                    <div className={`mb-1.5 grid grid-cols-3 gap-0.5 rounded-xl p-0.5 ${
                         isDaylight ? 'bg-black/[0.04]' : 'bg-white/[0.06]'
                     }`}>
                         {DOCK_BACKGROUND_MODES.map(mode => {
@@ -186,7 +186,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                             }`}>
                                 {presetSectionLabel}
                             </div>
-                            <div className="mb-1.5 grid grid-cols-3 gap-1">
+<div className="mb-1.5 grid grid-cols-3 gap-0.5">
                                 {INTERACTIVE3D_VISUAL_PRESET_OPTIONS.map(preset => {
                                     const selected = interactive3dSceneTuning.visualPreset === preset;
                                     return (
@@ -221,7 +221,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                     }`}>
                         {lyricsStyleSectionLabel}
                     </div>
-                    <div className="mb-1.5 grid grid-cols-4 gap-1" data-testid="floating-player-lyrics-style-group">
+                    <div className="mb-1.5 grid grid-cols-4 gap-0.5" data-testid="floating-player-lyrics-style-group">
                         {VISUALIZER_REGISTRY.map(entry => {
                             const selected = entry.mode === visualizerMode;
                             return (
@@ -247,16 +247,17 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                             }`}>
                                 {lyricColorSectionLabel}
                             </div>
-                            <div className={`rounded-xl p-1 ${isDaylight ? 'bg-black/[0.04]' : 'bg-white/[0.06]'}`}>
+                            <div className={`rounded-xl p-0.5 ${isDaylight ? 'bg-black/[0.04]' : 'bg-white/[0.06]'}`}>
                                 <LyricColorPresetGrid
+                                    compact
                                     onSelect={onApplyLyricColorPreset}
                                     activePresetId={resolveActiveLyricColorPresetId(
                                         theme,
                                         isDaylight ? 'light' : 'dark',
                                     )}
                                     isDaylight={isDaylight}
-                                    className="grid-cols-3 gap-0.5"
-                                    buttonClassName="w-full rounded-lg px-1.5 py-1"
+                                    className="!grid-cols-2 gap-0.5"
+                                    buttonClassName="w-full rounded-md px-1.5 py-1"
                                     inactiveButtonClassName={isDaylight
                                         ? 'text-black/65 hover:bg-black/5'
                                         : 'text-white/88 hover:bg-white/10'}

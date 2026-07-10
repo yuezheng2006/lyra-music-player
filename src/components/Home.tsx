@@ -23,6 +23,8 @@ import {
     resolveHomeContentBottomPaddingClass,
     resolveHomeSolidBackgroundClass,
 } from './app/home/homeSurfaceStyles';
+import { isProviderDefaultPlaylist, QISHUI_DEFAULT_PLAYLIST_ID } from '../utils/onlineDefaultPlaylists';
+import { SearchClearButton } from './shared/SearchClearButton';
 
 interface HomeProps {
     onPlaySong: (
@@ -170,19 +172,22 @@ const Home: React.FC<HomeProps> = ({
     const isDaylight = useSettingsUiStore(state => state.isDaylight);
     const {
         homeViewTab,
-        searchQuery,
-        setSearchQuery,
+        homeSearchQuery,
+        setHomeSearchQuery,
         isSearching,
         submitSearch,
+        openPeerSearchChannel,
     } = useSearchNavigationStore(useShallow(state => ({
         homeViewTab: state.homeViewTab,
-        searchQuery: state.searchQuery,
-        setSearchQuery: state.setSearchQuery,
+        homeSearchQuery: state.homeSearchQuery,
+        setHomeSearchQuery: state.setHomeSearchQuery,
         isSearching: state.isSearching,
         submitSearch: state.submitSearch,
+        openPeerSearchChannel: state.openPeerSearchChannel,
     })));
     const viewTab = homeViewTab;
     const searchProvider = useOnlineLibraryFilterStore(state => state.searchProvider);
+    const setSearchProvider = useOnlineLibraryFilterStore(state => state.setSearchProvider);
     const playlistProviders = useOnlineLibraryFilterStore(state => state.playlistProviders);
     const hasNeteaseLogin = hasNeteaseSession(user);
     const hasQQLogin = hasQQMusicSession();
@@ -202,13 +207,15 @@ const Home: React.FC<HomeProps> = ({
         ? t('home.searchMultiSources')
         : (searchableProviders[0] || searchProvider) === 'qq'
             ? t('home.searchQQMusic')
-            : (searchableProviders[0] || searchProvider) === 'coco'
-                ? t('home.searchCocoMusic')
-                : t('home.searchDatabase');
+            : (searchableProviders[0] || searchProvider) === 'qishui'
+                ? t('home.searchQishuiMusic')
+                : (searchableProviders[0] || searchProvider) === 'coco'
+                    ? t('home.searchCocoMusic')
+                    : t('home.searchDatabase');
     // const isDaylight = theme.name === 'Daylight Default'; // Deprecated, passed as prop
 
     useEffect(() => {
-        // Free peer provider (coco) keeps the online home available without login.
+        // Free peer providers (coco / qishui) keep the online home available without login.
         useOnlineGuestStore.getState().enter();
     }, []);
 
@@ -309,7 +316,7 @@ const Home: React.FC<HomeProps> = ({
 
     const handleSearch = async (e?: React.FormEvent) => {
         e?.preventDefault();
-        const query = searchQuery.trim();
+        const query = homeSearchQuery.trim();
         if (!query) return;
 
         const sourceTab = viewTab === 'playlist'
@@ -458,11 +465,17 @@ const Home: React.FC<HomeProps> = ({
                                     <input
                                         type="text"
                                         placeholder={homeSearchPlaceholder}
-                                        value={searchQuery}
-                                        onChange={e => setSearchQuery(e.target.value)}
+                                        value={homeSearchQuery}
+                                        onChange={e => setHomeSearchQuery(e.target.value)}
 
-                                        className={`w-full ${inputBg} border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-white/20 transition-all placeholder:text-current placeholder:opacity-40`}
+                                        className={`w-full ${inputBg} border border-white/10 rounded-full py-2 pl-10 pr-9 text-sm focus:outline-none focus:border-white/20 transition-all placeholder:text-current placeholder:opacity-40`}
                                         style={{ color: 'var(--text-primary)' }}
+                                    />
+                                    <SearchClearButton
+                                        visible={Boolean(homeSearchQuery)}
+                                        onClear={() => setHomeSearchQuery('')}
+                                        label={t('app.clearSearch')}
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2"
                                     />
                                 </form>
                             </div>
@@ -494,6 +507,11 @@ const Home: React.FC<HomeProps> = ({
                                     <Carousel3D
                                         items={playlistCards.map(p => ({
                                             ...p,
+                                            name: p.specialType === 'provider-default'
+                                                ? (p.musicProvider === 'qishui'
+                                                    ? t('home.qishuiProvider')
+                                                    : t('home.cocoProvider'))
+                                                : p.name,
                                             coverUrl: p.coverImgUrl,
                                             musicProvider: p.musicProvider === 'qq' || p.musicProvider === 'qishui' || p.musicProvider === 'coco'
                                                 ? p.musicProvider
@@ -501,10 +519,27 @@ const Home: React.FC<HomeProps> = ({
                                             description: p.specialType === 'cloud'
                                                 ? t('home.cloud')
                                                 : p.specialType === 'provider-default'
-                                                    ? t('home.cocoDefaultDescription')
+                                                    ? (p.musicProvider === 'qishui'
+                                                        ? t('home.qishuiDefaultDescription')
+                                                        : t('home.cocoDefaultDescription'))
                                                     : p.creator?.nickname,
                                         }))}
-                                        onSelect={(pl) => onSelectPlaylist(pl as any)}
+                                        onSelect={(pl) => {
+                                            const playlist = pl as NeteasePlaylist;
+                                            if (isProviderDefaultPlaylist(playlist)) {
+                                                const provider = playlist.musicProvider === 'qishui'
+                                                    || (playlist.musicProvider !== 'coco' && playlist.id === QISHUI_DEFAULT_PLAYLIST_ID)
+                                                    ? 'qishui'
+                                                    : 'coco';
+                                                setSearchProvider(provider);
+                                                openPeerSearchChannel({
+                                                    sourceTab: provider,
+                                                    returnView: 'home',
+                                                });
+                                                return;
+                                            }
+                                            onSelectPlaylist(playlist);
+                                        }}
                                         isLoading={false}
                                         emptyMessage={playlistCards.length === 0
                                             ? t('home.noFilteredPlaylists')

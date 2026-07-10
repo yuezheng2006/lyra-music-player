@@ -29,6 +29,7 @@ import type { NavidromeMatchData } from '../components/modal/NaviLyricMatchModal
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
 import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState, getOnlineLyricsStateCacheKey } from '../utils/onlineLyricsState';
 import { getBlobObjectUrlSignature, isBlob } from '../utils/blobGuards';
+import { useRequestedQueueStore } from '../stores/useRequestedQueueStore';
 
 // src/hooks/useLibraryPlaybackController.ts
 
@@ -536,6 +537,10 @@ export function useLibraryPlaybackController({
         }
 
         setPlayQueue(nextQueue);
+        useRequestedQueueStore.getState().addSongs(affectedSongs, {
+            currentSong,
+            behavior: queueAddBehavior,
+        });
         void persistLastPlaybackCache(currentSong, nextQueue);
         setStatusMsg({
             type: 'success',

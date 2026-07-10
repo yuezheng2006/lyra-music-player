@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import VisualizerRenderer from '@/components/visualizer/VisualizerRenderer';
@@ -18,6 +19,7 @@ import type { AppControllerResult } from '@/hooks/useAppController';
 import { AppAudioElement } from '@/components/app/root/AppAudioElement';
 import { useAppSidebarCollapse } from '@/hooks/useAppSidebarCollapse';
 import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
+import { useDailyRecommendStore } from '@/stores/useDailyRecommendStore';
 import type { AppSidebarActive } from '@/components/app/chrome/AppSidebar';
 
 interface AppRootViewProps {
@@ -28,6 +30,22 @@ export function AppRootView({ controller }: AppRootViewProps) {
     const { t } = useTranslation();
     const homeViewTab = useSearchNavigationStore(state => state.homeViewTab);
     const setHomeViewTab = useSearchNavigationStore(state => state.setHomeViewTab);
+    const preloadDailyRecommend = useDailyRecommendStore(state => state.preload);
+
+    // Warm daily recommend in the background so opening the tab feels instant.
+    useEffect(() => {
+        const win = window as Window & {
+            requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+            cancelIdleCallback?: (id: number) => void;
+        };
+        if (typeof win.requestIdleCallback === 'function') {
+            const id = win.requestIdleCallback(() => preloadDailyRecommend(), { timeout: 2500 });
+            return () => win.cancelIdleCallback?.(id);
+        }
+        const timer = window.setTimeout(() => preloadDailyRecommend(), 800);
+        return () => window.clearTimeout(timer);
+    }, [preloadDailyRecommend]);
+
     const {
         activePlaybackContext,
         appDialogsModel,
@@ -188,14 +206,12 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 {!immersiveCanvas ? (
                     <AppSidebar
                         active={((): AppSidebarActive => {
-                            if (currentView === 'player') return 'listening';
                             if (homeViewTab === 'daily') return 'daily';
                             if (homeViewTab === 'podcast') return 'podcast';
                             if (homeViewTab === 'local') return 'local';
                             return 'home';
                         })()}
                         isDaylight={isDaylight}
-                        hasCurrentSong={Boolean(currentSong)}
                         collapsed={sidebarCollapsed}
                         onToggleCollapsed={toggleCollapsed}
                         onOpenHome={() => {
@@ -214,7 +230,6 @@ export function AppRootView({ controller }: AppRootViewProps) {
                             setHomeViewTab('local');
                             navigateDirectHome({ clearContext: false });
                         }}
-                        onOpenListeningMode={navigateToPlayer}
                         onOpenSettings={() => openSettings('options')}
                     />
                 ) : null}

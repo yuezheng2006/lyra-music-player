@@ -108,8 +108,20 @@ export const useMineradioPlaybackRuntime = ({
         });
         observer.observe(container);
 
+        const syncSizeFromContainer = () => {
+            const width = container.clientWidth || container.getBoundingClientRect().width;
+            const height = container.clientHeight || container.getBoundingClientRect().height;
+            coverRuntimeRef.current?.resize(width, height);
+        };
+        window.addEventListener('resize', syncSizeFromContainer);
+        document.addEventListener('fullscreenchange', syncSizeFromContainer);
+        // Sidebar / immersive chrome can change the flex stage without a window resize event.
+        requestAnimationFrame(syncSizeFromContainer);
+
         return () => {
             observer.disconnect();
+            window.removeEventListener('resize', syncSizeFromContainer);
+            document.removeEventListener('fullscreenchange', syncSizeFromContainer);
             coverRuntimeRef.current?.dispose();
             coverRuntimeRef.current = null;
         };

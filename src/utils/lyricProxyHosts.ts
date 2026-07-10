@@ -15,6 +15,10 @@ export function isAllowedLyricProxyHost(hostname: string): boolean {
     host.endsWith('.126.net') ||
     host === '163.com' ||
     host.endsWith('.163.com') ||
+    host === 'douyinpic.com' ||
+    host.endsWith('.douyinpic.com') ||
+    host === 'byteimg.com' ||
+    host.endsWith('.byteimg.com') ||
     host === 'amll-ttml-db.stevexmh.net'
   );
 }
@@ -40,6 +44,14 @@ export function resolveCoverProxyReferer(url: string): string {
     }
     if (host === 'kugou.com' || host.endsWith('.kugou.com')) {
       return 'https://www.kugou.com/';
+    }
+    if (
+      host === 'douyinpic.com'
+      || host.endsWith('.douyinpic.com')
+      || host === 'byteimg.com'
+      || host.endsWith('.byteimg.com')
+    ) {
+      return 'https://qishui.douyin.com/';
     }
   } catch {
     // ignore invalid urls

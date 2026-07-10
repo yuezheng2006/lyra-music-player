@@ -1,14 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, AudioLines, Maximize, Minimize, ListMusic } from 'lucide-react';
+import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Maximize, Minimize, Maximize2 } from 'lucide-react';
 import { MotionValue } from 'framer-motion';
 import ProgressBar from './ProgressBar';
 import FloatingPlayerBackgroundMenu from './FloatingPlayerBackgroundMenu';
 import FloatingPlayerDockTime from './FloatingPlayerDockTime';
+import FloatingPlayerQueueMenu from './FloatingPlayerQueueMenu';
 import {
     PlayerState,
     LyricData,
     Theme,
+    SongResult,
     type Interactive3dSceneTuning,
     type MineradioVisualPresetId,
     type VisualizerBackgroundMode,
@@ -17,6 +19,7 @@ import {
 import type { LyricColorPresetId } from '../utils/theme/lyricColorPresets';
 import LyricsTimelineModal from './modal/LyricsTimelineModal';
 import { getSizedCoverUrl } from '../utils/coverUrl';
+import { useRequestedQueueStore } from '../stores/useRequestedQueueStore';
 import { getMineradioPresetLabelFallback } from './visualizer/geometric/mineradioVisualPresets';
 import {
     FLOATING_PLAYER_DOCK_MAX_WIDTH_PX,
@@ -26,17 +29,19 @@ import {
 } from './floatingPlayerDockLayout';
 
 // src/components/FloatingPlayerControls.tsx
-// Mineradio-style floating dock: left meta, center transport, right tool cluster.
+// Floating dock: left meta, center transport, right tool chips.
 
 type AudioQuality = 'exhigh' | 'lossless' | 'hires';
 
 type FloatingSong = {
+    id?: number;
     name: string;
     artists?: Array<{ name: string }>;
     ar?: Array<{ name: string }>;
 };
 
 const AUDIO_QUALITY_OPTIONS: AudioQuality[] = ['exhigh', 'lossless', 'hires'];
+const TRANSPORT_ICON_STROKE = 2.1;
 
 const formatSongArtists = (song: FloatingSong | null | undefined): string => {
     const names = song?.ar?.map(artist => artist.name).filter(Boolean)
@@ -45,22 +50,42 @@ const formatSongArtists = (song: FloatingSong | null | undefined): string => {
     return names.join(', ');
 };
 
-const buildLyricsToggleButtonClass = (
-    playerLyricsVisible: boolean,
+/** Soft text chip — 音质等次要徽章。 */
+const buildTextChipClass = (
+    active: boolean,
     isDaylight: boolean | undefined,
-    controlsDisabled: boolean,
+    disabled: boolean,
 ) => {
-    if (controlsDisabled) {
-        return 'opacity-35 cursor-not-allowed';
+    if (disabled) {
+        return 'opacity-30 cursor-not-allowed';
     }
-    if (playerLyricsVisible) {
+    if (active) {
         return isDaylight
-            ? 'bg-black/10 text-black'
-            : 'bg-white/[0.10] text-white';
+            ? 'bg-black/[0.10] text-black'
+            : 'bg-white/[0.14] text-white';
     }
     return isDaylight
-        ? 'text-black/55 hover:bg-black/[0.05] hover:text-black'
-        : 'text-white/70 hover:bg-white/[0.045] hover:text-white';
+        ? 'bg-black/[0.05] text-black/55 hover:bg-black/[0.08] hover:text-black/78'
+        : 'bg-white/[0.08] text-white/62 hover:bg-white/[0.12] hover:text-white/88';
+};
+
+/** 特效 / 词：开=实心高对比，关=描边弱化，一眼可辨。 */
+const buildModeToggleChipClass = (
+    active: boolean,
+    isDaylight: boolean | undefined,
+    disabled: boolean,
+) => {
+    if (disabled) {
+        return 'opacity-30 cursor-not-allowed';
+    }
+    if (active) {
+        return isDaylight
+            ? 'bg-zinc-900 text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset] ring-1 ring-black/15'
+            : 'bg-white text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.55)]';
+    }
+    return isDaylight
+        ? 'bg-transparent text-black/32 ring-1 ring-black/12 hover:text-black/55 hover:bg-black/[0.04]'
+        : 'bg-transparent text-white/32 ring-1 ring-white/14 hover:text-white/62 hover:bg-white/[0.06]';
 };
 
 const buildToolButtonClass = (
@@ -73,12 +98,12 @@ const buildToolButtonClass = (
     }
     if (active) {
         return isDaylight
-            ? 'bg-black/[0.08] text-black'
-            : 'bg-white/[0.08] text-[rgba(210,244,241,0.92)]';
+            ? 'text-black bg-black/[0.08]'
+            : 'text-white bg-white/[0.12]';
     }
     return isDaylight
-        ? 'text-black/55 hover:bg-black/[0.05] hover:text-black'
-        : 'text-white/70 hover:bg-white/[0.045] hover:text-white';
+        ? 'text-black/55 hover:text-black hover:bg-black/[0.05]'
+        : 'text-white/70 hover:text-white hover:bg-white/[0.08]';
 };
 
 interface FloatingPlayerControlsProps {
@@ -102,7 +127,7 @@ interface FloatingPlayerControlsProps {
     onNextTrack?: () => void;
     onTogglePlayerLyricsVisible?: () => void;
     onNavigateToPlayer: () => void;
-    onNavigateToPlaylist?: () => void;
+    onNavigateToHome?: () => void;
     noTrackText?: string;
     primaryColor?: string;
     secondaryColor?: string;
@@ -114,7 +139,7 @@ interface FloatingPlayerControlsProps {
     showLyricsLabel?: string;
     hideLyricsLabel?: string;
     listeningModeLabel?: string;
-    backToPlaylistLabel?: string;
+    listeningModeShortLabel?: string;
     previousTrackLabel?: string;
     nextTrackLabel?: string;
     playLabel?: string;
@@ -122,6 +147,9 @@ interface FloatingPlayerControlsProps {
     loopOffLabel?: string;
     loopListLabel?: string;
     loopOneLabel?: string;
+    playQueue?: SongResult[];
+    onPlayQueueSong?: (song: SongResult, queue: SongResult[]) => void;
+    queueLabel?: string;
     isImmersiveFullscreen?: boolean;
     onToggleImmersiveFullscreen?: () => void;
     enterFullscreenLabel?: string;
@@ -175,7 +203,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     onNextTrack,
     onTogglePlayerLyricsVisible,
     onNavigateToPlayer,
-    onNavigateToPlaylist,
+    onNavigateToHome,
     noTrackText = 'No Track',
     primaryColor = 'var(--text-primary)',
     secondaryColor = 'var(--text-secondary)',
@@ -187,7 +215,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     showLyricsLabel = 'Show lyrics',
     hideLyricsLabel = 'Hide lyrics',
     listeningModeLabel = 'Listening mode',
-    backToPlaylistLabel = 'Back to playlist',
+    listeningModeShortLabel = 'Listen',
     previousTrackLabel = 'Previous track',
     nextTrackLabel = 'Next track',
     playLabel = 'Play',
@@ -195,6 +223,9 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     loopOffLabel = 'Loop: off',
     loopListLabel = 'Loop: list',
     loopOneLabel = 'Loop: one',
+    playQueue = [],
+    onPlayQueueSong,
+    queueLabel = 'Play queue',
     isImmersiveFullscreen = false,
     onToggleImmersiveFullscreen,
     enterFullscreenLabel = 'Fullscreen',
@@ -227,8 +258,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
 }) => {
     // Timeline modal kept mounted for minimal churn; dock no longer opens it.
     const [isTimelineOpen, setIsTimelineOpen] = useState(false);
-    const showListeningEntry = currentView === 'home';
-    const showBackToPlaylist = currentView === 'player' && Boolean(onNavigateToPlaylist);
+    const effectsModeActive = currentView === 'player';
     const trackColor = isDaylight ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.10)';
     const canSwitchBackground = Boolean(
         interactive3dSceneTuning
@@ -298,8 +328,14 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         onPrevTrack={onPrevTrack}
                         onNextTrack={onNextTrack}
                         onTogglePlayerLyricsVisible={handleToggleLyrics}
-                        onEnterListeningMode={showListeningEntry ? onNavigateToPlayer : undefined}
-                        onBackToPlaylist={showBackToPlaylist ? onNavigateToPlaylist : undefined}
+                        onToggleEffectsMode={() => {
+                            if (effectsModeActive) {
+                                onNavigateToHome?.();
+                                return;
+                            }
+                            onNavigateToPlayer();
+                        }}
+                        effectsModeActive={effectsModeActive}
                         noTrackText={noTrackText}
                         primaryColor={primaryColor}
                         secondaryColor={secondaryColor}
@@ -309,7 +345,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         showLyricsLabel={showLyricsLabel}
                         hideLyricsLabel={hideLyricsLabel}
                         listeningModeLabel={listeningModeLabel}
-                        backToPlaylistLabel={backToPlaylistLabel}
+                        listeningModeShortLabel={listeningModeShortLabel}
                         previousTrackLabel={previousTrackLabel}
                         nextTrackLabel={nextTrackLabel}
                         playLabel={playLabel}
@@ -317,6 +353,9 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         loopOffLabel={loopOffLabel}
                         loopListLabel={loopListLabel}
                         loopOneLabel={loopOneLabel}
+                        playQueue={playQueue}
+                        onPlayQueueSong={onPlayQueueSong}
+                        queueLabel={queueLabel}
                         isImmersiveFullscreen={isImmersiveFullscreen}
                         onToggleImmersiveFullscreen={onToggleImmersiveFullscreen}
                         enterFullscreenLabel={enterFullscreenLabel}
@@ -388,8 +427,8 @@ type DockedBarProps = {
     onPrevTrack?: () => void;
     onNextTrack?: () => void;
     onTogglePlayerLyricsVisible?: () => void;
-    onEnterListeningMode?: () => void;
-    onBackToPlaylist?: () => void;
+    onToggleEffectsMode?: () => void;
+    effectsModeActive?: boolean;
     noTrackText: string;
     primaryColor: string;
     secondaryColor: string;
@@ -399,7 +438,7 @@ type DockedBarProps = {
     showLyricsLabel: string;
     hideLyricsLabel: string;
     listeningModeLabel: string;
-    backToPlaylistLabel: string;
+    listeningModeShortLabel: string;
     previousTrackLabel: string;
     nextTrackLabel: string;
     playLabel: string;
@@ -407,6 +446,9 @@ type DockedBarProps = {
     loopOffLabel: string;
     loopListLabel: string;
     loopOneLabel: string;
+    playQueue: SongResult[];
+    onPlayQueueSong?: (song: SongResult, queue: SongResult[]) => void;
+    queueLabel: string;
     isImmersiveFullscreen: boolean;
     onToggleImmersiveFullscreen?: () => void;
     enterFullscreenLabel: string;
@@ -455,8 +497,8 @@ const DockedBar: React.FC<DockedBarProps> = ({
     onPrevTrack,
     onNextTrack,
     onTogglePlayerLyricsVisible,
-    onEnterListeningMode,
-    onBackToPlaylist,
+    onToggleEffectsMode,
+    effectsModeActive = false,
     noTrackText,
     primaryColor,
     secondaryColor,
@@ -466,7 +508,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
     showLyricsLabel,
     hideLyricsLabel,
     listeningModeLabel,
-    backToPlaylistLabel,
+    listeningModeShortLabel,
     previousTrackLabel,
     nextTrackLabel,
     playLabel,
@@ -474,6 +516,9 @@ const DockedBar: React.FC<DockedBarProps> = ({
     loopOffLabel,
     loopListLabel,
     loopOneLabel,
+    playQueue,
+    onPlayQueueSong,
+    queueLabel,
     isImmersiveFullscreen,
     onToggleImmersiveFullscreen,
     enterFullscreenLabel,
@@ -511,12 +556,24 @@ const DockedBar: React.FC<DockedBarProps> = ({
     const coverArtUrl = coverUrl ? getSizedCoverUrl(coverUrl, 96) : null;
     const artistLabel = formatSongArtists(currentSong);
     const loopActive = loopMode !== 'off';
-    const mutedTransportColor = isDaylight ? 'rgba(0,0,0,0.52)' : 'rgba(255,255,255,0.70)';
     const artistColor = isDaylight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.48)';
     const titleColor = isDaylight ? 'rgba(0,0,0,0.88)' : 'rgba(255,255,255,0.92)';
     const [qualityMenuOpen, setQualityMenuOpen] = useState(false);
     const [backgroundMenuOpen, setBackgroundMenuOpen] = useState(false);
+    const [queueMenuOpen, setQueueMenuOpen] = useState(false);
     const qualityMenuRef = useRef<HTMLDivElement>(null);
+    const autoSeedNotice = useRequestedQueueStore(state => state.autoSeedNotice);
+    const clearAutoSeedNotice = useRequestedQueueStore(state => state.clearAutoSeedNotice);
+    const highlightAutoSeed = Boolean(autoSeedNotice);
+
+    useEffect(() => {
+        if (!autoSeedNotice) return undefined;
+        setQueueMenuOpen(true);
+        const timer = window.setTimeout(() => {
+            clearAutoSeedNotice();
+        }, 5200);
+        return () => window.clearTimeout(timer);
+    }, [autoSeedNotice?.at, clearAutoSeedNotice]);
 
     const qualityLabels: Record<AudioQuality, string> = {
         exhigh: qualityExhighLabel,
@@ -525,9 +582,9 @@ const DockedBar: React.FC<DockedBarProps> = ({
     };
 
     useEffect(() => {
-        onDockPopoverOpenChange?.(qualityMenuOpen || backgroundMenuOpen);
+        onDockPopoverOpenChange?.(qualityMenuOpen || backgroundMenuOpen || queueMenuOpen);
         return () => onDockPopoverOpenChange?.(false);
-    }, [backgroundMenuOpen, onDockPopoverOpenChange, qualityMenuOpen]);
+    }, [backgroundMenuOpen, onDockPopoverOpenChange, qualityMenuOpen, queueMenuOpen]);
 
     useEffect(() => {
         if (!qualityMenuOpen) return;
@@ -544,7 +601,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
         <div className="relative h-full w-full overflow-visible">
             {/* Edge scrubber inset clears capsule corners so the rail is not clipped. */}
             <div
-                className="absolute top-[7px] z-20 overflow-visible"
+                className="absolute top-[4px] z-20 overflow-visible"
                 style={{
                     left: FLOATING_PLAYER_PROGRESS_INSET_PX,
                     right: FLOATING_PLAYER_PROGRESS_INSET_PX,
@@ -563,42 +620,133 @@ const DockedBar: React.FC<DockedBarProps> = ({
                 />
             </div>
 
-            <div className="grid h-full grid-cols-[minmax(0,1.08fr)_auto_minmax(0,1.08fr)] items-center gap-3 px-5 pt-2.5 sm:gap-4 sm:px-6 md:px-7">
+            {/* Left meta · Center transport · Right tools */}
+            <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-5 pt-2.5 sm:gap-3 sm:px-6 md:px-7">
                 <div className="flex min-w-0 items-center gap-3 text-left">
-                    <div
-                        className="relative h-[52px] w-[52px] shrink-0 overflow-hidden rounded-[12px]"
-                        style={{
-                            boxShadow: isDaylight
-                                ? '0 8px 22px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.35)'
-                                : '0 10px 28px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.20), inset 0 0 0 1px rgba(255,255,255,0.08)',
-                            background: isDaylight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.07)',
-                        }}
-                    >
-                        {coverArtUrl ? (
-                            <img
-                                src={coverArtUrl}
-                                alt=""
-                                className="h-full w-full object-cover"
-                                draggable={false}
-                            />
-                        ) : (
-                            <div className="flex h-full w-full items-center justify-center opacity-45" style={{ color: titleColor }}>
-                                <Disc3 size={20} strokeWidth={1.75} />
-                            </div>
-                        )}
-                    </div>
-                    <div className="min-w-0 flex-1 max-w-[220px] sm:max-w-[280px]">
-                        <div className="truncate text-[13.5px] font-bold leading-snug tracking-tight" style={{ color: titleColor }}>
+                    {effectsModeActive || !onToggleEffectsMode ? (
+                        <div
+                            className="relative h-[48px] w-[48px] shrink-0 overflow-hidden rounded-[14px]"
+                            style={{
+                                boxShadow: isDaylight
+                                    ? '0 8px 20px rgba(0,0,0,0.14)'
+                                    : '0 10px 24px rgba(0,0,0,0.32)',
+                                background: coverArtUrl
+                                    ? 'transparent'
+                                    : (isDaylight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.07)'),
+                            }}
+                        >
+                            {coverArtUrl ? (
+                                <img
+                                    src={coverArtUrl}
+                                    alt=""
+                                    className="absolute inset-0 block h-full w-full scale-[1.02] object-cover"
+                                    draggable={false}
+                                />
+                            ) : (
+                                <div className="flex h-full w-full items-center justify-center opacity-45" style={{ color: titleColor }}>
+                                    <Disc3 size={18} strokeWidth={1.75} />
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={onToggleEffectsMode}
+                            disabled={controlsDisabled}
+                            className={`group relative h-[48px] w-[48px] shrink-0 overflow-hidden rounded-[14px] transition-transform duration-180 ${
+                                controlsDisabled ? 'opacity-45 cursor-not-allowed' : 'hover:scale-[1.04] active:scale-95'
+                            }`}
+                            style={{
+                                boxShadow: isDaylight
+                                    ? '0 8px 20px rgba(0,0,0,0.14)'
+                                    : '0 10px 24px rgba(0,0,0,0.32)',
+                                background: coverArtUrl
+                                    ? 'transparent'
+                                    : (isDaylight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.07)'),
+                            }}
+                            title={listeningModeLabel}
+                            aria-label={listeningModeLabel}
+                            data-testid="floating-player-cover-enter-effects"
+                        >
+                            {coverArtUrl ? (
+                                <img
+                                    src={coverArtUrl}
+                                    alt=""
+                                    className="absolute inset-0 block h-full w-full scale-[1.02] object-cover"
+                                    draggable={false}
+                                />
+                            ) : (
+                                <div className="flex h-full w-full items-center justify-center opacity-45" style={{ color: titleColor }}>
+                                    <Disc3 size={18} strokeWidth={1.75} />
+                                </div>
+                            )}
+                            {/* Qishui-style expand cue: tap cover to enter effects mode. */}
+                            <span
+                                aria-hidden
+                                className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 opacity-70 transition-opacity duration-180 group-hover:opacity-100"
+                            >
+                                <Maximize2 size={16} strokeWidth={2.2} className="text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)]" />
+                            </span>
+                        </button>
+                    )}
+                    <div className="min-w-0 max-w-[160px] sm:max-w-[220px] md:max-w-[260px]">
+                        <div className="truncate text-[13px] font-bold leading-snug tracking-tight" style={{ color: titleColor }}>
                             {currentSong?.name || noTrackText}
                         </div>
                         {artistLabel ? (
-                            <div className="mt-[3px] truncate text-[11.5px] font-normal leading-snug" style={{ color: artistColor }}>
+                            <div className="mt-[2px] truncate text-[11px] font-normal leading-snug" style={{ color: artistColor }}>
                                 {artistLabel}
                             </div>
                         ) : null}
                     </div>
+                </div>
 
-                    {/* Mineradio: quality pill sits with track meta on the left cluster. */}
+                <div className="flex shrink-0 items-center justify-center gap-0.5 px-1 sm:gap-1">
+                    <button
+                        type="button"
+                        onClick={() => onPrevTrack?.()}
+                        disabled={skipDisabled || !onPrevTrack}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, skipDisabled || !onPrevTrack)}`}
+                        title={previousTrackLabel}
+                        aria-label={previousTrackLabel}
+                    >
+                        <SkipBack size={18} strokeWidth={TRANSPORT_ICON_STROKE} />
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={onTogglePlay}
+                        disabled={!canTogglePlay || controlsDisabled}
+                        className={`mx-0.5 flex h-9 min-w-[56px] items-center justify-center rounded-full px-4 transition-transform shrink-0 sm:min-w-[64px] ${
+                            controlsDisabled ? 'opacity-45 cursor-not-allowed' : 'hover:scale-[1.03] active:scale-95'
+                        }`}
+                        style={{
+                            backgroundColor: isDaylight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.12)',
+                            color: isDaylight ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.96)',
+                        }}
+                        title={playerState === PlayerState.PLAYING ? pauseLabel : playLabel}
+                        aria-label={playerState === PlayerState.PLAYING ? pauseLabel : playLabel}
+                    >
+                        {playerState === PlayerState.PLAYING ? (
+                            <Pause size={18} strokeWidth={TRANSPORT_ICON_STROKE} />
+                        ) : (
+                            <Play size={18} strokeWidth={TRANSPORT_ICON_STROKE} className="ml-0.5" />
+                        )}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => onNextTrack?.()}
+                        disabled={skipDisabled || !onNextTrack}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, skipDisabled || !onNextTrack)}`}
+                        title={nextTrackLabel}
+                        aria-label={nextTrackLabel}
+                    >
+                        <SkipForward size={18} strokeWidth={TRANSPORT_ICON_STROKE} />
+                    </button>
+                </div>
+
+                <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-1.5">
                     <div className="relative shrink-0" ref={qualityMenuRef}>
                         <button
                             type="button"
@@ -607,18 +755,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
                                 setQualityMenuOpen(open => !open);
                             }}
                             disabled={qualityDisabled}
-                            className={`inline-flex h-9 min-w-[56px] items-center justify-center rounded-[13px] px-[11px] text-[11px] font-extrabold tracking-[0.2px] transition-colors ${
-                                qualityDisabled
-                                    ? 'opacity-25 cursor-not-allowed'
-                                    : qualityMenuOpen
-                                        ? (isDaylight ? 'bg-black/12 text-black' : 'bg-white/[0.12] text-white')
-                                        : (isDaylight
-                                            ? 'bg-black/[0.04] text-black/70 hover:bg-black/[0.07]'
-                                            : 'bg-white/[0.038] text-[rgba(237,245,255,0.82)] hover:bg-white/[0.07]')
-                            }`}
-                            style={{
-                                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
-                            }}
+                            className={`inline-flex h-8 min-w-[44px] items-center justify-center rounded-full px-2.5 text-[11px] font-semibold tracking-[0.2px] transition-colors ${buildTextChipClass(qualityMenuOpen, isDaylight, qualityDisabled)}`}
                             title={audioQualityLabel}
                             aria-label={audioQualityLabel}
                             aria-expanded={qualityMenuOpen}
@@ -630,7 +767,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         {qualityMenuOpen ? (
                             <div
                                 role="menu"
-                                className={`absolute left-0 z-30 min-w-[132px] overflow-hidden rounded-[14px] border p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.38)] backdrop-blur-xl ${
+                                className={`absolute right-0 z-30 min-w-[132px] overflow-hidden rounded-[14px] border p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.38)] backdrop-blur-xl ${
                                     isDaylight
                                         ? 'border-black/10 bg-white/95'
                                         : 'border-white/10 bg-black/82'
@@ -663,98 +800,22 @@ const DockedBar: React.FC<DockedBarProps> = ({
                             </div>
                         ) : null}
                     </div>
-                </div>
 
-                {/* Center transport: loop · prev · play · next · queue */}
-                <div className="flex shrink-0 items-center justify-center gap-1 sm:gap-1.5">
-                    <button
-                        type="button"
-                        onClick={onToggleLoop}
-                        disabled={controlsDisabled}
-                        className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled, loopActive)}`}
-                        title={loopMode === 'off' ? loopOffLabel : loopMode === 'one' ? loopOneLabel : loopListLabel}
-                        aria-label={loopMode === 'off' ? loopOffLabel : loopMode === 'one' ? loopOneLabel : loopListLabel}
-                    >
-                        {loopMode === 'off'
-                            ? <RepeatOff size={18} strokeWidth={1.9} />
-                            : loopMode === 'one'
-                                ? <Repeat1 size={18} strokeWidth={1.9} />
-                                : <Repeat size={18} strokeWidth={1.9} />}
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => onPrevTrack?.()}
-                        disabled={skipDisabled || !onPrevTrack}
-                        className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, skipDisabled || !onPrevTrack)}`}
-                        style={{ color: mutedTransportColor }}
-                        title={previousTrackLabel}
-                        aria-label={previousTrackLabel}
-                    >
-                        <SkipBack size={18} strokeWidth={1.9} />
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={onTogglePlay}
-                        disabled={!canTogglePlay || controlsDisabled}
-                        className={`mx-0.5 flex h-[46px] w-[46px] items-center justify-center rounded-full border-none transition-transform shrink-0 sm:mx-1 ${
-                            controlsDisabled ? 'opacity-45 cursor-not-allowed' : 'hover:scale-[1.04] active:scale-95'
-                        }`}
-                        style={{
-                            backgroundColor: isDaylight ? 'rgba(0,0,0,0.88)' : 'rgba(255,255,255,0.92)',
-                            color: isDaylight ? '#fff' : 'rgba(12,14,18,0.92)',
-                            boxShadow: isDaylight
-                                ? '0 8px 22px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)'
-                                : '0 0 0 1px rgba(255,255,255,0.28), 0 8px 24px rgba(0,0,0,0.28), 0 0 28px rgba(178,229,255,0.12)',
-                        }}
-                        title={playerState === PlayerState.PLAYING ? pauseLabel : playLabel}
-                        aria-label={playerState === PlayerState.PLAYING ? pauseLabel : playLabel}
-                    >
-                        {playerState === PlayerState.PLAYING ? (
-                            <Pause size={20} fill="currentColor" />
-                        ) : (
-                            <Play size={20} fill="currentColor" className="ml-0.5" />
-                        )}
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => onNextTrack?.()}
-                        disabled={skipDisabled || !onNextTrack}
-                        className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, skipDisabled || !onNextTrack)}`}
-                        style={{ color: mutedTransportColor }}
-                        title={nextTrackLabel}
-                        aria-label={nextTrackLabel}
-                    >
-                        <SkipForward size={18} strokeWidth={1.9} />
-                    </button>
-
-                    {onBackToPlaylist ? (
+                    {onToggleEffectsMode ? (
                         <button
                             type="button"
-                            onClick={onBackToPlaylist}
-                            className={`inline-flex h-9 w-9 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, false)}`}
-                            title={backToPlaylistLabel}
-                            aria-label={backToPlaylistLabel}
-                        >
-                            <ListMusic size={18} strokeWidth={1.9} />
-                        </button>
-                    ) : (
-                        <span className="inline-flex h-9 w-9 shrink-0" aria-hidden />
-                    )}
-                </div>
-
-                <div className="flex min-w-0 items-center justify-end gap-0.5 sm:gap-1">
-                    {onEnterListeningMode ? (
-                        <button
-                            type="button"
-                            onClick={onEnterListeningMode}
-                            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, false)}`}
+                            onClick={onToggleEffectsMode}
+                            aria-pressed={effectsModeActive}
+                            className={`inline-flex h-8 shrink-0 items-center justify-center rounded-full px-2.5 text-[11px] font-bold tracking-[0.2px] transition-all duration-180 active:scale-95 ${buildModeToggleChipClass(effectsModeActive, isDaylight, false)}`}
                             title={listeningModeLabel}
                             aria-label={listeningModeLabel}
                         >
-                            <AudioLines size={17} strokeWidth={1.9} />
+                            <span
+                                className="leading-none select-none"
+                                style={{ fontFamily: "'PingFang SC','Microsoft YaHei',sans-serif" }}
+                            >
+                                {listeningModeShortLabel}
+                            </span>
                         </button>
                     ) : null}
 
@@ -764,15 +825,30 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         disabled={lyricsToggleDisabled}
                         aria-pressed={playerLyricsVisible}
                         aria-label={playerLyricsVisible ? hideLyricsLabel : showLyricsLabel}
-                        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] transition-all duration-180 active:scale-95 ${buildLyricsToggleButtonClass(playerLyricsVisible, isDaylight, lyricsToggleDisabled)}`}
+                        className={`inline-flex h-8 min-w-[32px] shrink-0 items-center justify-center rounded-full px-2.5 text-[12px] font-bold transition-all duration-180 active:scale-95 ${buildModeToggleChipClass(playerLyricsVisible, isDaylight, lyricsToggleDisabled)}`}
                         title={playerLyricsVisible ? hideLyricsLabel : showLyricsLabel}
                     >
                         <span
-                            className="text-[13px] font-bold leading-none select-none tracking-wide"
+                            className="leading-none select-none"
                             style={{ fontFamily: "'PingFang SC','Microsoft YaHei',sans-serif" }}
                         >
                             词
                         </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={onToggleLoop}
+                        disabled={controlsDisabled}
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled, loopActive)}`}
+                        title={loopMode === 'off' ? loopOffLabel : loopMode === 'one' ? loopOneLabel : loopListLabel}
+                        aria-label={loopMode === 'off' ? loopOffLabel : loopMode === 'one' ? loopOneLabel : loopListLabel}
+                    >
+                        {loopMode === 'off'
+                            ? <RepeatOff size={16} strokeWidth={TRANSPORT_ICON_STROKE} />
+                            : loopMode === 'one'
+                                ? <Repeat1 size={16} strokeWidth={TRANSPORT_ICON_STROKE} />
+                                : <Repeat size={16} strokeWidth={TRANSPORT_ICON_STROKE} />}
                     </button>
 
                     {canSwitchBackground
@@ -810,14 +886,14 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         <button
                             type="button"
                             onClick={onToggleImmersiveFullscreen}
-                            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] transition-all duration-180 ${buildToolButtonClass(isDaylight, false, isImmersiveFullscreen)}`}
+                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, false, isImmersiveFullscreen)}`}
                             title={isImmersiveFullscreen ? exitFullscreenLabel : enterFullscreenLabel}
                             aria-label={isImmersiveFullscreen ? exitFullscreenLabel : enterFullscreenLabel}
                             aria-pressed={isImmersiveFullscreen}
                         >
                             {isImmersiveFullscreen
-                                ? <Minimize size={17} strokeWidth={1.9} />
-                                : <Maximize size={17} strokeWidth={1.9} />}
+                                ? <Minimize size={16} strokeWidth={TRANSPORT_ICON_STROKE} />
+                                : <Maximize size={16} strokeWidth={TRANSPORT_ICON_STROKE} />}
                         </button>
                     ) : null}
 
@@ -826,10 +902,26 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         duration={duration}
                         isDaylight={isDaylight}
                     />
+
+                    {onPlayQueueSong ? (
+                        <FloatingPlayerQueueMenu
+                            playQueue={playQueue}
+                            currentSongId={currentSong?.id ?? null}
+                            onPlaySong={onPlayQueueSong}
+                            isDaylight={isDaylight}
+                            open={queueMenuOpen}
+                            onOpenChange={setQueueMenuOpen}
+                            disabled={controlsDisabled}
+                            highlightAutoSeed={highlightAutoSeed}
+                            triggerClassName={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled, queueMenuOpen || highlightAutoSeed)}`}
+                            queueLabel={queueLabel}
+                        />
+                    ) : null}
                 </div>
             </div>
         </div>
     );
 };
+
 
 export default FloatingPlayerControls;

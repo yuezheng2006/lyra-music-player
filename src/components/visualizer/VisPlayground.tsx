@@ -49,6 +49,7 @@ import {
 import { getVisualizerModeLabel, getVisualizerRegistryEntry, getVisualizerScopedSeed } from './registry';
 import VisPlaygroundPreviewHotspots, { type VisPlaygroundEditSection } from './VisPlaygroundPreviewHotspots';
 import VisPlaygroundSettingsPanel from './VisPlaygroundSettingsPanel';
+import { SearchClearButton } from '../shared/SearchClearButton';
 
 interface VisPlaygroundProps {
     theme?: Theme;
@@ -1086,6 +1087,11 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                                             placeholder={t('options.searchSystemFont') || '搜索字体'}
                                             className="w-full bg-transparent text-sm outline-none placeholder:opacity-40"
                                             style={{ color: 'var(--text-primary)' }}
+                                        />
+                                        <SearchClearButton
+                                            visible={Boolean(fontSearchQuery)}
+                                            onClear={() => setFontSearchQuery('')}
+                                            label={t('app.clearSearch')}
                                         />
                                     </label>
                                 </div>

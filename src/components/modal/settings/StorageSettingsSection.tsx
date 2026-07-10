@@ -2,6 +2,17 @@ import React from 'react';
 import { Command, Database, Disc3, FolderOpen, Layers, Loader2, Pencil, PlayCircle, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Theme } from '../../../types';
+import SettingsAdvancedSection from './SettingsAdvancedSection';
+import {
+    settingsDescClass,
+    settingsDescStyle,
+    settingsFootnoteClass,
+    settingsFootnoteStyle,
+    settingsSectionTitleClass,
+    settingsSectionTitleStyle,
+    settingsTitleClass,
+    settingsTitleStyle,
+} from './settingsTextStyles';
 
 // src/components/modal/settings/StorageSettingsSection.tsx
 // Shared storage and media cache settings used by the main options page and storage subview.
@@ -68,7 +79,7 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
     return (
         <>
             <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                     <Database size={14} /> {t('options.cacheDetails') || 'Cache Storage'}
                     <button
                         onClick={onClearAll}
@@ -88,8 +99,8 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
                                     <item.icon size={16} />
                                 </div>
                                 <div>
-                                    <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.label}</div>
-                                    <div className="text-xs opacity-50" style={{ color: 'var(--text-secondary)' }}>{item.size}</div>
+                                    <div className={settingsTitleClass} style={settingsTitleStyle}>{item.label}</div>
+                                    <div className={settingsDescClass} style={settingsDescStyle}>{item.size}</div>
                                 </div>
                             </div>
                             <button
@@ -105,17 +116,17 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
                 </div>
             </section>
 
-            <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+            <section className="space-y-3">
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                     <Database size={14} /> {t('options.mediaCache') || 'Media Cache'}
                 </h3>
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
                     <div className="flex items-center justify-between">
                         <div className="space-y-1">
-                            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                            <div className={settingsTitleClass} style={settingsTitleStyle}>
                                 {t('options.enableMediaCache') || 'Cache Songs'}
                             </div>
-                            <div className="text-xs opacity-50 max-w-[200px]" style={{ color: 'var(--text-secondary)' }}>
+                            <div className={`${settingsDescClass} max-w-[200px]`} style={settingsDescStyle}>
                                 {t('options.enableMediaCacheDesc') || 'Cache audio after playback for offline listening.'}
                             </div>
                         </div>
@@ -128,14 +139,21 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
                         </button>
                     </div>
 
-                    {isElectron && (
-                        <div className="pt-3 border-t border-white/10 space-y-3">
+                    <div className="pt-3 border-t border-white/10 flex justify-between items-center" style={settingsDescStyle}>
+                        <span className={settingsDescClass}>{t('options.cachedSongsCount') || 'Cached Songs'}:</span>
+                        <span className={`font-mono ${settingsDescClass}`}>{mediaCount}</span>
+                    </div>
+                </div>
+
+                {isElectron && (
+                    <SettingsAdvancedSection>
+                        <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
                             <div className="space-y-1">
-                                <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                                <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
                                     <FolderOpen size={14} />
                                     {t('options.cacheDirectory') || 'Cache Directory'}
                                 </div>
-                                <div className="text-xs opacity-50" style={{ color: 'var(--text-secondary)' }}>
+                                <div className={settingsDescClass} style={settingsDescStyle}>
                                     {t('options.cacheDirectoryDesc') || 'Choose where large desktop cache files should be stored.'}
                                 </div>
                             </div>
@@ -145,7 +163,7 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
                                     <div className="text-[11px] break-all font-mono" style={{ color: 'var(--text-primary)' }}>
                                         {cacheDirectory || '...'}
                                     </div>
-                                    <div className="text-[10px] opacity-45 mt-1" style={{ color: 'var(--text-secondary)' }}>
+                                    <div className={`mt-1 ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
                                         {cacheDirectoryIsDefault
                                             ? (t('options.cacheDirectoryDefaultHint') || 'Using the default desktop cache location.')
                                             : (t('options.cacheDirectoryCustomHint') || 'Using a custom cache location.')}
@@ -163,13 +181,8 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
                                 </button>
                             </div>
                         </div>
-                    )}
-
-                    <div className="pt-3 border-t border-white/10 flex justify-between items-center text-xs opacity-50">
-                        <span>{t('options.cachedSongsCount') || 'Cached Songs'}:</span>
-                        <span className="font-mono">{mediaCount}</span>
-                    </div>
-                </div>
+                    </SettingsAdvancedSection>
+                )}
             </section>
         </>
     );

@@ -36,6 +36,7 @@ describe('useOnlineLibraryFilterStore', () => {
             playlistProviders: {
                 netease: true,
                 qq: true,
+                qishui: true,
                 coco: true,
             },
             moduleFilter: 'all',
@@ -53,6 +54,7 @@ describe('useOnlineLibraryFilterStore', () => {
 
         expect(useOnlineLibraryFilterStore.getState().playlistProviders.netease).toBe(false);
         expect(useOnlineLibraryFilterStore.getState().playlistProviders.qq).toBe(true);
+        expect(useOnlineLibraryFilterStore.getState().playlistProviders.qishui).toBe(true);
         expect(useOnlineLibraryFilterStore.getState().playlistProviders.coco).toBe(true);
     });
 
@@ -69,6 +71,7 @@ describe('useOnlineLibraryFilterStore', () => {
             playlistProviders: {
                 netease: true,
                 qq: false,
+                qishui: true,
                 coco: true,
             },
             searchProvider: 'netease',
@@ -77,7 +80,7 @@ describe('useOnlineLibraryFilterStore', () => {
         useOnlineLibraryFilterStore.getState().togglePlaylistProvider('netease');
 
         expect(useOnlineLibraryFilterStore.getState().playlistProviders.netease).toBe(false);
-        expect(useOnlineLibraryFilterStore.getState().searchProvider).toBe('coco');
+        expect(useOnlineLibraryFilterStore.getState().searchProvider).toBe('qishui');
     });
 
     it('updates module filter', () => {
@@ -105,6 +108,7 @@ describe('useOnlineLibraryFilterStore', () => {
             playlistProviders: {
                 netease: false,
                 qq: true,
+                qishui: true,
                 coco: true,
             },
             moduleFilter: 'liked',

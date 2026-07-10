@@ -6,6 +6,14 @@ import type { Theme } from '../../../types';
 import type { AppLanguagePreference } from '../../../i18n/config';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { CustomSelect } from '../../shared/CustomSelect';
+import {
+    settingsDescClass,
+    settingsDescStyle,
+    settingsSectionTitleClass,
+    settingsSectionTitleStyle,
+    settingsTitleClass,
+    settingsTitleStyle,
+} from './settingsTextStyles';
 
 // src/components/modal/settings/GeneralSettingsSubview.tsx
 // Global app preferences that should stay independent from playback and desktop-only settings.
@@ -47,15 +55,15 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
     return (
         <div className="space-y-5">
             <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                     <Languages size={14} /> {t('options.languageSettings') || '语言'}
                 </h3>
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
                     <div className="space-y-1">
-                        <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                        <div className={settingsTitleClass} style={settingsTitleStyle}>
                             {t('options.appLanguage') || '界面语言'}
                         </div>
-                        <div className="text-[11px] opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                        <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
                             {t('options.appLanguageDesc') || '手动指定 Lyra 的界面语言'}
                         </div>
                     </div>
@@ -69,7 +77,7 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
                         theme={theme}
                     />
                     {languageHint && (
-                        <div className="text-[11px] opacity-50" style={{ color: 'var(--text-secondary)' }}>
+                        <div className={settingsDescClass} style={settingsDescStyle}>
                             {languageHint}
                         </div>
                     )}

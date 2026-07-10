@@ -1,9 +1,26 @@
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'react';
 import { loadOnlineSongAudioSource } from '../../../services/onlinePlayback';
+import { markProviderAudioUnavailable } from '../../../services/musicProviders/sidecarProviderClient';
+import { getSongMusicProviderId } from '../../../services/musicProviders/registry';
 import type { SongResult } from '../../../types';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong } from '../../../utils/appPlaybackGuards';
 
 // src/components/app/playback/createOnlineRecoveryController.ts
+
+const MAX_ONLINE_RECOVERY_ATTEMPTS_PER_SONG = 2;
+const recoveryAttemptBySongId = new Map<number, number>();
+const recoveryFailedSrcsBySongId = new Map<number, Set<string>>();
+
+/** Clear per-song recovery guards when switching tracks. */
+export const clearOnlinePlaybackRecoveryState = (songId?: number | null) => {
+    if (typeof songId === 'number') {
+        recoveryAttemptBySongId.delete(songId);
+        recoveryFailedSrcsBySongId.delete(songId);
+        return;
+    }
+    recoveryAttemptBySongId.clear();
+    recoveryFailedSrcsBySongId.clear();
+};
 
 type RecoveryControllerParams = {
     audioQuality: string;
@@ -73,7 +90,20 @@ export const createOnlineRecoveryController = ({
         }
 
         const normalizedFailedSrc = failedSrc || audioElement.currentSrc || audioSrc || null;
-        if (normalizedFailedSrc && lastAudioRecoverySourceRef.current === normalizedFailedSrc) {
+        const attempts = recoveryAttemptBySongId.get(song.id) || 0;
+        const failedSrcs = recoveryFailedSrcsBySongId.get(song.id) || new Set<string>();
+
+        // One recovery pass max — QQ open CDN links often 404 in a chain and must not loop.
+        if (attempts >= MAX_ONLINE_RECOVERY_ATTEMPTS_PER_SONG) {
+            markProviderAudioUnavailable(getSongMusicProviderId(song), song, audioQuality);
+            return false;
+        }
+
+        if (normalizedFailedSrc && (
+            lastAudioRecoverySourceRef.current === normalizedFailedSrc
+            || failedSrcs.has(normalizedFailedSrc)
+        )) {
+            markProviderAudioUnavailable(getSongMusicProviderId(song), song, audioQuality);
             return false;
         }
 
@@ -84,7 +114,10 @@ export const createOnlineRecoveryController = ({
         const recoveryTask = (async () => {
             if (normalizedFailedSrc) {
                 lastAudioRecoverySourceRef.current = normalizedFailedSrc;
+                failedSrcs.add(normalizedFailedSrc);
+                recoveryFailedSrcsBySongId.set(song.id, failedSrcs);
             }
+            recoveryAttemptBySongId.set(song.id, attempts + 1);
 
             try {
                 const audioResult = await loadOnlineSongAudioSource(song, audioQuality, null);
@@ -93,6 +126,17 @@ export const createOnlineRecoveryController = ({
                 }
 
                 if (audioResult.kind === 'unavailable') {
+                    markProviderAudioUnavailable(getSongMusicProviderId(song), song, audioQuality);
+                    return false;
+                }
+
+                const nextSrc = audioResult.audioSrc;
+                if (
+                    !nextSrc
+                    || nextSrc === normalizedFailedSrc
+                    || failedSrcs.has(nextSrc)
+                ) {
+                    markProviderAudioUnavailable(getSongMusicProviderId(song), song, audioQuality);
                     return false;
                 }
 
@@ -114,6 +158,7 @@ export const createOnlineRecoveryController = ({
                 return true;
             } catch (error) {
                 console.error('[App] Failed to recover online playback source', error);
+                markProviderAudioUnavailable(getSongMusicProviderId(song), song, audioQuality);
                 return false;
             } finally {
                 onlinePlaybackRecoveryRef.current = null;

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    AudioLines,
     ChevronLeft,
     ChevronRight,
     FolderOpen,
@@ -10,23 +9,22 @@ import {
     Settings,
     Sparkles,
 } from 'lucide-react';
+import { useDailyRecommendStore } from '../../../stores/useDailyRecommendStore';
 
 // src/components/app/chrome/AppSidebar.tsx
 // Expanded: full Qishui rail. Collapsed: zero-width, only a translucent expand toggle.
 
-export type AppSidebarActive = 'home' | 'daily' | 'podcast' | 'local' | 'listening';
+export type AppSidebarActive = 'home' | 'daily' | 'podcast' | 'local';
 
 type AppSidebarProps = {
     active: AppSidebarActive;
     isDaylight: boolean;
-    hasCurrentSong: boolean;
     collapsed: boolean;
     onToggleCollapsed: () => void;
     onOpenHome: () => void;
     onOpenDaily: () => void;
     onOpenPodcast: () => void;
     onOpenLocal: () => void;
-    onOpenListeningMode: () => void;
     onOpenSettings?: () => void;
 };
 
@@ -42,17 +40,16 @@ const navButtonClass = (active: boolean, isDaylight: boolean) => {
 const AppSidebar: React.FC<AppSidebarProps> = ({
     active,
     isDaylight,
-    hasCurrentSong,
     collapsed,
     onToggleCollapsed,
     onOpenHome,
     onOpenDaily,
     onOpenPodcast,
     onOpenLocal,
-    onOpenListeningMode,
     onOpenSettings,
 }) => {
     const { t } = useTranslation();
+    const preloadDailyRecommend = useDailyRecommendStore(state => state.preload);
     const [showUpdateIndicator, setShowUpdateIndicator] = useState(false);
     const shellClass = isDaylight
         ? 'bg-[#f3f1ec]/92 border-black/8 text-black'
@@ -125,8 +122,10 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
             <div className="px-5 pt-10 pb-4">
                 <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                        <div className="text-lg font-bold tracking-tight">Lyra</div>
+                        <div className="text-lg font-bold tracking-tight">{t('app.productName')}</div>
                         <div className={`mt-1 text-[11px] ${brandMuted}`}>
+                            {t('app.productNameZh')}
+                            <span className="mx-1.5 opacity-40">·</span>
                             {t('app.sidebarTagline')}
                         </div>
                     </div>
@@ -163,6 +162,8 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                 <button
                     type="button"
                     onClick={onOpenDaily}
+                    onMouseEnter={preloadDailyRecommend}
+                    onFocus={preloadDailyRecommend}
                     className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'daily', isDaylight)}`}
                     aria-current={active === 'daily' ? 'page' : undefined}
                     title={t('app.sidebarDaily')}
@@ -182,19 +183,6 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                 >
                     <Podcast size={18} strokeWidth={2} />
                     <span>{t('app.sidebarPodcast')}</span>
-                </button>
-
-                <button
-                    type="button"
-                    onClick={onOpenListeningMode}
-                    disabled={!hasCurrentSong}
-                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors disabled:opacity-35 disabled:hover:bg-transparent ${navButtonClass(active === 'listening', isDaylight)}`}
-                    aria-current={active === 'listening' ? 'page' : undefined}
-                    title={hasCurrentSong ? t('player.listeningMode') : t('app.sidebarListeningDisabled')}
-                    aria-label={hasCurrentSong ? t('player.listeningMode') : t('app.sidebarListeningDisabled')}
-                >
-                    <AudioLines size={18} strokeWidth={2} />
-                    <span>{t('player.listeningMode')}</span>
                 </button>
 
                 <button

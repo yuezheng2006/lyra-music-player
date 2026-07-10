@@ -19,6 +19,8 @@ interface LyricColorPresetGridProps {
     activeButtonClassName?: string;
     activePresetId?: LyricColorPresetId | null;
     isDaylight?: boolean;
+    /** Dock / tight panels: one-line chips instead of tall cards. */
+    compact?: boolean;
 }
 
 const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
@@ -30,6 +32,7 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
     activeButtonClassName = '',
     activePresetId = null,
     isDaylight = false,
+    compact = false,
 }) => {
     const { t } = useTranslation();
     const defaultInactiveClass = isDaylight
@@ -40,7 +43,10 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
         : 'bg-white/20 text-white shadow-sm ring-1 ring-white/20';
 
     return (
-        <div className={`grid grid-cols-2 gap-1 ${className}`.trim()} data-testid="lyric-color-preset-grid">
+        <div
+            className={`grid gap-1 ${compact ? 'grid-cols-1' : 'grid-cols-2'} ${className}`.trim()}
+            data-testid="lyric-color-preset-grid"
+        >
             {presets.map((preset) => {
                 const isActive = activePresetId === preset.id;
                 const label = t(preset.labelKey) || preset.labelFallback;
@@ -55,31 +61,58 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
                         aria-pressed={isActive}
                         aria-current={isActive ? 'true' : undefined}
                         onClick={() => onSelect(preset.id)}
-                        className={`relative rounded-lg px-2.5 py-2 text-left transition-all ${buttonClassName} ${isActive ? resolvedActive : resolvedInactive}`.trim()}
+                        className={`relative rounded-lg text-left transition-all ${
+                            compact ? 'px-1.5 py-1' : 'px-2.5 py-2'
+                        } ${buttonClassName} ${isActive ? resolvedActive : resolvedInactive}`.trim()}
                         title={label}
                     >
-                        <span className="mb-1.5 flex items-center justify-between gap-1" aria-hidden>
-                            <span className="flex gap-1">
-                                {[preset.light.primaryColor, preset.light.accentColor, preset.dark.accentColor].map(color => (
-                                    <span
-                                        key={color}
-                                        className="h-2.5 w-2.5 rounded-full"
-                                        style={{
-                                            backgroundColor: color,
-                                            boxShadow: isActive ? `0 0 10px ${color}` : undefined,
-                                        }}
-                                    />
-                                ))}
+                        {compact ? (
+                            <span className="flex min-w-0 items-center gap-1.5">
+                                <span className="flex shrink-0 gap-0.5" aria-hidden>
+                                    {[preset.light.primaryColor, preset.light.accentColor, preset.dark.accentColor].map(color => (
+                                        <span
+                                            key={color}
+                                            className="h-2 w-2 rounded-full"
+                                            style={{
+                                                backgroundColor: color,
+                                                boxShadow: isActive ? `0 0 8px ${color}` : undefined,
+                                            }}
+                                        />
+                                    ))}
+                                </span>
+                                <span className={`min-w-0 flex-1 truncate text-[10px] font-semibold leading-none ${isActive ? '' : 'opacity-95'}`}>
+                                    {label}
+                                </span>
+                                {isActive ? (
+                                    <Check size={11} strokeWidth={2.6} className="shrink-0 opacity-90" />
+                                ) : null}
                             </span>
-                            {isActive ? (
-                                <Check size={12} strokeWidth={2.6} className="shrink-0 opacity-90" />
-                            ) : null}
-                        </span>
-                        <span
-                            className={`block min-w-0 truncate text-[11px] font-semibold ${isActive ? '' : 'opacity-95'}`}
-                        >
-                            {label}
-                        </span>
+                        ) : (
+                            <>
+                                <span className="mb-1.5 flex items-center justify-between gap-1" aria-hidden>
+                                    <span className="flex gap-1">
+                                        {[preset.light.primaryColor, preset.light.accentColor, preset.dark.accentColor].map(color => (
+                                            <span
+                                                key={color}
+                                                className="h-2.5 w-2.5 rounded-full"
+                                                style={{
+                                                    backgroundColor: color,
+                                                    boxShadow: isActive ? `0 0 10px ${color}` : undefined,
+                                                }}
+                                            />
+                                        ))}
+                                    </span>
+                                    {isActive ? (
+                                        <Check size={12} strokeWidth={2.6} className="shrink-0 opacity-90" />
+                                    ) : null}
+                                </span>
+                                <span
+                                    className={`block min-w-0 truncate text-[11px] font-semibold ${isActive ? '' : 'opacity-95'}`}
+                                >
+                                    {label}
+                                </span>
+                            </>
+                        )}
                     </button>
                 );
             })}

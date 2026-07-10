@@ -54,6 +54,15 @@ const rememberNegativeAudio = (key: string) => {
     audioNegativeCache.set(key, Date.now() + AUDIO_NEGATIVE_CACHE_TTL_MS);
 };
 
+/** Mark a song's audio lookup as failed after CDN/playback 404 to stop recovery loops. */
+export const markProviderAudioUnavailable = (
+    providerId: OnlineMusicProviderId,
+    song: SongResult,
+    quality: string,
+) => {
+    rememberNegativeAudio(buildAudioLookupKey(providerId, song, quality));
+};
+
 const getElectronMusicProviderPort = async (): Promise<number | null> => {
     const electronBridge = typeof window !== 'undefined' ? (window as any).electron : null;
     if (!electronBridge || typeof electronBridge.getMusicProviderPort !== 'function') {
@@ -275,4 +284,43 @@ export const requestSidecarLyrics = async (
         return null;
     }
     return parseLyricsAsync(detectTimedLyricFormat(lyricsText), lyricsText, '');
+};
+
+export type SidecarRecommendResult = MusicProviderSearchResult & {
+    kind?: 'personalized' | 'picks';
+    query?: string;
+};
+
+export const requestSidecarRecommend = async (
+    providerId: OnlineMusicProviderId,
+    options: { limit?: number } = {},
+): Promise<SidecarRecommendResult> => {
+    const base = await getConfiguredSidecarBase();
+    if (!base) {
+        return { songs: [], total: 0, hasMore: false };
+    }
+
+    const limit = Math.max(1, Math.min(options.limit ?? 20, 40));
+    const response = await fetch(`${base}/providers/${providerId}/recommend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            limit,
+            ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
+        }),
+    });
+    if (!response.ok) {
+        throw new Error(`${providerId} sidecar recommend failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rawSongs = Array.isArray(data?.songs) ? data.songs : Array.isArray(data?.results) ? data.results : [];
+    const songs = rawSongs.map((song: SidecarSongPayload) => normalizeSidecarSong(providerId, song));
+    return {
+        songs,
+        total: typeof data?.total === 'number' ? data.total : songs.length,
+        hasMore: Boolean(data?.hasMore),
+        kind: data?.kind === 'personalized' ? 'personalized' : 'picks',
+        query: typeof data?.query === 'string' ? data.query : undefined,
+    };
 };

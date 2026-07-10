@@ -28,7 +28,12 @@ type NavigationHistoryState = {
     overlays: HomeOverlay[];
     overlayView: ViewState | null;
     overlayOriginView: ViewState | null;
-    search?: { query: string; sourceTab: SearchSourceId; returnView?: SearchReturnView; } | null;
+    search?: {
+        query: string;
+        sourceTab: SearchSourceId;
+        returnView?: SearchReturnView;
+        providers?: import('../types').OnlineMusicProviderId[];
+    } | null;
 };
 
 type OverlayDisplayState = {
@@ -74,6 +79,12 @@ export const resolveOverlayPopState = (
     overlayOriginView: nextOverlayCount > 0 ? overlayOriginView : null,
 });
 
+/** Prefer live search overlay, then history payload captured when entering player. */
+export const resolvePlayerReturnSearch = (
+    liveSearch: NavigationHistoryState['search'] | null,
+    historySearch: NavigationHistoryState['search'] | null | undefined,
+): NavigationHistoryState['search'] => liveSearch ?? historySearch ?? null;
+
 export function useAppNavigation() {
     const [currentView, setCurrentView] = useState<ViewState>('home');
     const [overlayStack, setOverlayStack] = useState<HomeOverlay[]>([]);
@@ -102,6 +113,21 @@ export function useAppNavigation() {
         return `${index}:${overlay.type}:${overlay.id}`;
     });
 
+    const getSearchHistoryPayload = (): NavigationHistoryState['search'] => {
+        const searchState = useSearchNavigationStore.getState();
+        if (!searchState.isSearchOpen) {
+            return null;
+        }
+        return {
+            query: searchState.searchQuery,
+            sourceTab: searchState.searchSourceTab,
+            returnView: searchState.searchReturnView,
+            providers: searchState.searchProviders.length > 0
+                ? [...searchState.searchProviders]
+                : undefined,
+        };
+    };
+
     const getSearchSnapshot = () => {
         const searchState = useSearchNavigationStore.getState();
         return {
@@ -109,6 +135,7 @@ export function useAppNavigation() {
             query: searchState.searchQuery,
             sourceTab: searchState.searchSourceTab,
             resultCount: searchState.searchResults?.length ?? 0,
+            providers: searchState.searchProviders,
         };
     };
 
@@ -302,10 +329,7 @@ export function useAppNavigation() {
     };
 
     const navigateToPlayer = () => {
-        const currentSearch = useSearchNavigationStore.getState();
-        const search = currentSearch.isSearchOpen
-            ? { query: currentSearch.searchQuery, sourceTab: currentSearch.searchSourceTab }
-            : null;
+        const search = getSearchHistoryPayload();
 
         if (overlayStack.length > 0 && overlayView !== null) {
             pushNavigationState({
@@ -359,12 +383,16 @@ export function useAppNavigation() {
         replace?: boolean;
         returnView?: SearchReturnView;
     }) => {
+        const current = useSearchNavigationStore.getState();
+        const providers = current.searchProviders.length > 0
+            ? [...current.searchProviders]
+            : undefined;
         logNavigation('navigateToSearch', {
             view: 'home',
             overlays: overlayStack,
             overlayView,
             overlayOriginView,
-            search: { query, sourceTab, returnView },
+            search: { query, sourceTab, returnView, providers },
             replace,
             hash: `#search/${encodeURIComponent(query)}`,
         });
@@ -375,9 +403,21 @@ export function useAppNavigation() {
             overlayOriginView,
             replace,
             hash: `#search/${encodeURIComponent(query)}`,
-            search: { query, sourceTab, returnView },
+            search: { query, sourceTab, returnView, providers },
         });
-        useSearchNavigationStore.getState().restoreSearch({ query, sourceTab, returnView });
+        // submitSearch already opened the overlay with results — do not let restoreSearch
+        // collapse multi-source providers to [sourceTab] and wipe hits.
+        if (
+            current.isSearchOpen
+            && current.searchQuery.trim() === query.trim()
+            && (current.searchResults !== null || current.isSearching)
+        ) {
+            if (returnView && current.searchReturnView !== returnView) {
+                useSearchNavigationStore.setState({ searchReturnView: returnView });
+            }
+            return;
+        }
+        useSearchNavigationStore.getState().restoreSearch({ query, sourceTab, returnView, providers });
     };
 
     const closeSearchView = () => {
@@ -437,12 +477,7 @@ export function useAppNavigation() {
                     overlayOriginView: overlayState.overlayOriginView,
                     replace: true,
                     hash: `#${overlayStack[overlayStack.length - 1].type}`,
-                    search: overlayState.view === 'home' && useSearchNavigationStore.getState().isSearchOpen
-                        ? {
-                            query: useSearchNavigationStore.getState().searchQuery,
-                            sourceTab: useSearchNavigationStore.getState().searchSourceTab,
-                        }
-                        : null,
+                    search: overlayState.view === 'home' ? getSearchHistoryPayload() : null,
                 });
                 return;
             }
@@ -454,12 +489,7 @@ export function useAppNavigation() {
                 overlays: nextOverlays,
                 overlayView: nextOverlayState.overlayView,
                 overlayOriginView: nextOverlayState.overlayOriginView,
-                search: nextOverlayState.view === 'home' && useSearchNavigationStore.getState().isSearchOpen
-                    ? {
-                        query: useSearchNavigationStore.getState().searchQuery,
-                        sourceTab: useSearchNavigationStore.getState().searchSourceTab,
-                    }
-                    : null,
+                search: nextOverlayState.view === 'home' ? getSearchHistoryPayload() : null,
                 replace: true,
                 hash: nextOverlays.length > 0 ? `#${nextOverlays[nextOverlays.length - 1].type}` : (nextOverlayState.view === 'player' ? '#player' : '#home'),
             });
@@ -470,40 +500,40 @@ export function useAppNavigation() {
                 overlayOriginView: nextOverlayState.overlayOriginView,
                 replace: true,
                 hash: nextOverlays.length > 0 ? `#${nextOverlays[nextOverlays.length - 1].type}` : (nextOverlayState.view === 'player' ? '#player' : '#home'),
-                search: nextOverlayState.view === 'home' && useSearchNavigationStore.getState().isSearchOpen
-                    ? {
-                        query: useSearchNavigationStore.getState().searchQuery,
-                        sourceTab: useSearchNavigationStore.getState().searchSourceTab,
-                    }
-                    : null,
+                search: nextOverlayState.view === 'home' ? getSearchHistoryPayload() : null,
             });
             return;
         }
 
         if (currentView === 'player') {
-            // Soft return: keep GridView / browse context so "back" restores the previous card page.
+            // Soft return: restore search results when we came from search, else keep GridView browse.
+            const historySearch = (window.history.state as NavigationHistoryState | null)?.search;
+            const searchPayload = resolvePlayerReturnSearch(getSearchHistoryPayload(), historySearch);
+            if (searchPayload) {
+                useSearchNavigationStore.getState().restoreSearch(searchPayload);
+            }
             const hasGridBrowse = Boolean(useSettingsUiStore.getState().activeGridViewCollection);
-            const searchOpen = useSearchNavigationStore.getState().isSearchOpen;
             pushNavigationState({
                 view: 'home',
                 overlays: [],
                 overlayView: null,
                 overlayOriginView: null,
                 replace: true,
-                hash: hasGridBrowse ? '#home' : (window.location.pathname + window.location.search),
-                search: searchOpen
-                    ? {
-                        query: useSearchNavigationStore.getState().searchQuery,
-                        sourceTab: useSearchNavigationStore.getState().searchSourceTab,
-                    }
-                    : null,
+                hash: searchPayload
+                    ? `#search/${encodeURIComponent(searchPayload.query)}`
+                    : (hasGridBrowse ? '#home' : (window.location.pathname + window.location.search)),
+                search: searchPayload,
             });
             logNavigation('navigateToHome:player->home:soft', {
                 view: 'home',
                 overlays: [],
                 overlayView: null,
                 overlayOriginView: null,
-                historyState: { hasGridBrowse, searchOpen },
+                historyState: {
+                    hasGridBrowse,
+                    searchOpen: Boolean(searchPayload),
+                    searchQuery: searchPayload?.query ?? null,
+                },
             });
             return;
         }
@@ -525,12 +555,7 @@ export function useAppNavigation() {
             overlays: nextOverlays,
             overlayView: nextOverlayState.overlayView,
             overlayOriginView: nextOverlayState.overlayOriginView,
-            search: nextOverlayState.view === 'home' && useSearchNavigationStore.getState().isSearchOpen
-                ? {
-                    query: useSearchNavigationStore.getState().searchQuery,
-                    sourceTab: useSearchNavigationStore.getState().searchSourceTab,
-                }
-                : null,
+            search: nextOverlayState.view === 'home' ? getSearchHistoryPayload() : null,
             hash: `#${overlay.type}`,
         });
         pushNavigationState({
@@ -539,12 +564,7 @@ export function useAppNavigation() {
             overlayView: nextOverlayState.overlayView,
             overlayOriginView: nextOverlayState.overlayOriginView,
             hash: `#${overlay.type}`,
-            search: nextOverlayState.view === 'home' && useSearchNavigationStore.getState().isSearchOpen
-                ? {
-                    query: useSearchNavigationStore.getState().searchQuery,
-                    sourceTab: useSearchNavigationStore.getState().searchSourceTab,
-                }
-                : null,
+            search: nextOverlayState.view === 'home' ? getSearchHistoryPayload() : null,
         });
     };
 
@@ -573,12 +593,7 @@ export function useAppNavigation() {
             overlays: nextOverlays,
             overlayView: nextOverlayState.overlayView,
             overlayOriginView: nextOverlayState.overlayOriginView,
-            search: nextOverlayState.view === 'home' && useSearchNavigationStore.getState().isSearchOpen
-                ? {
-                    query: useSearchNavigationStore.getState().searchQuery,
-                    sourceTab: useSearchNavigationStore.getState().searchSourceTab,
-                }
-                : null,
+            search: nextOverlayState.view === 'home' ? getSearchHistoryPayload() : null,
             replace: true,
             hash: nextOverlays.length > 0 ? `#${nextOverlays[nextOverlays.length - 1].type}` : (nextOverlayState.view === 'player' ? '#player' : '#home'),
         });
@@ -589,12 +604,7 @@ export function useAppNavigation() {
             overlayOriginView: nextOverlayState.overlayOriginView,
             replace: true,
             hash: nextOverlays.length > 0 ? `#${nextOverlays[nextOverlays.length - 1].type}` : (nextOverlayState.view === 'player' ? '#player' : '#home'),
-            search: nextOverlayState.view === 'home' && useSearchNavigationStore.getState().isSearchOpen
-                ? {
-                    query: useSearchNavigationStore.getState().searchQuery,
-                    sourceTab: useSearchNavigationStore.getState().searchSourceTab,
-                }
-                : null,
+            search: nextOverlayState.view === 'home' ? getSearchHistoryPayload() : null,
         });
     };
 

@@ -4,6 +4,7 @@ import {
     isQishuiShareUrl,
     resolveEnabledSearchProviders,
     resolveOnlineSearchProvider,
+    resolveOverlaySearchProviders,
     resolveSearchableLibraryProviders,
 } from '@/utils/onlineSearchRouting';
 
@@ -25,8 +26,9 @@ describe('onlineSearchRouting', () => {
         expect(resolveOnlineSearchProvider('晴天', 'qq')).toBe('qq');
     });
 
-    it('treats coco as always searchable and gated providers by login', () => {
+    it('treats coco and qishui as always searchable and gated providers by login', () => {
         expect(isProviderSearchable('coco', {})).toBe(true);
+        expect(isProviderSearchable('qishui', {})).toBe(true);
         expect(isProviderSearchable('netease', {})).toBe(false);
         expect(isProviderSearchable('qq', { qq: true })).toBe(true);
     });
@@ -35,17 +37,19 @@ describe('onlineSearchRouting', () => {
         expect(resolveEnabledSearchProviders('哈哈', {
             netease: true,
             qq: true,
+            qishui: true,
             coco: true,
         }, 'coco', {
             netease: true,
             qq: true,
-        })).toEqual(['netease', 'qq', 'coco']);
+        })).toEqual(['netease', 'qq', 'qishui', 'coco']);
     });
 
     it('skips unchecked or unsigned-in netease/qq even when pills look selected', () => {
         expect(resolveSearchableLibraryProviders({
             netease: true,
             qq: true,
+            qishui: false,
             coco: true,
         }, {
             netease: false,
@@ -55,17 +59,19 @@ describe('onlineSearchRouting', () => {
         expect(resolveEnabledSearchProviders('哈哈', {
             netease: true,
             qq: true,
+            qishui: true,
             coco: true,
         }, 'netease', {
             netease: false,
             qq: true,
-        })).toEqual(['qq', 'coco']);
+        })).toEqual(['qq', 'qishui', 'coco']);
     });
 
     it('falls back to coco when no signed-in source is available', () => {
         expect(resolveEnabledSearchProviders('哈哈', {
             netease: true,
             qq: true,
+            qishui: false,
             coco: false,
         }, 'netease', {
             netease: false,
@@ -77,10 +83,39 @@ describe('onlineSearchRouting', () => {
         expect(resolveEnabledSearchProviders('https://qishui.douyin.com/s/abc123', {
             netease: true,
             qq: true,
+            qishui: true,
             coco: true,
         }, 'coco', {
             netease: true,
             qq: true,
         })).toEqual(['qishui']);
+    });
+
+    it('keeps coco and qishui overlay channels isolated', () => {
+        expect(resolveOverlaySearchProviders({
+            query: '孤勇者',
+            sourceTab: 'coco',
+            activeProviders: ['coco'],
+            enabledProviders: { coco: true, qishui: true, netease: true, qq: true },
+            sessions: { netease: true, qq: true },
+        })).toEqual(['coco']);
+
+        expect(resolveOverlaySearchProviders({
+            query: '周杰伦',
+            sourceTab: 'qishui',
+            activeProviders: ['qishui'],
+            enabledProviders: { coco: true, qishui: true, netease: true, qq: true },
+            sessions: { netease: true, qq: true },
+        })).toEqual(['qishui']);
+    });
+
+    it('keeps home aggregate sessions with coco and qishui together', () => {
+        expect(resolveOverlaySearchProviders({
+            query: '你好',
+            sourceTab: 'coco',
+            activeProviders: ['qq', 'qishui', 'coco'],
+            enabledProviders: { coco: true, qishui: true, netease: false, qq: true },
+            sessions: { netease: false, qq: true },
+        })).toEqual(['qq', 'qishui', 'coco']);
     });
 });

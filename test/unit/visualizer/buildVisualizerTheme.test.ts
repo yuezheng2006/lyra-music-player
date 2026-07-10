@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { CSSProperties } from 'react';
 import { buildVisualizerTheme } from '@/components/app/presentation/buildVisualizerTheme';
 import { DEFAULT_THEME } from '@/components/app/root/appConstants';
 import type { Theme } from '@/types';
@@ -18,7 +19,7 @@ const daylightTheme: Theme = {
 describe('buildVisualizerTheme', () => {
     it('uses a dark stage theme for interactive3d even when the app theme is daylight', () => {
         const { visualizerTheme } = buildVisualizerTheme({
-            appStyle: { '--bg-color': daylightTheme.backgroundColor },
+            appStyle: { '--bg-color': daylightTheme.backgroundColor } as CSSProperties,
             theme: daylightTheme,
             lyricsFontStyle: 'serif',
             lyricsCustomFontFamily: null,
@@ -36,7 +37,7 @@ describe('buildVisualizerTheme', () => {
 
     it('keeps the app theme for non-interactive3d visualizer backgrounds', () => {
         const { visualizerTheme } = buildVisualizerTheme({
-            appStyle: { '--bg-color': daylightTheme.backgroundColor },
+            appStyle: { '--bg-color': daylightTheme.backgroundColor } as CSSProperties,
             theme: daylightTheme,
             lyricsFontStyle: 'sans',
             lyricsCustomFontFamily: null,
@@ -57,7 +58,7 @@ describe('buildVisualizerTheme', () => {
             secondaryColor: '#ff3b6b',
         };
         const { visualizerTheme } = buildVisualizerTheme({
-            appStyle: { '--bg-color': lyricTheme.backgroundColor },
+            appStyle: { '--bg-color': lyricTheme.backgroundColor } as CSSProperties,
             theme: lyricTheme,
             lyricsFontStyle: 'sans',
             lyricsCustomFontFamily: null,

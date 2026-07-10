@@ -1270,10 +1270,12 @@ function getAutoUpdateEnabled() {
 }
 
 function isUpdateCheckSupported() {
-  return process.platform === 'win32';
+  // Version check via GitHub Releases works on all desktop platforms.
+  return true;
 }
 
 function isAutoUpdaterSupported() {
+  // In-app download/install is currently Windows-packaged only (NSIS + electron-updater).
   return (
     process.platform === 'win32' &&
     app.isPackaged &&
@@ -1568,11 +1570,6 @@ function scheduleStartupUpdateCheck() {
 
   if (!isUpdateCheckSupported()) {
     setUpdateState({ status: 'unsupported', error: null });
-    return;
-  }
-
-  if (!isAutoUpdaterSupported()) {
-    setUpdateState({ status: 'idle', error: null });
     return;
   }
 

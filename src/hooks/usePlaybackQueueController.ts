@@ -13,12 +13,16 @@ import { PlayerState, type HomeViewTab, type SearchSourceId, type StagePlayerQue
 import type { LocalSong, NeteaseUser, OnlineMusicProviderId, QueueAddBehavior, SongResult, StatusMessage, UnifiedSong } from '../types';
 import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterStore';
 import { hasNeteaseSession, hasQQMusicSession } from '../utils/onlineLibraryAccess';
-import { resolveEnabledSearchProviders } from '../utils/onlineSearchRouting';
+import { resolveOverlaySearchProviders } from '../utils/onlineSearchRouting';
+import { useSearchNavigationStore } from '../stores/useSearchNavigationStore';
+import { useRequestedQueueStore } from '../stores/useRequestedQueueStore';
+import { ensureRequestedQueueSeededFromPlaylist } from '../utils/seedRequestedQueueFromPlaylist';
 import type { NextTrackOptions, PlaybackNavigationOptions, SkipPromptMessageKey, UnavailableReplacementRequest } from '../types/appPlayback';
 import type { NavidromeSong } from '../types/navidrome';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, resolveNavidromePlaybackCarrier } from '../utils/appPlaybackGuards';
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
 import { buildStagePlayerSnapshot, resolveStagePlayerQueueItemIndex } from '../utils/stagePlayerSnapshot';
+import { clearOnlinePlaybackRecoveryState } from '../components/app/playback/createOnlineRecoveryController';
 
 // src/hooks/usePlaybackQueueController.ts
 
@@ -73,7 +77,12 @@ type UsePlaybackQueueControllerParams = {
     setPanelTab: SetState<'cover' | 'controls' | 'queue' | 'account' | 'local' | 'navi' | 'onlineLyrics'>;
     setIsPanelOpen: SetState<boolean>;
     navigateToPlayer: () => void;
-    navigateToSearch: (args: { query: string; sourceTab: SearchSourceId; replace?: boolean }) => void;
+    navigateToSearch: (args: {
+        query: string;
+        sourceTab: SearchSourceId;
+        replace?: boolean;
+        returnView?: 'home' | 'player';
+    }) => void;
     hideSearchOverlay: () => void;
     setHomeViewTab: (tab: HomeViewTab) => void;
     setPendingNavidromeSelection: (selection: { type: 'artist'; artistId: string } | { type: 'album'; albumId: string }) => void;
@@ -213,6 +222,15 @@ export function usePlaybackQueueController({
             currentSong: queueAnchorSong,
             behavior: queueAddBehavior,
         });
+
+        if (changed && affectedSongs.length > 0) {
+            // Keep 已点列表 mirror in sync when user explicitly queues songs.
+            // Dock / next-prev still read playQueue as the single source of truth.
+            useRequestedQueueStore.getState().addSongs(affectedSongs, {
+                currentSong: queueAnchorSong,
+                behavior: queueAddBehavior,
+            });
+        }
 
         if (activePlaybackContext === 'stage') {
             mainPlaybackSnapshotRef.current = mainSnapshot
@@ -571,6 +589,7 @@ export function usePlaybackQueueController({
         currentSongRef.current = song.id;
         pendingResumeTimeRef.current = resumeTimeSec;
         lastAudioRecoverySourceRef.current = null;
+        clearOnlinePlaybackRecoveryState();
         currentOnlineAudioUrlFetchedAtRef.current = null;
 
         const onlineLyricsState = await loadOnlineLyricsState(song);
@@ -593,6 +612,20 @@ export function usePlaybackQueueController({
 
         if (queue.length > 0 || playQueue.length === 0) {
             setPlayQueue(newQueue);
+        }
+
+        // 已点列表与 playQueue 分离：仅在已点为空时，从当前播放歌单补一小段。
+        const seedResult = ensureRequestedQueueSeededFromPlaylist({
+            playlist: (queue.length > 0 || playQueue.length === 0) ? newQueue : playQueue,
+            currentSongId: song.id,
+        });
+        if (seedResult.seededCount > 0) {
+            setStatusMsg({
+                type: 'success',
+                text: t('queue.autoSeedToast', { count: seedResult.seededCount }),
+                nonce: Date.now(),
+                durationMs: 2800,
+            });
         }
 
         void persistLastPlaybackCache({ ...song, onlineLyricsState: onlineLyricsState ?? undefined }, newQueue);
@@ -750,26 +783,30 @@ export function usePlaybackQueueController({
         void playSong(song, nextQueue, false, options);
     }, [playQueue, playSong]);
 
-    const handleSearchOverlaySubmit = useCallback(async () => {
-        const trimmedQuery = searchQuery.trim();
+    const handleSearchOverlaySubmit = useCallback(async (overrideQuery?: string) => {
+        const trimmedQuery = (overrideQuery ?? searchQuery).trim();
         if (!trimmedQuery) {
             return;
         }
 
+        const searchState = useSearchNavigationStore.getState();
         const playlistProviders = useOnlineLibraryFilterStore.getState().playlistProviders;
-        const providers = resolveEnabledSearchProviders(
-            trimmedQuery,
-            playlistProviders,
-            searchSourceTab,
-            {
+        // Keep coco / qishui overlay channels isolated — do not fan into each other.
+        const providers = resolveOverlaySearchProviders({
+            query: trimmedQuery,
+            sourceTab: searchSourceTab,
+            activeProviders: searchState.searchProviders,
+            enabledProviders: playlistProviders,
+            sessions: {
                 netease: hasNeteaseSession(user),
                 qq: hasQQMusicSession(),
             },
-        );
+        });
+        const sourceTab = providers.length === 1 ? providers[0] : searchSourceTab;
 
         const didSearch = await searchDeps.submitSearch({
             query: trimmedQuery,
-            sourceTab: searchSourceTab,
+            sourceTab,
             providers,
             deps: {
                 localSongs,
@@ -780,8 +817,9 @@ export function usePlaybackQueueController({
         if (didSearch) {
             navigateToSearch({
                 query: trimmedQuery,
-                sourceTab: searchSourceTab,
+                sourceTab,
                 replace: Boolean(window.history.state?.search),
+                returnView: searchState.searchReturnView,
             });
         }
     }, [localSongs, navigateToSearch, searchDeps, searchQuery, searchSourceTab, t, user]);
@@ -796,21 +834,21 @@ export function usePlaybackQueueController({
     }, [localSongs, searchDeps, t]);
 
     const handleSearchResultPlay = useCallback((track: UnifiedSong) => {
-        // Stay on search overlay while swapping the current track.
-        const browseOptions = { shouldNavigateToPlayer: false };
+        // Point-play one search hit: queue is just that track (do not dump all search results).
+        const searchState = useSearchNavigationStore.getState();
+        const listenOptions = { shouldNavigateToPlayer: true };
 
-        if (track.isLocal && track.localData) {
-            void onPlayLocalSong(track.localData, [], browseOptions);
-            return;
+        if (searchState.isSearchOpen && searchState.searchQuery.trim()) {
+            navigateToSearch({
+                query: searchState.searchQuery,
+                sourceTab: searchState.searchSourceTab,
+                replace: true,
+                returnView: searchState.searchReturnView,
+            });
         }
 
-        if (track.isNavidrome && track.navidromeData) {
-            void onPlayNavidromeSong(track as NavidromeSong, [], browseOptions);
-            return;
-        }
-
-        handleQueueAddAndPlay(track, browseOptions);
-    }, [handleQueueAddAndPlay, onPlayLocalSong, onPlayNavidromeSong]);
+        void playSong(track, [track], false, listenOptions);
+    }, [navigateToSearch, playSong]);
 
     const handleUnavailableReplacementConfirm = useCallback(async () => {
         if (!pendingUnavailableReplacement) {

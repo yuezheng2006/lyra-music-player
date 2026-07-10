@@ -100,7 +100,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         ? `relative h-4 w-full flex items-center group overflow-visible ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`
         : `relative h-1.5 flex-1 min-w-[120px] rounded-sm md:rounded-full flex items-center group ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`;
     const fillClass = isEdge
-        ? `absolute left-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full pointer-events-none transition-[height] duration-150 ${isDragging || isHovering ? 'h-[3px]' : ''}`
+        ? `absolute left-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full pointer-events-none transition-[height] duration-150 ${isDragging || isHovering ? 'h-[4px]' : ''}`
         : 'absolute top-0 left-0 h-full rounded-sm md:rounded-full pointer-events-none';
 
     const rangeInput = (
@@ -114,7 +114,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
             ) : (
                 <>
                     <div
-                        className={`absolute left-0 right-0 top-1/2 h-[2px] -translate-y-1/2 rounded-full pointer-events-none transition-[height] duration-150 ${isDragging || isHovering ? 'h-[3px]' : ''}`}
+                        className={`absolute left-0 right-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full pointer-events-none transition-[height] duration-150 ${isDragging || isHovering ? 'h-[4px]' : ''}`}
                         style={{ backgroundColor: trackColor || edgeTrackColor }}
                     />
                     <div

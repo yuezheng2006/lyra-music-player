@@ -19,6 +19,7 @@ import {
     type LyricMatchSource,
 } from './lyricMatchResultHelpers';
 import { LyricPreviewPanel } from './LyricPreviewPanel';
+import { SearchClearButton } from '../shared/SearchClearButton';
 
 interface LyricMatchModalProps {
     song: LocalSong;
@@ -367,6 +368,11 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                                             placeholder={t('localMusic.searchForSong')}
                                             className={`flex-1 bg-transparent outline-none text-sm ${textPrimary}`}
                                             autoFocus
+                                        />
+                                        <SearchClearButton
+                                            visible={Boolean(searchQuery)}
+                                            onClear={() => setSearchQuery('')}
+                                            label={t('app.clearSearch')}
                                         />
                                     </div>
                                     <button

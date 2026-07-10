@@ -18,6 +18,7 @@ import {
     type LyricMatchSource,
 } from './lyricMatchResultHelpers';
 import { LyricPreviewPanel } from './LyricPreviewPanel';
+import { SearchClearButton } from '../shared/SearchClearButton';
 
 export interface NavidromeMatchData {
     matchedSongId?: number;
@@ -301,6 +302,11 @@ const NaviLyricMatchModal: React.FC<NaviLyricMatchModalProps> = ({ song, onClose
                                             placeholder={t('localMusic.searchForSong') || '搜索歌词...'}
                                             className={`flex-1 bg-transparent outline-none text-sm ${textPrimary}`}
                                             autoFocus
+                                        />
+                                        <SearchClearButton
+                                            visible={Boolean(searchQuery)}
+                                            onClear={() => setSearchQuery('')}
+                                            label={t('app.clearSearch')}
                                         />
                                     </div>
                                     <button

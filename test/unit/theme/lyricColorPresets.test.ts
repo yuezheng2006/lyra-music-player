@@ -5,6 +5,7 @@ import {
     LYRIC_COLOR_PRESETS,
     matchLyricColorPresetId,
     resolveActiveLyricColorPresetId,
+    resolveLyricStageInkColors,
 } from '@/utils/theme/lyricColorPresets';
 
 const baseDualTheme = {
@@ -43,7 +44,18 @@ describe('lyricColorPresets', () => {
         });
         expect(getLyricColorPresetById('douyin-neon')?.light.accentColor).toBe('#ff2d55');
         expect(getLyricColorPresetById('douyin-neon')?.dark.accentColor).toBe('#12f7d6');
+        expect(getLyricColorPresetById('douyin-neon')?.dark.primaryColor).toBe('#d8fffa');
+        expect(getLyricColorPresetById('douyin-purple')?.dark.primaryColor).toBe('#f0d9ff');
         expect(getLyricColorPresetById('xhs-note-red')?.light.accentColor).toBe('#ff2442');
+    });
+
+    it('maps stage inks so active lyrics use accent and hints use secondary', () => {
+        const preset = getLyricColorPresetById('douyin-purple')!;
+        expect(resolveLyricStageInkColors(preset.dark)).toEqual({
+            titleColor: '#f0d9ff',
+            activeColor: '#d946ef',
+            hintColor: '#7dd3fc',
+        });
     });
 
     it('patches lyric colors on both modes while preserving backgrounds', () => {
@@ -56,6 +68,7 @@ describe('lyricColorPresets', () => {
         expect(next.dark.backgroundColor).toBe('#09090b');
         expect(next.light.primaryColor).toBe('#2f2927');
         expect(next.dark.accentColor).toBe('#fb7185');
+        expect(next.dark.primaryColor).toBe('#ffd6e4');
     });
 
     it('defaults to colors-only and keeps font / animation untouched', () => {
@@ -68,7 +81,7 @@ describe('lyricColorPresets', () => {
         expect(next.light.animationIntensity).toBe('calm');
         expect(next.light.fontStyle).toBe('serif');
         expect(next.light.lyricRhythmScaleMultiplier).toBeUndefined();
-        expect(next.dark.primaryColor).toBe('#fff4df');
+        expect(next.dark.primaryColor).toBe('#ffe0a8');
     });
 
     it('can still apply motion when explicitly requested by theme editors', () => {

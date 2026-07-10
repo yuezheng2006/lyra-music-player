@@ -9,6 +9,7 @@ import { useVisualizerRuntime } from '../runtime';
 import VisualizerShell from '../VisualizerShell';
 import { getLineRenderEndTime } from '../../../utils/lyrics/renderHints';
 import { resolveThemeFontStack } from '../../../utils/fontStacks';
+import { resolveLyricStageInkColors } from '../../../utils/theme/lyricColorPresets';
 import AudioOverlay from './AudioOverlay';
 import MonetFloatingDecor from './MonetFloatingDecor';
 import MonetLyricsRail from './MonetLyricsRail';
@@ -44,6 +45,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
         seed,
     } = props;
     const { t } = useTranslation();
+    const { titleColor, activeColor, hintColor } = resolveLyricStageInkColors(theme);
 
     const handleSetMonetTuning = onMonetTuningChange;
 
@@ -52,10 +54,31 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
     const [isHangerHovered, setIsHangerHovered] = useState(false);
     const initialOffsetX = monetTuning.portraitOffsetX ?? 0;
     const offsetX = useMotionValue(initialOffsetX);
+    const lyricColumnRef = useRef<HTMLDivElement | null>(null);
+    const [lyricColumnWidth, setLyricColumnWidth] = useState(0);
 
     useEffect(() => {
         offsetX.set(initialOffsetX);
     }, [initialOffsetX, offsetX]);
+
+    useEffect(() => {
+        const node = lyricColumnRef.current;
+        if (!node || typeof ResizeObserver === 'undefined') return undefined;
+
+        const apply = (width: number) => {
+            const next = Math.max(0, Math.round(width));
+            setLyricColumnWidth(prev => (prev === next ? prev : next));
+        };
+
+        apply(node.getBoundingClientRect().width);
+        const observer = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (!entry) return;
+            apply(entry.contentRect.width);
+        });
+        observer.observe(node);
+        return () => observer.disconnect();
+    }, [showText]);
 
     const dragControls = useDragControls();
     const isDraggingRef = useRef(false);
@@ -110,13 +133,13 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
 
     const lyricFontStack = useMemo(() => resolveThemeFontStack(theme), [theme]);
     const fontScale = monetTuning.fontScale;
-    const lyricFontPx = resolveClampFontPx(
-        1.34,
-        2.75,
-        2.28,
-    ) * fontScale;
-    const inactiveFontPx = resolveClampFontPx(1.08, 2, 1.48) * fontScale;
-    const translationFontPx = resolveClampFontPx(0.94, 1.28, 1.14) * fontScale;
+    // Prefer measured lyric-column width so fonts stay inside the stage (not window/vw).
+    // Bias larger than the previous stage so lyrics read as a hero atmosphere layer.
+    const lyricFontPx = resolveClampFontPx(1.45, 6.5, 2.75, lyricColumnWidth || undefined) * fontScale;
+    const inactiveFontPx = resolveClampFontPx(1.15, 4.7, 1.95, lyricColumnWidth || undefined) * fontScale;
+    const translationFontPx = resolveClampFontPx(1.0, 3.5, 1.45, lyricColumnWidth || undefined) * fontScale;
+    const titleFontPx = resolveClampFontPx(1.65, 7.6, 3.1, lyricColumnWidth || undefined) * fontScale;
+    const artistFontPx = resolveClampFontPx(1.12, 4.2, 1.9, lyricColumnWidth || undefined) * fontScale;
 
     const primaryMetaLabel = songArtist?.trim() || 'Monet';
     const secondaryMetaLabel = songAlbum?.trim() || 'Monet';
@@ -143,18 +166,35 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                 </motion.div>
             )}
 
-            <div className="relative z-10 flex h-full w-full items-center justify-center overflow-hidden">
-                <div className="flex h-full w-full max-w-[1520px] flex-row items-center overflow-hidden">
+            <div className="relative z-10 flex h-full w-full items-center overflow-hidden">
+                <div className="flex h-full w-full min-w-0 flex-row items-center overflow-hidden">
                     {showText && (
-                        <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center px-5 py-5 sm:px-8 sm:py-6 lg:px-14 lg:py-8">
-                            <div className="mb-3 space-y-1.5">
+                        <div
+                            ref={lyricColumnRef}
+                            data-monet-lyric-column="true"
+                            className="relative z-10 flex h-full min-h-0 w-full max-w-[min(820px,58%)] flex-col justify-center overflow-hidden pl-[max(1.25rem,3.5rem)] pr-5 pb-5 pt-16 sm:pr-8 sm:pb-6 sm:pt-[4.5rem] lg:pr-14 lg:pb-8 lg:pt-20"
+                        >
+                            {/* Keep left lyric column readable when interactive3d stage fills the canvas. */}
+                            <div
+                                aria-hidden
+                                className="pointer-events-none absolute inset-y-0 left-0 -z-10 w-[min(100%,760px)]"
+                                style={{
+                                    background: `linear-gradient(90deg, ${colorWithAlpha(theme.backgroundColor, 0.72)} 0%, ${colorWithAlpha(theme.backgroundColor, 0.42)} 55%, ${colorWithAlpha(theme.backgroundColor, 0)} 100%)`,
+                                }}
+                            />
+                            <div className="mb-4 space-y-2">
                                 <motion.div
                                     key={`artist-${introKey}`}
                                     initial={{ opacity: 0, x: -30, y: -10 }}
                                     animate={{ opacity: 1, x: 0, y: 0 }}
                                     transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1], delay: 0.15 }}
-                                    className="text-[clamp(1rem,1.8vw,1.8rem)] italic"
-                                    style={{ color: colorWithAlpha(theme.primaryColor, 0.96), letterSpacing: 0 }}
+                                    className="italic"
+                                    style={{
+                                        color: colorWithAlpha(hintColor, 0.96),
+                                        letterSpacing: 0,
+                                        fontSize: `${artistFontPx}px`,
+                                        textShadow: `0 10px 28px ${colorWithAlpha(theme.backgroundColor, 0.35)}`,
+                                    }}
                                 >
                                     {primaryMetaLabel}
                                 </motion.div>
@@ -163,10 +203,10 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                                     initial={{ scaleY: 0 }}
                                     animate={{ scaleY: 1 }}
                                     transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1], delay: 0.5 }}
-                                    className="h-14 w-px rounded-full"
+                                    className="h-16 w-[2px] rounded-full"
                                     style={{ 
                                         originY: 0,
-                                        background: `linear-gradient(180deg, ${colorWithAlpha(theme.primaryColor, 0.72)}, transparent)` 
+                                        background: `linear-gradient(180deg, ${colorWithAlpha(activeColor, 0.88)}, transparent)` 
                                     }}
                                 />
                             </div>
@@ -179,19 +219,19 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                             >
                                 <div className="mb-6 space-y-1">
                                     <div
-                                        className="font-semibold leading-[1.06]"
+                                        className="min-w-0 font-semibold leading-[1.04] break-words"
                                         style={{
-                                            color: theme.primaryColor,
-                                            fontSize: 'clamp(1.45rem, 3.3vw, 2.8rem)',
+                                            color: titleColor,
+                                            fontSize: `${titleFontPx}px`,
                                             letterSpacing: 0,
-                                            textShadow: `0 14px 36px ${colorWithAlpha(theme.backgroundColor, 0.28)}`,
+                                            textShadow: `0 18px 48px ${colorWithAlpha(theme.backgroundColor, 0.42)}, 0 0 36px ${colorWithAlpha(activeColor, 0.18)}`,
                                         }}
                                     >
                                         {songTitle || 'Monet'}
                                     </div>
                                     <div
                                         className="text-sm uppercase"
-                                        style={{ color: colorWithAlpha(theme.secondaryColor, 0.84), letterSpacing: 0 }}
+                                        style={{ color: colorWithAlpha(hintColor, 0.84), letterSpacing: 0 }}
                                     >
                                         {secondaryMetaLabel}
                                     </div>
@@ -255,10 +295,10 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                             animate={{ opacity: 1, x: 0, scale: 1, rotate: 0 }}
                             transition={{ duration: 1.6, ease: [0.25, 1, 0.5, 1], delay: 0.25 }}
                             className="hidden min-w-0 items-center justify-center overflow-visible px-3 pr-5 sm:pr-8 md:flex lg:justify-end lg:pr-10 xl:pr-12 select-none"
-                            style={{ flex: '0 0 clamp(220px, 28vw, 430px)' }}
+                            style={{ flex: '0 0 clamp(220px, 32%, 430px)' }}
                         >
                             {/* Bounding box wrapper that stays in the default position */}
-                            <div className="relative w-full max-w-[clamp(210px,26vw,380px)]">
+                            <div className="relative w-full max-w-[min(380px,100%)]">
                                 
                                 {/* Dashed movable region border */}
                                 {isEditingPosition && (
@@ -456,8 +496,8 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1], delay: 0.8 }}
-                    className="absolute bottom-0 left-0 z-20 h-10 overflow-hidden px-5 sm:px-8 lg:px-14"
-                    style={{ width: 'min(450px, 55vw)' }}
+                    className="absolute bottom-0 left-0 z-20 h-10 overflow-hidden pl-[max(1.25rem,3.5rem)] pr-5 sm:pr-8 lg:pr-14"
+                    style={{ width: 'min(450px, 48%)' }}
                 >
                     <div className="h-full w-full">
                         <AudioOverlay

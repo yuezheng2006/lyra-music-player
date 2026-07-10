@@ -5,6 +5,17 @@ import type { NowPlayingConnectionStatus, StageSource, StageStatus, Theme } from
 import type { NavidromeServerProfile } from '../../../types/navidrome';
 import type { ObsBrowserSourceStatus } from '../../../types/obsBrowserSource';
 import QQMusicLoginPanel from '../../shared/QQMusicLoginPanel';
+import SettingsAdvancedSection from './SettingsAdvancedSection';
+import {
+    settingsDescClass,
+    settingsDescStyle,
+    settingsFootnoteClass,
+    settingsFootnoteStyle,
+    settingsSectionTitleClass,
+    settingsSectionTitleStyle,
+    settingsTitleClass,
+    settingsTitleStyle,
+} from './settingsTextStyles';
 
 // src/components/modal/settings/IntegrationSettingsSubview.tsx
 // Integration settings for music providers, Discord, Stage, Now Playing, OBS, and Navidrome.
@@ -164,20 +175,26 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
         window.setTimeout(() => setObsAddressCopied(false), 1600);
     };
 
+    const showStreamingAdvanced = Boolean(
+        (isElectron && obsBrowserSourceStatus)
+        || (isElectron && stageStatus)
+        || !isElectron,
+    );
+
     return (
         <>
             {isElectron && (
                 <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                    <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                         <Activity size={14} /> {t('options.discordRichPresence') || 'Discord Rich Presence'}
                     </h3>
                     <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
                         <div className="flex items-center justify-between gap-4">
                             <div className="space-y-1">
-                                <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                <div className={settingsTitleClass} style={settingsTitleStyle}>
                                     {t('options.enableDiscordRichPresence') || 'Enable Discord playback status'}
                                 </div>
-                                <div className="text-[10px] opacity-40 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
+                                <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
                                     {t('options.discordRichPresenceDesc') || 'Show the current Lyra track in Discord desktop. Lyra connects with its built-in application identity.'}
                                 </div>
                             </div>
@@ -197,7 +214,7 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
                                 {discordPresenceStatusLabel}
                             </span>
                             {discordPresenceStatus?.error && (
-                                <span className="text-[10px] opacity-60" style={{ color: 'var(--text-secondary)' }}>
+                                <span className={settingsFootnoteClass} style={settingsFootnoteStyle}>
                                     {discordPresenceStatus.error}
                                 </span>
                             )}
@@ -206,251 +223,255 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
                 </section>
             )}
 
-            {isElectron && obsBrowserSourceStatus && (
-                <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                        <Server size={14} /> {t('options.obsBrowserSource') || 'OBS Browser Source'}
-                    </h3>
-                    <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
-                        <div className="flex items-center justify-between gap-4">
-                            <div className="space-y-1">
-                                <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                    {t('options.enableObsBrowserSource') || 'Enable OBS browser source'}
+            {showStreamingAdvanced && (
+                <SettingsAdvancedSection title={t('options.advancedStreamingStage') || '推流与舞台'}>
+                    {isElectron && obsBrowserSourceStatus && (
+                        <section>
+                            <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                                <Server size={14} /> {t('options.obsBrowserSource') || 'OBS Browser Source'}
+                            </h3>
+                            <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <div className={settingsTitleClass} style={settingsTitleStyle}>
+                                            {t('options.enableObsBrowserSource') || 'Enable OBS browser source'}
+                                        </div>
+                                        <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
+                                            {t('options.obsBrowserSourceDesc') || 'Renders the full lyrics animation in OBS without audio. When connected, the main window stops rendering the heavy visualizer.'}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => void onToggleObsBrowserSource?.(!obsBrowserSourceStatus.enabled)}
+                                        className={`w-12 h-6 rounded-full p-1 transition-colors ${!obsBrowserSourceStatus.enabled ? toggleOffBackgroundClass : ''}`}
+                                        style={{ backgroundColor: obsBrowserSourceStatus.enabled ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
+                                        aria-label={t('options.enableObsBrowserSource') || 'Enable OBS browser source'}
+                                    >
+                                        <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${obsBrowserSourceStatus.enabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </button>
                                 </div>
-                                <div className="text-[10px] opacity-40 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
-                                    {t('options.obsBrowserSourceDesc') || 'Renders the full lyrics animation in OBS without audio. When connected, the main window stops rendering the heavy visualizer.'}
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => void onToggleObsBrowserSource?.(!obsBrowserSourceStatus.enabled)}
-                                className={`w-12 h-6 rounded-full p-1 transition-colors ${!obsBrowserSourceStatus.enabled ? toggleOffBackgroundClass : ''}`}
-                                style={{ backgroundColor: obsBrowserSourceStatus.enabled ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
-                                aria-label={t('options.enableObsBrowserSource') || 'Enable OBS browser source'}
-                            >
-                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${obsBrowserSourceStatus.enabled ? 'translate-x-6' : 'translate-x-0'}`} />
-                            </button>
-                        </div>
 
-                        {obsBrowserSourceStatus.enabled && (
-                            <div className="space-y-3">
-                                <div className={`rounded-xl border p-3 space-y-3 ${settingsCardClass}`}>
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div>
-                                            <div className="text-[10px] uppercase tracking-[0.16em] opacity-40 mb-2" style={{ color: 'var(--text-secondary)' }}>
-                                                {t('options.obsBrowserSourceAddress') || 'OBS URL'}
+                                {obsBrowserSourceStatus.enabled && (
+                                    <div className="space-y-3">
+                                        <div className={`rounded-xl border p-3 space-y-3 ${settingsCardClass}`}>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <div className={`mb-2 uppercase tracking-[0.16em] ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
+                                                        {t('options.obsBrowserSourceAddress') || 'OBS URL'}
+                                                    </div>
+                                                    <div className="text-sm break-all" style={{ color: 'var(--text-primary)' }}>
+                                                        {obsBrowserSourceStatus.url ?? 'http://127.0.0.1'}
+                                                    </div>
+                                                </div>
+                                                <span className={`shrink-0 px-2 py-1 rounded-full text-[10px] ${obsBrowserSourceStatus.clientCount > 0 ? successBgColor : errorBgColor} ${obsBrowserSourceStatus.clientCount > 0 ? successTextColor : errorTextColor}`}>
+                                                    {t('options.obsBrowserSourceClients') || 'Clients'}: {obsBrowserSourceStatus.clientCount}
+                                                </span>
                                             </div>
-                                            <div className="text-sm break-all" style={{ color: 'var(--text-primary)' }}>
-                                                {obsBrowserSourceStatus.url ?? 'http://127.0.0.1'}
+                                            <div className="flex flex-wrap gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => obsBrowserSourceStatus.url ? void handleCopyObsAddress(obsBrowserSourceStatus.url) : undefined}
+                                                    disabled={!obsBrowserSourceStatus.url}
+                                                    className="px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-colors disabled:opacity-40 flex items-center gap-2"
+                                                    style={{ color: obsAddressCopied ? '#86efac' : 'var(--text-primary)' }}
+                                                >
+                                                    {obsAddressCopied ? <Check size={14} /> : null}
+                                                    {obsAddressCopied
+                                                        ? (t('options.stageAddressCopied') || 'Copied')
+                                                        : (t('options.copyObsBrowserSourceAddress') || 'Copy OBS URL')}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void onRegenerateObsBrowserSourceToken?.()}
+                                                    className="px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-colors"
+                                                    style={{ color: 'var(--text-primary)' }}
+                                                >
+                                                    {t('options.regenerateObsBrowserSourceToken') || 'Regenerate Token'}
+                                                </button>
                                             </div>
                                         </div>
-                                        <span className={`shrink-0 px-2 py-1 rounded-full text-[10px] ${obsBrowserSourceStatus.clientCount > 0 ? successBgColor : errorBgColor} ${obsBrowserSourceStatus.clientCount > 0 ? successTextColor : errorTextColor}`}>
-                                            {t('options.obsBrowserSourceClients') || 'Clients'}: {obsBrowserSourceStatus.clientCount}
-                                        </span>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => obsBrowserSourceStatus.url ? void handleCopyObsAddress(obsBrowserSourceStatus.url) : undefined}
-                                            disabled={!obsBrowserSourceStatus.url}
-                                            className="px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-colors disabled:opacity-40 flex items-center gap-2"
-                                            style={{ color: obsAddressCopied ? '#86efac' : 'var(--text-primary)' }}
-                                        >
-                                            {obsAddressCopied ? <Check size={14} /> : null}
-                                            {obsAddressCopied
-                                                ? (t('options.stageAddressCopied') || 'Copied')
-                                                : (t('options.copyObsBrowserSourceAddress') || 'Copy OBS URL')}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => void onRegenerateObsBrowserSourceToken?.()}
-                                            className="px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-colors"
-                                            style={{ color: 'var(--text-primary)' }}
-                                        >
-                                            {t('options.regenerateObsBrowserSourceToken') || 'Regenerate Token'}
-                                        </button>
-                                    </div>
-                                </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-                </section>
-            )}
+                        </section>
+                    )}
 
-            {isElectron && stageStatus && (
-                <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                        <Server size={14} /> 舞台模式
-                    </h3>
-                    <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
-                        <div className="flex items-center justify-between gap-4">
-                            <div className="space-y-1">
-                                <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                    启用 Stage API
+                    {isElectron && stageStatus && (
+                        <section>
+                            <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                                <Server size={14} /> 舞台模式
+                            </h3>
+                            <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <div className={settingsTitleClass} style={settingsTitleStyle}>
+                                            启用 Stage API
+                                        </div>
+                                        <div className={`${settingsDescClass} max-w-[320px]`} style={settingsDescStyle}>
+                                            开启后会暴露本机 HTTP 接口，供 Stage 客户端读取当前播放和歌词状态。
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => void onToggleStageMode?.(!(stageStatus.modeEnabled ?? false))}
+                                        className={`w-12 h-6 rounded-full p-1 transition-colors ${!(stageStatus.modeEnabled ?? false) ? toggleOffBackgroundClass : ''}`}
+                                        style={{ backgroundColor: stageStatus.modeEnabled ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
+                                    >
+                                        <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${stageStatus.modeEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </button>
                                 </div>
-                                <div className="text-[10px] opacity-40 max-w-[320px]" style={{ color: 'var(--text-secondary)' }}>
-                                    开启后会暴露本机 HTTP 接口，供 Stage 客户端读取当前播放和歌词状态。
-                                </div>
+
+                                {stageStatus.modeEnabled && (
+                                    <div className="space-y-3">
+                                        <div className={`rounded-xl border p-3 space-y-2 ${settingsCardClass}`}>
+                                            <div className={`uppercase tracking-[0.16em] ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
+                                                Source
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {([
+                                                    { value: 'stage-api', label: 'Stage API' },
+                                                    { value: 'now-playing', label: 'Now Playing' },
+                                                ] as Array<{ value: StageSource; label: string }>).map((option) => {
+                                                    const selected = stageSource === option.value;
+                                                    return (
+                                                        <button
+                                                            key={option.value}
+                                                            type="button"
+                                                            onClick={() => void onStageSourceChange?.(option.value)}
+                                                            className="rounded-xl border px-3 py-3 text-sm transition-colors"
+                                                            style={{ ...getAccentOptionStyle(selected), color: 'var(--text-primary)' }}
+                                                        >
+                                                            {option.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {stageSource === 'now-playing' ? (
+                                            <div className={`rounded-xl border p-3 space-y-2 ${settingsCardClass}`}>
+                                                <div className={`uppercase tracking-[0.16em] ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
+                                                    Now Playing
+                                                </div>
+                                                <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                                                    连接状态：{nowPlayingStatusLabel}
+                                                </div>
+                                                <div className={settingsDescClass} style={settingsDescStyle}>
+                                                    固定连接 `ws://localhost:9863/api/ws/lyric`，请先在本机启动 now-playing 服务。
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className={`rounded-xl border p-3 space-y-3 ${settingsCardClass}`}>
+                                                    <div>
+                                                        <div className={`mb-2 uppercase tracking-[0.16em] ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
+                                                            {t('options.stageAddress') || 'Stage Address'}
+                                                        </div>
+                                                        <div className="text-sm break-all" style={{ color: 'var(--text-primary)' }}>
+                                                            {`http://127.0.0.1:${stageStatus.port}`}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => void handleCopyStageAddress(`http://127.0.0.1:${stageStatus.port}`)}
+                                                            className="px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-colors flex items-center gap-2"
+                                                            style={{ color: stageAddressCopied ? '#86efac' : 'var(--text-primary)' }}
+                                                        >
+                                                            {stageAddressCopied ? <Check size={14} /> : null}
+                                                            {stageAddressCopied
+                                                                ? (t('options.stageAddressCopied') || 'Copied')
+                                                                : (t('options.copyStageAddress') || 'Copy Address')}
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className={`rounded-xl border p-3 space-y-3 ${settingsCardClass}`}>
+                                                    <div>
+                                                        <div className={`mb-2 uppercase tracking-[0.16em] ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
+                                                            {t('options.stageToken') || 'Bearer Token'}
+                                                        </div>
+                                                        <div className="text-sm break-all" style={{ color: 'var(--text-primary)' }}>
+                                                            {maskStageToken(stageStatus.token)}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => void onCopyText(stageStatus.token || '')}
+                                                            disabled={!stageStatus.token}
+                                                            className="px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-colors disabled:opacity-40"
+                                                            style={{ color: 'var(--text-primary)' }}
+                                                        >
+                                                            {t('options.copyStageToken') || 'Copy Token'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                setStageActionStatus('regenerating');
+                                                                try {
+                                                                    await onRegenerateStageToken?.();
+                                                                } finally {
+                                                                    setStageActionStatus('idle');
+                                                                }
+                                                            }}
+                                                            disabled={stageActionStatus !== 'idle'}
+                                                            className="px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-colors disabled:opacity-40"
+                                                            style={{ color: 'var(--text-primary)' }}
+                                                        >
+                                                            {stageActionStatus === 'regenerating'
+                                                                ? (t('options.stageTokenRegenerating') || 'Regenerating...')
+                                                                : (t('options.regenerateStageToken') || 'Regenerate Token')}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            <button
-                                onClick={() => void onToggleStageMode?.(!(stageStatus.modeEnabled ?? false))}
-                                className={`w-12 h-6 rounded-full p-1 transition-colors ${!(stageStatus.modeEnabled ?? false) ? toggleOffBackgroundClass : ''}`}
-                                style={{ backgroundColor: stageStatus.modeEnabled ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
-                            >
-                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${stageStatus.modeEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
-                            </button>
-                        </div>
+                        </section>
+                    )}
 
-                        {stageStatus.modeEnabled && (
-                            <div className="space-y-3">
-                                <div className={`rounded-xl border p-3 space-y-2 ${settingsCardClass}`}>
-                                    <div className="text-[10px] uppercase tracking-[0.16em] opacity-40" style={{ color: 'var(--text-secondary)' }}>
-                                        Source
+                    {!isElectron && (
+                        <section>
+                            <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                                <Server size={14} /> 舞台
+                            </h3>
+                            <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+                                <div className="flex items-center justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <div className={settingsTitleClass} style={settingsTitleStyle}>
+                                            启用 Now Playing
+                                        </div>
+                                        <div className={`${settingsDescClass} max-w-[320px]`} style={settingsDescStyle}>
+                                            开启后首页显示舞台入口，并通过本机 localhost 连接 now-playing 服务。
+                                        </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {([
-                                            { value: 'stage-api', label: 'Stage API' },
-                                            { value: 'now-playing', label: 'Now Playing' },
-                                        ] as Array<{ value: StageSource; label: string }>).map((option) => {
-                                            const selected = stageSource === option.value;
-                                            return (
-                                                <button
-                                                    key={option.value}
-                                                    type="button"
-                                                    onClick={() => void onStageSourceChange?.(option.value)}
-                                                    className="rounded-xl border px-3 py-3 text-sm transition-colors"
-                                                    style={{ ...getAccentOptionStyle(selected), color: 'var(--text-primary)' }}
-                                                >
-                                                    {option.label}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
+                                    <button
+                                        onClick={() => void onToggleNowPlayingStage?.(!enableNowPlayingStage)}
+                                        className={`w-12 h-6 rounded-full p-1 transition-colors ${!enableNowPlayingStage ? toggleOffBackgroundClass : ''}`}
+                                        style={{ backgroundColor: enableNowPlayingStage ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
+                                    >
+                                        <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${enableNowPlayingStage ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </button>
                                 </div>
-
-                                {stageSource === 'now-playing' ? (
+                                {enableNowPlayingStage && (
                                     <div className={`rounded-xl border p-3 space-y-2 ${settingsCardClass}`}>
-                                        <div className="text-[10px] uppercase tracking-[0.16em] opacity-40" style={{ color: 'var(--text-secondary)' }}>
+                                        <div className={`uppercase tracking-[0.16em] ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
                                             Now Playing
                                         </div>
                                         <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
                                             连接状态：{nowPlayingStatusLabel}
                                         </div>
-                                        <div className="text-[11px] opacity-50" style={{ color: 'var(--text-secondary)' }}>
-                                            固定连接 `ws://localhost:9863/api/ws/lyric`，请先在本机启动 now-playing 服务。
-                                        </div>
                                     </div>
-                                ) : (
-                                    <>
-                                        <div className={`rounded-xl border p-3 space-y-3 ${settingsCardClass}`}>
-                                            <div>
-                                                <div className="text-[10px] uppercase tracking-[0.16em] opacity-40 mb-2" style={{ color: 'var(--text-secondary)' }}>
-                                                    {t('options.stageAddress') || 'Stage Address'}
-                                                </div>
-                                                <div className="text-sm break-all" style={{ color: 'var(--text-primary)' }}>
-                                                    {`http://127.0.0.1:${stageStatus.port}`}
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => void handleCopyStageAddress(`http://127.0.0.1:${stageStatus.port}`)}
-                                                    className="px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-colors flex items-center gap-2"
-                                                    style={{ color: stageAddressCopied ? '#86efac' : 'var(--text-primary)' }}
-                                                >
-                                                    {stageAddressCopied ? <Check size={14} /> : null}
-                                                    {stageAddressCopied
-                                                        ? (t('options.stageAddressCopied') || 'Copied')
-                                                        : (t('options.copyStageAddress') || 'Copy Address')}
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className={`rounded-xl border p-3 space-y-3 ${settingsCardClass}`}>
-                                            <div>
-                                                <div className="text-[10px] uppercase tracking-[0.16em] opacity-40 mb-2" style={{ color: 'var(--text-secondary)' }}>
-                                                    {t('options.stageToken') || 'Bearer Token'}
-                                                </div>
-                                                <div className="text-sm break-all" style={{ color: 'var(--text-primary)' }}>
-                                                    {maskStageToken(stageStatus.token)}
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => void onCopyText(stageStatus.token || '')}
-                                                    disabled={!stageStatus.token}
-                                                    className="px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-colors disabled:opacity-40"
-                                                    style={{ color: 'var(--text-primary)' }}
-                                                >
-                                                    {t('options.copyStageToken') || 'Copy Token'}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={async () => {
-                                                        setStageActionStatus('regenerating');
-                                                        try {
-                                                            await onRegenerateStageToken?.();
-                                                        } finally {
-                                                            setStageActionStatus('idle');
-                                                        }
-                                                    }}
-                                                    disabled={stageActionStatus !== 'idle'}
-                                                    className="px-3 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-xs transition-colors disabled:opacity-40"
-                                                    style={{ color: 'var(--text-primary)' }}
-                                                >
-                                                    {stageActionStatus === 'regenerating'
-                                                        ? (t('options.stageTokenRegenerating') || 'Regenerating...')
-                                                        : (t('options.regenerateStageToken') || 'Regenerate Token')}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </>
                                 )}
                             </div>
-                        )}
-                    </div>
-                </section>
-            )}
-
-            {!isElectron && (
-                <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                        <Server size={14} /> 舞台
-                    </h3>
-                    <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
-                        <div className="flex items-center justify-between gap-4">
-                            <div className="space-y-1">
-                                <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                    启用 Now Playing
-                                </div>
-                                <div className="text-[10px] opacity-40 max-w-[320px]" style={{ color: 'var(--text-secondary)' }}>
-                                    开启后首页显示舞台入口，并通过本机 localhost 连接 now-playing 服务。
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => void onToggleNowPlayingStage?.(!enableNowPlayingStage)}
-                                className={`w-12 h-6 rounded-full p-1 transition-colors ${!enableNowPlayingStage ? toggleOffBackgroundClass : ''}`}
-                                style={{ backgroundColor: enableNowPlayingStage ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
-                            >
-                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${enableNowPlayingStage ? 'translate-x-6' : 'translate-x-0'}`} />
-                            </button>
-                        </div>
-                        {enableNowPlayingStage && (
-                            <div className={`rounded-xl border p-3 space-y-2 ${settingsCardClass}`}>
-                                <div className="text-[10px] uppercase tracking-[0.16em] opacity-40" style={{ color: 'var(--text-secondary)' }}>
-                                    Now Playing
-                                </div>
-                                <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                                    连接状态：{nowPlayingStatusLabel}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </section>
+                        </section>
+                    )}
+                </SettingsAdvancedSection>
             )}
 
             <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                     <KeyRound size={14} /> {t('options.qqMusicAccount') || 'QQ Music Account'}
                 </h3>
                 <QQMusicLoginPanel
@@ -464,7 +485,7 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
             </section>
 
             <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-50 mb-4 flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                     <Server size={14} /> {t('navidrome.settings') || 'Navidrome Settings'}
                     {navidromeEnabled && navidromeConfigured && (
                         <span className={`ml-2 px-2 py-0.5 ${successBgColor} ${successTextColor} text-xs rounded-full font-normal normal-case`}>

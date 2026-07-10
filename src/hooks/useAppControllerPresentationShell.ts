@@ -12,6 +12,11 @@ import type {
     AppControllerPlaybackBridgesResult,
 } from './useAppController.types';
 
+/** Idle delay before auto-hiding the floating dock / player chrome. */
+const PLAYER_CHROME_IDLE_HIDE_MS = 10_000;
+/** Faster hide when the pointer leaves the window entirely. */
+const PLAYER_CHROME_LEAVE_WINDOW_HIDE_MS = 300;
+
 export function useAppControllerPresentationShell(
     core: AppControllerCoreResult & AppControllerLibraryResult & AppControllerPlaybackBridgesResult,
 ) {
@@ -157,7 +162,7 @@ export function useAppControllerPresentationShell(
                 window.clearTimeout(timeoutId);
                 timeoutId = window.setTimeout(() => {
                     setIsFloatingDockRevealed(false);
-                }, 3000);
+                }, PLAYER_CHROME_IDLE_HIDE_MS);
                 return;
             }
 
@@ -165,7 +170,7 @@ export function useAppControllerPresentationShell(
             window.clearTimeout(timeoutId);
             timeoutId = window.setTimeout(() => {
                 setIsPlayerChromeHidden(true);
-            }, 3000);
+            }, PLAYER_CHROME_IDLE_HIDE_MS);
         };
 
         const handleMouseOut = (e: MouseEvent) => {
@@ -177,7 +182,7 @@ export function useAppControllerPresentationShell(
                     } else {
                         setIsPlayerChromeHidden(true);
                     }
-                }, 300);
+                }, PLAYER_CHROME_LEAVE_WINDOW_HIDE_MS);
             }
         };
 
@@ -216,7 +221,7 @@ export function useAppControllerPresentationShell(
 
         const timeoutId = window.setTimeout(() => {
             setIsFloatingDockRevealed(false);
-        }, 3000);
+        }, PLAYER_CHROME_IDLE_HIDE_MS);
 
         return () => window.clearTimeout(timeoutId);
     }, [

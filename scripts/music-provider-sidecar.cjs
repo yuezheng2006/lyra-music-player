@@ -50,6 +50,9 @@ const getAdapterModulePath = (provider) => {
   if (provider === 'coco') {
     return path.join(__dirname, 'music-provider-adapters', 'coco-provider-adapter.mjs');
   }
+  if (provider === 'qishui') {
+    return path.resolve(process.cwd(), 'scripts/music-provider-adapters/qishui-provider-adapter.mjs');
+  }
   const generic = process.env.MUSIC_PROVIDER_ADAPTER;
   return generic && generic.trim() ? generic.trim() : null;
 };
@@ -169,6 +172,8 @@ const normalizeSearchResponse = (payload) => {
     songs,
     total: typeof payload.total === 'number' ? payload.total : songs.length,
     hasMore: Boolean(payload.hasMore),
+    ...(payload.kind ? { kind: payload.kind } : {}),
+    ...(payload.query ? { query: payload.query } : {}),
   };
 };
 
@@ -290,6 +295,21 @@ const server = http.createServer(async (req, res) => {
         || await runBuiltInProvider(route.provider, 'lyrics', requestPayload)
         || await runExtractor(route.provider, 'lyrics', requestPayload);
       sendJson(res, 200, payload || { lyrics: null });
+      return;
+    }
+
+    if (route.endpoint === 'recommend' && (req.method === 'GET' || req.method === 'POST')) {
+      const requestPayload = req.method === 'POST'
+        ? JSON.parse(await readBody(req) || '{}')
+        : {
+          limit: Number(url.searchParams.get('limit') || 20),
+        };
+      if (requestPayload.limit == null) {
+        requestPayload.limit = Number(url.searchParams.get('limit') || 20);
+      }
+      const payload = await runAdapter(route.provider, 'recommend', requestPayload)
+        || await runExtractor(route.provider, 'recommend', requestPayload);
+      sendJson(res, 200, normalizeSearchResponse(payload));
       return;
     }
 

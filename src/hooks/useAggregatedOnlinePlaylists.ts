@@ -18,8 +18,12 @@ type AggregatedPlaylistOptions = {
 };
 
 const isLikedPlaylist = (playlist: NeteasePlaylist) => {
-    // Coco defaults are search entry points, not personal liked playlists.
-    if (playlist.specialType === 'provider-default' || playlist.musicProvider === 'coco') {
+    // Peer defaults are search entry points, not personal liked playlists.
+    if (
+        playlist.specialType === 'provider-default'
+        || playlist.musicProvider === 'coco'
+        || playlist.musicProvider === 'qishui'
+    ) {
         return false;
     }
     const name = playlist.name?.trim() || '';
@@ -68,7 +72,9 @@ export const aggregateOnlinePlaylists = ({
             ? `qq:${playlist.providerPlaylistId || playlist.id}`
             : playlist.musicProvider === 'coco'
                 ? `coco:${playlist.providerPlaylistId || playlist.id}`
-                : `netease:${playlist.id}`;
+                : playlist.musicProvider === 'qishui'
+                    ? `qishui:${playlist.providerPlaylistId || playlist.id}`
+                    : `netease:${playlist.id}`;
         if (!deduped.has(key)) {
             deduped.set(key, playlist);
         }
@@ -90,6 +96,7 @@ export const useAggregatedOnlinePlaylists = (options: AggregatedPlaylistOptions)
         [
             options.cloudPlaylist,
             options.enabledProviders.coco,
+            options.enabledProviders.qishui,
             options.enabledProviders.netease,
             options.enabledProviders.qq,
             options.moduleFilter,

@@ -6,6 +6,14 @@ import { useShallow } from 'zustand/react/shallow';
 import type { Theme, VisualizerFrameRate } from '../../../types';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { VISUALIZER_FRAME_RATE_OPTIONS } from '../../../utils/frameRateLimiter';
+import {
+    settingsDescClass,
+    settingsDescStyle,
+    settingsFootnoteClass,
+    settingsFootnoteStyle,
+    settingsTitleClass,
+    settingsTitleStyle,
+} from './settingsTextStyles';
 
 // src/components/modal/settings/LabSettingsModal.tsx
 // Experimental settings subview kept outside SettingsModal to avoid another giant inline panel.
@@ -157,7 +165,7 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                     <div className="text-lg sm:text-xl font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                                         {t('options.labSettings') || '实验室'}
                                     </div>
-                                    <div className="text-xs opacity-50 mt-1" style={{ color: 'var(--text-secondary)' }}>
+                                    <div className={`mt-1 ${settingsDescClass}`} style={settingsDescStyle}>
                                         {t('options.labSettingsDesc') || 'Open a separate page for experimental playback and panel behavior settings.'}
                                     </div>
                                 </div>
@@ -187,14 +195,14 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                             <div className="space-y-4">
                                 <div className={`p-4 rounded-xl border flex items-center justify-between gap-4 ${settingsCardClass}`}>
                                     <div className="space-y-1">
-                                        <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                                        <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
                                             <Monitor size={14} />
                                             {t('options.enableStaticMode') || 'Static Mode'}
                                         </div>
-                                        <div className="text-xs opacity-50 max-w-[320px]" style={{ color: 'var(--text-secondary)' }}>
+                                        <div className={`${settingsDescClass} max-w-[320px]`} style={settingsDescStyle}>
                                             {t('options.enableStaticModeDesc') || 'Disable geometric backgrounds.'}
                                         </div>
-                                        <div className="text-[11px] opacity-40 max-w-[320px]" style={{ color: 'var(--text-secondary)' }}>
+                                        <div className={`${settingsFootnoteClass} max-w-[320px]`} style={settingsFootnoteStyle}>
                                             {t('options.enableStaticModeDescSub') || 'Does not affect lyric text effects or rendering.'}
                                         </div>
                                     </div>
@@ -203,14 +211,14 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
 
                                 <div className={`p-4 rounded-xl border flex items-center justify-between gap-4 ${settingsCardClass}`}>
                                     <div className="space-y-1">
-                                        <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                                        <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
                                             <PlayCircle size={14} />
                                             {t('options.disableHomeDynamicBackground') || '关闭主页动态背景'}
                                         </div>
-                                        <div className="text-xs opacity-50 max-w-[320px]" style={{ color: 'var(--text-secondary)' }}>
+                                        <div className={`${settingsDescClass} max-w-[320px]`} style={settingsDescStyle}>
                                             {t('options.disableHomeDynamicBackgroundDesc') || '关闭后主页不再继续播放背景动画，可降低 GPU 占用。'}
                                         </div>
-                                        <div className="text-[11px] opacity-40 max-w-[320px]" style={{ color: 'var(--text-secondary)' }}>
+                                        <div className={`${settingsFootnoteClass} max-w-[320px]`} style={settingsFootnoteStyle}>
                                             {t('options.disableHomeDynamicBackgroundWarning') || '默认情况下允许动态背景。'}
                                         </div>
                                     </div>
@@ -220,11 +228,11 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="space-y-1">
-                                            <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                                            <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
                                                 <Cpu size={14} />
                                                 {t('options.visualizerFrameRate') || '动画帧率限制'}
                                             </div>
-                                            <div className="text-xs opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                                            <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
                                                 {t('options.visualizerFrameRateDesc') || '实验性设置：启用后会限制 requestAnimationFrame 驱动的动画帧率，可能导致动画、测量或第三方动画库出现意外问题。'}
                                             </div>
                                         </div>
@@ -233,7 +241,7 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                     <div className={`space-y-3 transition-opacity ${isVisualizerFrameRateLimiterEnabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
                                         <div className="flex items-center justify-between text-sm" style={{ color: 'var(--text-primary)' }}>
                                             <span>{t('options.visualizerFrameRateValue') || '限制档位'}</span>
-                                            <span className="font-mono opacity-70" style={{ color: 'var(--text-secondary)' }}>
+                                            <span className="font-mono" style={settingsDescStyle}>
                                                 {getFrameRateLabel(selectedVisualizerFrameRate)}
                                             </span>
                                         </div>
@@ -248,7 +256,7 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                             aria-label={t('options.visualizerFrameRateValue') || '限制档位'}
                                             disabled={!isVisualizerFrameRateLimiterEnabled}
                                         />
-                                        <div className="grid grid-cols-3 text-[11px] font-mono opacity-60" style={{ color: 'var(--text-secondary)' }}>
+                                        <div className={`grid grid-cols-3 font-mono ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
                                             {VISUALIZER_FRAME_RATE_OPTIONS.map((frameRate, index) => (
                                                 <span
                                                     key={frameRate}
@@ -263,11 +271,11 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
 
                                 <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
                                     <div className="space-y-1">
-                                        <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                                        <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
                                             <Settings2 size={14} />
                                             {t('options.labHidePlayerUi') || '隐藏播放页 UI'}
                                         </div>
-                                        <div className="text-xs opacity-50 max-w-[420px]" style={{ color: 'var(--text-secondary)' }}>
+                                        <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
                                             {t('options.labHidePlayerUiDesc') || '仅对播放页生效。可分别隐藏翻译字幕和右侧按钮；隐藏右侧按钮后仍可使用 P 键打开或关闭右侧面板。底栏请用「自动隐藏控制栏」或 H 键。'}
                                         </div>
                                     </div>
@@ -299,11 +307,11 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
 
                                 <div className={`p-4 rounded-xl border flex items-center justify-between gap-4 ${settingsCardClass}`}>
                                     <div className="space-y-1">
-                                        <div className="text-sm font-medium flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                                        <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
                                             <GamepadDirectional size={14} />
                                             {t('options.showOpenPanelCloseButton') || 'Show panel close button'}
                                         </div>
-                                        <div className="text-xs opacity-50 max-w-[320px]" style={{ color: 'var(--text-secondary)' }}>
+                                        <div className={`${settingsDescClass} max-w-[320px]`} style={settingsDescStyle}>
                                             {t('options.showOpenPanelCloseButtonDesc') || 'Keep the floating close button visible after the song info card opens.'}
                                         </div>
                                     </div>
@@ -313,10 +321,10 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                 {!isLinux && (
                                     <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors hover:bg-white/8 ${settingsCardInteractiveClass}`} onClick={() => onTogglePlayerPageNativeBlur(!enablePlayerPageNativeBlur)}>
                                         <div className="flex flex-col pr-8">
-                                            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                            <span className={settingsTitleClass} style={settingsTitleStyle}>
                                                 {t('options.enablePlayerPageNativeBlur') || '开启播放页原生毛玻璃背景'}
                                             </span>
-                                            <span className="text-xs opacity-50 mt-1 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
+                                            <span className={`mt-1 max-w-[360px] ${settingsDescClass}`} style={settingsDescStyle}>
                                                 {t('options.enablePlayerPageNativeBlurDesc') || '仅在非透明模式下生效。将播放页的背景替换为系统原生毛玻璃效果（仅桌面端）。系统原生效果会消耗更多性能并可能在移动窗口时产生卡顿。'}
                                             </span>
                                         </div>
@@ -331,10 +339,10 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                 >
                                     <div className="flex items-center justify-between gap-4">
                                         <div className="space-y-1">
-                                            <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                            <div className={settingsTitleClass} style={settingsTitleStyle}>
                                                 歌词过滤正则
                                             </div>
-                                            <div className="text-xs opacity-50 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
+                                            <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
                                                 为歌词解析后的完整文本列表配置逐行过滤规则。
                                             </div>
                                         </div>

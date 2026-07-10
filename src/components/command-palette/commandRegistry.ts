@@ -50,7 +50,7 @@ const getSearchSourceLabel = (sourceTab: SearchSourceId, context: CommandPalette
         return context.t('commandPalette.sourceQishuiMusic', 'Qishui Music');
     }
     if (sourceTab === 'coco') {
-        return context.t('commandPalette.sourceCocoMusic', 'Coco');
+        return context.t('commandPalette.sourceCocoMusic', 'coco-免费');
     }
     return context.t('commandPalette.sourceNetease', 'NetEase Cloud Music');
 };

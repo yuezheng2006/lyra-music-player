@@ -19,6 +19,17 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Theme } from '../../../types';
+import SettingsAdvancedSection from './SettingsAdvancedSection';
+import {
+    settingsDescClass,
+    settingsDescStyle,
+    settingsFootnoteClass,
+    settingsFootnoteStyle,
+    settingsSectionTitleClass,
+    settingsSectionTitleStyle,
+    settingsTitleClass,
+    settingsTitleStyle,
+} from './settingsTextStyles';
 
 // src/components/modal/settings/DesktopSettingsSubview.tsx
 // Desktop-only tray, update, and AI settings separated from the global settings modal.
@@ -130,6 +141,7 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
         updateStatus,
     } = model;
     const { t } = useTranslation();
+    const autoUpdateSupported = Boolean(updateStatus?.supported);
 
     if (!isElectron) {
         return null;
@@ -149,27 +161,21 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
 
     return (
         <>
-            <section className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2 opacity-60" style={{ color: 'var(--text-secondary)' }}>
-                    <Monitor size={14} className="opacity-70" /> {t('options.desktopTrayBehavior') || '桌面窗口行为'}
+            <section className="space-y-3">
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                    <Monitor size={14} /> {t('options.desktopTrayBehavior') || '桌面窗口行为'}
                 </h3>
                 <div className={`border rounded-2xl overflow-hidden ${borderColor} ${settingsCardClass}`}>
-                    <div className={`p-4 bg-black/[0.04] dark:bg-white/[0.02] border-b ${borderColor}`}>
-                        <p className="text-xs opacity-60 leading-relaxed text-left" style={{ color: 'var(--text-secondary)' }}>
-                            {t('options.desktopTrayBehaviorDesc') || '仅桌面端生效。可控制最小化到托盘、隐藏任务栏图标，以及启动时是否直接进入播放页。'}
-                        </p>
-                    </div>
-
                     <div className={`flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors border-b ${borderColor}`}>
                         <div className="flex items-start gap-3 min-w-0">
                             <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
                                 <Minimize2 size={16} />
                             </div>
                             <div className="space-y-0.5 text-left">
-                                <h4 className="text-sm font-semibold leading-none" style={{ color: 'var(--text-primary)' }}>
+                                <h4 className={settingsTitleClass} style={settingsTitleStyle}>
                                     {t('options.minimizeToTray') || '最小化到托盘'}
                                 </h4>
-                                <p className="text-xs opacity-50 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                <p className={settingsDescClass} style={settingsDescStyle}>
                                     点击最小化时，应用将隐藏至系统托盘。
                                 </p>
                             </div>
@@ -177,119 +183,59 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                         {renderToggle(minimizeToTray, () => onToggleMinimizeToTray(!minimizeToTray))}
                     </div>
 
-                    <div className={`flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors border-b ${borderColor}`}>
+                    <div className="flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors">
                         <div className="flex items-start gap-3 min-w-0">
                             <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
                                 <AppWindow size={16} />
                             </div>
                             <div className="space-y-0.5 text-left">
-                                <h4 className="text-sm font-semibold leading-none" style={{ color: 'var(--text-primary)' }}>
+                                <h4 className={settingsTitleClass} style={settingsTitleStyle}>
                                     {t('options.openPlayerOnLaunch') || '启动后直接进入听歌模式'}
                                 </h4>
-                                <p className="text-xs opacity-50 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                                    启动后直接进入沉浸播放页（侧栏「听歌模式」）。关闭则先进入推荐浏览页。
+                                <p className={settingsDescClass} style={settingsDescStyle}>
+                                    启动后直接进入沉浸播放页。关闭则先进入推荐浏览页。
                                 </p>
                             </div>
                         </div>
                         {renderToggle(openPlayerOnLaunch, () => onToggleOpenPlayerOnLaunch(!openPlayerOnLaunch))}
                     </div>
-
-                    <div className="flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors">
-                        <div className="flex items-start gap-3 min-w-0">
-                            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
-                                <EyeOff size={16} />
-                            </div>
-                            <div className="space-y-0.5 text-left">
-                                <h4 className="text-sm font-semibold leading-none" style={{ color: 'var(--text-primary)' }}>
-                                    {t('options.hideTaskbarIcon') || '隐藏任务栏图标'}
-                                </h4>
-                                <p className="text-xs opacity-50 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                                    即使主窗口处于打开状态，也不在系统任务栏显示应用，最大程度减少干扰。
-                                </p>
-                            </div>
-                        </div>
-                        {renderToggle(hideTaskbarIcon, () => onToggleHideTaskbarIcon(!hideTaskbarIcon))}
-                    </div>
                 </div>
-
-                {hideTaskbarIcon && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`flex items-start gap-3 p-3.5 rounded-2xl border text-xs leading-relaxed ${
-                            isDaylight
-                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-800'
-                                : 'bg-amber-500/8 border-amber-500/15 text-amber-200'
-                        }`}
-                    >
-                        <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-                        <div className="space-y-0.5 text-left">
-                            <span className="font-semibold">重要提示：</span>
-                            <span>隐藏任务栏图标后，应用只会在系统托盘显示。如需找回主窗口，请双击或右键点击托盘中的 Lyra 图标。建议同时配合启用“最小化到托盘”。</span>
-                        </div>
-                    </motion.div>
-                )}
             </section>
 
-            <section className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2 opacity-60" style={{ color: 'var(--text-secondary)' }}>
-                    <Type size={14} className="opacity-70" /> {t('options.desktopLyrics') || 'Desktop lyrics'}
+            <section className="space-y-3">
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                    <Type size={14} /> {t('options.desktopLyrics') || 'Desktop lyrics'}
                 </h3>
                 <div className={`border rounded-2xl overflow-hidden ${borderColor} ${settingsCardClass}`}>
-                    <div className={`p-4 bg-black/[0.04] dark:bg-white/[0.02] border-b ${borderColor}`}>
-                        <p className="text-xs opacity-60 leading-relaxed text-left" style={{ color: 'var(--text-secondary)' }}>
-                            {t('options.desktopLyricsDesc') || 'Show an always-on-top transparent lyrics overlay. Locked mode is click-through; unlock to drag or close.'}
-                        </p>
-                    </div>
-
-                    <div className={`flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors border-b ${borderColor}`}>
+                    <div className="flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors">
                         <div className="flex items-start gap-3 min-w-0">
                             <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
                                 <Type size={16} />
                             </div>
                             <div className="space-y-0.5 text-left">
-                                <h4 className="text-sm font-semibold leading-none" style={{ color: 'var(--text-primary)' }}>
+                                <h4 className={settingsTitleClass} style={settingsTitleStyle}>
                                     {t('options.enableDesktopLyrics') || 'Enable desktop lyrics'}
                                 </h4>
-                                <p className="text-xs opacity-50 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                <p className={settingsDescClass} style={settingsDescStyle}>
                                     {t('options.enableDesktopLyricsDesc') || 'Opens a frameless overlay that follows the current lyric line and theme colors.'}
                                 </p>
                             </div>
                         </div>
                         {renderToggle(desktopLyricsEnabled, () => { void onToggleDesktopLyrics(); })}
                     </div>
-
-                    <div className={`flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors`}>
-                        <div className="flex items-start gap-3 min-w-0">
-                            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
-                                <ShieldAlert size={16} />
-                            </div>
-                            <div className="space-y-0.5 text-left">
-                                <h4 className="text-sm font-semibold leading-none" style={{ color: 'var(--text-primary)' }}>
-                                    {t('options.lockDesktopLyrics') || 'Lock desktop lyrics'}
-                                </h4>
-                                <p className="text-xs opacity-50 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                                    {desktopLyricsMiddleClickPoller
-                                        ? (t('options.lockDesktopLyricsDescWindows') || 'Locked overlays ignore mouse input. Middle-click the lyric area to toggle lock.')
-                                        : (t('options.lockDesktopLyricsDescMac') || 'Locked overlays ignore mouse input. Use the command palette or this toggle to unlock on macOS.')}
-                                </p>
-                            </div>
-                        </div>
-                        {renderToggle(desktopLyricsLocked, () => { void onToggleDesktopLyricsLock(); }, !desktopLyricsEnabled)}
-                    </div>
                 </div>
             </section>
 
-            <section className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center justify-between gap-3 opacity-60" style={{ color: 'var(--text-secondary)' }}>
+            <section className="space-y-3">
+                <h3 className={`${settingsSectionTitleClass} justify-between`} style={settingsSectionTitleStyle}>
                     <span className="flex items-center gap-2">
-                        <RefreshCw size={14} className="opacity-70" /> {t('options.updateCheck') || 'Update Check'}
+                        <RefreshCw size={14} /> {t('options.updateCheck') || 'Update Check'}
                     </span>
                     <button
                         type="button"
                         onClick={onCheckForUpdates}
                         disabled={!electronSettings.ENABLE_UPDATE_CHECK || updateStatus?.status === 'checking'}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium transition-all hover:bg-white/10 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium transition-all hover:bg-white/10 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 normal-case tracking-normal"
                         style={{ color: 'var(--text-primary)' }}
                     >
                         {updateBadgeIcon}
@@ -298,43 +244,22 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                 </h3>
 
                 <div className={`border rounded-2xl overflow-hidden ${borderColor} ${settingsCardClass}`}>
-                    <div className={`flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors border-b ${borderColor}`}>
+                    <div className="flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors">
                         <div className="flex items-start gap-3 min-w-0">
                             <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
                                 <Globe size={16} />
                             </div>
                             <div className="space-y-0.5 text-left">
-                                <h4 className="text-sm font-semibold leading-none" style={{ color: 'var(--text-primary)' }}>
+                                <h4 className={settingsTitleClass} style={settingsTitleStyle}>
                                     {t('options.enableUpdateCheck') || 'Enable Update Check'}
                                 </h4>
-                                <p className="text-xs opacity-50 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                <p className={settingsDescClass} style={settingsDescStyle}>
                                     {t('options.enableUpdateCheckDesc') || 'Check GitHub releases through the system proxy when the desktop app starts.'}
                                 </p>
                             </div>
                         </div>
                         {renderToggle(electronSettings.ENABLE_UPDATE_CHECK, onToggleUpdateCheck)}
                     </div>
-
-                    <div className="flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors">
-                        <div className="flex items-start gap-3 min-w-0">
-                            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
-                                <Download size={16} />
-                            </div>
-                            <div className="space-y-0.5 text-left">
-                                <h4 className="text-sm font-semibold leading-none" style={{ color: 'var(--text-primary)' }}>
-                                    {t('options.enableAutoUpdate') || 'Enable Auto Update'}
-                                </h4>
-                                <p className="text-xs opacity-50 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                                    {t('options.enableAutoUpdateDesc') || 'Automatically download updates after a new version is found.'}
-                                </p>
-                            </div>
-                        </div>
-                        {renderToggle(electronSettings.ENABLE_AUTO_UPDATE, onToggleAutoUpdate, !canEnableAutoUpdate)}
-                    </div>
-                </div>
-
-                <div className="text-[10px] opacity-45 px-1 leading-relaxed text-left" style={{ color: 'var(--text-secondary)' }}>
-                    {t('options.autoUpdateGithubNotice') || 'Auto update needs access to GitHub; if the network is unstable, keep a system proxy enabled.'}
                 </div>
 
                 {updateStatus?.availableVersion && (
@@ -346,18 +271,16 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                             </span>
                         </div>
 
-                        {/* 自动更新时的提示 */}
                         {electronSettings.ENABLE_AUTO_UPDATE && updateStatus.status === 'downloading' && (
-                            <div className="text-xs text-left text-zinc-400">
+                            <div className={settingsDescClass} style={settingsDescStyle}>
                                 新版本正在后台自动下载，下载完成后将提示您重启安装。
                             </div>
                         )}
 
-                        {/* 下载进度条 */}
                         {updateStatus.status === 'downloading' && updateStatus.downloadProgress && (
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between text-xs font-mono">
-                                    <span className="opacity-60 text-left" style={{ color: 'var(--text-secondary)' }}>
+                                    <span className="text-left" style={settingsDescStyle}>
                                         正在下载更新...
                                     </span>
                                     <span className="font-semibold text-emerald-400">
@@ -371,7 +294,7 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                                     />
                                 </div>
                                 {updateStatus.downloadProgress.transferred !== undefined && updateStatus.downloadProgress.total !== undefined && (
-                                    <div className="text-[10px] opacity-40 text-right font-mono" style={{ color: 'var(--text-secondary)' }}>
+                                    <div className={`text-right font-mono ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
                                         {(updateStatus.downloadProgress.transferred / 1024 / 1024).toFixed(1)} MB / {(updateStatus.downloadProgress.total / 1024 / 1024).toFixed(1)} MB
                                     </div>
                                 )}
@@ -424,18 +347,101 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                 )}
             </section>
 
-            <section className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2 opacity-60" style={{ color: 'var(--text-secondary)' }}>
-                    <Cpu size={14} className="opacity-70" /> {t('options.electronSettings') || 'Desktop App Settings'}
-                </h3>
+            <SettingsAdvancedSection>
+                <div className={`border rounded-2xl overflow-hidden ${borderColor} ${settingsCardClass}`}>
+                    <div className="flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors">
+                        <div className="flex items-start gap-3 min-w-0">
+                            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
+                                <EyeOff size={16} />
+                            </div>
+                            <div className="space-y-0.5 text-left">
+                                <h4 className={settingsTitleClass} style={settingsTitleStyle}>
+                                    {t('options.hideTaskbarIcon') || '隐藏任务栏图标'}
+                                </h4>
+                                <p className={settingsDescClass} style={settingsDescStyle}>
+                                    即使主窗口处于打开状态，也不在系统任务栏显示应用，最大程度减少干扰。
+                                </p>
+                            </div>
+                        </div>
+                        {renderToggle(hideTaskbarIcon, () => onToggleHideTaskbarIcon(!hideTaskbarIcon))}
+                    </div>
+                </div>
+
+                {hideTaskbarIcon && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`flex items-start gap-3 p-3.5 rounded-2xl border text-xs leading-relaxed ${
+                            isDaylight
+                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-800'
+                                : 'bg-amber-500/8 border-amber-500/15 text-amber-200'
+                        }`}
+                    >
+                        <ShieldAlert size={16} className="shrink-0 mt-0.5" />
+                        <div className="space-y-0.5 text-left">
+                            <span className="font-semibold">重要提示：</span>
+                            <span>隐藏任务栏图标后，应用只会在系统托盘显示。如需找回主窗口，请双击或右键点击托盘中的 Lyra 图标。建议同时配合启用“最小化到托盘”。</span>
+                        </div>
+                    </motion.div>
+                )}
+
+                <div className={`border rounded-2xl overflow-hidden ${borderColor} ${settingsCardClass}`}>
+                    <div className="flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors">
+                        <div className="flex items-start gap-3 min-w-0">
+                            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
+                                <ShieldAlert size={16} />
+                            </div>
+                            <div className="space-y-0.5 text-left">
+                                <h4 className={settingsTitleClass} style={settingsTitleStyle}>
+                                    {t('options.lockDesktopLyrics') || 'Lock desktop lyrics'}
+                                </h4>
+                                <p className={settingsDescClass} style={settingsDescStyle}>
+                                    {desktopLyricsMiddleClickPoller
+                                        ? (t('options.lockDesktopLyricsDescWindows') || 'Locked overlays ignore mouse input. Middle-click the lyric area to toggle lock.')
+                                        : (t('options.lockDesktopLyricsDescMac') || 'Locked overlays ignore mouse input. Use the command palette or this toggle to unlock on macOS.')}
+                                </p>
+                            </div>
+                        </div>
+                        {renderToggle(desktopLyricsLocked, () => { void onToggleDesktopLyricsLock(); }, !desktopLyricsEnabled)}
+                    </div>
+                </div>
+
+                {autoUpdateSupported ? (
+                    <div className={`border rounded-2xl overflow-hidden ${borderColor} ${settingsCardClass}`}>
+                        <div className="flex items-center justify-between p-4 gap-4 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors">
+                            <div className="flex items-start gap-3 min-w-0">
+                                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
+                                    <Download size={16} />
+                                </div>
+                                <div className="space-y-0.5 text-left">
+                                    <h4 className={settingsTitleClass} style={settingsTitleStyle}>
+                                        {t('options.enableAutoUpdate') || 'Enable Auto Update'}
+                                    </h4>
+                                    <p className={settingsDescClass} style={settingsDescStyle}>
+                                        {t('options.enableAutoUpdateDesc') || 'Automatically download updates after a new version is found.'}
+                                    </p>
+                                </div>
+                            </div>
+                            {renderToggle(electronSettings.ENABLE_AUTO_UPDATE, onToggleAutoUpdate, !canEnableAutoUpdate)}
+                        </div>
+                    </div>
+                ) : (
+                    <p className={`px-1 ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
+                        {t('options.autoUpdatePlatformUnsupported') || '当前平台暂不支持应用内自动安装，发现新版本后请前往发布页下载。'}
+                    </p>
+                )}
+
+                <div className={`px-1 ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
+                    {t('options.autoUpdateGithubNotice') || 'Auto update needs access to GitHub; if the network is unstable, keep a system proxy enabled.'}
+                </div>
 
                 <div className={`border rounded-2xl p-5 ${borderColor} ${settingsCardClass} space-y-5`}>
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <div className="space-y-0.5 text-left">
-                            <label className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                            <label className={settingsTitleClass} style={settingsTitleStyle}>
                                 {t('options.aiProvider') || 'AI Provider'}
                             </label>
-                            <p className="text-xs opacity-50" style={{ color: 'var(--text-secondary)' }}>
+                            <p className={settingsDescClass} style={settingsDescStyle}>
                                 选择生成智能歌词主题效果的 AI 服务商。
                             </p>
                         </div>
@@ -522,7 +528,7 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                                         className="w-full px-3.5 py-2.5 bg-black/10 dark:bg-white/5 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-zinc-500 dark:focus:border-white/30 focus:ring-2 focus:ring-zinc-500/10 transition-all leading-normal"
                                         style={{ color: 'var(--text-primary)' }}
                                     />
-                                    <p className="text-[10px] opacity-40 leading-relaxed px-1" style={{ color: 'var(--text-secondary)' }}>
+                                    <p className={settingsFootnoteClass} style={settingsFootnoteStyle}>
                                         {t('options.openaiApiModelDesc') || 'Required for many OpenAI-compatible providers. DeepSeek models like deepseek-v4-flash must be filled explicitly if auto-detection does not apply.'}
                                     </p>
                                 </div>
@@ -549,10 +555,10 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
 
                     <div className="flex items-center justify-between pt-4 border-t border-white/5 gap-4">
                         <div className="space-y-0.5 text-left">
-                            <label className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                            <label className={settingsTitleClass} style={settingsTitleStyle}>
                                 {t('options.useSystemProxyAI') || 'Use System Proxy for AI'}
                             </label>
-                            <p className="text-xs opacity-50 max-w-[360px]" style={{ color: 'var(--text-secondary)' }}>
+                            <p className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
                                 {t('options.useSystemProxyAIDesc') || 'Route strictly AI requests through system proxy.'}
                             </p>
                         </div>
@@ -560,7 +566,7 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                     </div>
 
                     <div className="flex items-center justify-between pt-4 border-t border-white/5 gap-4">
-                        <span className="text-[10px] opacity-40 leading-relaxed max-w-[280px] text-left" style={{ color: 'var(--text-secondary)' }}>
+                        <span className={`${settingsFootnoteClass} max-w-[280px] text-left`} style={settingsFootnoteStyle}>
                             {electronSettings.AI_PROVIDER !== 'openai'
                                 ? (t('options.geminiApiKeyDesc') || 'Netease API backend runs locally.')
                                 : '使用兼容 OpenAI 格式的其它大模型接口。'}
@@ -588,7 +594,7 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                         </button>
                     </div>
                 </div>
-            </section>
+            </SettingsAdvancedSection>
         </>
     );
 };

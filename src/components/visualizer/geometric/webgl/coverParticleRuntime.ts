@@ -81,6 +81,8 @@ const UI_HIT_SELECTOR = [
     '[data-testid="floating-player-controls"]',
     '[data-testid="player-controls"]',
     '[data-testid="interactive3d-camera-capture"]',
+    // Scrollable / opaque app chrome must keep wheel (search, home lists, panels).
+    '[data-app-ui-surface]',
 ].join(',');
 
 export class CoverParticleRuntime {
@@ -116,7 +118,7 @@ export class CoverParticleRuntime {
 
     private loadingShownAt = 0;
 
-    private loadingHideTimer: ReturnType<typeof window.setTimeout> | null = null;
+    private loadingHideTimer: number | null = null;
 
     private coverMaterials = createCoverMaterial(this.dotTexture, this.fallbackCoverTexture);
 

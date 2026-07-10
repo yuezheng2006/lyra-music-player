@@ -9,6 +9,7 @@ import {
     type NeteasePodcastRadio,
 } from '../../../services/neteasePodcast';
 import OnlineProviderBadge from '../../shared/OnlineProviderBadge';
+import { SearchClearButton } from '../../shared/SearchClearButton';
 import { resolveHomeContentBottomPaddingClass } from './homeSurfaceStyles';
 
 // src/components/app/home/PodcastBrowseSurface.tsx
@@ -17,6 +18,36 @@ import { resolveHomeContentBottomPaddingClass } from './homeSurfaceStyles';
 type PodcastBrowseSurfaceProps = {
     isDaylight: boolean;
     onPlaySong: (song: SongResult, playlistCtx?: SongResult[]) => void;
+};
+
+/** Compact count for card meta (e.g. 1.2万 / 12K). */
+const formatCompactCount = (value: number): string => {
+    if (!Number.isFinite(value) || value <= 0) return '';
+    try {
+        return new Intl.NumberFormat(undefined, {
+            notation: 'compact',
+            compactDisplay: 'short',
+            maximumFractionDigits: 1,
+        }).format(value);
+    } catch {
+        return String(value);
+    }
+};
+
+const buildRadioMetaParts = (
+    radio: NeteasePodcastRadio,
+    t: (key: string, options?: any) => string,
+): string[] => {
+    const parts: string[] = [];
+    if (radio.category) parts.push(radio.category);
+    if (radio.programCount > 0) {
+        parts.push(t('home.podcastEpisodes', { count: radio.programCount }));
+    }
+    const subs = formatCompactCount(radio.subCount);
+    if (subs) {
+        parts.push(t('home.podcastSubscribers', { count: subs }));
+    }
+    return parts;
 };
 
 const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
@@ -33,16 +64,16 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
 
     const muted = isDaylight ? 'text-black/45' : 'text-white/45';
     const inputBg = isDaylight ? 'bg-black/5 focus:bg-black/10' : 'bg-white/5 focus:bg-white/10';
-    const cardBg = isDaylight
-        ? 'bg-white border border-black/8 hover:border-black/14 shadow-sm'
-        : 'bg-[#1a1a1e] border border-white/8 hover:border-white/14';
     const rowHover = isDaylight ? 'hover:bg-black/[0.05]' : 'hover:bg-white/[0.06]';
+    const coverRing = isDaylight
+        ? 'ring-1 ring-black/6 group-hover:ring-black/12'
+        : 'ring-1 ring-white/8 group-hover:ring-white/16';
 
     const loadHot = async () => {
         setLoading(true);
         setError(null);
         try {
-            const list = await fetchHotPodcasts(24, 0);
+            const list = await fetchHotPodcasts(36, 0);
             setRadios(list);
         } catch (err) {
             setError(err instanceof Error ? err.message : t('home.podcastLoadFailed'));
@@ -68,7 +99,7 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
         setActiveRadio(null);
         setPrograms([]);
         try {
-            const list = await searchPodcasts(q, 24);
+            const list = await searchPodcasts(q, 36);
             setRadios(list);
         } catch (err) {
             setError(err instanceof Error ? err.message : t('home.podcastLoadFailed'));
@@ -148,8 +179,14 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder={t('home.podcastSearchPlaceholder')}
-                            className={`w-full rounded-full border border-white/10 py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-white/20 ${inputBg}`}
+                            className={`w-full rounded-full border border-white/10 py-2 pl-10 pr-9 text-sm focus:outline-none focus:border-white/20 ${inputBg}`}
                             style={{ color: 'var(--text-primary)' }}
+                        />
+                        <SearchClearButton
+                            visible={Boolean(query)}
+                            onClear={() => setQuery('')}
+                            label={t('app.clearSearch')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2"
                         />
                     </form>
                 ) : null}
@@ -209,36 +246,44 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
                     {radios.length === 0 ? (
                         <div className={`py-16 text-center text-sm ${muted}`}>{t('home.podcastEmpty')}</div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                            {radios.map((radio) => (
-                                <button
-                                    key={radio.id}
-                                    type="button"
-                                    onClick={() => void openRadio(radio)}
-                                    className={`overflow-hidden rounded-2xl text-left transition-colors ${cardBg}`}
-                                >
-                                    {radio.cover ? (
-                                        <img src={radio.cover} alt="" className="aspect-square w-full object-cover" />
-                                    ) : (
-                                        <div className={`aspect-square w-full ${isDaylight ? 'bg-black/8' : 'bg-white/10'}`} />
-                                    )}
-                                    <div className="p-2.5">
-                                        <div className="flex items-start justify-between gap-1.5">
-                                            <div className="line-clamp-2 min-w-0 text-sm font-medium leading-snug">{radio.name}</div>
-                                            <OnlineProviderBadge
-                                                provider="netease"
-                                                size="sm"
-                                                variant="glass"
-                                                isDaylight={isDaylight}
-                                                className="mt-0.5 shrink-0"
+                        <div className="grid grid-cols-3 gap-x-2 gap-y-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
+                            {radios.map((radio) => {
+                                const metaParts = buildRadioMetaParts(radio, t);
+                                return (
+                                    <button
+                                        key={radio.id}
+                                        type="button"
+                                        onClick={() => void openRadio(radio)}
+                                        className="group min-w-0 text-left transition-opacity hover:opacity-95"
+                                    >
+                                        {radio.cover ? (
+                                            <img
+                                                src={radio.cover}
+                                                alt=""
+                                                className={`aspect-square w-full rounded-xl object-cover ${coverRing}`}
+                                                loading="lazy"
                                             />
+                                        ) : (
+                                            <div className={`aspect-square w-full rounded-xl ${isDaylight ? 'bg-black/8' : 'bg-white/10'} ${coverRing}`} />
+                                        )}
+                                        <div className="mt-1.5 px-0.5">
+                                            <div className="line-clamp-2 text-[13px] font-medium leading-snug">
+                                                {radio.name}
+                                            </div>
+                                            {radio.djName ? (
+                                                <div className={`mt-0.5 truncate text-[11px] ${muted}`}>
+                                                    {radio.djName}
+                                                </div>
+                                            ) : null}
+                                            {metaParts.length > 0 ? (
+                                                <div className={`mt-0.5 truncate text-[10px] leading-relaxed ${muted}`}>
+                                                    {metaParts.join(' · ')}
+                                                </div>
+                                            ) : null}
                                         </div>
-                                        <div className={`mt-1 truncate text-[11px] ${muted}`}>
-                                            {radio.djName || t('home.podcastEpisodes', { count: radio.programCount })}
-                                        </div>
-                                    </div>
-                                </button>
-                            ))}
+                                    </button>
+                                );
+                            })}
                         </div>
                     )}
                 </div>

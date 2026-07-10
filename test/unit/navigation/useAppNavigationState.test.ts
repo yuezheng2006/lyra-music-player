@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resolveOverlayPopState, resolveOverlayPushState } from '@/hooks/useAppNavigation';
+import { resolveOverlayPopState, resolveOverlayPushState, resolvePlayerReturnSearch } from '@/hooks/useAppNavigation';
+import type { OnlineMusicProviderId } from '@/types';
 
 describe('useAppNavigation state helpers', () => {
     it('keeps overlays in the home view when opening from home', () => {
@@ -32,5 +33,21 @@ describe('useAppNavigation state helpers', () => {
             overlayView: null,
             overlayOriginView: null,
         });
+    });
+
+    it('prefers live search overlay when returning from listening mode', () => {
+        const live = {
+            query: '杰伦',
+            sourceTab: 'qq' as const,
+            providers: ['qq', 'qishui', 'coco'] as OnlineMusicProviderId[],
+        };
+        const history = {
+            query: '旧词',
+            sourceTab: 'netease' as const,
+        };
+
+        expect(resolvePlayerReturnSearch(live, history)).toEqual(live);
+        expect(resolvePlayerReturnSearch(null, history)).toEqual(history);
+        expect(resolvePlayerReturnSearch(null, null)).toBeNull();
     });
 });

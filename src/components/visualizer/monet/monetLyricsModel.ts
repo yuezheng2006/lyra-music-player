@@ -96,9 +96,23 @@ export {
     type WordColorRange as MonetWordColorRange,
 } from '../wordColoring';
 
-export const resolveClampFontPx = (minRem: number, preferredVw: number, maxRem: number): number => {
-    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : VIEWPORT_WIDTH_FALLBACK_PX;
-    return Math.min(maxRem * ROOT_FONT_PX, Math.max(minRem * ROOT_FONT_PX, viewportWidth * (preferredVw / 100)));
+/**
+ * Resolve Monet lyric font size from the real lyric column width when available.
+ * Falls back to window width only when the column has not been measured yet.
+ */
+export const resolveClampFontPx = (
+    minRem: number,
+    preferredPercent: number,
+    maxRem: number,
+    containerWidth?: number,
+): number => {
+    const width = containerWidth && containerWidth > 0
+        ? containerWidth
+        : (typeof window !== 'undefined' ? window.innerWidth : VIEWPORT_WIDTH_FALLBACK_PX);
+    return Math.min(
+        maxRem * ROOT_FONT_PX,
+        Math.max(minRem * ROOT_FONT_PX, width * (preferredPercent / 100)),
+    );
 };
 
 export const splitMonetGraphemes = (text: string): string[] => {
