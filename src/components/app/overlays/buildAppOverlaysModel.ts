@@ -109,7 +109,6 @@ type BuildAppOverlaysModelParams = {
     showLyricsLabel: string;
     hideLyricsLabel: string;
     listeningModeLabel: string;
-    listeningModeShortLabel: string;
     queueLabel?: string;
     previousTrackLabel?: string;
     nextTrackLabel?: string;
@@ -213,7 +212,6 @@ export const buildAppOverlaysModel = ({
     showLyricsLabel,
     hideLyricsLabel,
     listeningModeLabel,
-    listeningModeShortLabel,
     queueLabel = 'Play queue',
     previousTrackLabel = 'Previous track',
     nextTrackLabel = 'Next track',
@@ -375,7 +373,6 @@ export const buildAppOverlaysModel = ({
             showLyricsLabel,
             hideLyricsLabel,
             listeningModeLabel,
-            listeningModeShortLabel,
             previousTrackLabel,
             nextTrackLabel,
             playLabel,

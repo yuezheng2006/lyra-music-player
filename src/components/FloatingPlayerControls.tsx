@@ -69,7 +69,7 @@ const buildTextChipClass = (
         : 'bg-white/[0.08] text-white/62 hover:bg-white/[0.12] hover:text-white/88';
 };
 
-/** 特效 / 词：开=实心高对比，关=描边弱化，一眼可辨。 */
+/** 歌词开关：开=实心高对比，关=描边弱化，一眼可辨。 */
 const buildModeToggleChipClass = (
     active: boolean,
     isDaylight: boolean | undefined,
@@ -139,7 +139,6 @@ interface FloatingPlayerControlsProps {
     showLyricsLabel?: string;
     hideLyricsLabel?: string;
     listeningModeLabel?: string;
-    listeningModeShortLabel?: string;
     previousTrackLabel?: string;
     nextTrackLabel?: string;
     playLabel?: string;
@@ -215,7 +214,6 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     showLyricsLabel = 'Show lyrics',
     hideLyricsLabel = 'Hide lyrics',
     listeningModeLabel = 'Listening mode',
-    listeningModeShortLabel = 'Listen',
     previousTrackLabel = 'Previous track',
     nextTrackLabel = 'Next track',
     playLabel = 'Play',
@@ -345,7 +343,6 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         showLyricsLabel={showLyricsLabel}
                         hideLyricsLabel={hideLyricsLabel}
                         listeningModeLabel={listeningModeLabel}
-                        listeningModeShortLabel={listeningModeShortLabel}
                         previousTrackLabel={previousTrackLabel}
                         nextTrackLabel={nextTrackLabel}
                         playLabel={playLabel}
@@ -438,7 +435,6 @@ type DockedBarProps = {
     showLyricsLabel: string;
     hideLyricsLabel: string;
     listeningModeLabel: string;
-    listeningModeShortLabel: string;
     previousTrackLabel: string;
     nextTrackLabel: string;
     playLabel: string;
@@ -508,7 +504,6 @@ const DockedBar: React.FC<DockedBarProps> = ({
     showLyricsLabel,
     hideLyricsLabel,
     listeningModeLabel,
-    listeningModeShortLabel,
     previousTrackLabel,
     nextTrackLabel,
     playLabel,
@@ -800,24 +795,6 @@ const DockedBar: React.FC<DockedBarProps> = ({
                             </div>
                         ) : null}
                     </div>
-
-                    {onToggleEffectsMode ? (
-                        <button
-                            type="button"
-                            onClick={onToggleEffectsMode}
-                            aria-pressed={effectsModeActive}
-                            className={`inline-flex h-8 shrink-0 items-center justify-center rounded-full px-2.5 text-[11px] font-bold tracking-[0.2px] transition-all duration-180 active:scale-95 ${buildModeToggleChipClass(effectsModeActive, isDaylight, false)}`}
-                            title={listeningModeLabel}
-                            aria-label={listeningModeLabel}
-                        >
-                            <span
-                                className="leading-none select-none"
-                                style={{ fontFamily: "'PingFang SC','Microsoft YaHei',sans-serif" }}
-                            >
-                                {listeningModeShortLabel}
-                            </span>
-                        </button>
-                    ) : null}
 
                     <button
                         type="button"

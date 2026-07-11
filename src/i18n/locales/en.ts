@@ -309,7 +309,6 @@ export default {
     "lyricsEnabled": "Lyrics on",
     "lyricsDisabled": "Lyrics off",
     "listeningMode": "Background effects",
-    "listeningModeShort": "FX",
     "backToPlaylist": "Back to playlist",
     "enterFullscreen": "Fullscreen play (window + fill)",
     "exitFullscreen": "Exit fullscreen play",

@@ -310,7 +310,6 @@ export default {
     "lyricsEnabled": "歌词已开启",
     "lyricsDisabled": "歌词已关闭",
     "listeningMode": "背景特效",
-    "listeningModeShort": "特效",
     "backToPlaylist": "回到歌单",
     "enterFullscreen": "全屏播放（窗口全屏 + 满屏）",
     "exitFullscreen": "退出全屏播放",

@@ -219,7 +219,6 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         showLyricsLabel: t('player.showLyrics'),
         hideLyricsLabel: t('player.hideLyrics'),
         listeningModeLabel: t('player.listeningMode'),
-        listeningModeShortLabel: t('player.listeningModeShort'),
         queueLabel: t('queue.title'),
         previousTrackLabel: t('player.previousTrack'),
         nextTrackLabel: t('player.nextTrack'),
