@@ -4,6 +4,7 @@ import { PlayerState, type SongResult, type StageLoopMode } from '@/types';
 import { LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC } from '@/components/app/root/appConstants';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong } from '@/utils/appPlaybackGuards';
 import { shouldPreserveAutoPlayOnPause } from '@/utils/audioAutoPlayGuard';
+import { resolvePlaybackDurationSec, resolveSongDurationSec } from '@/utils/appPlaybackHelpers';
 
 export interface AppAudioElementProps {
     audioRef: RefObject<HTMLAudioElement | null>;
@@ -134,12 +135,18 @@ export function AppAudioElement(props: AppAudioElementProps) {
             }}
             onLoadedMetadata={(e) => {
                 const audioElement = e.currentTarget;
-                setDuration(audioElement.duration);
+                const nextDuration = resolvePlaybackDurationSec(
+                    audioElement.duration,
+                    resolveSongDurationSec(currentSong),
+                );
+                if (nextDuration > 0) {
+                    setDuration(nextDuration);
+                }
 
                 const pendingResumeTime = pendingResumeTimeRef.current;
                 if (pendingResumeTime !== null) {
-                    const safeDuration = Number.isFinite(audioElement.duration) && audioElement.duration > 0
-                        ? Math.max(audioElement.duration - 0.25, 0)
+                    const safeDuration = nextDuration > 0
+                        ? Math.max(nextDuration - 0.25, 0)
                         : pendingResumeTime;
                     const nextTime = Math.min(pendingResumeTime, safeDuration);
                     audioElement.currentTime = nextTime;
@@ -149,6 +156,15 @@ export function AppAudioElement(props: AppAudioElementProps) {
                 }
 
                 currentTime.set(0); // Ensure currentTime is reset when new audio loads
+            }}
+            onDurationChange={(e) => {
+                const nextDuration = resolvePlaybackDurationSec(
+                    e.currentTarget.duration,
+                    resolveSongDurationSec(currentSong),
+                );
+                if (nextDuration > 0) {
+                    setDuration(nextDuration);
+                }
             }}
             onError={(e) => {
                 if (!audioSrc) {

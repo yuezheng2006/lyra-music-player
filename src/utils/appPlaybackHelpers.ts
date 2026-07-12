@@ -29,10 +29,35 @@ export const findLatestActiveLineIndex = (lines: LyricData['lines'], time: numbe
 };
 
 export const formatTime = (time: number) => {
-    if (isNaN(time)) return '00:00';
+    if (!Number.isFinite(time) || time < 0) return '00:00';
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+};
+
+/** Netease / local catalog duration fields are milliseconds. */
+export const resolveSongDurationSec = (
+    song: Pick<SongResult, 'duration' | 'dt'> | null | undefined,
+): number => {
+    const ms = Number(song?.duration || song?.dt || 0);
+    if (!Number.isFinite(ms) || ms <= 0) {
+        return 0;
+    }
+    return ms / 1000;
+};
+
+/** Prefer a finite media-element duration; otherwise keep catalog fallback. */
+export const resolvePlaybackDurationSec = (
+    mediaDuration: number,
+    fallbackSec = 0,
+): number => {
+    if (Number.isFinite(mediaDuration) && mediaDuration > 0) {
+        return mediaDuration;
+    }
+    if (Number.isFinite(fallbackSec) && fallbackSec > 0) {
+        return fallbackSec;
+    }
+    return 0;
 };
 
 export const replayGainModeLabels: Record<ReplayGainMode, string> = {

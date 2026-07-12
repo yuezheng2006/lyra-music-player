@@ -19,6 +19,7 @@ import { isLocalPlaybackSong, isNavidromePlaybackSong, resolveNavidromePlaybackC
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
 import { buildStagePlayerSnapshot, resolveStagePlayerQueueItemIndex } from '../utils/stagePlayerSnapshot';
 import { clearOnlinePlaybackRecoveryState } from '../components/app/playback/createOnlineRecoveryController';
+import { resolveSongDurationSec } from '../utils/appPlaybackHelpers';
 
 // src/hooks/usePlaybackQueueController.ts
 
@@ -544,8 +545,10 @@ export function usePlaybackQueueController({
         setCurrentLineIndex(-1);
         if (resumeTimeSec === null) {
             currentTime.set(0);
-            setDuration(0);
         }
+        // Seed dock duration from catalog metadata immediately; media element may not
+        // expose a finite duration until later (or ever, for some streams).
+        setDuration(resolveSongDurationSec(song));
         setCurrentSong({ ...song });
         setCachedCoverUrl(null);
         setIsLyricsLoading(true);
