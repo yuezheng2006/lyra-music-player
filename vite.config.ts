@@ -203,9 +203,10 @@ export default async function viteConfig({ mode }: ConfigEnv): Promise<UserConfi
   }
 
   const appVersionLabel = process.env.APP_VERSION_LABEL?.trim() || 'lyra-music-player';
+  const isElectronBuild = process.env.ELECTRON === 'true';
 
   return {
-    base: process.env.ELECTRON === 'true' ? './' : '/',
+    base: isElectronBuild ? './' : '/',
     worker: {
       format: 'es'
     },
@@ -225,32 +226,38 @@ export default async function viteConfig({ mode }: ConfigEnv): Promise<UserConfi
     plugins: [
       devLyricProxyPlugin(),
       react(),
-      VitePWA({
-        registerType: 'autoUpdate',
-        includeAssets: ['icon.svg'],
-        devOptions: {
-          enabled: true
-        },
-        workbox: {
-          maximumFileSizeToCacheInBytes: 5000000
-        },
-        manifest: {
-          name: 'Lyra',
-          short_name: 'Lyra',
-          description: 'Immersive multi-source music player with 3D stage and smart atmosphere',
-          theme_color: '#09090b',
-          background_color: '#09090b',
-          display: 'standalone',
-          icons: [
-            {
-              src: 'icon.svg',
-              sizes: '512x512',
-              type: 'image/svg+xml',
-              purpose: 'any maskable'
+      // Electron loadFile(file://) must not register a service worker — it causes stale assets in packaged apps.
+      ...(isElectronBuild
+        ? []
+        : [
+          VitePWA({
+            registerType: 'autoUpdate',
+            includeAssets: ['icon.svg'],
+            injectRegister: 'script',
+            devOptions: {
+              enabled: true,
+            },
+            workbox: {
+              maximumFileSizeToCacheInBytes: 5000000
+            },
+            manifest: {
+              name: 'Lyra',
+              short_name: 'Lyra',
+              description: 'Immersive multi-source music player with 3D stage and smart atmosphere',
+              theme_color: '#09090b',
+              background_color: '#09090b',
+              display: 'standalone',
+              icons: [
+                {
+                  src: 'icon.svg',
+                  sizes: '512x512',
+                  type: 'image/svg+xml',
+                  purpose: 'any maskable'
+                }
+              ]
             }
-          ]
-        }
-      })
+          }),
+        ]),
     ],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),

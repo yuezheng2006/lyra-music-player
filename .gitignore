@@ -40,7 +40,7 @@ impl.md
 test-results/
 .codex-remote-attachments
 test/manual/lyric-output/*
-test/manual/lyric-audit-output/*    
+test/manual/lyric-audit-output/*
 .agents/
 skills-lock.json
 TODO.MD
@@ -48,3 +48,31 @@ TODO.MD
 
 # .temp files
 .temp/
+
+# Agent process docs / intermediate writeups — keep local, do not commit
+docs/superpowers/
+SUMMARY.md
+ENABLE_NEW_MENU_OPTIONS.md
+FINAL_STEP.md
+FINAL_SUMMARY.md
+FINAL_CHECKLIST.md
+IMPLEMENTATION_COMPLETE.md
+IMPLEMENTATION_SUMMARY.md
+INTEGRATION_COMPLETE.md
+LYRIC_EFFECTS_README.md
+MENU_INTEGRATION_HOWTO.md
+QUEUE_EMPTY_STATE_FEATURE.md
+README_COMPLETE.md
+README_FINAL.md
+COMPLETION_REPORT.md
+NEXT_STEPS.md
+QUICK_ACTION_PLAN.md
+START_HERE.md
+UI_IMPROVEMENTS.md
+docs/LYRIC_EFFECTS.md
+docs/LYRIC_EFFECTS_COMPLETE.md
+docs/LYRIC_EFFECTS_COMPLETION_REPORT.md
+docs/LYRIC_EFFECTS_QUICKSTART.md
+docs/MENU_INTEGRATION_COMPLETE.md
+docs/HOW_TO_ENABLE.md
+HOW_TO_ENABLE.md

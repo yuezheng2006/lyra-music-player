@@ -38,11 +38,27 @@ const hasElectronAudioCacheStatsBridge = () =>
   typeof window !== 'undefined' &&
   Boolean(window.electron?.getAudioCacheStats);
 
+const OPEN_DB_TIMEOUT_MS = 4000;
+
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`IndexedDB open timed out after ${OPEN_DB_TIMEOUT_MS}ms`));
+    }, OPEN_DB_TIMEOUT_MS);
+
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+    };
+
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onerror = (event) => reject("IndexedDB error");
+    request.onerror = () => finish(() => reject(new Error('IndexedDB error')));
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -108,7 +124,7 @@ const openDB = (): Promise<IDBDatabase> => {
     };
 
     request.onsuccess = (event) => {
-      resolve((event.target as IDBOpenDBRequest).result);
+      finish(() => resolve((event.target as IDBOpenDBRequest).result));
     };
   });
 };

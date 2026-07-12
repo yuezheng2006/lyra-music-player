@@ -108,6 +108,18 @@ npm run lint
 npm test
 ```
 
+### 本机 mac release 自测
+
+`dev:electron` 走 Vite；发版前请用 release 同构闸门：
+
+```bash
+npm run verify:electron:dist   # L1：file:// + 内置 API（日常）
+npm run verify:mac:packaged    # L2：本机 arch 真包 + 安装后冒烟（发版前）
+# 可选：VERIFY_INSTALL_APPLICATIONS=1 npm run verify:mac:packaged
+```
+
+`npm run test:electron-smoke` 只测 dev 壳，不能替代上面两条。
+
 更多脚本与环境变量见 [技术说明](docs/technical.md)。
 
 ## 贡献者

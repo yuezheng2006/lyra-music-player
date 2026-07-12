@@ -61,11 +61,24 @@ description: Use when the task involves choosing how to validate a change in thi
 - 先做静态检查和最小范围验证
 - 只有任务明确要求，或问题只会在打包阶段暴露时，才运行对应构建
 
+**本机 release 同构闸门（mac）：**
+
+| 命令 | 用途 |
+| --- | --- |
+| `npm run verify:electron:dist` | **L1 快闸**：`ELECTRON=true` build + `electron .` 加载 `dist`（`file://`）+ packaged smoke |
+| `npm run verify:mac:packaged` | **L2 真包**：本机 arch 打 `.app` → 装到 `release/verify-mac/` → 启动 `.app` smoke；设 `VERIFY_INSTALL_APPLICATIONS=1` 可覆盖 `/Applications` |
+| `npm run pack:mac:local` | 只打包本机 arch，不跑 smoke |
+| `npm run test:electron-smoke` | **仅 dev 壳**（`ELECTRON_DEV` + `localhost:3000`），不能替代 L1/L2 |
+
+发版前至少跑过 L1；修 asar/安装路径问题或准备打 GitHub release 时跑 L2。
+
 涉及文件通常包括：
 
 - `.github/workflows/*.yml`
 - `electron/main.cjs`
 - `package.json`
+- `test/manual/electron_packaged_smoke.mjs`
+- `scripts/verify-electron-dist.mjs` / `scripts/verify-mac-packaged.mjs` / `scripts/pack-mac-local.mjs`
 
 ### 4. 开发服务器已经在跑
 
@@ -96,6 +109,9 @@ description: Use when the task involves choosing how to validate a change in thi
 - `npm run test:unit`
 - `npm run test:ui`
 - `npm run test:ui:update`
+- `npm run verify:electron:dist` — L1 packaged-path smoke
+- `npm run verify:mac:packaged` — L2 mac .app smoke
+- `npm run test:electron-smoke` — dev shell only
 
 ## What To Avoid
 

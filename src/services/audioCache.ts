@@ -1,4 +1,4 @@
-import { getFromCache, removeFromCache, saveToCache } from './db';
+import { getFromCache, saveToCache } from './db';
 
 interface ElectronAudioCacheEntry {
   found: boolean;
@@ -30,31 +30,18 @@ export async function getCachedAudioBlob(cacheKey: string): Promise<Blob | null>
     if (electronBlob) {
       return electronBlob;
     }
-  }
-
-  const indexedDbBlob = await getFromCache<Blob>(cacheKey);
-  if (!indexedDbBlob) {
+    // Packaged Electron owns audio on disk. Do not fall through to IndexedDB —
+    // under file:// (and while migrating to lyra://) IDB open can hang forever
+    // and block playSong before any network audio fetch runs.
     return null;
   }
 
-  if (isElectronAudioCacheAvailable()) {
-    try {
-      await saveAudioBlob(cacheKey, indexedDbBlob);
-      await removeFromCache(cacheKey);
-    } catch (error) {
-      console.warn('[AudioCache] Failed to migrate IndexedDB audio cache to Electron file cache', error);
-    }
-  }
-
-  return indexedDbBlob;
+  return getFromCache<Blob>(cacheKey);
 }
 
 export async function hasCachedAudio(cacheKey: string): Promise<boolean> {
   if (isElectronAudioCacheAvailable()) {
-    const existsInElectronCache = await window.electron!.hasAudioCache(cacheKey);
-    if (existsInElectronCache) {
-      return true;
-    }
+    return window.electron!.hasAudioCache(cacheKey);
   }
 
   return Boolean(await getFromCache<Blob>(cacheKey));

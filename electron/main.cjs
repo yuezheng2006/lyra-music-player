@@ -2331,7 +2331,70 @@ function isElectronDevRuntime() {
   return process.env.ELECTRON_DEV === 'true' || process.env.NODE_ENV === 'development';
 }
 
-function loadAppEntry(win, query = {}) {
+function getPackagedDistRoot() {
+  return path.resolve(__dirname, '../dist');
+}
+
+let packagedUiServer = null;
+let packagedUiPort = null;
+
+function servePackagedUiRequest(req, res) {
+  const distRoot = getPackagedDistRoot();
+  let pathname = '/index.html';
+  try {
+    pathname = decodeURIComponent(new URL(req.url || '/', 'http://127.0.0.1').pathname || '/index.html');
+  } catch {
+    pathname = '/index.html';
+  }
+  if (pathname === '/' || pathname === '') {
+    pathname = '/index.html';
+  }
+
+  const relativePath = pathname.replace(/^\/+/, '');
+  const requestedPath = path.resolve(distRoot, relativePath);
+  if (!requestedPath.startsWith(distRoot) || !fs.existsSync(requestedPath) || !fs.statSync(requestedPath).isFile()) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not Found');
+    return;
+  }
+
+  res.writeHead(200, {
+    'Content-Type': getStaticContentType(requestedPath),
+    'Cache-Control': 'no-cache',
+  });
+  fs.createReadStream(requestedPath).pipe(res);
+}
+
+async function ensurePackagedUiServer() {
+  if (packagedUiServer && packagedUiPort) {
+    return packagedUiPort;
+  }
+
+  const port = await getFreePort();
+  packagedUiServer = http.createServer((req, res) => {
+    try {
+      servePackagedUiRequest(req, res);
+    } catch (error) {
+      console.error('[PackagedUI] Failed to serve', error);
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Internal Server Error');
+    }
+  });
+
+  await new Promise((resolve, reject) => {
+    packagedUiServer.once('error', reject);
+    packagedUiServer.listen(port, '127.0.0.1', () => {
+      packagedUiServer.off('error', reject);
+      resolve();
+    });
+  });
+
+  packagedUiPort = port;
+  console.log('[PackagedUI] Serving dist on http://127.0.0.1:' + port);
+  return packagedUiPort;
+}
+
+async function loadAppEntry(win, query = {}) {
   if (isElectronDevRuntime()) {
     const url = new URL('http://localhost:3000');
     Object.entries(query).forEach(([key, value]) => {
@@ -2341,7 +2404,13 @@ function loadAppEntry(win, query = {}) {
     return;
   }
 
-  win.loadFile(path.join(__dirname, '../dist/index.html'), { query });
+  // Never use file:// for the main UI: IndexedDB is broken there and blocks playSong.
+  const port = await ensurePackagedUiServer();
+  const url = new URL(`http://127.0.0.1:${port}/index.html`);
+  Object.entries(query).forEach(([key, value]) => {
+    url.searchParams.set(key, String(value));
+  });
+  win.loadURL(url.toString());
 }
 
 function getStaticContentType(filePath) {
@@ -2356,6 +2425,8 @@ function getStaticContentType(filePath) {
   if (extension === '.webp') return 'image/webp';
   if (extension === '.woff2') return 'font/woff2';
   if (extension === '.woff') return 'font/woff';
+  if (extension === '.ttf') return 'font/ttf';
+  if (extension === '.otf') return 'font/otf';
   return 'application/octet-stream';
 }
 
@@ -2801,7 +2872,7 @@ function createRemoteControlWindow() {
     win.setTitle(REMOTE_CONTROL_WINDOW_TITLE);
   });
   applyRemoteControlAlwaysOnTop(win);
-  loadAppEntry(win, { remote: '1' });
+  void loadAppEntry(win, { remote: '1' });
 
   win.once('ready-to-show', () => {
     win.setTitle(REMOTE_CONTROL_WINDOW_TITLE);
@@ -2889,7 +2960,7 @@ function createWindow(options = {}) {
     }
   });
 
-  loadAppEntry(win);
+  void loadAppEntry(win);
   if (isElectronDevRuntime()) {
     win.webContents.openDevTools();
   }
@@ -3000,6 +3071,10 @@ async function setMainWindowTransparentModeFromRemote(enabled) {
 app.whenReady().then(async () => {
   if (process.platform === 'win32') {
     app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
+  }
+
+  if (!isElectronDevRuntime()) {
+    await ensurePackagedUiServer();
   }
 
   setupFileSystemAccessPermissionHandlers();
