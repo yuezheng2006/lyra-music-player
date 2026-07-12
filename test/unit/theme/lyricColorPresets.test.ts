@@ -30,8 +30,8 @@ const baseDualTheme = {
 };
 
 describe('lyricColorPresets', () => {
-    it('includes the default theme palette plus Douyin / Xiaohongshu presets', () => {
-        expect(LYRIC_COLOR_PRESETS).toHaveLength(6);
+    it('includes the default theme palette plus Douyin / Xiaohongshu / Wildfire presets', () => {
+        expect(LYRIC_COLOR_PRESETS).toHaveLength(5);
         expect(getLyricColorPresetById('midnight-default')?.dark).toEqual({
             primaryColor: '#fafafa',
             accentColor: '#ffffff',
@@ -42,19 +42,21 @@ describe('lyricColorPresets', () => {
             accentColor: '#ea580c',
             secondaryColor: '#44403c',
         });
-        expect(getLyricColorPresetById('douyin-neon')?.light.accentColor).toBe('#ff2d55');
-        expect(getLyricColorPresetById('douyin-neon')?.dark.accentColor).toBe('#12f7d6');
-        expect(getLyricColorPresetById('douyin-neon')?.dark.primaryColor).toBe('#d8fffa');
-        expect(getLyricColorPresetById('douyin-purple')?.dark.primaryColor).toBe('#f0d9ff');
-        expect(getLyricColorPresetById('xhs-note-red')?.light.accentColor).toBe('#ff2442');
+        expect(getLyricColorPresetById('douyin-neon')?.light.accentColor).toBe('#ff0040');
+        expect(getLyricColorPresetById('douyin-neon')?.dark.accentColor).toBe('#00ffe0');
+        expect(getLyricColorPresetById('douyin-neon')?.dark.primaryColor).toBe('#dffffa');
+        expect(getLyricColorPresetById('douyin-purple')?.dark.primaryColor).toBe('#f8e5ff');
+        expect(getLyricColorPresetById('dazibao-red')?.light.accentColor).toBe('#d40000');
+        expect(getLyricColorPresetById('dazibao-red')?.dark.accentColor).toBe('#ff0000');
+        expect(getLyricColorPresetById('xhs-note-red')).toBeUndefined();
     });
 
     it('maps stage inks so active lyrics use accent and hints use secondary', () => {
         const preset = getLyricColorPresetById('douyin-purple')!;
         expect(resolveLyricStageInkColors(preset.dark)).toEqual({
-            titleColor: '#f0d9ff',
-            activeColor: '#d946ef',
-            hintColor: '#7dd3fc',
+            titleColor: '#f8e5ff',
+            activeColor: '#f0abff',
+            hintColor: '#4ef0ff',
         });
     });
 
@@ -66,9 +68,9 @@ describe('lyricColorPresets', () => {
 
         expect(next.light.backgroundColor).toBe('#f5f5f4');
         expect(next.dark.backgroundColor).toBe('#09090b');
-        expect(next.light.primaryColor).toBe('#2f2927');
-        expect(next.dark.accentColor).toBe('#fb7185');
-        expect(next.dark.primaryColor).toBe('#ffd6e4');
+        expect(next.light.primaryColor).toBe('#261f1d');
+        expect(next.dark.accentColor).toBe('#ff5c82');
+        expect(next.dark.primaryColor).toBe('#ffe6ef');
     });
 
     it('defaults to colors-only and keeps font / animation untouched', () => {
@@ -77,22 +79,39 @@ describe('lyricColorPresets', () => {
 
         const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset!);
 
-        expect(next.light.accentColor).toBe('#ff2a1f');
+        expect(next.light.accentColor).toBe('#d40000');
+        expect(next.dark.accentColor).toBe('#ff0000');
         expect(next.light.animationIntensity).toBe('calm');
         expect(next.light.fontStyle).toBe('serif');
         expect(next.light.lyricRhythmScaleMultiplier).toBeUndefined();
-        expect(next.dark.primaryColor).toBe('#ffe0a8');
+        expect(next.dark.primaryColor).toBe('#ffb09e');
     });
 
-    it('can still apply motion when explicitly requested by theme editors', () => {
+    it('can apply emphasis without overwriting fontStyle', () => {
+        const preset = getLyricColorPresetById('dazibao-red');
+        expect(preset).toBeDefined();
+
+        const sansBase = {
+            light: { ...baseDualTheme.light, fontStyle: 'sans' as const },
+            dark: { ...baseDualTheme.dark, fontStyle: 'sans' as const },
+        };
+        const next = applyLyricColorPresetToDualTheme(sansBase, preset!, { includeEmphasis: true });
+
+        expect(next.light.animationIntensity).toBe('chaotic');
+        expect(next.light.fontStyle).toBe('sans');
+        expect(next.light.lyricRhythmScaleMultiplier).toBe(1.6);
+        expect(next.light.lyricGlowUsesAccent).toBe(true);
+    });
+
+    it('can still apply full motion when explicitly requested by theme editors', () => {
         const preset = getLyricColorPresetById('dazibao-red');
         expect(preset).toBeDefined();
 
         const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset!, { includeMotion: true });
 
         expect(next.light.animationIntensity).toBe('chaotic');
-        expect(next.light.fontStyle).toBe('sans');
-        expect(next.light.lyricRhythmScaleMultiplier).toBe(1.35);
+        expect(next.light.fontStyle).toBe('serif');
+        expect(next.light.lyricRhythmScaleMultiplier).toBe(1.6);
         expect(next.light.lyricGlowUsesAccent).toBe(true);
     });
 
@@ -121,11 +140,11 @@ describe('lyricColorPresets', () => {
     });
 
     it('falls back to the stored preset id when theme colors no longer match', () => {
-        expect(resolveActiveLyricColorPresetId(baseDualTheme.dark, 'dark', 'xhs-note-red')).toBe('xhs-note-red');
+        expect(resolveActiveLyricColorPresetId(baseDualTheme.dark, 'dark', 'dazibao-red')).toBe('dazibao-red');
         expect(resolveActiveLyricColorPresetId(baseDualTheme.dark, 'dark', null)).toBeNull();
 
         const preset = getLyricColorPresetById('douyin-purple')!;
         const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset);
-        expect(resolveActiveLyricColorPresetId(next.dark, 'dark', 'xhs-note-red')).toBe('douyin-purple');
+        expect(resolveActiveLyricColorPresetId(next.dark, 'dark', 'dazibao-red')).toBe('douyin-purple');
     });
 });

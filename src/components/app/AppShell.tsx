@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Lock, LockOpen, Radio } from 'lucide-react';
 import TitlebarDragZone from '../TitlebarDragZone';
 import WindowControls from '../WindowControls';
+import type { CoverShellTheme } from '../../utils/coverShellTheme';
 
 // Shared shell for the app container, Electron titlebar, and mounted audio node.
 type AppShellProps = {
@@ -17,6 +18,7 @@ type AppShellProps = {
     showMainWindowClickThroughToggle: boolean;
     onToggleMainWindowClickThrough: () => void;
     isDaylight: boolean;
+    shellTheme: CoverShellTheme;
     audioElement: React.ReactNode;
     children: React.ReactNode;
 };
@@ -33,6 +35,7 @@ const AppShell: React.FC<AppShellProps> = ({
     showMainWindowClickThroughToggle,
     onToggleMainWindowClickThrough,
     isDaylight,
+    shellTheme,
     audioElement,
     children,
 }) => {
@@ -132,6 +135,17 @@ const AppShell: React.FC<AppShellProps> = ({
             className="fixed inset-0 w-full h-full flex flex-col overflow-hidden font-sans transition-colors duration-500"
             style={{
                 ...appStyle,
+                ['--shell-surface' as string]: shellTheme.surface,
+                ['--shell-canvas' as string]: shellTheme.canvas,
+                ['--shell-sidebar-glass' as string]: shellTheme.sidebarGlass,
+                ['--shell-dock-glass' as string]: shellTheme.dockGlass,
+                ['--shell-popover' as string]: shellTheme.popover,
+                ['--shell-text' as string]: shellTheme.text,
+                ['--shell-muted-text' as string]: shellTheme.mutedText,
+                ['--shell-border' as string]: shellTheme.border,
+                ['--shell-hover' as string]: shellTheme.hover,
+                backgroundColor: 'var(--shell-surface)',
+                color: 'var(--shell-text)',
                 borderRadius: shouldApplyWindowRadius ? '18px' : undefined,
                 boxShadow: showTransparentWindowBorder ? 'inset 0 0 0 1px rgba(255,255,255,0.24)' : undefined,
             }}
@@ -146,7 +160,11 @@ const AppShell: React.FC<AppShellProps> = ({
                             }}
                             transition={{ duration: 0.18, ease: 'easeOut' }}
                             className={titlebarBackdropClassName}
-                            style={{ left: 'var(--app-sidebar-width, 0px)' }}
+                            style={{
+                                left: 'var(--app-sidebar-width, 0px)',
+                                backgroundColor: 'var(--shell-sidebar-glass)',
+                                borderColor: 'var(--shell-border)',
+                            }}
                         />
                     )}
                     <div className="relative h-full">

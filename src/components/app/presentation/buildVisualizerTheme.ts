@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { Theme, VisualizerBackgroundMode, VisualizerMode } from '../../../types';
 import { DEFAULT_THEME } from '../root/appConstants';
 import { resolveVisualizerBackgroundMode } from '../../../stores/useSettingsUiStore';
+import { getLyricFontPresetById } from '../../../utils/lyricFontPresets';
 
 // src/components/app/presentation/buildVisualizerTheme.ts
 
@@ -11,6 +12,7 @@ export const buildVisualizerTheme = ({
     theme,
     lyricsFontStyle,
     lyricsCustomFontFamily,
+    lyricFontPresetId,
     currentSongId,
     visualizerMode,
     visualizerBackgroundMode,
@@ -19,6 +21,7 @@ export const buildVisualizerTheme = ({
     theme: Theme;
     lyricsFontStyle: Theme['fontStyle'];
     lyricsCustomFontFamily: string | null;
+    lyricFontPresetId?: string | null;
     currentSongId?: number | null;
     visualizerMode: VisualizerMode;
     visualizerBackgroundMode: VisualizerBackgroundMode | null;
@@ -28,6 +31,15 @@ export const buildVisualizerTheme = ({
     const visualizerBackgroundColor = useDarkInteractive3dStage
         ? DEFAULT_THEME.backgroundColor
         : String(appStyle['--bg-color']);
+    const lyricPreset = lyricFontPresetId ? getLyricFontPresetById(lyricFontPresetId) : null;
+    // Custom upload wins; otherwise lyric font presets drive the on-stage family.
+    const resolvedFontFamily = lyricsCustomFontFamily?.trim()
+        || lyricPreset?.fontFamily
+        || undefined;
+    const resolvedFontStyle: Theme['fontStyle'] = lyricPreset?.calligraphic
+        ? 'serif'
+        : lyricsFontStyle;
+
     return {
         visualizerTheme: {
             // Interactive3d keeps a dark stage wash, but lyric text colors must stay on the
@@ -36,8 +48,8 @@ export const buildVisualizerTheme = ({
             primaryColor: theme.primaryColor,
             accentColor: theme.accentColor,
             secondaryColor: theme.secondaryColor,
-            fontStyle: lyricsFontStyle,
-            fontFamily: lyricsCustomFontFamily ?? undefined,
+            fontStyle: resolvedFontStyle,
+            fontFamily: resolvedFontFamily,
             backgroundColor: visualizerBackgroundColor,
             lyricRhythmScaleMultiplier: theme.lyricRhythmScaleMultiplier,
             lyricGlowUsesAccent: theme.lyricGlowUsesAccent,

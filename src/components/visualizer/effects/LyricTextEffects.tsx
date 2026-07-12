@@ -24,7 +24,6 @@ const PRESET_GLOW: Record<LyricEffectPreset, string[]> = {
     'douyin-neon': ['#00f5ff', '#fe2c55'],
     'douyin-purple': ['#9333ea', '#e879f9'],
     'xhs-morandi': ['#d4738f', '#9a6b7a'],
-    'xhs-note-red': ['#ff2442', '#ff6b8a'],
     'dazibao-red': ['#de2910', '#ff3b30'],
 };
 

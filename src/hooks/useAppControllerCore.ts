@@ -13,7 +13,7 @@ import {
     ONLINE_AUDIO_URL_TTL_MS,
     PLAYER_CHROME_HIDDEN_STORAGE_KEY,
 } from '@/components/app/root/appConstants';
-import { PlayerState, ReplayGainMode, StatusMessage, PlaybackContext, StageLoopMode, type SongResult, type LyricData } from '@/types';
+import { PlayerState, ReplayGainMode, StatusMessage, PlaybackContext, StageLoopMode, type AudioBands, type SongResult, type LyricData } from '@/types';
 import { isNavidromeEnabled } from '@/services/navidromeService';
 import { useAppPreferences } from '@/hooks/useAppPreferences';
 import { useElectronNeteaseApiStatus } from '@/hooks/useElectronNeteaseApiStatus';
@@ -167,8 +167,8 @@ export function useAppControllerCore() {
     const mid = useMotionValue(0);
     const vocal = useMotionValue(0);
     const treble = useMotionValue(0);
-    const spectrum = useMotionValue(new Uint8Array(0));
-    const audioBands = useMemo(() => ({
+    const spectrum = useMotionValue<Uint8Array<ArrayBufferLike>>(new Uint8Array(0));
+    const audioBands = useMemo<AudioBands>(() => ({
         bass,
         lowMid,
         mid,
@@ -277,6 +277,7 @@ export function useAppControllerCore() {
         lyricsFontScale,
         lyricsCustomFontFamily,
         lyricsCustomFontLabel,
+        lyricFontPresetId,
         lyricFilterPattern,
         showOpenPanelCloseButton,
         enableNowPlayingStage,
@@ -301,6 +302,7 @@ export function useAppControllerCore() {
         handleSetBackgroundOpacity,
         setDaylightPreference,
         handleSetVisualizerMode,
+        handleSetLyricWordMode,
         handleSetVisualizerBackgroundMode,
         handleSetMonetBackgroundTuning,
         handleSetInteractive3dSceneTuning,
@@ -605,6 +607,7 @@ export function useAppControllerCore() {
         handleSetMonetTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
+        handleSetLyricWordMode,
         handleSetVolume,
         handleSongThemeAutoGenerateChange,
         handleSongThemeAutoSwitchChange,
@@ -656,6 +659,7 @@ export function useAppControllerCore() {
         lyricsCustomFontFamily,
         lyricsFontScale,
         lyricsFontStyle,
+        lyricFontPresetId,
         mid,
         monetBackgroundImage,
         monetBackgroundTuning,

@@ -35,7 +35,9 @@ describe('coverPlaceholders', () => {
         expect(first).toBe(second);
         expect(first.startsWith('data:image/svg+xml')).toBe(true);
         expect(decoded).toContain('allSongsBg');
-        expect(decoded).toContain('stop-color="#0f172a"');
+        expect(decoded).toContain('allSongsSleeve');
+        expect(decoded).toContain('stop-color="#111827"');
+        expect(decoded).not.toContain('M318 286');
     });
 
     it('prefers artistImageUrl over coverArt for navidrome artists', () => {

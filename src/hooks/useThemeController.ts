@@ -414,26 +414,34 @@ export function useThemeController({
     };
 
     /**
-     * Persist lyric-color edits without switching theme source side-effects:
-     * no atmosphere → 3D preset bridge, no forced AI mode when already custom.
+     * Apply lyric-color preset onto the current theme source.
+     * Does not pretend to be a full theme switch: no atmosphere bridge, simple status copy.
      */
-    const saveLyricColorDualTheme = (dualTheme: DualTheme, songKey?: ThemeCacheSongKey | null) => {
+    const saveLyricColorDualTheme = (
+        dualTheme: DualTheme,
+        songKey?: ThemeCacheSongKey | null,
+        statusText?: string,
+    ) => {
+        const toast = statusText || '已切换歌词颜色';
+
         if (bgMode === 'custom') {
-            return saveCustomDualTheme(dualTheme);
+            const sanitized = applyStoredAnimationIntensityToDualTheme(sanitizeCustomDualTheme(dualTheme));
+            setCustomTheme(sanitized);
+            setStatusMsg({ type: 'success', text: toast });
+            return sanitized;
         }
 
         const sanitized = applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme));
         setLegacyTheme(null);
         setAiTheme(sanitized);
-        setBgMode('ai');
+        if (bgMode !== 'ai') {
+            setBgMode('ai');
+        }
         void saveToCache('last_dual_theme', sanitized);
         if (songKey != null) {
             void saveToCache(`dual_theme_${songKey}`, sanitized);
         }
-        setStatusMsg({
-            type: 'success',
-            text: t('status.aiThemeUpdated', { themeName: getSelectedDualTheme(sanitized, isDaylight).name }),
-        });
+        setStatusMsg({ type: 'success', text: toast });
         return sanitized;
     };
 
@@ -559,7 +567,6 @@ export function useThemeController({
         currentSong: SongResult | null,
         options: GenerateAIThemeOptions = {},
     ): Promise<GenerateAIThemeResult> => {
-        const source = options.source ?? 'manual';
         const songKey = currentSong?.id != null ? String(currentSong.id) : '__no_song__';
         if (themeGenerationSongKeysRef.current.has(songKey)) {
             return { status: 'skipped', reason: 'in-flight' };
@@ -575,9 +582,6 @@ export function useThemeController({
             const promptText = (isPureMusic ? songTitle : allText) || allText;
 
             if (!promptText) {
-                if (source === 'manual') {
-                    setStatusMsg({ type: 'error', text: t('status.themeGenerationFailed') });
-                }
                 return { status: 'skipped', reason: 'empty-prompt' };
             }
 
@@ -634,9 +638,6 @@ export function useThemeController({
                 });
                 return { status: 'generated', applied: true };
             } else {
-                if (shouldApply) {
-                    setStatusMsg({ type: 'error', text: t('status.themeGenerationFailed') });
-                }
                 return { status: 'failed' };
             }
         } finally {
@@ -686,7 +687,6 @@ export function useThemeController({
             if (aiTheme || legacyTheme) {
                 return { status: 'switched' };
             }
-            setStatusMsg({ type: 'error', text: t('status.themeGenerationFailed') });
             return { status: 'skipped', reason: 'empty-prompt' };
         }
 

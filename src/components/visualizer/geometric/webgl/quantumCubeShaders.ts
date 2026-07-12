@@ -150,6 +150,6 @@ void main() {
 
   finalColor = finalColor / (finalColor + vec3(1.0));
   finalColor = pow(finalColor, vec3(0.4545));
-  gl_FragColor = vec4(finalColor, 1.0);
+  gl_FragColor = vec4(finalColor, hit ? 0.94 : 0.0);
 }
 `;

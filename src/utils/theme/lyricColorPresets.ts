@@ -1,14 +1,13 @@
 import type { DualTheme, Theme } from '../../types';
 
 // src/utils/theme/lyricColorPresets.ts
-// High-contrast lyric palettes. Controls apply colors only; motion stays optional for theme editors.
+// High-contrast lyric palettes. Motion stays optional for theme editors.
 
 export type LyricColorPresetId =
     | 'midnight-default'
     | 'douyin-neon'
     | 'douyin-purple'
     | 'xhs-morandi'
-    | 'xhs-note-red'
     | 'dazibao-red';
 
 export interface LyricColorPresetTextColors {
@@ -37,6 +36,11 @@ export interface LyricColorPreset {
 export type ApplyLyricColorPresetOptions = {
     /** When true, also patch font/animation fields from preset.motion. Default false. */
     includeMotion?: boolean;
+    /**
+     * When true, apply animation / rhythm / accent-glow from motion,
+     * but never overwrite theme.fontStyle (font presets stay independent).
+     */
+    includeEmphasis?: boolean;
 };
 
 export const LYRIC_COLOR_PRESETS: readonly LyricColorPreset[] = [
@@ -58,14 +62,12 @@ export const LYRIC_COLOR_PRESETS: readonly LyricColorPreset[] = [
         id: 'douyin-neon',
         labelKey: 'options.lyricColorPreset.douyinNeon',
         labelFallback: '抖音霓虹',
-        light: { primaryColor: '#111113', accentColor: '#ff2d55', secondaryColor: '#1bd8e8' },
-        // Dark primaries stay light for readability but carry a clear palette tint
-        // so title / meta text also shift when switching presets (not only accent).
-        dark: { primaryColor: '#d8fffa', accentColor: '#12f7d6', secondaryColor: '#ff3b6b' },
+        light: { primaryColor: '#050508', accentColor: '#ff0040', secondaryColor: '#00f0ff' },
+        dark: { primaryColor: '#dffffa', accentColor: '#00ffe0', secondaryColor: '#ff1a5c' },
         motion: {
             fontStyle: 'sans',
             animationIntensity: 'chaotic',
-            lyricRhythmScaleMultiplier: 1.22,
+            lyricRhythmScaleMultiplier: 1.38,
             lyricGlowUsesAccent: true,
         },
     },
@@ -73,12 +75,12 @@ export const LYRIC_COLOR_PRESETS: readonly LyricColorPreset[] = [
         id: 'douyin-purple',
         labelKey: 'options.lyricColorPreset.douyinPurple',
         labelFallback: '抖音紫电',
-        light: { primaryColor: '#160826', accentColor: '#8b5cf6', secondaryColor: '#ec4899' },
-        dark: { primaryColor: '#f0d9ff', accentColor: '#d946ef', secondaryColor: '#7dd3fc' },
+        light: { primaryColor: '#0e0418', accentColor: '#b026ff', secondaryColor: '#ff2eb8' },
+        dark: { primaryColor: '#f8e5ff', accentColor: '#f0abff', secondaryColor: '#4ef0ff' },
         motion: {
             fontStyle: 'sans',
             animationIntensity: 'chaotic',
-            lyricRhythmScaleMultiplier: 1.16,
+            lyricRhythmScaleMultiplier: 1.32,
             lyricGlowUsesAccent: true,
         },
     },
@@ -86,46 +88,35 @@ export const LYRIC_COLOR_PRESETS: readonly LyricColorPreset[] = [
         id: 'xhs-morandi',
         labelKey: 'options.lyricColorPreset.xhsMorandi',
         labelFallback: '小红书莫兰迪',
-        light: { primaryColor: '#2f2927', accentColor: '#df6f8f', secondaryColor: '#8f7b72' },
-        dark: { primaryColor: '#ffd6e4', accentColor: '#fb7185', secondaryColor: '#f0abfc' },
+        light: { primaryColor: '#261f1d', accentColor: '#e8437a', secondaryColor: '#a0786c' },
+        dark: { primaryColor: '#ffe6ef', accentColor: '#ff5c82', secondaryColor: '#f5a3ff' },
         motion: {
             fontStyle: 'serif',
             animationIntensity: 'calm',
-            lyricRhythmScaleMultiplier: 1.06,
-            lyricGlowUsesAccent: true,
-        },
-    },
-    {
-        id: 'xhs-note-red',
-        labelKey: 'options.lyricColorPreset.xhsNoteRed',
-        labelFallback: '笔记红字',
-        light: { primaryColor: '#18181b', accentColor: '#ff2442', secondaryColor: '#fb7185' },
-        dark: { primaryColor: '#ffd0d9', accentColor: '#ff2d55', secondaryColor: '#fecdd3' },
-        motion: {
-            fontStyle: 'sans',
-            animationIntensity: 'normal',
-            lyricRhythmScaleMultiplier: 1.12,
+            lyricRhythmScaleMultiplier: 1.16,
             lyricGlowUsesAccent: true,
         },
     },
     {
         id: 'dazibao-red',
         labelKey: 'options.lyricColorPreset.dazibaoRed',
-        labelFallback: '大字报红',
+        labelFallback: '野火红',
         light: {
-            primaryColor: '#120a05',
-            accentColor: '#ff2a1f',
-            secondaryColor: '#ff6b35',
+            // 浅底用正红，避免粉橘稀释
+            primaryColor: '#140101',
+            accentColor: '#d40000',
+            secondaryColor: '#ff1f00',
         },
         dark: {
-            primaryColor: '#ffe0a8',
-            accentColor: '#ff3b30',
-            secondaryColor: '#ffd166',
+            // 暗底：底色偏火、高亮纯红、提示焰橙 —— 整句都要红得浓
+            primaryColor: '#ffb09e',
+            accentColor: '#ff0000',
+            secondaryColor: '#ff4d00',
         },
         motion: {
-            fontStyle: 'sans',
+            fontStyle: 'serif',
             animationIntensity: 'chaotic',
-            lyricRhythmScaleMultiplier: 1.35,
+            lyricRhythmScaleMultiplier: 1.6,
             lyricGlowUsesAccent: true,
         },
     },
@@ -214,16 +205,22 @@ export const resolveLyricStageInkColors = (
     hintColor: theme.secondaryColor,
 });
 
-/** Patches lyric text colors on both light/dark themes. Motion is opt-in. */
+/** Patches lyric text colors on both light/dark themes. Motion / emphasis are opt-in. */
 export const applyLyricColorPresetToDualTheme = (
     dualTheme: DualTheme,
     preset: LyricColorPreset,
     options: ApplyLyricColorPresetOptions = {},
 ): DualTheme => {
     const includeMotion = options.includeMotion === true;
+    const includeEmphasis = options.includeEmphasis === true;
+    const motion = includeMotion || includeEmphasis ? preset.motion : undefined;
     return {
-        light: applyLyricColorPresetToTheme(dualTheme.light, preset.light, includeMotion ? preset.motion : undefined),
-        dark: applyLyricColorPresetToTheme(dualTheme.dark, preset.dark, includeMotion ? preset.motion : undefined),
+        light: applyLyricColorPresetToTheme(dualTheme.light, preset.light, motion, {
+            applyFontStyle: includeMotion,
+        }),
+        dark: applyLyricColorPresetToTheme(dualTheme.dark, preset.dark, motion, {
+            applyFontStyle: includeMotion,
+        }),
     };
 };
 
@@ -231,6 +228,7 @@ const applyLyricColorPresetToTheme = (
     theme: Theme,
     colors: LyricColorPresetTextColors,
     motion?: LyricColorPresetMotion,
+    options: { applyFontStyle?: boolean } = {},
 ): Theme => {
     const next: Theme = {
         ...theme,
@@ -238,7 +236,9 @@ const applyLyricColorPresetToTheme = (
     };
 
     if (motion) {
-        next.fontStyle = motion.fontStyle;
+        if (options.applyFontStyle) {
+            next.fontStyle = motion.fontStyle;
+        }
         next.animationIntensity = motion.animationIntensity;
         next.lyricRhythmScaleMultiplier = motion.lyricRhythmScaleMultiplier;
         next.lyricGlowUsesAccent = motion.lyricGlowUsesAccent;

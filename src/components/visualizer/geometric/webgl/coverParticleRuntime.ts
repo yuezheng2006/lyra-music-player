@@ -24,6 +24,10 @@ import {
 import { subscribeGeometricCanvasFrame } from '../geometricCanvasRuntime';
 import { CoverParticleAudioSmoother } from './coverParticleAudioUniforms';
 import { CoverParticleBurstSmoother } from './coverParticleBurstSmoother';
+import {
+    resolveCoverParticlePointScale,
+    shouldShowCoverLoadMist,
+} from './coverParticleDisplayTuning';
 import { resolveCoverParticlePresetRuntime } from './coverParticlePresetRuntime';
 import { CoverParticleRippleField } from './coverParticleRipples';
 import { LyricStageRuntime, type LyricStageTickInput } from '../mineradio/lyrics/LyricStageRuntime';
@@ -66,7 +70,7 @@ const MINERADIO_ORBIT_BASELINES: Partial<Record<
     mineradioTunnel: { theta: 0, phi: 0.03, radius: 6.2 },
     mineradioOrbit: { theta: 0, phi: 0.12, radius: 8.8 },
     mineradioVoid: { theta: 0, phi: 0.05, radius: 8.0 },
-    mineradioVinyl: { theta: 0, phi: 0.04, radius: 6.5 },
+    mineradioVinyl: { theta: 0, phi: 0.11, radius: 6.15 },
     mineradioGalaxy: { theta: -0.52, phi: 0.34, radius: 9.4 },
 };
 
@@ -77,9 +81,12 @@ const UI_HIT_SELECTOR = [
     'textarea',
     'select',
     '[role="button"]',
+    '[role="menu"]',
     '[data-radix-popper-content-wrapper]',
+    '[data-testid="floating-player-background-menu"]',
     '[data-testid="floating-player-controls"]',
     '[data-testid="player-controls"]',
+    '[data-testid="unified-panel"]',
     '[data-testid="interactive3d-camera-capture"]',
     // Scrollable / opaque app chrome must keep wheel (search, home lists, panels).
     '[data-app-ui-surface]',
@@ -273,12 +280,22 @@ export class CoverParticleRuntime {
             }
         };
 
-        const baseZ = presetProfile.cameraZ - bassPulse * presetProfile.bassCameraPunch;
-        const cinemaOffset = this.cinemaCamera.tick(dt, beat, cinemaShake, atmosphereEnergy);
+        const immersiveVinyl = preset === 'mineradioVinyl' && this.lyricImmersive;
+        const immersiveStrength = immersiveVinyl ? 1 : 0;
+        const responsiveBassPulse = bassPulse * (1 + immersiveStrength * 0.45);
+        const baseZ = presetProfile.cameraZ - responsiveBassPulse * presetProfile.bassCameraPunch;
+        const cinemaOffset = this.cinemaCamera.tick(
+            dt,
+            beat,
+            cinemaShake * (1 + immersiveStrength * 0.45),
+            atmosphereEnergy,
+        );
         const cinematicPosition = applyCoverParticleCinemaOffset(baseZ, cinemaOffset);
         const orbitBaseline = MINERADIO_ORBIT_BASELINES[preset ?? 'emily'];
         const targetFov = orbitBaseline
-            ? presetProfile.fov - Math.max(0, beat) * 0.85
+            ? presetProfile.fov
+                - Math.max(0, beat) * (0.85 + immersiveStrength * 0.55)
+                - (presetProfile.immersiveFovOffset ?? 0) * immersiveStrength
             : presetProfile.fov;
         this.camera.fov += (targetFov - this.camera.fov) * (targetFov < this.camera.fov ? 0.24 : 0.12);
         this.camera.updateProjectionMatrix();
@@ -287,7 +304,10 @@ export class CoverParticleRuntime {
             if (orbitBaseline) {
                 const targetTheta = orbitBaseline.theta + this.userOrbitOffset.theta + cinemaOffset.thetaKick;
                 const targetPhi = THREE.MathUtils.clamp(
-                    orbitBaseline.phi + this.userOrbitOffset.phi + cinemaOffset.phiKick,
+                    orbitBaseline.phi
+                        + this.userOrbitOffset.phi
+                        + cinemaOffset.phiKick
+                        + (presetProfile.immersivePhiOffset ?? 0) * immersiveStrength,
                     -Math.PI * 0.45,
                     Math.PI * 0.45,
                 );
@@ -301,8 +321,9 @@ export class CoverParticleRuntime {
                 const targetRadius = THREE.MathUtils.clamp(
                     fittedBaselineRadius
                         + this.userOrbitOffset.radius
-                        - bassPulse * presetProfile.bassCameraPunch
-                        + cinemaOffset.radiusKick,
+                        - responsiveBassPulse * presetProfile.bassCameraPunch
+                        + cinemaOffset.radiusKick
+                        + (presetProfile.immersiveRadiusOffset ?? 0) * immersiveStrength,
                     2.4,
                     preset === 'mineradioOrbit' ? 18 : 14,
                 );
@@ -740,6 +761,7 @@ export class CoverParticleRuntime {
             },
             vertexShader: QUANTUM_CUBE_VERTEX_SHADER,
             fragmentShader: QUANTUM_CUBE_FRAGMENT_SHADER,
+            transparent: true,
             depthWrite: false,
             depthTest: false,
         });
@@ -828,7 +850,12 @@ export class CoverParticleRuntime {
             this.revokeCoverObjectUrl();
             return;
         }
-        this.showLoading();
+        // Keep the current cover on screen while the next texture loads. The load mist
+        // looks like a different 3D preset and must not flash on every track change.
+        const hasActiveCover = (this.uniforms.uHasCover.value ?? 0) > 0.5 && !!this.coverTexture;
+        if (shouldShowCoverLoadMist(hasActiveCover)) {
+            this.showLoading();
+        }
         this.textureLoader.setCrossOrigin('anonymous');
         void this.resolveCoverTextureUrl(url).then(({ textureUrl, objectUrl }) => {
             if (loadToken !== this.coverLoadToken) {
@@ -985,7 +1012,7 @@ export class CoverParticleRuntime {
         this.edgeTexture.needsUpdate = true;
         this.uniforms.uEdgeTex.value = this.edgeTexture;
         this.setCoverDepthState(1, 0.55, 260);
-        this.uniforms.uDepth.value = 0.92;
+        this.uniforms.uDepth.value = 1.30;
         this.container?.setAttribute('data-cover-depth-ready', 'true');
     }
 
@@ -1056,7 +1083,7 @@ export class CoverParticleRuntime {
             );
             const bloomEnabled = this.tuning?.enableBloomParticles ?? false;
             const bloomStrength = bloomEnabled
-                ? (this.tuning?.bloomStrength ?? 0.62) * (smartAtmosphereEnabled ? 1 : 0.38)
+                ? Math.min((this.tuning?.bloomStrength ?? 0.62) * 1.22, 1.6) * (smartAtmosphereEnabled ? 1 : 0.38)
                 : 0;
             uniforms.uBloomStrength.value = bloomStrength;
             if (this.bloomPoints) {
@@ -1067,7 +1094,7 @@ export class CoverParticleRuntime {
             uniforms.uTime.value = elapsed;
             uniforms.uSpeed.value = (smartAtmosphereEnabled ? 0.85 + intensity * 0.35 : 0.34 + intensity * 0.18) * presetProfile.speedMul;
             uniforms.uEdgeEnabled.value = preset === 'emily' ? 0 : 1;
-            uniforms.uCoverWarp.value = preset === 'emily' ? 0.38 : 1;
+            uniforms.uCoverWarp.value = preset === 'emily' ? 0.68 : 1;
             uniforms.uIntensity.value = intensity;
             uniforms.uCoverRes.value = this.resolveCoverResolutionUniform();
             uniforms.uBass.value = audioUniforms.bass;
@@ -1076,7 +1103,8 @@ export class CoverParticleRuntime {
             uniforms.uBeat.value = audioUniforms.beat;
             uniforms.uEnergy.value = audioUniforms.energy;
             uniforms.uBurstAmt.value = burstAmt;
-            uniforms.uPointScale.value = presetProfile.pointScale;
+            uniforms.uPointScale.value = resolveCoverParticlePointScale(presetProfile.pointScale);
+            uniforms.uImmersion.value = preset === 'mineradioVinyl' && this.lyricImmersive ? 1 : 0;
             this.vinylSpin = (this.vinylSpin + dt * (0.40 + audioUniforms.bass * 0.09) * uniforms.uSpeed.value) % (Math.PI * 2);
             uniforms.uVinylSpin.value = this.vinylSpin;
             if (this.interactivePointer.active) {

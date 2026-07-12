@@ -1,6 +1,7 @@
 import { MotionValue } from 'framer-motion';
 import { useMemo } from 'react';
 import { Line } from '../../types';
+import { KARAOKE_UPCOMING_LINE_COUNT } from '../../utils/lyrics/lyricWordMode';
 
 // Shared runtime helpers for all visualizers.
 // This file is intentionally tiny: it only answers "what line should I care about right now?"
@@ -76,10 +77,14 @@ export const getUpcomingLine = (
 export const getUpcomingLines = (
     lines: Line[],
     currentLineIndex: number,
-    count = 2
+    count = 2,
+    currentTime?: number,
 ): Line[] => {
     if (currentLineIndex < 0) {
-        return [];
+        const firstFutureIndex = currentTime === undefined
+            ? 0
+            : lines.findIndex(line => line.startTime > currentTime);
+        return firstFutureIndex < 0 ? [] : lines.slice(firstFutureIndex, firstFutureIndex + count);
     }
 
     return lines.slice(currentLineIndex + 1, currentLineIndex + 1 + count);
@@ -143,8 +148,8 @@ export const useVisualizerRuntime = ({
     );
 
     const nextLines = useMemo(
-        () => getUpcomingLines(lines, currentLineIndex, 2),
-        [currentLineIndex, lines]
+        () => getUpcomingLines(lines, currentLineIndex, KARAOKE_UPCOMING_LINE_COUNT, currentTimeValue),
+        [currentLineIndex, currentTimeValue, lines]
     );
 
     return {

@@ -79,10 +79,10 @@ export const useCoverParticleRuntime = ({
             runtime.dispose();
             runtimeRef.current = null;
         };
+    // Intentionally omit coverUrl: remounting flashes the load mist on track change.
     }, [
         mountedContainer,
         enabled,
-        coverUrl,
         qualityProfile,
         sceneTuning?.visualPreset,
         sceneTuning?.enableCoverParticles,

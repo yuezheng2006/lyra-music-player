@@ -10,6 +10,9 @@ export interface CoverParticlePresetRuntimeProfile {
     cameraZ: number;
     fov: number;
     bassCameraPunch: number;
+    immersivePhiOffset?: number;
+    immersiveRadiusOffset?: number;
+    immersiveFovOffset?: number;
 }
 
 const PROFILES: Record<MineradioVisualPresetId, CoverParticlePresetRuntimeProfile> = {
@@ -81,8 +84,11 @@ const PROFILES: Record<MineradioVisualPresetId, CoverParticlePresetRuntimeProfil
         speedMul: 1.00,
         pointScale: 1.00,
         cameraZ: 6.50,
-        fov: 45,
-        bassCameraPunch: 0.20,
+        fov: 43,
+        bassCameraPunch: 0.28,
+        immersivePhiOffset: 0.06,
+        immersiveRadiusOffset: -0.48,
+        immersiveFovOffset: 2.4,
     },
     mineradioGalaxy: {
         speedMul: 1.00,

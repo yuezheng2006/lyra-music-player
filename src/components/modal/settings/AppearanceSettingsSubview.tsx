@@ -248,6 +248,9 @@ export const compressConfig = (config: any): string => {
         };
     }
     if (config.visualizerMode) minified.vm = config.visualizerMode;
+    if (config.lyricWordMode) minified.lwm = config.lyricWordMode;
+    if (config.lyricFontPresetId) minified.lfp = config.lyricFontPresetId;
+    if (config.visualEffectIntensity) minified.vei = config.visualEffectIntensity;
     if (config.visualizerBackgroundMode) minified.vbm = config.visualizerBackgroundMode;
     if (config.backgroundOpacity !== undefined) minified.bo = config.backgroundOpacity;
     if (config.visualizerOpacity !== undefined) minified.vo = config.visualizerOpacity;
@@ -301,7 +304,7 @@ export const decompressConfig = (str: string): any => {
         throw new Error('Invalid format');
     }
 
-    const isMinified = parsed.t !== undefined || parsed.vm !== undefined || parsed.ct !== undefined || parsed.cat !== undefined || parsed.hpts !== undefined || parsed.sst !== undefined || parsed.esa !== undefined || parsed.e3ib !== undefined;
+    const isMinified = parsed.t !== undefined || parsed.vm !== undefined || parsed.lwm !== undefined || parsed.ct !== undefined || parsed.cat !== undefined || parsed.hpts !== undefined || parsed.sst !== undefined || parsed.esa !== undefined || parsed.e3ib !== undefined;
     if (isMinified) {
         const decompressed: any = {};
         if (parsed.t) {
@@ -311,6 +314,9 @@ export const decompressConfig = (str: string): any => {
             };
         }
         if (parsed.vm) decompressed.visualizerMode = parsed.vm;
+        if (parsed.lwm) decompressed.lyricWordMode = parsed.lwm;
+        if (parsed.lfp) decompressed.lyricFontPresetId = parsed.lfp;
+        if (parsed.vei) decompressed.visualEffectIntensity = parsed.vei;
         if (parsed.vbm) decompressed.visualizerBackgroundMode = parsed.vbm;
         if (parsed.bo !== undefined) decompressed.backgroundOpacity = parsed.bo;
         if (parsed.vo !== undefined) decompressed.visualizerOpacity = parsed.vo;
@@ -340,7 +346,7 @@ export const decompressConfig = (str: string): any => {
         return decompressed;
     } else {
         const validKeys = [
-            'theme', 'visualizerMode', 'visualizerBackgroundMode', 'backgroundOpacity',
+            'theme', 'visualizerMode', 'lyricWordMode', 'lyricFontPresetId', 'visualEffectIntensity', 'visualizerBackgroundMode', 'backgroundOpacity',
             'visualizerOpacity', 'hidePlayerTranslationSubtitle', 'showSubtitleTranslation',
             'lyricsFontStyle', 'lyricsFontScale', 'lyricColorPresetId', 'classicTuning',
             'cadenzaTuning', 'partitaTuning', 'fumeTuning', 'claddaghTuning', 'cappellaTuning',
@@ -428,6 +434,9 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
     const store = useSettingsUiStore(useShallow(state => ({
         statusSetter: state.statusSetter,
         visualizerMode: state.visualizerMode,
+        lyricWordMode: state.lyricWordMode,
+        lyricFontPresetId: state.lyricFontPresetId,
+        visualEffectIntensity: state.visualEffectIntensity,
         visualizerBackgroundMode: state.visualizerBackgroundMode,
         backgroundOpacity: state.backgroundOpacity,
         visualizerOpacity: state.visualizerOpacity,
@@ -451,6 +460,9 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         enable3dInteractiveBackground: state.enable3dInteractiveBackground,
 
         handleSetVisualizerMode: state.handleSetVisualizerMode,
+        handleSetLyricWordMode: state.handleSetLyricWordMode,
+        handleSetLyricFontPresetId: state.handleSetLyricFontPresetId,
+        handleSetVisualEffectIntensity: state.handleSetVisualEffectIntensity,
         handleSetVisualizerBackgroundMode: state.handleSetVisualizerBackgroundMode,
         handleSetBackgroundOpacity: state.handleSetBackgroundOpacity,
         handleSetVisualizerOpacity: state.handleSetVisualizerOpacity,
@@ -499,6 +511,9 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         return {
             theme: exportTheme,
             visualizerMode: store.visualizerMode,
+            lyricWordMode: store.lyricWordMode,
+            lyricFontPresetId: store.lyricFontPresetId,
+            visualEffectIntensity: store.visualEffectIntensity,
             visualizerBackgroundMode: store.visualizerBackgroundMode,
             backgroundOpacity: store.backgroundOpacity,
             visualizerOpacity: store.visualizerOpacity,
@@ -564,8 +579,19 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             }
 
             // 2. Restore Visualizer Setup
-            if (config.visualizerMode) {
+            if (config.visualizerMode === 'karaoke') {
+                store.handleSetLyricWordMode('karaoke');
+            } else if (config.visualizerMode) {
                 store.handleSetVisualizerMode(config.visualizerMode);
+            }
+            if (config.lyricWordMode) {
+                store.handleSetLyricWordMode(config.lyricWordMode);
+            }
+            if (config.lyricFontPresetId) {
+                store.handleSetLyricFontPresetId(config.lyricFontPresetId);
+            }
+            if (config.visualEffectIntensity) {
+                store.handleSetVisualEffectIntensity(config.visualEffectIntensity);
             }
             if (config.visualizerBackgroundMode) {
                 store.handleSetVisualizerBackgroundMode(config.visualizerBackgroundMode);

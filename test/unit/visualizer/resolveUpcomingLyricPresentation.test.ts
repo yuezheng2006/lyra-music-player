@@ -65,6 +65,7 @@ describe('resolveVisualizerSubtitleOverlayContent', () => {
             activeLine: null,
             recentCompletedLine: null,
             nextLines: [{ fullText: '下一句', startTime: 10 } as never],
+            lyricWordMode: 'karaoke',
         });
 
         expect(content.upcomingLines).toHaveLength(1);

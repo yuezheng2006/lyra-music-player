@@ -107,6 +107,7 @@ export type ThemeMode = 'default' | 'ai' | 'custom';
 
 export type BuiltinVisualizerMode = 'classic' | 'cadenza' | 'partita' | 'fume' | 'monet';
 export type VisualizerMode = BuiltinVisualizerMode | (string & {});
+export type LyricWordMode = 'default' | 'karaoke';
 export type VisualizerFrameRate = 'off' | 120 | 90 | 60;
 
 export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'radio' | 'daily' | 'podcast';

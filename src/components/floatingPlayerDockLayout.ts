@@ -38,11 +38,15 @@ export const resolveFloatingPlayerBarReserve = (immersive: boolean): string => (
         : `${FLOATING_PLAYER_DOCK_HEIGHT_PX + FLOATING_PLAYER_DOCK_BOTTOM_INSET_PX}px`
 );
 
-/** Outer fixed frame that spans the main content column. */
+/**
+ * Outer fixed frame that spans the main content column for centering.
+ * Always `pointer-events: none` so empty side gutters (and overlays like GridView's
+ * floating list button) stay clickable; the dock pill must re-enable pointer events.
+ */
 export const resolveFloatingPlayerDockFrameStyle = (hidden: boolean): CSSProperties => ({
     left: `calc(var(--app-sidebar-width, 0px) + ${FLOATING_PLAYER_DOCK_SIDE_INSET_PX}px)`,
     right: `${FLOATING_PLAYER_DOCK_SIDE_INSET_PX}px`,
     bottom: `${FLOATING_PLAYER_DOCK_BOTTOM_INSET_PX}px`,
     height: hidden ? 0 : `${FLOATING_PLAYER_DOCK_HEIGHT_PX}px`,
-    pointerEvents: hidden ? 'none' : 'auto',
+    pointerEvents: 'none',
 });

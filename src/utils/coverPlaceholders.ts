@@ -92,21 +92,35 @@ export const createSongCoverPlaceholder = (
 
 /** Fixed cover for the virtual local "All Songs" group — never derived from track art. */
 export const createLocalAllSongsCover = (): string => {
+    // Minimal vinyl card: reads as a library cover tile beside real album art.
     const svg = `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
             <defs>
-                <linearGradient id="allSongsBg" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#0f172a" />
-                    <stop offset="100%" stop-color="#1e293b" />
+                <linearGradient id="allSongsBg" x1="12%" y1="0%" x2="88%" y2="100%">
+                    <stop offset="0%" stop-color="#111827" />
+                    <stop offset="55%" stop-color="#1f2937" />
+                    <stop offset="100%" stop-color="#0b1220" />
+                </linearGradient>
+                <radialGradient id="allSongsGlow" cx="50%" cy="42%" r="58%">
+                    <stop offset="0%" stop-color="rgba(148,163,184,0.22)" />
+                    <stop offset="70%" stop-color="rgba(148,163,184,0.05)" />
+                    <stop offset="100%" stop-color="rgba(148,163,184,0)" />
+                </radialGradient>
+                <linearGradient id="allSongsSleeve" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="rgba(226,232,240,0.14)" />
+                    <stop offset="100%" stop-color="rgba(148,163,184,0.06)" />
                 </linearGradient>
             </defs>
             <rect width="600" height="600" fill="url(#allSongsBg)" />
-            <rect x="150" y="210" width="300" height="220" rx="28" fill="rgba(148,163,184,0.18)" />
-            <rect x="178" y="178" width="244" height="36" rx="12" fill="rgba(148,163,184,0.12)" />
-            <rect x="198" y="146" width="204" height="28" rx="10" fill="rgba(148,163,184,0.08)" />
-            <circle cx="300" cy="318" r="54" fill="rgba(226,232,240,0.92)" />
-            <circle cx="300" cy="318" r="18" fill="#0f172a" />
-            <path d="M318 286 L348 274 L348 336 L330 342 L330 302 Z" fill="rgba(226,232,240,0.92)" />
+            <rect width="600" height="600" fill="url(#allSongsGlow)" />
+            <rect x="96" y="96" width="408" height="408" rx="36" fill="url(#allSongsSleeve)" />
+            <rect x="96" y="96" width="408" height="408" rx="36" fill="none" stroke="rgba(226,232,240,0.12)" stroke-width="2" />
+            <circle cx="300" cy="300" r="148" fill="#0b1220" />
+            <circle cx="300" cy="300" r="132" fill="none" stroke="rgba(148,163,184,0.18)" stroke-width="10" />
+            <circle cx="300" cy="300" r="104" fill="none" stroke="rgba(148,163,184,0.12)" stroke-width="6" />
+            <circle cx="300" cy="300" r="76" fill="none" stroke="rgba(148,163,184,0.10)" stroke-width="4" />
+            <circle cx="300" cy="300" r="34" fill="rgba(226,232,240,0.92)" />
+            <circle cx="300" cy="300" r="12" fill="#0b1220" />
         </svg>
     `;
 

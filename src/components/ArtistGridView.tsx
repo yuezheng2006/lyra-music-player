@@ -13,7 +13,7 @@ import { getBlobObjectUrlSignature, isBlob } from '../utils/blobGuards';
 import { PolaroidCard } from './GridView';
 import { HexGridCoord, CubeCoord, getHexCubicSpiral } from './folia-grid/hexViewport';
 import { useFoliaHexViewport } from './folia-grid/useFoliaHexViewport';
-import { APP_CONTENT_TOP_PADDING_CLASS } from './app/home/homeSurfaceStyles';
+import { APP_CONTENT_TOP_PADDING_CLASS, resolveShellSurfaceBackgroundStyle } from './app/home/homeSurfaceStyles';
 
 /*
  * ArtistGridView.tsx
@@ -951,12 +951,12 @@ const ArtistGridView: React.FC<ArtistGridViewProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="absolute inset-0 z-50 flex flex-col font-sans select-none overflow-hidden"
-            style={{ color: 'var(--text-primary)', backgroundColor: 'var(--bg-color)' }}
+            style={resolveShellSurfaceBackgroundStyle()}
         >
             {backgroundCoverUrl && (
                 <div
                     className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0"
-                    style={{ opacity: isDaylight ? 0.18 : 0.12 }}
+                    style={{ opacity: isDaylight ? 0.22 : 0.16 }}
                 >
                     <img
                         src={toHttps(getLowResCoverUrl(backgroundCoverUrl))}

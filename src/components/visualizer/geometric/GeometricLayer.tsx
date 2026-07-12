@@ -164,7 +164,7 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                     cameraControlState={cameraControlState}
                 />
             )}
-            <VignetteOverlay disabled={disableVignette} />
+            <VignetteOverlay disabled={disableVignette} immersive={immersiveLyrics} />
         </div>
     );
 };

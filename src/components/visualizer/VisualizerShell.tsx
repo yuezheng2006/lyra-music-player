@@ -11,12 +11,13 @@ import MonetBackgroundLayer from './backgrounds/MonetBackgroundLayer';
 import UrlBackgroundLayer from './backgrounds/UrlBackgroundLayer';
 import SoraBackground from './SoraBackground';
 import LyricRhythmStage from './shared/LyricRhythmStage';
-import { shouldEnableInteractive3dWebGlLyrics } from './resolveInteractive3dFumeLayering';
+import { shouldApplyLyricRhythmToVisualizerMode, shouldEnableInteractive3dWebGlLyrics } from './resolveInteractive3dFumeLayering';
 
 // Shared outer shell for all visualizers.
 type VisualizerShellSharedProps = Pick<
     VisualizerSharedProps,
     | 'coverUrl'
+    | 'shellCanvasBackground'
     | 'isDaylight'
     | 'useCoverColorBg'
     | 'seed'
@@ -61,6 +62,7 @@ interface VisualizerShellProps {
     audioBands: AudioBands;
     sharedProps?: VisualizerShellSharedProps;
     coverUrl?: string | null;
+    shellCanvasBackground?: string;
     useCoverColorBg?: boolean;
     seed?: string | number;
     backgroundOpacity?: number;
@@ -84,6 +86,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     audioBands,
     sharedProps,
     coverUrl,
+    shellCanvasBackground,
     useCoverColorBg = false,
     seed,
     backgroundOpacity = 0.75,
@@ -102,6 +105,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
 }, ref) => {
     const { t } = useTranslation();
     const resolvedCoverUrl = sharedProps?.coverUrl ?? coverUrl;
+    const resolvedShellCanvasBackground = sharedProps?.shellCanvasBackground ?? shellCanvasBackground;
     const resolvedIsDaylight = sharedProps?.isDaylight ?? true;
     const resolvedUseCoverColorBg = sharedProps?.useCoverColorBg ?? useCoverColorBg;
     const resolvedSeed = sharedProps?.seed ?? seed;
@@ -143,8 +147,9 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const shouldRenderMonetBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'monet';
     const shouldRenderUrlBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'url';
     const shouldRenderSoraBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'sora';
-    // Left-column modes (Monet) must not rhythm-scale — scale > 1 clips lyrics past the stage edge.
-    const shouldApplyLyricRhythm = shouldRenderInteractive3dBackground && resolvedVisualizerMode !== 'monet';
+    // Left-column rail modes must not rhythm-scale — scale > 1 clips lyrics past the stage edge.
+    const shouldApplyLyricRhythm = shouldRenderInteractive3dBackground
+        && shouldApplyLyricRhythmToVisualizerMode(resolvedVisualizerMode);
 
     const fontClassName = theme.fontStyle === 'mono'
         ? 'font-mono'
@@ -202,6 +207,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                     className="absolute inset-0 z-0 transition-all duration-1000"
                     style={{
                         backgroundColor: theme.backgroundColor,
+                        backgroundImage: resolvedShellCanvasBackground,
                         opacity: resolvedUseCoverColorBg ? resolvedBackgroundOpacity : 1,
                     }}
                 />
@@ -211,9 +217,16 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 <>
                     <div
                         className="absolute inset-0 z-0 transition-all duration-1000"
-                        style={{ backgroundColor: '#071922', opacity: 1 }}
+                        style={{
+                            backgroundColor: '#071922',
+                            backgroundImage: resolvedShellCanvasBackground,
+                            opacity: 1,
+                        }}
                     />
-                    <div className="absolute inset-0 z-0 isolate pointer-events-auto">
+                    <div
+                        className="absolute inset-0 z-0 isolate pointer-events-auto"
+                        style={{ filter: 'brightness(1.16) saturate(1.08)' }}
+                    >
                         <GeometricInteractiveBackground
                             theme={theme}
                             audioPower={audioPower}

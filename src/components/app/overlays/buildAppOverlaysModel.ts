@@ -212,7 +212,7 @@ export const buildAppOverlaysModel = ({
     showLyricsLabel,
     hideLyricsLabel,
     listeningModeLabel,
-    queueLabel = 'Play queue',
+    queueLabel = 'Playlist',
     previousTrackLabel = 'Previous track',
     nextTrackLabel = 'Next track',
     playLabel = 'Play',
@@ -382,7 +382,7 @@ export const buildAppOverlaysModel = ({
             loopOneLabel,
             playQueue,
             onPlayQueueSong: (song, queue) => {
-                void playSong(song, queue, false, { shouldNavigateToPlayer: false });
+                return playSong(song, queue, false, { shouldNavigateToPlayer: false });
             },
             queueLabel,
             isImmersiveFullscreen,

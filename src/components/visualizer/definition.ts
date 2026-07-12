@@ -40,6 +40,8 @@ export interface VisualizerSharedProps {
     songArtist?: string | null;
     songAlbum?: string | null;
     coverUrl?: string | null;
+    /** Low-intensity cover-derived gradient rendered beneath visualizer content. */
+    shellCanvasBackground?: string;
     useCoverColorBg?: boolean;
     seed?: string | number;
     staticMode?: boolean;

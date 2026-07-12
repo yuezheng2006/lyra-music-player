@@ -45,7 +45,9 @@ export const generateThemeFromLyrics = async (
     const dualTheme = await response.json();
     return applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme as DualTheme));
   } catch (error) {
-    console.error("Failed to generate theme via API:", error);
+    if (import.meta.env.DEV) {
+      console.warn("Smart theme generation skipped:", error);
+    }
     throw error;
   }
 };

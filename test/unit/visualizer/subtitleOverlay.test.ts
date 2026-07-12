@@ -35,7 +35,7 @@ describe('VisualizerSubtitleOverlay content resolution', () => {
         expect(content.upcomingLines).toEqual([]);
     });
 
-    it('keeps upcoming-line hints when only translation text is hidden', () => {
+    it('keeps upcoming-line hints when only translation text is hidden in karaoke mode', () => {
         const content = resolveVisualizerSubtitleOverlayContent({
             showText: true,
             activeLine,
@@ -43,10 +43,42 @@ describe('VisualizerSubtitleOverlay content resolution', () => {
             nextLines: [nextLine],
             hideTranslationSubtitle: false,
             showSubtitleTranslation: false,
+            lyricWordMode: 'karaoke',
         });
 
         expect(content.shouldRenderOverlay).toBe(true);
         expect(content.translationText).toBeNull();
         expect(content.upcomingLines).toEqual([nextLine]);
+    });
+
+    it('shows karaoke upcoming lines even when translation is also visible', () => {
+        const content = resolveVisualizerSubtitleOverlayContent({
+            showText: true,
+            activeLine,
+            recentCompletedLine: null,
+            nextLines: [nextLine, { ...nextLine, startTime: 3, fullText: 'NextNext' }],
+            hideTranslationSubtitle: false,
+            showSubtitleTranslation: true,
+            lyricWordMode: 'karaoke',
+        });
+
+        expect(content.shouldRenderOverlay).toBe(true);
+        expect(content.translationText).toBe('你好');
+        expect(content.upcomingLines.map(line => line.fullText)).toEqual(['World', 'NextNext']);
+    });
+
+    it('hides upcoming-line hints in default word mode', () => {
+        const content = resolveVisualizerSubtitleOverlayContent({
+            showText: true,
+            activeLine,
+            recentCompletedLine: null,
+            nextLines: [nextLine],
+            hideTranslationSubtitle: false,
+            showSubtitleTranslation: false,
+            lyricWordMode: 'default',
+        });
+
+        expect(content.shouldRenderOverlay).toBe(false);
+        expect(content.upcomingLines).toEqual([]);
     });
 });

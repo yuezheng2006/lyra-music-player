@@ -1,8 +1,24 @@
 import { create } from 'zustand';
 import type React from 'react';
-import { DEFAULT_CADENZA_TUNING, DEFAULT_CAPPELLA_TUNING, DEFAULT_CLASSIC_TUNING, DEFAULT_CLADDAGH_TUNING, DEFAULT_FUME_TUNING, DEFAULT_INTERACTIVE3D_SCENE_TUNING, DEFAULT_MONET_BACKGROUND_TUNING, DEFAULT_MONET_TUNING, DEFAULT_PARTITA_TUNING, DEFAULT_TILT_TUNING, type CadenzaTuning, type CappellaAvatarImage, type CappellaAvatarSource, type CappellaEmojiImage, type CappellaTuning, type ClassicTuning, type CladdaghTuning, type FumeTuning, type GridViewCardLayout, type Interactive3dSceneTuning, type LyricProviderSource, type MonetBackgroundImage, type MonetBackgroundLayout, type MonetBackgroundSource, type MonetBackgroundTuning, type MonetBackgroundWashColorMode, type MonetPortraitImage, type MonetPortraitSource, type MonetTuning, type PartitaTuning, type QueueAddBehavior, type StatusMessage, type StoredCappellaAvatarImage, type StoredCappellaEmojiImage, type StoredCustomLyricsFont, type StoredMonetBackgroundImage, type StoredMonetPortraitImage, type Theme, type TiltTuning, type UrlBackgroundItem, type VisualizerBackgroundMode, type VisualizerFrameRate, type VisualizerMode } from '../types';
+import { DEFAULT_CADENZA_TUNING, DEFAULT_CAPPELLA_TUNING, DEFAULT_CLASSIC_TUNING, DEFAULT_CLADDAGH_TUNING, DEFAULT_FUME_TUNING, DEFAULT_INTERACTIVE3D_SCENE_TUNING, DEFAULT_MONET_BACKGROUND_TUNING, DEFAULT_MONET_TUNING, DEFAULT_PARTITA_TUNING, DEFAULT_TILT_TUNING, type CadenzaTuning, type CappellaAvatarImage, type CappellaAvatarSource, type CappellaEmojiImage, type CappellaTuning, type ClassicTuning, type CladdaghTuning, type FumeTuning, type GridViewCardLayout, type Interactive3dSceneTuning, type LyricProviderSource, type LyricWordMode, type MonetBackgroundImage, type MonetBackgroundLayout, type MonetBackgroundSource, type MonetBackgroundTuning, type MonetBackgroundWashColorMode, type MonetPortraitImage, type MonetPortraitSource, type MonetTuning, type PartitaTuning, type QueueAddBehavior, type StatusMessage, type StoredCappellaAvatarImage, type StoredCappellaEmojiImage, type StoredCustomLyricsFont, type StoredMonetBackgroundImage, type StoredMonetPortraitImage, type Theme, type TiltTuning, type UrlBackgroundItem, type VisualizerBackgroundMode, type VisualizerFrameRate, type VisualizerMode } from '../types';
 import { resolveStoredInteractive3dSceneTuning } from '../components/visualizer/geometric/interactive3dSceneRegistry';
 import { DEFAULT_VISUALIZER_MODE, getVisualizerRegistryEntry, hasVisualizerMode } from '../components/visualizer/registry';
+import {
+    DEFAULT_LYRIC_WORD_MODE,
+    LYRIC_WORD_MODE_STORAGE_KEY,
+    parseLyricWordMode,
+} from '../utils/lyrics/lyricWordMode';
+import {
+    DEFAULT_LYRIC_FONT_PRESET_ID,
+    LYRIC_FONT_PRESET_STORAGE_KEY,
+    parseLyricFontPresetId,
+} from '../utils/lyricFontPresets';
+import {
+    DEFAULT_LYRIC_VISUAL_EFFECT_INTENSITY,
+    LYRIC_VISUAL_EFFECT_INTENSITY_STORAGE_KEY,
+    parseLyricVisualEffectIntensity,
+    type LyricVisualEffectIntensity,
+} from '../utils/lyricVisualEffects';
 import { getLyricFilterError } from '../utils/lyrics/filtering';
 import { buildStoredCappellaEmojiPack, clearCustomCappellaEmojiPack, isSupportedCappellaEmojiFile, saveCustomCappellaEmojiPack } from '../services/cappellaEmojiPack';
 import { buildStoredCappellaAvatar, clearCustomCappellaAvatar, isSupportedCappellaAvatarFile, saveCustomCappellaAvatar } from '../services/cappellaAvatarPack';
@@ -125,6 +141,14 @@ const readStoredVisualizerMode = (): VisualizerMode => {
     }
 
     const saved = localStorage.getItem('visualizer_mode');
+    // Legacy: karaoke used to be a visualizer mode; migrate to lyric word policy.
+    if (saved === 'karaoke') {
+        if (!localStorage.getItem(LYRIC_WORD_MODE_STORAGE_KEY)) {
+            localStorage.setItem(LYRIC_WORD_MODE_STORAGE_KEY, 'karaoke');
+        }
+        localStorage.setItem('visualizer_mode', DEFAULT_VISUALIZER_MODE);
+        return DEFAULT_VISUALIZER_MODE;
+    }
     if (saved === 'cadenza' || saved === 'cadenze') {
         return 'cadenza';
     }
@@ -651,6 +675,30 @@ const readStoredLyricsFontStyle = (): Theme['fontStyle'] => {
     return saved === 'serif' || saved === 'mono' ? saved : 'sans';
 };
 
+const readStoredLyricWordMode = (): LyricWordMode => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_LYRIC_WORD_MODE;
+    }
+
+    return parseLyricWordMode(localStorage.getItem(LYRIC_WORD_MODE_STORAGE_KEY));
+};
+
+const readStoredLyricFontPresetId = (): string => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_LYRIC_FONT_PRESET_ID;
+    }
+
+    return parseLyricFontPresetId(localStorage.getItem(LYRIC_FONT_PRESET_STORAGE_KEY));
+};
+
+const readStoredVisualEffectIntensity = (): LyricVisualEffectIntensity => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_LYRIC_VISUAL_EFFECT_INTENSITY;
+    }
+
+    return parseLyricVisualEffectIntensity(localStorage.getItem(LYRIC_VISUAL_EFFECT_INTENSITY_STORAGE_KEY));
+};
+
 const readStoredLyricsFontScale = (): number => {
     if (typeof window === 'undefined') {
         return 1;
@@ -829,6 +877,9 @@ type SettingsUiState = {
     visualizerFrameRate: VisualizerFrameRate;
     isDaylight: boolean;
     visualizerMode: VisualizerMode;
+    lyricWordMode: LyricWordMode;
+    lyricFontPresetId: string;
+    visualEffectIntensity: LyricVisualEffectIntensity;
     classicTuning: ClassicTuning;
     cadenzaTuning: CadenzaTuning;
     partitaTuning: PartitaTuning;
@@ -928,6 +979,9 @@ type SettingsUiState = {
     handleSetVisualizerFrameRate: (frameRate: VisualizerFrameRate) => void;
     setDaylightPreference: (isDaylight: boolean) => void;
     handleSetVisualizerMode: (mode: VisualizerMode) => void;
+    handleSetLyricWordMode: (mode: LyricWordMode) => void;
+    handleSetLyricFontPresetId: (presetId: string) => void;
+    handleSetVisualEffectIntensity: (intensity: LyricVisualEffectIntensity) => void;
     handleSetClassicTuning: (patch: Partial<ClassicTuning>) => void;
     handleResetClassicTuning: () => void;
     handleSetCadenzaTuning: (patch: Partial<CadenzaTuning>) => void;
@@ -1011,6 +1065,9 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     visualizerFrameRate: readStoredVisualizerFrameRate(),
     isDaylight: readDefaultDaylightPreference(),
     visualizerMode: readStoredVisualizerMode(),
+    lyricWordMode: readStoredLyricWordMode(),
+    lyricFontPresetId: readStoredLyricFontPresetId(),
+    visualEffectIntensity: readStoredVisualEffectIntensity(),
     classicTuning: readStoredClassicTuning(),
     cadenzaTuning: readStoredCadenzaTuning(),
     partitaTuning: readStoredPartitaTuning(),
@@ -1395,6 +1452,11 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         }
     },
     handleSetVisualizerMode: (mode) => {
+        // Legacy path: karaoke was briefly a visualizer mode.
+        if (mode === 'karaoke') {
+            get().handleSetLyricWordMode('karaoke');
+            return;
+        }
         const entry = getVisualizerRegistryEntry(mode);
         if (typeof window !== 'undefined') {
             localStorage.setItem('visualizer_mode', mode);
@@ -1404,6 +1466,27 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             type: 'info',
             text: `已切换到${entry.labelFallback}歌词`,
         });
+    },
+    handleSetLyricWordMode: (mode) => {
+        const next = parseLyricWordMode(mode);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(LYRIC_WORD_MODE_STORAGE_KEY, next);
+        }
+        set({ lyricWordMode: next });
+    },
+    handleSetLyricFontPresetId: (presetId) => {
+        const next = parseLyricFontPresetId(presetId);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(LYRIC_FONT_PRESET_STORAGE_KEY, next);
+        }
+        set({ lyricFontPresetId: next });
+    },
+    handleSetVisualEffectIntensity: (intensity) => {
+        const next = parseLyricVisualEffectIntensity(intensity);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(LYRIC_VISUAL_EFFECT_INTENSITY_STORAGE_KEY, next);
+        }
+        set({ visualEffectIntensity: next });
     },
     handleSetClassicTuning: (patch) => {
         const prev = get().classicTuning;
@@ -1968,6 +2051,9 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     lastSeenGuideVersion: state.lastSeenGuideVersion,
     isUserGuideModalOpen: state.isUserGuideModalOpen,
     visualizerMode: state.visualizerMode,
+    lyricWordMode: state.lyricWordMode,
+    lyricFontPresetId: state.lyricFontPresetId,
+    visualEffectIntensity: state.visualEffectIntensity,
     homeLayoutStyle: state.homeLayoutStyle,
     handleSetHomeLayoutStyle: state.handleSetHomeLayoutStyle,
     grid3dCardStyle: state.grid3dCardStyle,
@@ -2067,6 +2153,9 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleClearCustomCappellaEmojiPack: state.handleClearCustomCappellaEmojiPack,
     handleImportCustomCappellaAvatar: state.handleImportCustomCappellaAvatar,
     handleClearCustomCappellaAvatar: state.handleClearCustomCappellaAvatar,
+    handleSetLyricWordMode: state.handleSetLyricWordMode,
+    handleSetLyricFontPresetId: state.handleSetLyricFontPresetId,
+    handleSetVisualEffectIntensity: state.handleSetVisualEffectIntensity,
     handleSetLyricsFontStyle: state.handleSetLyricsFontStyle,
     handleSetLyricsFontScale: state.handleSetLyricsFontScale,
     handleSetLyricsCustomFont: state.handleSetLyricsCustomFont,

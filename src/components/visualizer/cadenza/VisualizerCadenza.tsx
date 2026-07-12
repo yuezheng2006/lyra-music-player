@@ -12,6 +12,8 @@ import { type VisualizerSharedProps } from '../definition';
 import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { resolveWordColor } from '../wordColoring';
+import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+import { resolveWaitingWordPresentation } from '../../../utils/lyrics/lyricWordMode';
 
 // This is the heavy layout mode.
 // The line does not just show up and animate; we first prebuild the active/upcoming lines,
@@ -1275,6 +1277,8 @@ const VisualizerCadenza: React.FC<VisualizerProps> = (props) => {
         showSubtitleTranslation = true,
     } = props;
     const { t } = useTranslation();
+    const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const waitingWordPresentation = resolveWaitingWordPresentation(lyricWordMode);
     const [viewport, setViewport] = useState({ width: 0, height: 0 });
     const containerRef = useRef<HTMLDivElement>(null);
     const lineLayerRef = useRef<HTMLDivElement>(null);
@@ -1488,7 +1492,7 @@ const VisualizerCadenza: React.FC<VisualizerProps> = (props) => {
                     : 1;
                 const passedDriftProgress = isInstantWordReveal ? 0 : getClassicPassedDrift(time, placement.word);
                 const targetScale = status === 'waiting'
-                    ? isInstantWordReveal
+                    ? waitingWordPresentation.parkAtRest || isInstantWordReveal
                         ? placement.scale
                         : Math.max(placement.scale * 0.5, 0.5)
                     : status === 'active'
@@ -1497,7 +1501,7 @@ const VisualizerCadenza: React.FC<VisualizerProps> = (props) => {
                             : placement.scale * 1.3 * pulse
                         : placement.scale;
                 const targetRotation = status === 'waiting'
-                    ? isInstantWordReveal
+                    ? waitingWordPresentation.parkAtRest || isInstantWordReveal
                         ? placement.rotate
                         : placement.rotate + 20
                     : status === 'passed'
@@ -1509,10 +1513,20 @@ const VisualizerCadenza: React.FC<VisualizerProps> = (props) => {
                 const localFloatY = Math.cos(time * 1.5 + placementIndex * 0.4) * motionEnergy * 2.5;
                 const passedDriftX = status === 'passed' ? placement.passedDriftX * passedDriftProgress : 0;
                 const passedDriftY = status === 'passed' ? placement.passedDriftY * passedDriftProgress : 0;
-                const targetX = width / 2 + placement.x + localFloatX + passedDriftX + (status === 'waiting' ? placement.entryOffsetX : 0);
-                const targetY = focusY + placement.y + localFloatY + passedDriftY + (status === 'waiting' ? placement.entryOffsetY : 0);
-                const targetBodyAlpha = status === 'waiting' ? 0 : status === 'active' ? 1 : passedAlpha;
-                const targetBlur = status === 'waiting' && !isInstantWordReveal ? 10 : 0;
+                const waitingEntryX = status === 'waiting' && !waitingWordPresentation.parkAtRest
+                    ? placement.entryOffsetX
+                    : 0;
+                const waitingEntryY = status === 'waiting' && !waitingWordPresentation.parkAtRest
+                    ? placement.entryOffsetY
+                    : 0;
+                const targetX = width / 2 + placement.x + localFloatX + passedDriftX + waitingEntryX;
+                const targetY = focusY + placement.y + localFloatY + passedDriftY + waitingEntryY;
+                const targetBodyAlpha = status === 'waiting'
+                    ? waitingWordPresentation.opacity
+                    : status === 'active' ? 1 : passedAlpha;
+                const targetBlur = status === 'waiting' && !isInstantWordReveal
+                    ? waitingWordPresentation.blurPx
+                    : 0;
                 const targetActiveMix = getClassicBodyMix(time, lineTiming, placement.word);
                 const targetGlowAlpha = getClassicGlowEnvelope(time, lineTiming, placement.word);
                 const transformTransitionAmount = 1 - Math.exp(-11 * dt);
@@ -1656,6 +1670,9 @@ const VisualizerCadenza: React.FC<VisualizerProps> = (props) => {
         tuning.motionAmount,
         viewport.height,
         viewport.width,
+        waitingWordPresentation.blurPx,
+        waitingWordPresentation.opacity,
+        waitingWordPresentation.parkAtRest,
     ]);
 
     return (

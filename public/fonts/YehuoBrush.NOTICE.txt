@@ -1,0 +1,3 @@
+YehuoBrush is packaged from 钟齐流江毛草 (LiuJiang-MaoCao / 流江毛草)
+Source collection: https://github.com/jaywcjlove/free-font
+License: SIL Open Font License 1.1 (OFL-1.1)

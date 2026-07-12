@@ -40,7 +40,6 @@ describe('cover particle density upgrade', () => {
         for (const preset of [
             'mineradioTunnel',
             'mineradioOrbit',
-            'mineradioVinyl',
             'mineradioGalaxy',
         ] as const) {
             const profile = resolveCoverParticlePresetRuntime(preset);
@@ -48,5 +47,15 @@ describe('cover particle density upgrade', () => {
             expect(profile.pointScale).toBe(1);
             expect(profile.fov).toBe(45);
         }
+    });
+
+    it('gives the vinyl preset a dedicated immersive camera profile', () => {
+        const vinyl = resolveCoverParticlePresetRuntime('mineradioVinyl');
+
+        expect(vinyl.fov).toBe(43);
+        expect(vinyl.bassCameraPunch).toBe(0.28);
+        expect(vinyl.immersivePhiOffset).toBe(0.06);
+        expect(vinyl.immersiveRadiusOffset).toBe(-0.48);
+        expect(vinyl.immersiveFovOffset).toBe(2.4);
     });
 });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { computeCinemaDrift } from '@/utils/atmosphere/cinemaDrift';
 import {
     applyMineradioVisualPreset,
+    INTERACTIVE3D_VISUAL_PRESET_OPTIONS,
     normalizeInteractive3dVisualPreset,
 } from '@/components/visualizer/geometric/mineradioVisualPresets';
 import { DEFAULT_INTERACTIVE3D_SCENE_TUNING } from '@/types';
@@ -33,6 +34,15 @@ describe('Mineradio visual migration', () => {
         expect(vinylPreset.visualPreset).toBe('mineradioVinyl');
         expect(vinylPreset.enableCoverParticles).toBe(true);
         expect(vinylPreset.enableBloomParticles).toBe(true);
+    });
+
+    it('keeps the visible cover particles bright across every supported preset', () => {
+        for (const preset of INTERACTIVE3D_VISUAL_PRESET_OPTIONS) {
+            const tuning = applyMineradioVisualPreset(preset);
+            expect(tuning.enableCoverParticles).toBe(true);
+            expect(tuning.enableBloomParticles).toBe(true);
+            expect(tuning.bloomStrength).toBeGreaterThan(0);
+        }
     });
 
     it('normalizes legacy preset ids to shipped styles', () => {

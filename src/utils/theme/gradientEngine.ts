@@ -237,18 +237,6 @@ export const ENHANCED_LYRIC_GRADIENTS: Record<string, AudioReactiveGradientConfi
         saturationBoost: 0.15,
     },
 
-    'xhs-note-red': {
-        type: 'linear',
-        colors: ['#ff2442', '#ff6b8a', '#ff2442'],
-        angle: 135,
-        animated: true,
-        animationDuration: 2500,
-        animationEasing: 'bounce',
-        audioReactive: true,
-        hueShiftRange: 20,
-        brightnessBoost: 0.35,
-    },
-
     'dazibao-red': {
         type: 'linear',
         colors: ['#de2910', '#ff3b30', '#ff8c85', '#ff3b30', '#de2910'],

@@ -86,7 +86,7 @@ const MineradioPlaybackStage: React.FC<MineradioPlaybackStageProps> = ({
                 touchAction: 'none',
                 background:
                     visualPreset === 'emily'
-                        ? 'radial-gradient(circle at 50% 46%, rgba(21, 38, 43, 0.42) 0%, rgba(7, 25, 34, 0.78) 58%, rgba(2, 8, 12, 0.92) 100%)'
+                        ? 'radial-gradient(circle at 50% 46%, rgba(49, 57, 53, 0.16) 0%, rgba(7, 25, 34, 0.42) 58%, rgba(2, 8, 12, 0.64) 100%)'
                         : 'transparent',
             }}
             data-testid="mineradio-playback-stage"

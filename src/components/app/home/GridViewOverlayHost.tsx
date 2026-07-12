@@ -25,6 +25,7 @@ import {
     resolveQQGridViewTracks,
 } from './gridViewCollectionAdapters';
 import { GRID_VIEW_ACTIVE_COLLECTION_KEY } from '../../../utils/onlineBrowseOverlays';
+import { resolveShellSurfaceBackgroundStyle } from './homeSurfaceStyles';
 
 export { GRID_VIEW_ACTIVE_COLLECTION_KEY } from '../../../utils/onlineBrowseOverlays';
 
@@ -648,7 +649,7 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
                         className="absolute inset-0 z-[49] pointer-events-none"
-                        style={{ backgroundColor: 'var(--bg-color)' }}
+                        style={resolveShellSurfaceBackgroundStyle()}
                     />
                 )}
             </AnimatePresence>

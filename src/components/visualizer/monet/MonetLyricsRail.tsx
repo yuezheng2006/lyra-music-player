@@ -21,9 +21,26 @@ import {
     type MonetMeasuredLineLayout,
     type MonetVisibleLineEntry,
 } from './monetLyricsModel';
+import {
+    buildLyricStageStroke,
+    combineShadowEffects,
+    getRecommendedEffectConfig,
+    type LyricVisualEffectConfig,
+    type LyricVisualEffectIntensity,
+} from '../../../utils/lyricVisualEffects';
+import {
+    getDefaultLyricFontPreset,
+    getLyricFontPresetById,
+    getLyricLetterSpacingPx,
+} from '../../../utils/lyricFontPresets';
+
+import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+
 
 // src/components/visualizer/monet/MonetLyricsRail.tsx
 // Renders Monet lyrics on fixed transform tracks so scrolling stays smooth without layout reflow jumps.
+
+type MonetRailPresentation = 'monet' | 'karaoke';
 
 interface MonetLyricsRailProps {
     entries: MonetVisibleLineEntry[];
@@ -38,10 +55,18 @@ interface MonetLyricsRailProps {
     keywordColoringEnabled: boolean;
     emptyText: string;
     showSubtitleTranslation?: boolean;
+    /** karaoke = KTV dual-color word fill with readable upcoming lines (no Monet blur stack). */
+    presentation?: MonetRailPresentation;
     audioPower?: MotionValue<number>;
     audioBands?: AudioBands;
     onLyricLineSeek?: (lyricTimeSec: number) => void;
     seekDisabled?: boolean;
+    /** 沉浸模式 - 启用极致的视觉效果 */
+    immersiveLyrics?: boolean;
+    /** 歌词字体预设 ID */
+    lyricFontPresetId?: string;
+    /** 视觉效果强度 */
+    visualEffectIntensity?: LyricVisualEffectIntensity;
 }
 
 interface MonetRailSize {
@@ -107,17 +132,49 @@ const resolveLineTone = (
     entry: MonetVisibleLineEntry,
     theme: Theme,
     inactiveScale: number,
+    presentation: MonetRailPresentation = 'monet',
+    immersiveLyrics: boolean = false,
 ): MonetLineTone => {
     const { titleColor, hintColor } = resolveLyricStageInkColors(theme);
+    // 沉浸模式：字重更粗，效果更强烈
+    const weightBoost = immersiveLyrics ? 100 : 0;
+
+    if (presentation === 'karaoke') {
+        // KTV: unsung text stays clearly readable; sung fill uses bright stage ink.
+        // Prefer accent-family colors so presets like 野火红 stay vivid, not washed gray.
+        if (entry.status === 'active') {
+            return {
+                opacity: 1,
+                scale: immersiveLyrics ? 1.08 : 1.04,
+                blurPx: 0,
+                baseColor: colorWithAlpha(titleColor, 0.55),
+                fontWeight: Math.min(700 + weightBoost, 900),
+                zIndex: 4,
+            };
+        }
+
+        const distance = Math.max(Math.abs(entry.offset), 1);
+        const isWaiting = entry.status === 'waiting';
+        return {
+            opacity: isWaiting
+                ? clamp(0.72 - (distance - 1) * 0.1, 0.48, 0.72)
+                : clamp(0.42 - (distance - 1) * 0.08, 0.28, 0.42),
+            scale: clamp(0.9 * Math.pow(0.96, distance - 1), 0.8, 0.9),
+            blurPx: 0,
+            baseColor: colorWithAlpha(hintColor, isWaiting ? 0.88 : 0.55),
+            fontWeight: Math.min(isWaiting ? 650 + weightBoost : 550 + weightBoost, 900),
+            zIndex: isWaiting ? 3 - distance : 2 - distance,
+        };
+    }
 
     if (entry.status === 'active') {
         return {
             opacity: 1,
-            scale: 1,
+            scale: immersiveLyrics ? 1.05 : 1,
             blurPx: 0,
             // Unsung underlay stays on primary; sung fill uses accent (see MonetTimedTokenSpan).
-            baseColor: colorWithAlpha(titleColor, 0.34),
-            fontWeight: 600,
+            baseColor: colorWithAlpha(titleColor, immersiveLyrics ? 0.4 : 0.34),
+            fontWeight: Math.min((immersiveLyrics ? 800 : 700) + weightBoost, 900),
             zIndex: 4,
         };
     }
@@ -136,7 +193,7 @@ const resolveLineTone = (
             : 1.1 + (distance - 1) * 0.7,
         // Waiting / passed lines are "hints" — follow secondary from the lyric-color preset.
         baseColor: colorWithAlpha(hintColor, isWaiting ? 0.72 : 0.52),
-        fontWeight: 500,
+        fontWeight: Math.min(500 + (weightBoost / 2), 900),
         zIndex: isWaiting ? 3 - distance : 2 - distance,
     };
 };
@@ -290,6 +347,8 @@ const buildPositionedEntries = (
     glowBufferPx: number,
     showSubtitleTranslation: boolean,
     layoutCache: MonetLayoutCache,
+    presentation: MonetRailPresentation = 'monet',
+    immersiveLyrics: boolean = false,
 ): PositionedMonetLineEntry[] => {
     const railWidth = railSize.width || MONET_RAIL_WIDTH_FALLBACK_PX;
     const railHeight = railSize.height || MONET_RAIL_HEIGHT_FALLBACK_PX;
@@ -297,7 +356,7 @@ const buildPositionedEntries = (
     const contentWidthPx = Math.max(railWidth - glowBufferPx * 2, 0);
 
     const measuredEntries: PositionedMonetLineEntry[] = entries.map(entry => {
-        const tone = resolveLineTone(entry, theme, inactiveScale);
+        const tone = resolveLineTone(entry, theme, inactiveScale, presentation, immersiveLyrics);
         const layout = getOrMeasureMonetLineLayout(
             layoutCache,
             entry,
@@ -322,7 +381,8 @@ const buildPositionedEntries = (
     }
 
     const anchorIndex = Math.max(0, measuredEntries.findIndex(entry => entry.offset === 0));
-    const focusCenterY = railHeight * 0.46;
+    // Karaoke keeps the active line higher so more upcoming rows stay in view like a KTV screen.
+    const focusCenterY = railHeight * (presentation === 'karaoke' ? 0.36 : 0.46);
     measuredEntries[anchorIndex].y = focusCenterY - measuredEntries[anchorIndex].scaledHeight / 2;
 
     for (let index = anchorIndex + 1; index < measuredEntries.length; index += 1) {
@@ -357,7 +417,10 @@ const MonetTimedTokenSpan: React.FC<{
     chorusAccentColor?: string;
     audioPower?: MotionValue<number>;
     renderStaticPassed?: boolean;
-}> = ({ entry, currentTime, accentColor, fontPx, fontStack, wordColorMatchers, isChorus, chorusAccentColor, audioPower, renderStaticPassed = false }) => {
+    enableGlow?: boolean;
+    immersiveLyrics?: boolean;
+    visualEffectConfig?: LyricVisualEffectConfig;
+}> = ({ entry, currentTime, accentColor, fontPx, fontStack, wordColorMatchers, isChorus, chorusAccentColor, audioPower, renderStaticPassed = false, enableGlow = true, immersiveLyrics = false, visualEffectConfig }) => {
     const lineRenderEndTime = useMemo(() => getLineRenderEndTime(entry.line), [entry.line]);
     const tokens = useMemo(() => buildMonetDisplayTokens(entry.line), [entry.line]);
     const wordColorRanges = useMemo(
@@ -406,7 +469,10 @@ const MonetTimedTokenSpan: React.FC<{
                         fontPx={fontPx}
                         fontSpec={fontSpec}
                         isChorus={isChorus}
+                        enableGlow={enableGlow}
                         audioPower={audioPower}
+                        immersiveLyrics={immersiveLyrics}
+                        visualEffectConfig={visualEffectConfig}
                     />
                 ) : (
                     <span key={token.key} style={{ color: entry.tone.baseColor }}>
@@ -431,7 +497,10 @@ const MonetWordSweep: React.FC<{
     fontPx: number;
     fontSpec: string;
     isChorus?: boolean;
+    enableGlow?: boolean;
     audioPower?: MotionValue<number>;
+    immersiveLyrics?: boolean;
+    visualEffectConfig?: LyricVisualEffectConfig;
 }> = ({
     text,
     startTime,
@@ -445,10 +514,13 @@ const MonetWordSweep: React.FC<{
     fontPx,
     fontSpec,
     isChorus,
+    enableGlow = true,
     audioPower,
+    immersiveLyrics = false,
+    visualEffectConfig,
 }) => {
         const isLineActive = lineStatus === 'active';
-        const canRenderGlow = lineStatus === 'active' || lineStatus === 'passed';
+        const canRenderGlow = enableGlow && (lineStatus === 'active' || lineStatus === 'passed');
         const graphemeOffsets = useMemo(
             () => measureMonetGraphemeOffsets(text, fontPx, fontSpec),
             [text, fontPx, fontSpec],
@@ -521,6 +593,9 @@ const MonetWordSweep: React.FC<{
             (isLineActive && status === 'passed') || lineStatus === 'passed' ? wordColor : baseColor,
         );
 
+        // 应用动态效果样式
+
+
         const glowShadow = useTransform(currentTime, latest => {
             if (!canRenderGlow || latest <= startTime) return 'none';
 
@@ -537,22 +612,36 @@ const MonetWordSweep: React.FC<{
                 const decayDuration = Math.max(0.18, glowTailEndTime - glowPeakTime);
                 const decayProgress = Math.min(1, Math.max(0, (latest - glowPeakTime) / decayDuration));
                 const remaining = 1 - decayProgress;
-                // 使用 Smoothstep (ease-in-out)，让衰退初期缓慢（有“驻留”感），然后再平滑消失
+                // 使用 Smoothstep (ease-in-out)，让衰退初期缓慢（有”驻留”感），然后再平滑消失
                 intensity = remaining * remaining * (3 - 2 * remaining);
             }
 
             if (intensity <= 0) return 'none';
 
-            const radiusOne = Math.round(fontPx * (isChorus ? 0.55 : 0.36));
-            const radiusTwo = Math.round(fontPx * (isChorus ? 1.1 : 0.82));
-            const maxAlpha = isChorus ? 1.0 : 0.94;
-            const glowColor = mixColors(baseColor, wordColor, intensity, intensity * maxAlpha);
-            return `0 0 ${radiusOne}px ${glowColor}, 0 0 ${radiusTwo}px ${glowColor}`;
+            const glowColor = mixColors(baseColor, wordColor, intensity, intensity);
+            if (visualEffectConfig?.enableIntenseGlow || visualEffectConfig?.enable3D) {
+                return combineShadowEffects(baseColor, glowColor, {
+                    ...visualEffectConfig,
+                    immersive: immersiveLyrics || visualEffectConfig.immersive,
+                });
+            }
+
+            // Stroke carries contrast; skip soft dual-radius glow by default.
+            return 'none';
         }) as unknown as MotionValue<string>;
+
+
+
+
 
         return (
             <span className="relative inline-block whitespace-pre-wrap break-words">
-                <motion.span style={{ color: resolvedBaseColor, textShadow: glowShadow }}>
+                <motion.span
+                    style={{
+                        color: resolvedBaseColor,
+                        textShadow: glowShadow,
+                    }}
+                >
                     {text}
                 </motion.span>
                 {isLineActive ? (
@@ -598,17 +687,28 @@ const MonetRailLine: React.FC<{
     vGlowBufferPx: number;
     wordColorMatchers: WordColorMatcher[];
     showSubtitleTranslation: boolean;
+    presentation?: MonetRailPresentation;
     audioPower?: MotionValue<number>;
     onLineSeek?: (line: Line) => void;
     canSeek?: boolean;
     disableEntryMotion?: boolean;
     renderStaticPassed?: boolean;
-}> = ({ entry, currentTime, theme, lyricFontPx, translationFontPx, fontStack, glowBufferPx, vGlowBufferPx, wordColorMatchers, showSubtitleTranslation, audioPower, onLineSeek, canSeek = false, disableEntryMotion = false, renderStaticPassed = false }) => {
+    immersiveLyrics?: boolean;
+    visualEffectConfig?: LyricVisualEffectConfig;
+    letterSpacingPx?: number;
+}> = ({ entry, currentTime, theme, lyricFontPx, translationFontPx, fontStack, glowBufferPx, vGlowBufferPx, wordColorMatchers, showSubtitleTranslation, presentation = 'monet', audioPower, onLineSeek, canSeek = false, disableEntryMotion = false, renderStaticPassed = false, immersiveLyrics = false, visualEffectConfig, letterSpacingPx = 0 }) => {
     const { activeColor, hintColor } = resolveLyricStageInkColors(theme);
+    const isKaraoke = presentation === 'karaoke';
+    // Active sung fill must use accent (e.g. 野火红纯红), never the softer title/primary.
+    const sungColor = activeColor;
+    const stageStroke = visualEffectConfig?.enableStroke
+        ? buildLyricStageStroke(visualEffectConfig.intensity)
+        : null;
     const initialOffset = entry.offset >= 0 ? 34 : -34;
     const exitOffset = entry.status === 'passed' || entry.offset < 0 ? -38 : 38;
     const textMask = getLineMask(entry.layout.isTextClipped, Math.max(lyricFontPx * 0.55, 12));
     const translationMask = getLineMask(entry.layout.isTranslationClipped, Math.max(translationFontPx * 0.65, 10));
+    const suppressMotion = disableEntryMotion || isKaraoke;
     const handleSeek = (event: React.MouseEvent | React.KeyboardEvent) => {
         if (!canSeek) {
             return;
@@ -630,7 +730,7 @@ const MonetRailLine: React.FC<{
                 }
             } : undefined}
             className={`absolute top-0 min-w-0 will-change-transform ${canSeek ? 'cursor-pointer' : ''}`}
-            initial={disableEntryMotion ? false : {
+            initial={suppressMotion ? false : {
                 opacity: 0,
                 y: entry.y + initialOffset,
                 scale: entry.tone.scale * 0.98,
@@ -642,7 +742,7 @@ const MonetRailLine: React.FC<{
                 scale: entry.tone.scale,
                 filter: `blur(${entry.tone.blurPx}px)`,
             }}
-            exit={disableEntryMotion ? undefined : {
+            exit={suppressMotion ? undefined : {
                 opacity: 0,
                 y: entry.y + exitOffset,
                 scale: entry.tone.scale * 0.98,
@@ -658,7 +758,7 @@ const MonetRailLine: React.FC<{
                 zIndex: entry.tone.zIndex,
             }}
         >
-            {entry.line.isChorus && (
+            {entry.line.isChorus && !isKaraoke && (
                 <motion.div
                     className="absolute inset-0 pointer-events-none -z-10 rounded-2xl"
                     initial={{ opacity: 0 }}
@@ -690,31 +790,31 @@ const MonetRailLine: React.FC<{
                     fontSize: lyricFontPx,
                     fontWeight: entry.tone.fontWeight,
                     lineHeight: `${entry.layout.lineHeightPx}px`,
-                    letterSpacing: 0,
+                    letterSpacing: `${letterSpacingPx}px`,
                     WebkitMaskImage: textMask,
                     maskImage: textMask,
                     WebkitMaskRepeat: 'no-repeat',
                     maskRepeat: 'no-repeat',
                     WebkitMaskSize: '100% 100%',
                     maskSize: '100% 100%',
-                    textShadow: entry.status === 'active'
-                        ? `0 16px 42px ${colorWithAlpha(theme.backgroundColor, 0.32)}, 0 0 28px ${colorWithAlpha(activeColor, 0.22)}`
-                        : entry.status === 'waiting'
-                            ? `0 10px 24px ${colorWithAlpha(theme.backgroundColor, 0.18)}`
-                            : 'none',
+                    ...(stageStroke ?? {}),
+                    textShadow: 'none',
                 }}
             >
                 <MonetTimedTokenSpan
                     entry={entry}
                     currentTime={currentTime}
-                    accentColor={colorWithAlpha(activeColor, 0.98)}
+                    accentColor={colorWithAlpha(sungColor, isKaraoke ? 1 : 0.98)}
                     fontPx={lyricFontPx}
                     fontStack={fontStack}
                     wordColorMatchers={wordColorMatchers}
                     isChorus={entry.line.isChorus}
-                    chorusAccentColor={activeColor}
+                    chorusAccentColor={sungColor}
                     audioPower={audioPower}
                     renderStaticPassed={renderStaticPassed}
+                    enableGlow={!isKaraoke}
+                    immersiveLyrics={immersiveLyrics}
+                    visualEffectConfig={visualEffectConfig}
                 />
             </div>
             {showSubtitleTranslation && entry.status === 'active' && entry.line.translation ? (
@@ -732,7 +832,7 @@ const MonetRailLine: React.FC<{
                         paddingTop: entry.layout.translationPaddingTopPx,
                         paddingBottom: entry.layout.translationPaddingBottomPx,
                         boxSizing: 'border-box',
-                        color: colorWithAlpha(hintColor, 0.84),
+                        color: colorWithAlpha(hintColor, isKaraoke ? 0.72 : 0.78),
                         fontFamily: fontStack,
                         fontSize: translationFontPx,
                         fontWeight: 500,
@@ -766,10 +866,14 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
     keywordColoringEnabled,
     emptyText,
     showSubtitleTranslation = true,
+    presentation = 'monet',
     audioPower,
     audioBands,
     onLyricLineSeek,
     seekDisabled = false,
+    immersiveLyrics = false,
+    lyricFontPresetId: lyricFontPresetIdProp,
+    visualEffectIntensity: visualEffectIntensityProp,
 }) => {
     const railRef = useRef<HTMLDivElement | null>(null);
     const layoutCacheRef = useRef<MonetLayoutCache>(new Map());
@@ -781,9 +885,32 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
     const touchDirectionRef = useRef(0);
     const [manualScrollAnchorIndex, setManualScrollAnchorIndex] = useState<number | null>(null);
     const railSize = useMonetRailSize(railRef);
-    const glowBufferPx = Math.round(lyricFontPx * 1.35);
-    const vGlowBufferPx = Math.round(lyricFontPx * 1.35);
+    const isKaraoke = presentation === 'karaoke';
+    const storeLyricFontPresetId = useSettingsUiStore(state => state.lyricFontPresetId);
+    const storeVisualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
+    const lyricFontPresetId = lyricFontPresetIdProp ?? storeLyricFontPresetId;
+    const visualEffectIntensity = visualEffectIntensityProp ?? storeVisualEffectIntensity;
+    const glowBufferPx = Math.round(lyricFontPx * (isKaraoke ? 0.85 : (immersiveLyrics ? 1.65 : 1.35)));
+    const vGlowBufferPx = Math.round(lyricFontPx * (isKaraoke ? 0.7 : (immersiveLyrics ? 1.65 : 1.35)));
     const canSeek = Boolean(onLyricLineSeek) && !seekDisabled;
+
+    // 获取当前行的字体预设
+    const currentFontPreset = useMemo(() => (
+        getLyricFontPresetById(lyricFontPresetId) ?? getDefaultLyricFontPreset()
+    ), [lyricFontPresetId]);
+
+    const resolvedFontStack = currentFontPreset.fontFamily || fontStack;
+    const letterSpacingPx = getLyricLetterSpacingPx(currentFontPreset, lyricFontPx);
+
+    // 获取视觉效果配置
+    const visualEffectConfig = useMemo<LyricVisualEffectConfig>(() => (
+        getRecommendedEffectConfig(
+            immersiveLyrics,
+            currentFontPreset.dramatic ?? false,
+            visualEffectIntensity,
+        )
+    ), [immersiveLyrics, currentFontPreset, visualEffectIntensity]);
+
 
     const visibleEntries = useMemo(
         () => manualScrollAnchorIndex === null
@@ -801,12 +928,14 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
             lyricFontPx,
             inactiveFontPx,
             translationFontPx,
-            fontStack,
+            resolvedFontStack,
             glowBufferPx,
             showSubtitleTranslation,
             layoutCacheRef.current,
+            presentation,
+            immersiveLyrics,
         ),
-        [visibleEntries, railSize, theme, lyricFontPx, inactiveFontPx, translationFontPx, fontStack, glowBufferPx, showSubtitleTranslation],
+        [visibleEntries, railSize, theme, lyricFontPx, inactiveFontPx, translationFontPx, resolvedFontStack, glowBufferPx, showSubtitleTranslation, presentation, immersiveLyrics],
     );
     const wordColorMatchers = useMemo(
         () => prepareWordColorMatchers(theme.wordColors, keywordColoringEnabled),
@@ -970,8 +1099,12 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
                 touchAction: 'none',
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
-                WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 11%, black 88%, transparent 100%)',
-                maskImage: 'linear-gradient(to bottom, transparent 0%, black 11%, black 88%, transparent 100%)',
+                WebkitMaskImage: isKaraoke
+                    ? 'linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%)'
+                    : 'linear-gradient(to bottom, transparent 0%, black 11%, black 88%, transparent 100%)',
+                maskImage: isKaraoke
+                    ? 'linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%)'
+                    : 'linear-gradient(to bottom, transparent 0%, black 11%, black 88%, transparent 100%)',
             }}
         >
             {positionedEntries.length > 0 ? (
@@ -984,16 +1117,20 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
                             theme={theme}
                             lyricFontPx={lyricFontPx}
                             translationFontPx={translationFontPx}
-                            fontStack={fontStack}
+                            fontStack={resolvedFontStack}
                             glowBufferPx={glowBufferPx}
                             vGlowBufferPx={vGlowBufferPx}
                             wordColorMatchers={wordColorMatchers}
                             showSubtitleTranslation={showSubtitleTranslation}
+                            presentation={presentation}
                             audioPower={audioPower}
                             onLineSeek={handleLineSeek}
                             canSeek={canSeek}
-                            disableEntryMotion={isManualScrolling}
+                            disableEntryMotion={isManualScrolling || isKaraoke}
                             renderStaticPassed={isManualScrolling && entry.index !== currentLineIndex}
+                            immersiveLyrics={immersiveLyrics}
+                            visualEffectConfig={visualEffectConfig}
+                            letterSpacingPx={letterSpacingPx}
                         />
                     ))}
                 </AnimatePresence>

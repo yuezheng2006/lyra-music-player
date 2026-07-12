@@ -14,7 +14,7 @@ uniform sampler2D uEdgeTex;
 uniform sampler2D uRippleTex;
 uniform int uRippleCount;
 uniform vec2 uMouseXY;
-uniform float uMouseActive, uLoading;
+uniform float uMouseActive, uLoading, uImmersion;
 varying vec3 vColor;
 varying float vAlpha, vBright, vRipple, vEdgeBoost, vSourceLum;
 
@@ -384,13 +384,12 @@ void main(){
     vColor = mix(defaultColor, coverColor, uHasCover) * (0.4 + depthFade * 0.7);
     maxRippleAmp = max(maxRippleAmp, abs(ripG) * 0.56 + uBass * 0.10 + uBeat * 0.08);
   } else if (uPreset < 8.5) {
-    // Mineradio orbit: keep a readable sphere. Equal-area latitude + gentle audio breath only.
+    // Mineradio orbit: keep a rigid sphere; audio drives uniform breathing, never the silhouette.
     float theta = aUv.x * 2.0 * PI;
     float phi = asin(clamp(aUv.y * 2.0 - 1.0, -1.0, 1.0));
     float baseR = 2.0;
-    float trebFlare = snoise(vec3(theta * 1.5, phi * 1.5, t * 0.7)) * uTreble * 0.14 * K;
-    float bassExpand = uBass * 0.06 * K + uBeat * 0.03 * K;
-    float r = baseR * (1.0 + clamp(bassExpand, 0.0, 0.10)) + clamp(trebFlare, -0.10, 0.14);
+    float uniformBreath = clamp(uBass * 0.045 * K + uBeat * 0.025 * K, 0.0, 0.075);
+    float r = baseR * (1.0 + uniformBreath);
 
     pos.x = r * cos(phi) * cos(theta);
     pos.y = r * sin(phi);
@@ -408,11 +407,12 @@ void main(){
   } else if (uPreset < 10.5) {
     float bassDrive = smoothstep(0.08, 0.78, uBass + uBeat * 0.82);
     float highDrive = smoothstep(0.05, 0.46, uTreble);
+    float vinylDepthScale = 0.78 + uImmersion * 0.50;
     float hiResGuard = smoothstep(1.08, 1.55, uCoverRes);
-    float edgeGuard = mix(1.0, 0.38, hiResGuard);
-    float depthGuard = mix(1.0, 0.44, hiResGuard);
+    float edgeGuard = mix(1.0, 0.56, hiResGuard);
+    float depthGuard = mix(1.0, 0.68, hiResGuard);
     float grooveGuard = mix(1.0, 0.48, hiResGuard);
-    float beatGuard = mix(1.0, 0.36, hiResGuard);
+    float beatGuard = mix(1.0, 0.66, hiResGuard);
     vec2 p = (aUv - 0.5) * 5.12;
     float spin = uVinylSpin;
     float cs = cos(spin);
@@ -428,7 +428,8 @@ void main(){
     float outerRim = exp(-pow((d - (recordR - 0.050)) / 0.055, 2.0)) * edgeGuard;
     float vinylN = clamp((d - coverR) / max(0.001, recordR - coverR), 0.0, 1.0);
 
-    pos = vec3(rp * (1.0 + bassDrive * 0.012 * beatGuard + uBeat * 0.026 * beatGuard), 0.0);
+    // Keep the record silhouette perfectly circular; motion belongs to rotation and inner depth.
+    pos = vec3(rp, 0.0);
     vAlpha = recordAlpha;
 
     if (coverMask > 0.02) {
@@ -443,19 +444,27 @@ void main(){
       }
       vColor = mix(defaultColor, coverColor, uHasCover) * (1.02 + 0.10 * (1.0 - smoothstep(0.0, coverR, d)));
       vColor = mix(vColor, vec3(1.0), border * 0.54);
-      pos.z = 0.040 + border * 0.026 * depthGuard + uBeat * 0.018 * beatGuard;
-      maxRippleAmp = max(maxRippleAmp, border * 0.30 + bassDrive * 0.075 * beatGuard + uBeat * 0.075 * beatGuard);
+      float plateLift = (0.075 + border * 0.065 * depthGuard + uBeat * 0.045 * beatGuard) * vinylDepthScale;
+      pos.z = plateLift;
+      maxRippleAmp = max(maxRippleAmp, border * 0.44 + bassDrive * 0.13 * beatGuard + uBeat * 0.13 * beatGuard);
     } else {
       float groove = 0.5 + 0.5 * sin((d - coverR) * mix(98.0, 58.0, hiResGuard));
       float fineGroove = 0.5 + 0.5 * sin((d - coverR) * mix(170.0, 92.0, hiResGuard) + aRand * 3.0);
       float tick = smoothstep(0.82, 0.995, hash11(floor((angle0 + PI) * 38.0) + floor(d * 72.0) * 2.1));
+      float grooveMask = smoothstep(0.02, 0.15, vinylN) * (1.0 - smoothstep(0.78, 0.96, vinylN));
+      float grooveBreath = snoise(vec3(pos.x * 0.42, pos.y * 0.42, t * 0.42)) * uBass * 0.12 * K * grooveMask;
       vec3 vinyl = vec3(0.052, 0.054, 0.058) + vec3(0.052 * grooveGuard) * groove + vec3(0.026 * grooveGuard) * fineGroove;
       vinyl = mix(vinyl, coverColor * 0.32, 0.18 * (1.0 - vinylN));
       float whiteRing = max(border * 0.92, outerRim * 0.26);
       vColor = mix(vinyl, vec3(0.92, 0.94, 0.94), whiteRing);
       vColor = mix(vColor, vec3(1.0), tick * highDrive * (0.06 + border * 0.12) * grooveGuard);
-      pos.z = groove * 0.010 * grooveGuard + border * 0.024 * depthGuard + bassDrive * vinylN * 0.016 * K * beatGuard + tick * highDrive * 0.010 * grooveGuard;
-      maxRippleAmp = max(maxRippleAmp, border * 0.32 + outerRim * 0.12 + bassDrive * vinylN * 0.11 * beatGuard + tick * highDrive * 0.10 * grooveGuard + uBeat * vinylN * 0.08 * beatGuard);
+      float prismGroove = pow(max(groove, fineGroove), 3.0) * (0.18 + highDrive * 0.40 + uBeat * 0.26);
+      vec3 prism = mix(vec3(0.12, 0.82, 1.0), vec3(1.0, 0.16, 0.42), vinylN);
+      vColor = mix(vColor, prism, prismGroove * (1.0 - coverMask) * 0.34);
+      float rimLift = outerRim * 0.105 + border * 0.052;
+      float grooveDepth = (-0.035 * vinylN + groove * 0.026 * grooveGuard) * grooveMask;
+      pos.z = (rimLift + grooveDepth + grooveBreath + bassDrive * grooveMask * 0.052 * K * beatGuard + tick * highDrive * 0.026 * grooveMask) * vinylDepthScale;
+      maxRippleAmp = max(maxRippleAmp, border * 0.46 + outerRim * 0.30 + bassDrive * vinylN * 0.20 * beatGuard + tick * highDrive * 0.16 * grooveGuard + uBeat * vinylN * 0.16 * beatGuard);
     }
   } else {
     float bassGlow = smoothstep(0.07, 0.78, uBass) * 0.34 + uBeat * 0.014;
@@ -661,6 +670,7 @@ void main(){
   float chromaRim = smoothstep(0.54, 0.96, dotDist) * (vRipple * 0.28 + vEdgeBoost * 0.18);
   col.r += chromaRim * 0.16;
   col.b += chromaRim * 0.22;
+  col = (col - vec3(0.5)) * 1.12 + vec3(0.5);
   col = clamp(col, vec3(0.0), vec3(1.8));
   gl_FragColor = vec4(col, tex.a * uAlpha * uParticleDim * vAlpha);
 }

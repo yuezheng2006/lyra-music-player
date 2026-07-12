@@ -96,6 +96,7 @@ type UnifiedPanelPlaybackProps = {
 type UnifiedPanelQueueProps = {
     playQueue: SongResult[];
     onPlaySong: (song: SongResult, queue: SongResult[]) => void;
+    onAddSongs?: (songs: SongResult[]) => void;
     queueScrollRef: React.RefObject<HTMLDivElement>;
     onShuffle: () => void;
 };
@@ -220,7 +221,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
         onOpenAdvancedBackgroundSettings,
         onApplyLyricColorPreset,
     } = playback;
-    const { playQueue, onPlaySong, queueScrollRef, onShuffle } = queue;
+    const { playQueue, onPlaySong, onAddSongs, queueScrollRef, onShuffle } = queue;
     const {
         localPlaylists,
         neteasePlaylists,
@@ -605,6 +606,14 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
         onToggle();
         onOpenSettings?.();
     };
+    const isCompactCover = currentTab !== 'cover';
+    const coverActionButtonClass = isCompactCover
+        ? 'w-8 h-8 rounded-full border border-white/15 bg-black/25 text-white/90 backdrop-blur-md flex items-center justify-center transition-all hover:bg-black/40 hover:text-white'
+        : 'w-11 h-11 rounded-full border border-white/15 bg-black/25 text-white/90 backdrop-blur-md flex items-center justify-center transition-all hover:bg-black/40 hover:text-white';
+    const coverActionIconSize = isCompactCover ? 14 : 18;
+    const coverActionInset = isCompactCover ? 'left-2 top-2' : 'left-3 top-3';
+    const coverHomeInset = isCompactCover ? 'left-2 bottom-2' : 'left-3 bottom-3';
+    const coverStarInset = isCompactCover ? 'right-2 bottom-2' : 'right-3 bottom-3';
 
     React.useEffect(() => {
         if (!isOpen) {
@@ -656,6 +665,8 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                             initial={{ opacity: 0, scale: 0.9, originY: 1, originX: 1 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
+                            data-testid="unified-panel"
+                            data-app-ui-surface="true"
                             className={`pointer-events-auto flex w-80 min-h-0 flex-col overflow-hidden rounded-3xl shadow-2xl backdrop-blur-3xl ${glassBg}`}
                             style={{
                                 color: theme.primaryColor,
@@ -663,8 +674,8 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                 maxHeight: 'min(68dvh, calc(100dvh - var(--app-player-bar-height, 84px) - 5.5rem))',
                             }}
                         >
-                            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5 hide-scrollbar">
-                                {/* Top: Cover Art */}
+                            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-3 hide-scrollbar">
+                                {/* Top: Cover Art — full square on Cover tab; compact strip elsewhere so Controls fits. */}
                                 <div
                                     ref={coverAreaRef}
                                     onClick={(event) => {
@@ -673,12 +684,16 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                             setIsCoverActionsVisible(prev => !prev);
                                         }
                                     }}
-                                    className={`w-full aspect-square rounded-2xl overflow-hidden shadow-lg relative mb-4 ${placeholderBg} flex items-center justify-center group cursor-pointer`}
+                                    className={`w-full overflow-hidden shadow-lg relative mb-2 ${placeholderBg} flex items-center justify-center group cursor-pointer ${
+                                        currentTab === 'cover'
+                                            ? 'aspect-square rounded-2xl mb-3'
+                                            : 'h-[72px] rounded-xl'
+                                    }`}
                                 >
                                     {coverUrl ? (
                                         <img src={coverUrl} alt="Art" className="w-full h-full object-cover" />
                                     ) : (
-                                        <Disc size={40} className="text-white/20" />
+                                        <Disc size={isCompactCover ? 22 : 40} className="text-white/20" />
                                     )}
 
                                     <div className={`absolute inset-0 pointer-events-none transition-opacity duration-200 ${
@@ -686,12 +701,12 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                             ? 'opacity-0 group-hover:opacity-100'
                                             : (isCoverActionsVisible ? 'opacity-100' : 'opacity-0')
                                     }`}>
-                                        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+                                        <div className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent ${isCompactCover ? 'h-10' : 'h-28'}`} />
                                     </div>
 
                                     {/* 左上角：打开设置 */}
                                     {onOpenSettings && (
-                                        <div className={`absolute left-3 top-3 transition-all duration-200 ${
+                                        <div className={`absolute ${coverActionInset} transition-all duration-200 ${
                                             supportsHover
                                                 ? 'pointer-events-none group-hover:pointer-events-auto opacity-0 group-hover:opacity-100 -translate-x-3 -translate-y-3 group-hover:translate-x-0 group-hover:translate-y-0'
                                                 : `${isCoverActionsVisible ? 'pointer-events-auto opacity-100 translate-x-0 translate-y-0' : 'pointer-events-none opacity-0 -translate-x-3 -translate-y-3'}`
@@ -702,15 +717,15 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                     event.stopPropagation();
                                                     handleOpenSettings();
                                                 }}
-                                                className="w-11 h-11 rounded-full border border-white/15 bg-black/25 text-white/90 backdrop-blur-md flex items-center justify-center transition-all hover:bg-black/40 hover:text-white"
+                                                className={coverActionButtonClass}
                                                 title={t('ui.options') || '设置'}
                                             >
-                                                <Settings size={18} />
+                                                <Settings size={coverActionIconSize} />
                                             </button>
                                         </div>
                                     )}
 
-                                    <div className={`absolute left-3 bottom-3 transition-all duration-200 ${
+                                    <div className={`absolute ${coverHomeInset} transition-all duration-200 ${
                                         supportsHover
                                             ? 'pointer-events-none group-hover:pointer-events-auto opacity-0 group-hover:opacity-100 -translate-x-3 translate-y-3 group-hover:translate-x-0 group-hover:translate-y-0'
                                             : `${isCoverActionsVisible ? 'pointer-events-auto opacity-100 translate-x-0 translate-y-0' : 'pointer-events-none opacity-0 -translate-x-3 translate-y-3'}`
@@ -721,15 +736,15 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                 event.stopPropagation();
                                                 handleNavigateHome();
                                             }}
-                                            className="w-11 h-11 rounded-full border border-white/15 bg-black/25 text-white/90 backdrop-blur-md flex items-center justify-center transition-all hover:bg-black/40 hover:text-white"
+                                            className={coverActionButtonClass}
                                             title={t('ui.backToHome') || '返回主页'}
                                         >
-                                            <HomeIcon size={18} />
+                                            <HomeIcon size={coverActionIconSize} />
                                         </button>
                                     </div>
 
                                     {canAddCurrentSongToPlaylist && (
-                                        <div className={`absolute right-3 bottom-3 transition-all duration-200 ${
+                                        <div className={`absolute ${coverStarInset} transition-all duration-200 ${
                                             supportsHover
                                                 ? 'pointer-events-none group-hover:pointer-events-auto opacity-0 group-hover:opacity-100 translate-x-3 translate-y-3 group-hover:translate-x-0 group-hover:translate-y-0'
                                                 : `${isCoverActionsVisible ? 'pointer-events-auto opacity-100 translate-x-0 translate-y-0' : 'pointer-events-none opacity-0 translate-x-3 translate-y-3'}`
@@ -741,27 +756,27 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                     setIsCoverActionsVisible(false);
                                                     setIsPlaylistPickerOpen(true);
                                                 }}
-                                                className="w-11 h-11 rounded-full border border-white/15 bg-black/25 text-white/90 backdrop-blur-md flex items-center justify-center transition-all hover:bg-black/40 hover:text-white"
+                                                className={coverActionButtonClass}
                                                 title={t('localMusic.addToPlaylist') || '添加到歌单'}
                                             >
-                                                <Star size={18} />
+                                                <Star size={coverActionIconSize} />
                                             </button>
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Tab Switcher */}
-                                <div className={`flex ${tabSwitcherBg} p-1 rounded-xl mb-4`}>
+                                <div className={`flex ${tabSwitcherBg} p-0.5 rounded-xl mb-2`}>
                                     {tabs.map((tab) => (
                                         <button
                                             key={tab.id}
                                             onClick={() => onTabChange(tab.id)}
-                                            className={`flex-1 py-2 flex items-center justify-center transition-all rounded-lg
+                                            className={`flex-1 py-1.5 flex items-center justify-center transition-all rounded-lg
                                                 ${currentTab === tab.id ? `${activeTabBg} shadow-sm` : 'opacity-40 hover:opacity-100'}`}
                                             title={tab.label}
                                             style={{ color: 'var(--text-primary)' }}
                                         >
-                                            <tab.icon size={16} />
+                                            <tab.icon size={15} />
                                         </button>
                                     ))}
                                 </div>
@@ -870,6 +885,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                 playQueue={playQueue}
                                                 currentSong={currentSong}
                                                 onPlaySong={onPlaySong}
+                                                onAddSongs={onAddSongs}
                                                 queueScrollRef={queueScrollRef}
                                                 shouldScrollToCurrent={isOpen && currentTab === 'queue'}
                                                 onShuffle={onShuffle}

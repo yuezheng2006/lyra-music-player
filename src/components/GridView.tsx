@@ -23,7 +23,7 @@ import PlaylistSelectionDialog from './shared/PlaylistSelectionDialog';
 import TextInputDialog from './shared/TextInputDialog';
 import { SidePanelList, TrackListItem } from './shared/SidePanelList';
 import { shouldStartGridViewDrag } from './gridView/shouldStartGridViewDrag';
-import { APP_CONTENT_TOP_OFFSET_CLASS } from './app/home/homeSurfaceStyles';
+import { APP_CONTENT_TOP_OFFSET_CLASS, resolveShellSurfaceBackgroundStyle } from './app/home/homeSurfaceStyles';
 
 export interface GridViewSourceActions {
     local?: {
@@ -448,7 +448,7 @@ export const PolaroidCard = React.memo<{
                             <div className="text-[10px] opacity-55 max-w-full font-medium line-clamp-3 whitespace-normal break-words">
                                 {mode === 'tracks' && onSelectArtist && item.rawTrack?.ar ? (
                                     <span className="flex gap-1 flex-wrap">
-                                        {item.rawTrack.ar.map((artist, idx) => (
+                                        {item.rawTrack.ar.map((artist, idx, artists) => (
                                             <span
                                                 key={`${artist.id ?? 'artist'}-${idx}-${artist.name}`}
                                                 onClick={(e) => {
@@ -460,7 +460,7 @@ export const PolaroidCard = React.memo<{
                                                 }}
                                                 className="hover:underline hover:opacity-100 cursor-pointer text-current font-semibold"
                                             >
-                                                {artist.name}{idx < item.rawTrack.ar.length - 1 ? ',' : ''}
+                                                {artist.name}{idx < artists.length - 1 ? ',' : ''}
                                             </span>
                                         ))}
                                     </span>
@@ -1818,15 +1818,12 @@ export const GridView: React.FC<GridViewProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="absolute inset-0 z-[110] flex flex-col justify-between overflow-hidden select-none"
-            style={{
-                backgroundColor: 'var(--bg-color)',
-                color: 'var(--text-primary)',
-            }}
+            style={resolveShellSurfaceBackgroundStyle()}
         >
             {coverUrl && (
                 <div
                     className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0"
-                    style={{ opacity: isDaylight ? 0.18 : 0.12 }}
+                    style={{ opacity: isDaylight ? 0.22 : 0.16 }}
                 >
                     <img
                         src={toHttps(getLowResCoverUrl(coverUrl))}
@@ -1864,8 +1861,8 @@ export const GridView: React.FC<GridViewProps> = ({
                 }}
                 className="absolute left-1/2 top-5 -translate-x-1/2 z-[70] text-center flex flex-col items-center select-none cursor-pointer hover:scale-[1.01] active:scale-98 transition-all px-5 py-2 rounded-2xl backdrop-blur-md"
                 style={{
-                    backgroundColor: 'color-mix(in srgb, var(--bg-color) 20%, transparent)',
-                    color: 'var(--text-primary)',
+                    backgroundColor: 'color-mix(in srgb, var(--shell-surface) 20%, transparent)',
+                    color: 'var(--shell-text)',
                 }}
             >
                 <h2 className="text-lg font-bold tracking-tight flex items-center gap-1.5 justify-center">
@@ -1886,6 +1883,25 @@ export const GridView: React.FC<GridViewProps> = ({
 
             {mode === 'tracks' && (
                 <div className="absolute right-6 top-5 z-[70] flex items-center gap-2 pointer-events-auto">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (onPlayAll && playableTracks.length > 0) {
+                                onPlayAll(playableTracks);
+                            }
+                        }}
+                        disabled={playableTracks.length === 0}
+                        className="h-10 rounded-full px-3.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-all shadow-lg hover:scale-105 active:scale-95 border disabled:opacity-40 disabled:hover:scale-100"
+                        style={{
+                            backgroundColor: 'var(--shell-text)',
+                            color: 'var(--shell-surface)',
+                            borderColor: 'transparent',
+                        }}
+                        title={t('playlist.playAll')}
+                    >
+                        <Play size={14} fill="currentColor" />
+                        {t('playlist.playAll')}
+                    </button>
                     <div
                         className="flex items-center rounded-full border p-1 backdrop-blur-md shadow-lg"
                         style={{
@@ -1922,6 +1938,21 @@ export const GridView: React.FC<GridViewProps> = ({
                             <Orbit size={16} />
                         </button>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowSidePanel(true)}
+                        disabled={displayTracks.length === 0}
+                        className="w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg hover:scale-105 active:scale-95 border disabled:opacity-40 disabled:hover:scale-100"
+                        style={{
+                            backgroundColor: isDaylight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.5)',
+                            backdropFilter: 'blur(12px)',
+                            borderColor: isDaylight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
+                            color: 'var(--text-primary)',
+                        }}
+                        title={t('playlist.viewTracks') || 'View Tracks'}
+                    >
+                        <List size={18} />
+                    </button>
                     <button
                         type="button"
                         onClick={() => setShowSearchPanel(true)}
@@ -2296,12 +2327,14 @@ export const GridView: React.FC<GridViewProps> = ({
                 isDaylight={isDaylight}
             />
 
-            {/* Bottom Right Floating Button */}
+            {/* Bottom Right Floating Button — sits above the dock reserve so it stays clickable */}
             {mode === 'tracks' && displayTracks.length > 0 && (
                 <button
+                    type="button"
                     onClick={() => setShowSidePanel(true)}
-                    className="fixed bottom-6 right-6 z-[80] w-12 h-12 rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-105 active:scale-95 pointer-events-auto border"
+                    className="fixed right-6 z-[140] w-12 h-12 rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-105 active:scale-95 pointer-events-auto border"
                     style={{
+                        bottom: 'calc(var(--app-player-bar-height, 90px) + 12px)',
                         backgroundColor: isDaylight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.5)',
                         backdropFilter: 'blur(12px)',
                         borderColor: isDaylight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',

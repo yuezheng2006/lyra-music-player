@@ -19,7 +19,6 @@ import {
 import type { LyricColorPresetId } from '../utils/theme/lyricColorPresets';
 import LyricsTimelineModal from './modal/LyricsTimelineModal';
 import { getSizedCoverUrl } from '../utils/coverUrl';
-import { useRequestedQueueStore } from '../stores/useRequestedQueueStore';
 import { getMineradioPresetLabelFallback } from './visualizer/geometric/mineradioVisualPresets';
 import {
     FLOATING_PLAYER_DOCK_MAX_WIDTH_PX,
@@ -223,7 +222,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     loopOneLabel = 'Loop: one',
     playQueue = [],
     onPlayQueueSong,
-    queueLabel = 'Play queue',
+    queueLabel = 'Playlist',
     isImmersiveFullscreen = false,
     onToggleImmersiveFullscreen,
     enterFullscreenLabel = 'Fullscreen',
@@ -289,7 +288,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                 data-testid="floating-player-dock-frame"
             >
                 <motion.div
-                    className={`relative h-full w-full overflow-visible rounded-[50px] border-0 backdrop-blur-[12px] ${
+                    className={`pointer-events-auto relative h-full w-full overflow-visible rounded-[50px] border-0 backdrop-blur-2xl transition-colors duration-300 ${
                         isDaylight ? 'bg-white/55' : 'bg-black/10'
                     }`}
                     initial={false}
@@ -301,11 +300,14 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                     style={{
                         maxWidth: FLOATING_PLAYER_DOCK_MAX_WIDTH_PX,
                         WebkitAppRegion: 'no-drag',
-                        WebkitBackdropFilter: 'blur(12px) saturate(1.8) brightness(1.12)',
-                        backdropFilter: 'blur(12px) saturate(1.8) brightness(1.12)',
+                        WebkitBackdropFilter: 'blur(24px) saturate(1.8) brightness(1.12)',
+                        backdropFilter: 'blur(24px) saturate(1.8) brightness(1.12)',
+                        backgroundColor: 'var(--shell-dock-glass)',
+                        borderColor: 'var(--shell-border)',
                         boxShadow: isDaylight
                             ? 'inset 0 0 2px 1px rgba(255,255,255,0.55), inset 0 0 10px 4px rgba(255,255,255,0.22), 0 8px 28px rgba(17,17,26,0.08), 0 16px 48px rgba(17,17,26,0.06)'
                             : 'inset 0 0 2px 1px rgba(255,255,255,0.35), inset 0 0 10px 4px rgba(255,255,255,0.15), 0 8px 28px rgba(17,17,26,0.08), 0 16px 56px rgba(17,17,26,0.08)',
+                        pointerEvents: isHidden ? 'none' : 'auto',
                     } as React.CSSProperties}
                     onClick={(e) => e.stopPropagation()}
                     data-testid="floating-player-dock"
@@ -557,18 +559,6 @@ const DockedBar: React.FC<DockedBarProps> = ({
     const [backgroundMenuOpen, setBackgroundMenuOpen] = useState(false);
     const [queueMenuOpen, setQueueMenuOpen] = useState(false);
     const qualityMenuRef = useRef<HTMLDivElement>(null);
-    const autoSeedNotice = useRequestedQueueStore(state => state.autoSeedNotice);
-    const clearAutoSeedNotice = useRequestedQueueStore(state => state.clearAutoSeedNotice);
-    const highlightAutoSeed = Boolean(autoSeedNotice);
-
-    useEffect(() => {
-        if (!autoSeedNotice) return undefined;
-        setQueueMenuOpen(true);
-        const timer = window.setTimeout(() => {
-            clearAutoSeedNotice();
-        }, 5200);
-        return () => window.clearTimeout(timer);
-    }, [autoSeedNotice?.at, clearAutoSeedNotice]);
 
     const qualityLabels: Record<AudioQuality, string> = {
         exhigh: qualityExhighLabel,
@@ -615,9 +605,9 @@ const DockedBar: React.FC<DockedBarProps> = ({
                 />
             </div>
 
-            {/* Left meta · Center transport · Right tools */}
+            {/* Mineradio order: cover · quality · loop · prev/play/next · bg · 词 · queue · fullscreen · time */}
             <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-5 pt-2.5 sm:gap-3 sm:px-6 md:px-7">
-                <div className="flex min-w-0 items-center gap-3 text-left">
+                <div className="flex min-w-0 items-center gap-2 text-left sm:gap-2.5">
                     {effectsModeActive || !onToggleEffectsMode ? (
                         <div
                             className="relative h-[48px] w-[48px] shrink-0 overflow-hidden rounded-[14px]"
@@ -684,7 +674,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
                             </span>
                         </button>
                     )}
-                    <div className="min-w-0 max-w-[160px] sm:max-w-[220px] md:max-w-[260px]">
+                    <div className="min-w-0 max-w-[120px] sm:max-w-[180px] md:max-w-[220px]">
                         <div className="truncate text-[13px] font-bold leading-snug tracking-tight" style={{ color: titleColor }}>
                             {currentSong?.name || noTrackText}
                         </div>
@@ -694,6 +684,75 @@ const DockedBar: React.FC<DockedBarProps> = ({
                             </div>
                         ) : null}
                     </div>
+
+                    <div className="relative shrink-0" ref={qualityMenuRef}>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (qualityDisabled) return;
+                                setQualityMenuOpen(open => !open);
+                            }}
+                            disabled={qualityDisabled}
+                            className={`inline-flex h-8 min-w-[44px] items-center justify-center rounded-full px-2.5 text-[11px] font-semibold tracking-[0.2px] transition-colors ${buildTextChipClass(qualityMenuOpen, isDaylight, qualityDisabled)}`}
+                            title={audioQualityLabel}
+                            aria-label={audioQualityLabel}
+                            aria-expanded={qualityMenuOpen}
+                            aria-haspopup="menu"
+                            data-testid="floating-player-quality-trigger"
+                        >
+                            {qualityLabels[audioQuality]}
+                        </button>
+                        {qualityMenuOpen ? (
+                            <div
+                                role="menu"
+                                className={`absolute left-0 z-30 min-w-[132px] overflow-hidden rounded-[14px] border p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.38)] backdrop-blur-xl ${
+                                    isDaylight
+                                        ? 'border-black/10 bg-white/95'
+                                        : 'border-white/10 bg-black/82'
+                                }`}
+                                style={{ bottom: `calc(100% + ${FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX}px)` }}
+                            >
+                                {AUDIO_QUALITY_OPTIONS.map(option => {
+                                    const selected = option === audioQuality;
+                                    return (
+                                        <button
+                                            key={option}
+                                            type="button"
+                                            role="menuitemradio"
+                                            aria-checked={selected}
+                                            onClick={() => {
+                                                onAudioQualityChange?.(option);
+                                                setQualityMenuOpen(false);
+                                            }}
+                                            className={`flex w-full items-center justify-between rounded-[9px] px-2.5 py-2 text-left text-[12px] font-extrabold transition-colors ${
+                                                selected
+                                                    ? (isDaylight ? 'bg-black/10 text-black' : 'bg-white/15 text-white')
+                                                    : (isDaylight ? 'text-black/70 hover:bg-black/5' : 'text-white/70 hover:bg-white/10 hover:text-white')
+                                            }`}
+                                        >
+                                            <span>{qualityLabels[option]}</span>
+                                            {selected ? <span className="text-[10px] opacity-60">✓</span> : null}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : null}
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onToggleLoop}
+                        disabled={controlsDisabled}
+                        className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled, loopActive)}`}
+                        title={loopMode === 'off' ? loopOffLabel : loopMode === 'one' ? loopOneLabel : loopListLabel}
+                        aria-label={loopMode === 'off' ? loopOffLabel : loopMode === 'one' ? loopOneLabel : loopListLabel}
+                    >
+                        {loopMode === 'off'
+                            ? <RepeatOff size={16} strokeWidth={TRANSPORT_ICON_STROKE} />
+                            : loopMode === 'one'
+                                ? <Repeat1 size={16} strokeWidth={TRANSPORT_ICON_STROKE} />
+                                : <Repeat size={16} strokeWidth={TRANSPORT_ICON_STROKE} />}
+                    </button>
                 </div>
 
                 <div className="flex shrink-0 items-center justify-center gap-0.5 px-1 sm:gap-1">
@@ -742,92 +801,6 @@ const DockedBar: React.FC<DockedBarProps> = ({
                 </div>
 
                 <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-1.5">
-                    <div className="relative shrink-0" ref={qualityMenuRef}>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (qualityDisabled) return;
-                                setQualityMenuOpen(open => !open);
-                            }}
-                            disabled={qualityDisabled}
-                            className={`inline-flex h-8 min-w-[44px] items-center justify-center rounded-full px-2.5 text-[11px] font-semibold tracking-[0.2px] transition-colors ${buildTextChipClass(qualityMenuOpen, isDaylight, qualityDisabled)}`}
-                            title={audioQualityLabel}
-                            aria-label={audioQualityLabel}
-                            aria-expanded={qualityMenuOpen}
-                            aria-haspopup="menu"
-                            data-testid="floating-player-quality-trigger"
-                        >
-                            {qualityLabels[audioQuality]}
-                        </button>
-                        {qualityMenuOpen ? (
-                            <div
-                                role="menu"
-                                className={`absolute right-0 z-30 min-w-[132px] overflow-hidden rounded-[14px] border p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.38)] backdrop-blur-xl ${
-                                    isDaylight
-                                        ? 'border-black/10 bg-white/95'
-                                        : 'border-white/10 bg-black/82'
-                                }`}
-                                style={{ bottom: `calc(100% + ${FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX}px)` }}
-                            >
-                                {AUDIO_QUALITY_OPTIONS.map(option => {
-                                    const selected = option === audioQuality;
-                                    return (
-                                        <button
-                                            key={option}
-                                            type="button"
-                                            role="menuitemradio"
-                                            aria-checked={selected}
-                                            onClick={() => {
-                                                onAudioQualityChange?.(option);
-                                                setQualityMenuOpen(false);
-                                            }}
-                                            className={`flex w-full items-center justify-between rounded-[9px] px-2.5 py-2 text-left text-[12px] font-extrabold transition-colors ${
-                                                selected
-                                                    ? (isDaylight ? 'bg-black/10 text-black' : 'bg-white/15 text-white')
-                                                    : (isDaylight ? 'text-black/70 hover:bg-black/5' : 'text-white/70 hover:bg-white/10 hover:text-white')
-                                            }`}
-                                        >
-                                            <span>{qualityLabels[option]}</span>
-                                            {selected ? <span className="text-[10px] opacity-60">✓</span> : null}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        ) : null}
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => onTogglePlayerLyricsVisible?.()}
-                        disabled={lyricsToggleDisabled}
-                        aria-pressed={playerLyricsVisible}
-                        aria-label={playerLyricsVisible ? hideLyricsLabel : showLyricsLabel}
-                        className={`inline-flex h-8 min-w-[32px] shrink-0 items-center justify-center rounded-full px-2.5 text-[12px] font-bold transition-all duration-180 active:scale-95 ${buildModeToggleChipClass(playerLyricsVisible, isDaylight, lyricsToggleDisabled)}`}
-                        title={playerLyricsVisible ? hideLyricsLabel : showLyricsLabel}
-                    >
-                        <span
-                            className="leading-none select-none"
-                            style={{ fontFamily: "'PingFang SC','Microsoft YaHei',sans-serif" }}
-                        >
-                            词
-                        </span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={onToggleLoop}
-                        disabled={controlsDisabled}
-                        className={`inline-flex h-8 w-8 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled, loopActive)}`}
-                        title={loopMode === 'off' ? loopOffLabel : loopMode === 'one' ? loopOneLabel : loopListLabel}
-                        aria-label={loopMode === 'off' ? loopOffLabel : loopMode === 'one' ? loopOneLabel : loopListLabel}
-                    >
-                        {loopMode === 'off'
-                            ? <RepeatOff size={16} strokeWidth={TRANSPORT_ICON_STROKE} />
-                            : loopMode === 'one'
-                                ? <Repeat1 size={16} strokeWidth={TRANSPORT_ICON_STROKE} />
-                                : <Repeat size={16} strokeWidth={TRANSPORT_ICON_STROKE} />}
-                    </button>
-
                     {canSwitchBackground
                         && interactive3dSceneTuning
                         && onVisualizerBackgroundModeChange
@@ -859,6 +832,37 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         />
                     ) : null}
 
+                    <button
+                        type="button"
+                        onClick={() => onTogglePlayerLyricsVisible?.()}
+                        disabled={lyricsToggleDisabled}
+                        aria-pressed={playerLyricsVisible}
+                        aria-label={playerLyricsVisible ? hideLyricsLabel : showLyricsLabel}
+                        className={`inline-flex h-8 min-w-[32px] shrink-0 items-center justify-center rounded-full px-2.5 text-[12px] font-bold transition-all duration-180 active:scale-95 ${buildModeToggleChipClass(playerLyricsVisible, isDaylight, lyricsToggleDisabled)}`}
+                        title={playerLyricsVisible ? hideLyricsLabel : showLyricsLabel}
+                    >
+                        <span
+                            className="leading-none select-none"
+                            style={{ fontFamily: "'PingFang SC','Microsoft YaHei',sans-serif" }}
+                        >
+                            词
+                        </span>
+                    </button>
+
+                    {onPlayQueueSong ? (
+                        <FloatingPlayerQueueMenu
+                            playQueue={playQueue}
+                            currentSongId={currentSong?.id ?? null}
+                            onPlaySong={onPlayQueueSong}
+                            isDaylight={isDaylight}
+                            open={queueMenuOpen}
+                            onOpenChange={setQueueMenuOpen}
+                            disabled={controlsDisabled}
+                            triggerClassName={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled, queueMenuOpen)}`}
+                            queueLabel={queueLabel}
+                        />
+                    ) : null}
+
                     {onToggleImmersiveFullscreen ? (
                         <button
                             type="button"
@@ -879,21 +883,6 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         duration={duration}
                         isDaylight={isDaylight}
                     />
-
-                    {onPlayQueueSong ? (
-                        <FloatingPlayerQueueMenu
-                            playQueue={playQueue}
-                            currentSongId={currentSong?.id ?? null}
-                            onPlaySong={onPlayQueueSong}
-                            isDaylight={isDaylight}
-                            open={queueMenuOpen}
-                            onOpenChange={setQueueMenuOpen}
-                            disabled={controlsDisabled}
-                            highlightAutoSeed={highlightAutoSeed}
-                            triggerClassName={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled, queueMenuOpen || highlightAutoSeed)}`}
-                            queueLabel={queueLabel}
-                        />
-                    ) : null}
                 </div>
             </div>
         </div>

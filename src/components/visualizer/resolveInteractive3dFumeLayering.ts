@@ -31,3 +31,10 @@ export const resolvePlayerGeometricBackgroundDisabled = (
 export const shouldEnableInteractive3dWebGlLyrics = (
     _backgroundMode?: VisualizerBackgroundMode,
 ): boolean => false;
+
+/**
+ * Monet uses a left/center lyric rail. Rhythm scale > 1 clips those lines past the stage edge.
+ */
+export const shouldApplyLyricRhythmToVisualizerMode = (
+    visualizerMode: string | null | undefined,
+): boolean => visualizerMode !== 'monet';

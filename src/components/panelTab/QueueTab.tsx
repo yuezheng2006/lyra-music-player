@@ -6,11 +6,14 @@ import { useTranslation } from 'react-i18next';
 import { SongResult } from '../../types';
 import TextInputDialog from '../shared/TextInputDialog';
 import { getSongUnavailableTagText, isSongMarkedUnavailable } from '../../services/netease';
+import QueueEmptyState from './QueueEmptyState';
+import { createCoverUrlResolver } from '../app/playback/createCoverUrlResolver';
 
 interface QueueTabProps {
     playQueue: SongResult[];
     currentSong: SongResult | null;
     onPlaySong: (song: SongResult, queue: SongResult[]) => void;
+    onAddSongs?: (songs: SongResult[]) => void;
     queueScrollRef: React.RefObject<HTMLDivElement>;
     shouldScrollToCurrent?: boolean;
     onShuffle?: () => void;
@@ -23,6 +26,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
     playQueue,
     currentSong,
     onPlaySong,
+    onAddSongs,
     queueScrollRef,
     shouldScrollToCurrent = false,
     onShuffle,
@@ -51,6 +55,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
     const lastScrolledIndexRef = React.useRef<number>(-1);
     const wasOpenRef = React.useRef(false);
     const [isSaveDialogOpen, setIsSaveDialogOpen] = React.useState(false);
+    const [pendingSongId, setPendingSongId] = React.useState<number | null>(null);
 
     // Reset initial mount state when panel is opened
     React.useEffect(() => {
@@ -102,9 +107,10 @@ const QueueTab: React.FC<QueueTabProps> = ({
         ariaAttributes: { "aria-posinset": number; "aria-setsize": number; role: "listitem"; };
     }) => {
         const song = playQueue[index];
-        const isActive = currentSong?.id === song.id;
+        const isActive = (pendingSongId ?? currentSong?.id) === song.id;
         const isUnavailable = isSongMarkedUnavailable(song);
         const unavailableTagText = getSongUnavailableTagText(song, t('status.songUnavailableTag'));
+        const coverUrl = createCoverUrlResolver(null, song)();
         const activeRowClass = isDaylight ? 'bg-black/[0.08]' : 'bg-white/20';
         const activeMarkerClass = isDaylight ? 'bg-zinc-700' : 'bg-white';
         const hoverRowClass = isDaylight ? 'hover:bg-black/[0.04]' : 'hover:bg-white/5';
@@ -112,12 +118,23 @@ const QueueTab: React.FC<QueueTabProps> = ({
         return (
             <div
                 style={style}
-                onClick={() => onPlaySong(song, playQueue)}
+                onClick={() => {
+                    setPendingSongId(song.id);
+                    void Promise.resolve(onPlaySong(song, playQueue)).finally(() => {
+                        setPendingSongId(currentId => currentId === song.id ? null : currentId);
+                    });
+                }}
                 data-active={isActive}
                 {...ariaAttributes}
                 className={`flex items-center gap-3 px-2 py-1 rounded-lg cursor-pointer transition-colors
                     ${isActive ? activeRowClass : hoverRowClass} ${isUnavailable ? 'opacity-55' : ''}`}
             >
+                <img
+                    src={coverUrl || undefined}
+                    alt=""
+                    className="h-8 w-8 shrink-0 rounded-md object-cover"
+                    loading="lazy"
+                />
                 <div className={`w-1 h-6 rounded-full ${isActive ? activeMarkerClass : 'bg-transparent'}`} />
                 <div className="min-w-0 flex-1">
                     <div className="text-xs font-medium truncate">
@@ -132,14 +149,16 @@ const QueueTab: React.FC<QueueTabProps> = ({
                 </div>
             </div>
         );
-    }, [playQueue, currentSong, onPlaySong, isDaylight, t]);
+    }, [playQueue, currentSong, onPlaySong, isDaylight, pendingSongId, t]);
 
     if (playQueue.length === 0) {
         return (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col h-full max-h-[300px]">
-                <div className="flex items-center justify-center h-full text-xs opacity-40">
-                    {t('queue.empty')}
-                </div>
+                <QueueEmptyState
+                    onAddSongs={onAddSongs || (() => {})}
+                    onPlaySong={onPlaySong}
+                    isDaylight={isDaylight}
+                />
             </motion.div>
         );
     }

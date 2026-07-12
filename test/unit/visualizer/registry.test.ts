@@ -32,6 +32,8 @@ describe('visualizer registry', () => {
     it('recognizes registered modes and rejects unknown modes', () => {
         expect(hasVisualizerMode('classic')).toBe(true);
         expect(hasVisualizerMode('fume')).toBe(true);
+        expect(hasVisualizerMode('dazibao')).toBe(false);
+        expect(hasVisualizerMode('karaoke')).toBe(false);
         expect(hasVisualizerMode('missing-mode')).toBe(false);
         expect(DEFAULT_VISUALIZER_MODE).toBe('classic');
     });
@@ -44,5 +46,10 @@ describe('visualizer registry', () => {
         const label = getVisualizerModeLabel('partita', key => key);
 
         expect(label).toBe('云阶');
+    });
+
+    it('does not expose wildfire as a layout mode', () => {
+        expect(VISUALIZER_REGISTRY.some(entry => entry.mode === 'dazibao')).toBe(false);
+        expect(getVisualizerRegistryEntry('dazibao' as never).mode).toBe('classic');
     });
 });

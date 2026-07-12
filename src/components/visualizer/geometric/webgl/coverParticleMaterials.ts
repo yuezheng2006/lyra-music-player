@@ -36,7 +36,7 @@ export const createCoverParticleMaterials = (
         uVinylSpin: { value: 0 },
         uCoverRes: { value: 1 },
         uCoverWarp: { value: 1 },
-        uColorBoost: { value: 1.1 },
+        uColorBoost: { value: 1.28 },
         uHasCover: { value: 0 },
         uPixel: { value: 1 },
         uPointScale: { value: 1 },
@@ -56,6 +56,7 @@ export const createCoverParticleMaterials = (
         uAlpha: { value: 0 },
         uBloomStrength: { value: 0.62 },
         uParticleDim: { value: 1 },
+        uImmersion: { value: 0 },
     };
 
     const mainMaterial = new THREE.ShaderMaterial({

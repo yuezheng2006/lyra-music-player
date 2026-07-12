@@ -11,6 +11,8 @@ import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { resolveWordColor } from '../wordColoring';
 import { resolveLyricContainerFit } from '../resolveLyricContainerFit';
+import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+import { resolveWaitingWordPresentation, resolveLyricWordAnimateKey } from '../../../utils/lyrics/lyricWordMode';
 
 // This one is still word-driven, but unlike Classic it needs to pre-build a column/chunk structure first.
 // The flow is basically: ask runtime for the active line, optionally preheat the upcoming line,
@@ -375,12 +377,14 @@ const PartitaWord: React.FC<{
     renderProfile: PartitaLineRenderProfile;
     isChorus?: boolean;
     fontSize: string;
-}> = ({ word, config, currentTime, theme, layoutVariants, bodyVariants, glowVariants, baseColor, activeColor, renderProfile, isChorus, fontSize }) => {
+    lyricWordMode: 'default' | 'karaoke';
+}> = ({ word, config, currentTime, theme, layoutVariants, bodyVariants, glowVariants, baseColor, activeColor, renderProfile, isChorus, fontSize, lyricWordMode }) => {
     const [status, setStatus] = useState<'waiting' | 'active' | 'passed'>('waiting');
     const rippleScale = useMemo(() => 1.5 + Math.random() * 2, []);
     const duration = getPartitaWordDisplayDuration(word, renderProfile);
     const activeEndTime = getPartitaWordActiveEndTime(word, renderProfile);
     const graphemeTimings = useMemo(() => buildWordGraphemeTimings(word), [word]);
+    const animateKey = resolveLyricWordAnimateKey(status, lyricWordMode);
 
     useMotionValueEvent(currentTime, 'change', (latest: number) => {
         let newStatus: 'waiting' | 'active' | 'passed' = 'waiting';
@@ -403,8 +407,8 @@ const PartitaWord: React.FC<{
                 wordRevealMode: renderProfile.wordRevealMode,
             }}
             variants={layoutVariants}
-            initial="waiting"
-            animate={status}
+            initial={resolveLyricWordAnimateKey('waiting', lyricWordMode)}
+            animate={animateKey}
             className="font-bold inline-block origin-center relative will-change-transform whitespace-nowrap"
             style={{
                 fontSize,
@@ -492,8 +496,10 @@ const PartitaChunk: React.FC<{
     isChorus?: boolean;
     showGuideLines: boolean;
     fontSize: string;
-}> = ({ chunkWords, displayWords, config, guideIndex, currentTime, theme, layoutVariants, bodyVariants, glowVariants, baseColor, renderProfile, isChorus, showGuideLines, fontSize }) => {
+    lyricWordMode: 'default' | 'karaoke';
+}> = ({ chunkWords, displayWords, config, guideIndex, currentTime, theme, layoutVariants, bodyVariants, glowVariants, baseColor, renderProfile, isChorus, showGuideLines, fontSize, lyricWordMode }) => {
     const [chunkStatus, setChunkStatus] = useState<'waiting' | 'active' | 'passed'>('waiting');
+    const waitingWordPresentation = resolveWaitingWordPresentation(lyricWordMode);
 
     const chunkStartTime = chunkWords[0].startTime;
     const chunkEndTime = getPartitaWordActiveEndTime(chunkWords[chunkWords.length - 1], renderProfile);
@@ -639,8 +645,9 @@ const PartitaChunk: React.FC<{
                 };
 
                 const intensity = theme.animationIntensity;
-                const isCalm = intensity === 'calm';
-                const isChaotic = intensity === 'chaotic';
+                const karaokeLineRest = waitingWordPresentation.parkAtRest;
+                const isCalm = karaokeLineRest || intensity === 'calm';
+                const isChaotic = !karaokeLineRest && intensity === 'chaotic';
                 const baseSpread = isChaotic ? 15 : isCalm ? 0 : 6;
                 const baseRotate = isChaotic ? 8 : isCalm ? 0 : 3;
 
@@ -670,6 +677,7 @@ const PartitaChunk: React.FC<{
                         renderProfile={renderProfile}
                         isChorus={isChorus}
                         fontSize={fontSize}
+                        lyricWordMode={lyricWordMode}
                     />
                 );
             })}
@@ -694,6 +702,8 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
         showSubtitleTranslation = true,
     } = props;
     const { t } = useTranslation();
+    const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const waitingWordPresentation = resolveWaitingWordPresentation(lyricWordMode);
     const stageRef = useRef<HTMLDivElement | null>(null);
     const [windowHeight, setWindowHeight] = useState(800);
     const [stageWidth, setStageWidth] = useState(() => (
@@ -785,13 +795,21 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
     const upcomingFontSize = `${Math.max(12, lyricFit.fontPx * 0.34).toFixed(2)}px`;
 
     const layoutVariants: Variants = {
-        waiting: ({ config }: any) => ({
+        'waiting-default': ({ config }: any) => ({
             opacity: 0,
             scale: 0.5,
             x: config.x + (Math.sin(config.y) * 100),
             y: config.y + (Math.cos(config.x) * 50),
             rotate: config.rotate + 20,
             transition: { duration: 0.4 },
+        }),
+        'waiting-karaoke': ({ config }: any) => ({
+            opacity: waitingWordPresentation.opacity,
+            scale: config.scale || 1,
+            x: config.x,
+            y: config.y,
+            rotate: config.rotate,
+            transition: { duration: 0.25 },
         }),
         active: ({ config }: any) => ({
             opacity: 1,
@@ -823,10 +841,15 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
     };
 
     const bodyVariants: Variants = {
-        waiting: ({ baseColor }: any) => ({
+        'waiting-default': ({ baseColor }: any) => ({
             color: baseColor,
             filter: 'blur(10px)',
             transition: { duration: 0.4 },
+        }),
+        'waiting-karaoke': ({ baseColor }: any) => ({
+            color: baseColor,
+            filter: 'none',
+            transition: { duration: 0.25 },
         }),
         active: ({ activeColor, duration, wordRevealMode }: any) => ({
             color: activeColor,
@@ -853,7 +876,11 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
     };
 
     const glowVariants: Variants = {
-        waiting: {
+        'waiting-default': {
+            color: 'transparent',
+            textShadow: 'none',
+        },
+        'waiting-karaoke': {
             color: 'transparent',
             textShadow: 'none',
         },
@@ -1021,6 +1048,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
                                                     isChorus={activeLine.isChorus}
                                                     showGuideLines={resolvedPartitaTuning.showGuideLines}
                                                     fontSize={mainFontSize}
+                                                    lyricWordMode={lyricWordMode}
                                                 />
                                             ))}
                                         </div>

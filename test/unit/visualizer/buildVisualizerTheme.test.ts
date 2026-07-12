@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import { buildVisualizerTheme } from '@/components/app/presentation/buildVisualizerTheme';
 import { DEFAULT_THEME } from '@/components/app/root/appConstants';
 import type { Theme } from '@/types';
+import { getLyricFontPresetById } from '@/utils/lyricFontPresets';
 
 // test/unit/visualizer/buildVisualizerTheme.test.ts
 
@@ -71,5 +72,39 @@ describe('buildVisualizerTheme', () => {
         expect(visualizerTheme.primaryColor).toBe('#f8fbff');
         expect(visualizerTheme.accentColor).toBe('#12f7d6');
         expect(visualizerTheme.secondaryColor).toBe('#ff3b6b');
+    });
+
+    it('applies lyric font preset family to the visualizer theme', () => {
+        const preset = getLyricFontPresetById('kaiti-elegant');
+        expect(preset).not.toBeNull();
+
+        const { visualizerTheme } = buildVisualizerTheme({
+            appStyle: { '--bg-color': daylightTheme.backgroundColor } as CSSProperties,
+            theme: daylightTheme,
+            lyricsFontStyle: 'mono',
+            lyricsCustomFontFamily: null,
+            lyricFontPresetId: 'kaiti-elegant',
+            currentSongId: 3,
+            visualizerMode: 'classic',
+            visualizerBackgroundMode: 'common',
+        });
+
+        expect(visualizerTheme.fontFamily).toBe(preset?.fontFamily);
+        expect(visualizerTheme.fontStyle).toBe('serif');
+    });
+
+    it('lets custom uploaded font override lyric font preset', () => {
+        const { visualizerTheme } = buildVisualizerTheme({
+            appStyle: { '--bg-color': daylightTheme.backgroundColor } as CSSProperties,
+            theme: daylightTheme,
+            lyricsFontStyle: 'sans',
+            lyricsCustomFontFamily: 'MyCustomFont',
+            lyricFontPresetId: 'kaiti-elegant',
+            currentSongId: 4,
+            visualizerMode: 'classic',
+            visualizerBackgroundMode: 'common',
+        });
+
+        expect(visualizerTheme.fontFamily).toBe('MyCustomFont');
     });
 });

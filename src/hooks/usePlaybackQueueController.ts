@@ -15,8 +15,6 @@ import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterSto
 import { hasNeteaseSession, hasQQMusicSession } from '../utils/onlineLibraryAccess';
 import { resolveOverlaySearchProviders } from '../utils/onlineSearchRouting';
 import { useSearchNavigationStore } from '../stores/useSearchNavigationStore';
-import { useRequestedQueueStore } from '../stores/useRequestedQueueStore';
-import { ensureRequestedQueueSeededFromPlaylist } from '../utils/seedRequestedQueueFromPlaylist';
 import type { NextTrackOptions, PlaybackNavigationOptions, SkipPromptMessageKey, UnavailableReplacementRequest } from '../types/appPlayback';
 import type { NavidromeSong } from '../types/navidrome';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, resolveNavidromePlaybackCarrier } from '../utils/appPlaybackGuards';
@@ -222,15 +220,6 @@ export function usePlaybackQueueController({
             currentSong: queueAnchorSong,
             behavior: queueAddBehavior,
         });
-
-        if (changed && affectedSongs.length > 0) {
-            // Keep 已点列表 mirror in sync when user explicitly queues songs.
-            // Dock / next-prev still read playQueue as the single source of truth.
-            useRequestedQueueStore.getState().addSongs(affectedSongs, {
-                currentSong: queueAnchorSong,
-                behavior: queueAddBehavior,
-            });
-        }
 
         if (activePlaybackContext === 'stage') {
             mainPlaybackSnapshotRef.current = mainSnapshot
@@ -612,20 +601,6 @@ export function usePlaybackQueueController({
 
         if (queue.length > 0 || playQueue.length === 0) {
             setPlayQueue(newQueue);
-        }
-
-        // 已点列表与 playQueue 分离：仅在已点为空时，从当前播放歌单补一小段。
-        const seedResult = ensureRequestedQueueSeededFromPlaylist({
-            playlist: (queue.length > 0 || playQueue.length === 0) ? newQueue : playQueue,
-            currentSongId: song.id,
-        });
-        if (seedResult.seededCount > 0) {
-            setStatusMsg({
-                type: 'success',
-                text: t('queue.autoSeedToast', { count: seedResult.seededCount }),
-                nonce: Date.now(),
-                durationMs: 2800,
-            });
         }
 
         void persistLastPlaybackCache({ ...song, onlineLyricsState: onlineLyricsState ?? undefined }, newQueue);

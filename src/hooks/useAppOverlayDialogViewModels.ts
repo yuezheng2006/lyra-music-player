@@ -1,17 +1,14 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { buildAppOverlaysModel } from '@/components/app/overlays/buildAppOverlaysModel';
 import { buildSettingsDialogModel } from '@/components/app/dialogs/buildSettingsDialogModel';
 import { buildAppDialogsModel } from '@/components/app/dialogs/buildAppDialogsModel';
 import { getVisualizerModeLabel as resolveVisualizerModeLabel } from '@/components/visualizer/registry';
 import { isLocalPlaybackSong, isNavidromePlaybackSong } from '@/utils/appPlaybackGuards';
-import { useRequestedQueueStore } from '@/stores/useRequestedQueueStore';
-import { ensureRequestedQueueSeededFromPlaylist } from '@/utils/seedRequestedQueueFromPlaylist';
 import type { AppViewModelContext } from './useAppViewModels.shared';
 import type { AudioQuality } from '@/stores/useSettingsUiStore';
 
 // 覆盖层、设置弹窗与通用对话框的 view model 组装
 export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
-    const requestedQueue = useRequestedQueueStore(state => state.songs);
     const {
         currentView,
         isOverlayVisible,
@@ -125,23 +122,6 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         handleUnavailableReplacementConfirm,
     } = core;
 
-    // 已点为空时，从当前播放歌单自动补一批；二者仍是独立列表。
-    useEffect(() => {
-        if (requestedQueue.length > 0 || playQueue.length === 0) return;
-        const seedResult = ensureRequestedQueueSeededFromPlaylist({
-            playlist: playQueue,
-            currentSongId: currentSong?.id ?? null,
-        });
-        if (seedResult.seededCount > 0) {
-            setStatusMsg({
-                type: 'success',
-                text: t('queue.autoSeedToast', { count: seedResult.seededCount }),
-                nonce: Date.now(),
-                durationMs: 2800,
-            });
-        }
-    }, [currentSong?.id, playQueue, requestedQueue.length, setStatusMsg, t]);
-
     const appOverlaysModel = useMemo(() => buildAppOverlaysModel({
         currentView,
         isOverlayVisible,
@@ -177,8 +157,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         effectiveLoopMode,
         playerLyricsVisible,
         playQueueLength: playQueue.length,
-        // Dock 已点列表 stays on requestedQueue; playQueue is the separate playback context.
-        playQueue: requestedQueue,
+        playQueue,
         audioSrc,
         canToggleCurrentPlayback,
         isNowPlayingControlDisabled,
@@ -317,7 +296,6 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         playlists,
         playOnlineQueueFromStart,
         playQueue,
-        requestedQueue,
         playSong,
         popOverlay,
         publishStagePlayerPlaybackUpdate,

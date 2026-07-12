@@ -28,6 +28,11 @@ export const resolveThemeFontStack = (theme: Pick<Theme, 'fontStyle' | 'fontFami
         return fallbackStack;
     }
 
+    // Lyric font presets pass a full CSS font-family list; keep it intact.
+    if (customFontFamily.includes(',')) {
+        return `${customFontFamily}, ${fallbackStack}`;
+    }
+
     return `${quoteFontFamily(customFontFamily)}, ${fallbackStack}`;
 };
 
@@ -37,6 +42,10 @@ export const resolveThemeTranslationFontStack = (theme: Pick<Theme, 'fontStyle' 
 
     if (!customFontFamily) {
         return fallbackStack;
+    }
+
+    if (customFontFamily.includes(',')) {
+        return `${customFontFamily}, ${fallbackStack}`;
     }
 
     return `${quoteFontFamily(customFontFamily)}, ${fallbackStack}`;

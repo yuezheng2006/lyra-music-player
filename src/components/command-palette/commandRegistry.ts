@@ -511,6 +511,28 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createVisualizerCommand('tilt', 'Visualizer: Tilt', 'Switch to tilt visualizer', ['visualizer tilt', 'tilt', '倾诉', 'qingsu', 'qs']),
     createVisualizerCommand('claddagh', 'Visualizer: Claddagh', 'Switch to Claddagh visualizer', ['visualizer claddagh', 'claddagh', '回环', 'jiezhi', 'jz']),
     createVisualizerCommand('monet', 'Visualizer: Monet', 'Switch to Monet visualizer', ['visualizer monet', 'monet', '莫奈', 'monai', 'mn', '切换到可视化：莫奈', '切换到可视化莫奈']),
+    {
+        id: 'lyric-word-mode-default',
+        group: 'visualizer',
+        title: 'Lyrics: Default Word Highlight',
+        description: 'Show word-by-word highlight on the current line only',
+        keywords: ['lyric word mode', 'default word', 'default lyrics', '默认逐字', '默认歌词', 'morenzhuzi', 'mrzz'],
+        execute: (_input, context) => {
+            context.setLyricWordMode('default');
+            return true;
+        },
+    },
+    {
+        id: 'lyric-word-mode-karaoke',
+        group: 'visualizer',
+        title: 'Lyrics: Karaoke Word Highlight',
+        description: 'Show upcoming lyrics with current-line word highlight',
+        keywords: ['lyric word mode', 'karaoke', 'sing along', 'k歌', '卡拉ok', 'kalake', 'ktv', 'kg', 'k歌逐字', '预告歌词'],
+        execute: (_input, context) => {
+            context.setLyricWordMode('karaoke');
+            return true;
+        },
+    },
 
     {
         id: 'background-monet-full-overlay',

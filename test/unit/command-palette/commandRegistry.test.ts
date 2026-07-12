@@ -27,6 +27,7 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     isGeneratingTheme: false,
     generateAITheme: vi.fn(),
     setVisualizerMode: vi.fn(),
+    setLyricWordMode: vi.fn(),
     setVisualizerBackgroundMode: vi.fn(),
     setMonetBackgroundTuning: vi.fn(),
     toggleTransparentBackground: vi.fn(),
@@ -340,6 +341,11 @@ describe('command palette registry', () => {
         expect(matchMonet.command.id).toBe('visualizer-monet');
         matchMonet.command.execute('', context);
         expect(context.setVisualizerMode).toHaveBeenCalledWith('monet');
+
+        const [matchKaraokeWord] = getCommandPaletteMatches('k歌逐字');
+        expect(matchKaraokeWord.command.id).toBe('lyric-word-mode-karaoke');
+        matchKaraokeWord.command.execute('', context);
+        expect(context.setLyricWordMode).toHaveBeenCalledWith('karaoke');
 
         const [matchFullOverlay] = getCommandPaletteMatches('全屏叠色');
         expect(matchFullOverlay.command.id).toBe('background-monet-full-overlay');

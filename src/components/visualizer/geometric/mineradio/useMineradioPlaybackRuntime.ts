@@ -125,9 +125,10 @@ export const useMineradioPlaybackRuntime = ({
             coverRuntimeRef.current?.dispose();
             coverRuntimeRef.current = null;
         };
+    // Intentionally omit coverUrl: remounting WebGL on track change flashes the load mist.
+    // Cover updates go through the configure() effect below.
     }, [
         enabled,
-        coverUrl,
         qualityProfile,
         sceneTuning?.visualPreset,
         sceneTuning?.enableCoverParticles,

@@ -1,6 +1,6 @@
 import type React from 'react';
 import type { SearchReturnView } from '../../stores/useSearchNavigationStore';
-import type { HomeViewTab, LocalSong, PlayerState, SearchSourceId, SongResult, VisualizerMode, VisualizerBackgroundMode, MonetBackgroundTuning } from '../../types';
+import type { HomeViewTab, LocalSong, LyricWordMode, PlayerState, SearchSourceId, SongResult, VisualizerMode, VisualizerBackgroundMode, MonetBackgroundTuning } from '../../types';
 import type { AppLanguagePreference } from '../../i18n/config';
 import type { PanelTab } from '../UnifiedPanel';
 import type { SettingsModalInitialTab, SettingsSubviewId } from '../../stores/useSettingsUiStore';
@@ -65,6 +65,7 @@ export type CommandPaletteContext = {
     isGeneratingTheme: boolean;
     generateAITheme: () => void;
     setVisualizerMode: (mode: VisualizerMode) => void;
+    setLyricWordMode: (mode: LyricWordMode) => void;
     setVisualizerBackgroundMode: (mode: VisualizerBackgroundMode) => void;
     setMonetBackgroundTuning: (patch: Partial<MonetBackgroundTuning>) => void;
     toggleTransparentBackground: () => void;

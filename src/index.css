@@ -16,6 +16,47 @@
   src: url('https://cdn.jsdmirror.cn/npm/@fontsource/noto-serif-sc@5.2.9/files/noto-serif-sc-chinese-simplified-500-normal.woff2') format('woff2');
 }
 
+/* Bundled lyric display fonts (from jaywcjlove/free-font samples in public/fonts) */
+@font-face {
+  font-family: 'YehuoBrush';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/YehuoBrush.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'JianhaoBrush';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/JianhaoBrush.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'MaShanZheng';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/MaShanZheng.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'ZhiMangXing';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/ZhiMangXing.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'PangMenTitle';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/PangMenTitle.ttf') format('truetype');
+}
+
 /* Custom Global Styles */
 body {
   background-color: #09090b;

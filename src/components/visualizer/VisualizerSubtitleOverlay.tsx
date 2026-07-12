@@ -1,8 +1,10 @@
 import React, { useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Line, Theme } from '../../types';
+import { Line, LyricWordMode, Theme } from '../../types';
 import { resolveThemeTranslationFontStack } from '../../utils/fontStacks';
+import { resolveUpcomingLyricLines } from '../../utils/lyrics/lyricWordMode';
+import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import { resolveUpcomingLyricPresentation, resolveVisualizerBottomSubtitlePresentation } from './resolveUpcomingLyricPresentation';
 import { resolveVisualizerSubtitleBottom } from './resolveVisualizerSubtitleBottom';
 import { VISUALIZER_SUBTITLE_PORTAL_ROOT_ID } from './visualizerSubtitlePortal';
@@ -23,6 +25,7 @@ interface VisualizerSubtitleOverlayProps {
     isPlayerChromeHidden?: boolean;
     hideTranslationSubtitle?: boolean;
     showSubtitleTranslation?: boolean;
+    lyricWordMode?: LyricWordMode;
 }
 
 export const resolveVisualizerSubtitleOverlayContent = ({
@@ -32,7 +35,8 @@ export const resolveVisualizerSubtitleOverlayContent = ({
     nextLines,
     hideTranslationSubtitle = false,
     showSubtitleTranslation = true,
-}: Pick<VisualizerSubtitleOverlayProps, 'showText' | 'activeLine' | 'recentCompletedLine' | 'nextLines' | 'hideTranslationSubtitle' | 'showSubtitleTranslation'>) => {
+    lyricWordMode = 'default',
+}: Pick<VisualizerSubtitleOverlayProps, 'showText' | 'activeLine' | 'recentCompletedLine' | 'nextLines' | 'hideTranslationSubtitle' | 'showSubtitleTranslation' | 'lyricWordMode'>) => {
     if (!showText || hideTranslationSubtitle) {
         return {
             shouldRenderOverlay: false,
@@ -43,11 +47,13 @@ export const resolveVisualizerSubtitleOverlayContent = ({
 
     const rawTranslationText = activeLine?.translation || recentCompletedLine?.translation || null;
     const translationText = showSubtitleTranslation ? rawTranslationText : null;
+    const gatedNextLines = resolveUpcomingLyricLines(nextLines, lyricWordMode);
 
+    // K歌：预告行必须始终可见；翻译与预告可并存，不能因有翻译就清空下一句。
     return {
-        shouldRenderOverlay: true,
+        shouldRenderOverlay: Boolean(translationText) || gatedNextLines.length > 0,
         translationText,
-        upcomingLines: translationText ? [] : nextLines,
+        upcomingLines: gatedNextLines,
     };
 };
 
@@ -64,7 +70,10 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
     isPlayerChromeHidden = false,
     hideTranslationSubtitle = false,
     showSubtitleTranslation = true,
+    lyricWordMode: lyricWordModeProp,
 }) => {
+    const storeLyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const lyricWordMode = lyricWordModeProp ?? storeLyricWordMode;
     const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
     const { shouldRenderOverlay, translationText, upcomingLines } = resolveVisualizerSubtitleOverlayContent({
         showText,
@@ -73,6 +82,7 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
         nextLines,
         hideTranslationSubtitle,
         showSubtitleTranslation,
+        lyricWordMode,
     });
     const resolvedOpacity = subtitleOverlayOpacity ?? opacity;
     const upcomingPresentation = resolveUpcomingLyricPresentation(theme, resolvedOpacity);
@@ -122,12 +132,13 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
                             >
                                 {translationText}
                             </motion.div>
-                        ) : showUpcomingLines ? (
+                        ) : null}
+                        {showUpcomingLines ? (
                             upcomingLines.map((line, index) => (
                                 <p
                                     key={`${line.startTime}-${index}`}
                                     data-testid={`visualizer-upcoming-line-${index}`}
-                                    className="truncate font-medium leading-snug transition-all duration-500"
+                                    className="font-medium leading-snug transition-all duration-500"
                                     style={{
                                         color: upcomingPresentation.color,
                                         fontSize: upcomingFontSize,

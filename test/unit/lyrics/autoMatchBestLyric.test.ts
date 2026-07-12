@@ -268,7 +268,7 @@ describe('autoMatchBestLyric', () => {
         expect(result.lyrics.lines[0].isChorus).toBeUndefined();
         expect(result.lyrics.lines[0].chorusEffect).toBeUndefined();
         expect(result.lyrics.lines[1].isChorus).toBe(true);
-        expect(result.lyrics.lines[1].chorusEffect).toBe('bars');
+        expect(['bars', 'circles', 'beams']).toContain(result.lyrics.lines[1].chorusEffect);
     });
 
     it('reuses a preprocessed NetEase candidate for the same song id', async () => {

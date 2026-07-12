@@ -15,6 +15,11 @@ import { shouldDrawFumeCanvasBackground } from '../resolveInteractive3dFumeLayer
 import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { resolveWordColor } from '../wordColoring';
+import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+import {
+    KARAOKE_WAITING_WORD_OPACITY,
+    shouldShowUpcomingLyrics,
+} from '../../../utils/lyrics/lyricWordMode';
 
 // This mode is basically "turn the whole lyric into an article, then move a camera through it".
 // So the pipeline is much bigger than the others: prebuild the article layout, split it into blocks/render lines/graphemes,
@@ -1860,6 +1865,8 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
         paused = false,
         resolvedVisualizerBackgroundMode,
     } = props;
+    const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const previewWaitingGlyphs = shouldShowUpcomingLyrics(lyricWordMode);
     const viewportRef = useRef<HTMLDivElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const currentLineIndexRef = useRef(currentLineIndex);
@@ -2539,7 +2546,9 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
                     continue;
                 }
 
-                const waitingOpacity = block.variant === 'hero' ? 0.06 : 0.035;
+                const waitingOpacity = previewWaitingGlyphs
+                    ? (block.variant === 'hero' ? KARAOKE_WAITING_WORD_OPACITY : KARAOKE_WAITING_WORD_OPACITY * 0.78)
+                    : (block.variant === 'hero' ? 0.06 : 0.035);
                 const activeOpacity = block.variant === 'hero' ? 0.985 : 0.92;
                 const effectiveTextHoldStyle = textHoldRatio >= 1 ? 'standard' : 'dimmed';
                 const passedStyle = resolvePassedTextStyle(block.variant, effectiveTextHoldStyle);
@@ -2967,6 +2976,7 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
         viewport.height,
         viewport.width,
         drawFumeCanvasBackground,
+        previewWaitingGlyphs,
     ]);
 
     return (

@@ -60,6 +60,7 @@ export function useAppControllerPresentationShell(
         lyricsCustomFontFamily,
         lyricsFontScale,
         lyricsFontStyle,
+        lyricFontPresetId,
         monetBackgroundImage,
         monetBackgroundTuning,
         monetPortraitImage,
@@ -104,10 +105,11 @@ export function useAppControllerPresentationShell(
         theme,
         lyricsFontStyle,
         lyricsCustomFontFamily,
+        lyricFontPresetId,
         currentSongId: currentSong?.id,
         visualizerMode,
         visualizerBackgroundMode,
-    }), [appStyle, currentSong?.id, lyricsCustomFontFamily, lyricsFontStyle, theme, visualizerBackgroundMode, visualizerMode]);
+    }), [appStyle, currentSong?.id, lyricFontPresetId, lyricsCustomFontFamily, lyricsFontStyle, theme, visualizerBackgroundMode, visualizerMode]);
 
     const {
         desktopLyricsStatus,

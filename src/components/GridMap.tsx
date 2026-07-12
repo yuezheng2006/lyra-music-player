@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Theme } from '../types';
 import { useFoliaHexViewport } from './folia-grid/useFoliaHexViewport';
 import { SidePanelList, CollectionListItem } from './shared/SidePanelList';
+import { resolveShellSurfaceBackgroundStyle } from './app/home/homeSurfaceStyles';
 
 // src/components/GridMap.tsx
 // Hexagonal honeycomb layout showing all collections (playlists, albums, radios).
@@ -660,9 +661,8 @@ export const GridMap: React.FC<GridMapProps> = ({
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[110] overflow-hidden select-none"
             style={{
-                backgroundColor: isDaylight ? 'rgba(250, 249, 246, 0.95)' : 'rgba(9, 9, 11, 0.95)',
-                color: 'var(--text-primary)',
-                backdropFilter: 'blur(24px)'
+                ...resolveShellSurfaceBackgroundStyle(),
+                backdropFilter: 'blur(24px)',
             }}
         >
             {/* Top Floating Glass Header */}
@@ -816,9 +816,11 @@ export const GridMap: React.FC<GridMapProps> = ({
             {/* Bottom Right Floating Button */}
             {items.length > 0 && (
                 <button
+                    type="button"
                     onClick={() => setShowSidePanel(true)}
-                    className="fixed bottom-6 right-6 z-[80] w-12 h-12 rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-105 active:scale-95 pointer-events-auto border"
+                    className="fixed right-6 z-[140] w-12 h-12 rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-105 active:scale-95 pointer-events-auto border"
                     style={{
+                        bottom: 'calc(var(--app-player-bar-height, 90px) + 12px)',
                         backgroundColor: isDaylight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.5)',
                         backdropFilter: 'blur(12px)',
                         borderColor: isDaylight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',

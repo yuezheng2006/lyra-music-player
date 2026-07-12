@@ -1,102 +1,147 @@
+import { getPalette } from 'colorthief';
+import { rankCoverPalette, type CoverPaletteCandidate } from './coverPaletteScore';
+import { fetchCoverViaProxy } from './fetchCoverViaProxy';
 
-interface RGB {
-    r: number;
-    g: number;
-    b: number;
-}
+// src/utils/colorExtractor.ts
+// Extract ranked cover palette colors via Color Thief + moderate-sat scoring.
 
-export const extractColors = async (imageUrl: string, count: number = 5): Promise<string[]> => {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = "Anonymous";
-        img.src = imageUrl;
+const colorCache = new Map<string, { colors: string[]; timestamp: number }>();
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const MAX_CACHE_SIZE = 100;
 
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                resolve([]);
-                return;
-            }
+const pendingExtractions = new Map<string, Promise<string[]>>();
 
-            // Resize for performance
-            const width = 50;
-            const height = 50;
-            canvas.width = width;
-            canvas.height = height;
+const getExtractionCacheKey = (imageUrl: string, count: number) => `${imageUrl}::${count}`;
 
-            ctx.drawImage(img, 0, 0, width, height);
+const shouldUseElectronCoverProxy = (imageUrl: string) => (
+    Boolean(window.electron?.fetchLyricProxy)
+    && !imageUrl.startsWith('blob:')
+    && !imageUrl.startsWith('data:')
+);
 
-            const imageData = ctx.getImageData(0, 0, width, height).data;
-            const colors: RGB[] = [];
+const toPaletteCandidates = (
+    palette: Array<{
+        hex: () => string;
+        rgb: () => { r: number; g: number; b: number };
+        proportion: number;
+        population: number;
+    }>,
+): CoverPaletteCandidate[] => {
+    const populationTotal = palette.reduce((sum, color) => sum + Math.max(0, color.population), 0);
 
-            // Improved sampling: step = 2 instead of 5 for better coverage
-            const step = 2;
-            for (let i = 0; i < imageData.length; i += 4 * step) {
-                const r = imageData[i];
-                const g = imageData[i + 1];
-                const b = imageData[i + 2];
-                const a = imageData[i + 3];
+    return palette.map((color) => {
+        const { r, g, b } = color.rgb();
+        const proportion = color.proportion > 0
+            ? color.proportion
+            : populationTotal > 0
+                ? color.population / populationTotal
+                : 0;
 
-                if (a < 128) continue; // Skip transparent
-
-                // Calculate saturation and brightness
-                const max = Math.max(r, g, b);
-                const min = Math.min(r, g, b);
-                const l = (max + min) / 2;
-                const saturation = max === min ? 0 : (max - min) / (255 - Math.abs(max + min - 255));
-
-                // Prefer colors with some saturation (avoid pure grays)
-                // and exclude very dark or very bright colors
-                if (saturation > 0.2 && l > 30 && l < 220) {
-                    colors.push({ r, g, b });
-                } else if (colors.length < 100) {
-                    // Still collect some low-saturation colors as fallback
-                    colors.push({ r, g, b });
-                }
-            }
-
-            // Sort by saturation (vibrant colors first)
-            colors.sort((a, b) => {
-                const satA = (Math.max(a.r, a.g, a.b) - Math.min(a.r, a.g, a.b)) / 255;
-                const satB = (Math.max(b.r, b.g, b.b) - Math.min(b.r, b.g, b.b)) / 255;
-                return satB - satA;
-            });
-
-            // Extract distinct colors with lower distance threshold
-            const distinctColors: RGB[] = [];
-            const minDistance = 20; // Reduced from 30 for more variety
-
-            for (const c of colors) {
-                if (distinctColors.length >= count) break;
-
-                const isDistinct = distinctColors.every(dc => {
-                    const d = Math.sqrt(
-                        Math.pow(c.r - dc.r, 2) +
-                        Math.pow(c.g - dc.g, 2) +
-                        Math.pow(c.b - dc.b, 2)
-                    );
-                    return d > minDistance;
-                });
-
-                if (isDistinct || distinctColors.length === 0) {
-                    distinctColors.push(c);
-                }
-            }
-
-            // If we don't have enough, fill with existing or transparent
-            const result = distinctColors.map(c => {
-                const hexR = c.r.toString(16).padStart(2, '0');
-                const hexG = c.g.toString(16).padStart(2, '0');
-                const hexB = c.b.toString(16).padStart(2, '0');
-                return `#${hexR}${hexG}${hexB}`;
-            });
-            resolve(result);
-        };
-
-        img.onerror = (e) => {
-            console.warn("Failed to load image for color extraction", e);
-            resolve([]);
+        return {
+            hex: color.hex(),
+            r,
+            g,
+            b,
+            proportion,
         };
     });
+};
+
+export const extractColors = async (imageUrl: string, count: number = 5): Promise<string[]> => {
+    const cacheKey = getExtractionCacheKey(imageUrl, count);
+    const cached = colorCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.colors;
+    }
+
+    const pending = pendingExtractions.get(cacheKey);
+    if (pending) {
+        return pending;
+    }
+
+    const extractionPromise = extractColorsInternal(imageUrl, count);
+    pendingExtractions.set(cacheKey, extractionPromise);
+
+    try {
+        const colors = await extractionPromise;
+        colorCache.set(cacheKey, { colors, timestamp: Date.now() });
+
+        if (colorCache.size > MAX_CACHE_SIZE) {
+            const entries = Array.from(colorCache.entries());
+            entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+            for (let i = 0; i < 20 && i < entries.length; i++) {
+                colorCache.delete(entries[i][0]);
+            }
+        }
+
+        return colors;
+    } finally {
+        pendingExtractions.delete(cacheKey);
+    }
+};
+
+const loadCoverImage = async (imageUrl: string): Promise<{ img: HTMLImageElement; release: () => void }> => {
+    let proxiedImageUrl: string | null = null;
+
+    const release = () => {
+        if (!proxiedImageUrl) return;
+        URL.revokeObjectURL(proxiedImageUrl);
+        proxiedImageUrl = null;
+    };
+
+    let resolvedUrl = imageUrl;
+    if (shouldUseElectronCoverProxy(imageUrl)) {
+        try {
+            const response = await fetchCoverViaProxy(imageUrl);
+            if (!response.ok) {
+                throw new Error(`cover proxy fetch failed: ${response.status}`);
+            }
+            const blob = await response.blob();
+            if (!blob.size) {
+                throw new Error('cover proxy returned an empty image');
+            }
+            proxiedImageUrl = URL.createObjectURL(blob);
+            resolvedUrl = proxiedImageUrl;
+        } catch {
+            // Preserve browser/direct-image behavior if the Electron bridge is unavailable.
+            resolvedUrl = imageUrl;
+        }
+    }
+
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.crossOrigin = 'Anonymous';
+        image.onload = () => resolve(image);
+        image.onerror = (event) => reject(event);
+        image.src = resolvedUrl;
+    });
+
+    return { img, release };
+};
+
+const extractColorsInternal = async (imageUrl: string, count: number = 5): Promise<string[]> => {
+    let release: (() => void) | null = null;
+
+    try {
+        const loaded = await loadCoverImage(imageUrl);
+        release = loaded.release;
+
+        const palette = await getPalette(loaded.img, {
+            colorCount: Math.max(count, 8),
+            colorSpace: 'oklch',
+            quality: 5,
+            ignoreWhite: true,
+        });
+
+        if (!palette || palette.length === 0) {
+            return [];
+        }
+
+        return rankCoverPalette(toPaletteCandidates(palette), count);
+    } catch (error) {
+        console.warn('Failed to extract cover colors', error);
+        return [];
+    } finally {
+        release?.();
+    }
 };

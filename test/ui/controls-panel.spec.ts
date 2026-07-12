@@ -202,15 +202,18 @@ test.describe('player controls panel', () => {
     await installControlsPanelState(page);
   });
 
-  test('renders all primary control sections', async ({ page }) => {
+  test('renders compact high-frequency control sections', async ({ page }) => {
     await openControlsTab(page);
 
+    await expect(page.getByTestId('controls-quick-actions')).toBeVisible();
     await expect(page.getByTestId('controls-lyrics-animation-section')).toBeVisible();
-    await expect(page.getByTestId('controls-animation-intensity-section')).toBeVisible();
-    await expect(page.getByTestId('controls-panel-theme-section')).toBeVisible();
-    await expect(page.getByTestId('controls-player-background-section')).toBeVisible();
     await expect(page.getByTestId('controls-lyric-color-presets')).toBeVisible();
-    await expect(page.getByText('音量')).toBeVisible();
+    await expect(page.getByTestId('controls-interactive3d-presets-section')).toBeVisible();
+    await expect(page.getByTestId('controls-open-more-settings')).toBeVisible();
+
+    await expect(page.getByTestId('controls-animation-intensity-section')).toHaveCount(0);
+    await expect(page.getByTestId('controls-panel-theme-section')).toHaveCount(0);
+    await expect(page.getByTestId('controls-player-background-section')).toHaveCount(0);
   });
 
   test('switches visualizer mode and persists to localStorage', async ({ page }) => {
@@ -223,25 +226,15 @@ test.describe('player controls panel', () => {
     await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_mode'))).toBe('classic');
   });
 
-  test('switches animation intensity and persists to localStorage', async ({ page }) => {
-    await openControlsTab(page);
-
-    await page.getByTestId('controls-animation-intensity-chaotic').click();
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme_animation_intensity'))).toBe('chaotic');
-
-    await page.getByTestId('controls-animation-intensity-calm').click();
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme_animation_intensity'))).toBe('calm');
-  });
-
   test('updates volume and loop mode from quick actions', async ({ page }) => {
     await openControlsTab(page);
 
-    const volumeSlider = page.locator('[data-testid="controls-lyrics-animation-section"]').locator('..').locator('input[type="range"]').first();
+    const volumeSlider = page.getByTestId('controls-tab').locator('input[type="range"]').first();
     await volumeSlider.fill('0.62');
     await volumeSlider.dispatchEvent('mouseup');
     await expect.poll(() => page.evaluate(() => localStorage.getItem('player_volume'))).toBe('0.62');
 
-    const loopButton = page.locator('.grid.grid-cols-3.gap-3 button').first();
+    const loopButton = page.getByTestId('controls-quick-actions').locator('button').first();
     await loopButton.click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('player_loop_mode'))).toBe('all');
     await loopButton.click();
@@ -250,30 +243,11 @@ test.describe('player controls panel', () => {
     await expect.poll(() => page.evaluate(() => localStorage.getItem('player_loop_mode'))).toBe('off');
   });
 
-  test('toggles daylight appearance and cover color tint', async ({ page }) => {
+  test('selecting a 3D preset switches background mode to interactive3d', async ({ page }) => {
     await openControlsTab(page);
 
-    await page.getByTestId('controls-appearance-light').click();
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('default_theme_daylight'))).toBe('true');
-
-    await page.getByTestId('controls-appearance-dark').click();
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('default_theme_daylight'))).toBe('false');
-
-    await page.getByTestId('controls-cover-color-tint-on').click();
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('use_cover_color_bg'))).toBe('true');
-
-    await page.getByTestId('controls-cover-color-tint-off').click();
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('use_cover_color_bg'))).toBe('false');
-  });
-
-  test('switches player background mode', async ({ page }) => {
-    await openControlsTab(page);
-
-    await page.getByTestId('controls-player-background-mode-interactive3d').click();
+    await page.getByTestId('controls-interactive3d-preset-emily').click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_background_mode'))).toBe('interactive3d');
-
-    await page.getByTestId('controls-player-background-mode-common').click();
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_background_mode'))).toBe('common');
   });
 
   test('applies lyric color preset and switches to AI theme mode', async ({ page }) => {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useMemo, useState, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence, MotionValue, Variants, useMotionValueEvent } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_CLASSIC_TUNING, Line, Theme, Word as WordType, AudioBands, type ClassicTuning } from '../../../types';
@@ -15,6 +15,9 @@ import {
     clampLyricWordOffsetX,
     resolveLyricContainerFit,
 } from '../resolveLyricContainerFit';
+import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+import { resolveWaitingWordPresentation, resolveLyricWordAnimateKey } from '../../../utils/lyrics/lyricWordMode';
+import { buildLyricStageStroke } from '../../../utils/lyricVisualEffects';
 
 // This mode is the most straightforward lyric pipeline in the folder.
 // First we ask runtime which line is active right now, then read renderHints from that line,
@@ -178,12 +181,16 @@ const Word: React.FC<{
     renderProfile: ClassicLineRenderProfile;
     isChorus?: boolean;
     fontSize: string;
-}> = ({ word, config, currentTime, theme, isChaotic, layoutVariants, bodyVariants, glowVariants, baseColor, activeColor, renderProfile, isChorus, fontSize }) => {
+    lyricWordMode: 'default' | 'karaoke';
+}> = ({ word, config, currentTime, theme, isChaotic, layoutVariants, bodyVariants, glowVariants, baseColor, activeColor, renderProfile, isChorus, fontSize, lyricWordMode }) => {
     const [status, setStatus] = useState<"waiting" | "active" | "passed">("waiting");
     const rippleScale = useMemo(() => 1.5 + Math.random() * 2, []);
     const duration = getClassicWordDisplayDuration(word, renderProfile);
     const activeEndTime = getClassicWordActiveEndTime(word, renderProfile);
     const graphemeTimings = useMemo(() => buildWordGraphemeTimings(word), [word]);
+    const visualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
+    const stageStroke = buildLyricStageStroke(visualEffectIntensity);
+    const animateKey = resolveLyricWordAnimateKey(status, lyricWordMode);
 
     useMotionValueEvent(currentTime, "change", (latest: number) => {
         let newStatus: "waiting" | "active" | "passed" = "waiting";
@@ -212,8 +219,8 @@ const Word: React.FC<{
                 wordRevealMode: renderProfile.wordRevealMode,
             }}
             variants={layoutVariants}
-            initial="waiting"
-            animate={status}
+            initial={resolveLyricWordAnimateKey('waiting', lyricWordMode)}
+            animate={animateKey}
             // Add `whitespace-nowrap` to prevent unexpected line breaks
             className="font-bold inline-block origin-center relative will-change-transform whitespace-nowrap"
             style={{
@@ -259,11 +266,18 @@ const Word: React.FC<{
                 )}
             </span>
 
-            {/* Body Layer - Handles Color and Blur - Relative Position */}
+            {/* Body Layer — color + stroke; no soft glow soup */}
             <motion.span
                 variants={bodyVariants}
-                custom={{ config, activeColor, baseColor, duration, wordRevealMode: renderProfile.wordRevealMode }}
+                custom={{
+                    config,
+                    activeColor,
+                    baseColor,
+                    duration,
+                    wordRevealMode: renderProfile.wordRevealMode,
+                }}
                 className="relative z-10 block"
+                style={stageStroke}
             >
                 {word.text}
             </motion.span>
@@ -304,6 +318,9 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         mineradioStageActive = false,
     } = props;
     const { t } = useTranslation();
+    const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const waitingWordPresentation = resolveWaitingWordPresentation(lyricWordMode);
+
     const resolvedClassicTuning = useMemo(() => resolveClassicTuning(classicTuning), [classicTuning]);
     const {
         activeLine,
@@ -377,8 +394,10 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         const intensity = theme.animationIntensity;
 
         // Intensity mostly controls how wild the random spread is allowed to become.
-        const isChaotic = intensity === 'chaotic';
-        const isCalm = intensity === 'calm';
+        // K歌：当前行必须整行可读、逐字点亮，强制收成平静线性排版。
+        const karaokeLineRest = waitingWordPresentation.parkAtRest;
+        const isChaotic = !karaokeLineRest && intensity === 'chaotic';
+        const isCalm = karaokeLineRest || intensity === 'calm';
 
         // Keep lines centered in the measured stage so left/right chrome never clips text.
         const justifyOptions = ['justify-center'];
@@ -483,18 +502,27 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         });
 
         return { wordConfigs, lineConfig };
-    }, [activeLine, displayWords, resolvedClassicTuning.enableWordRotation, resolvedClassicTuning.useLegacyLayout, resolvedClassicTuning.wordSpacing, theme, lyricFit]);
+    }, [activeLine, displayWords, resolvedClassicTuning.enableWordRotation, resolvedClassicTuning.useLegacyLayout, resolvedClassicTuning.wordSpacing, theme, lyricFit, waitingWordPresentation.parkAtRest]);
 
     // Container motion is the "body" of each word.
     // waiting/active/passed all reuse the same layout config but interpret it differently.
+    // waiting-* keys must differ by lyricWordMode so default↔karaoke toggles re-animate.
     const layoutVariants: Variants = {
-        waiting: ({ config }: any) => ({
+        'waiting-default': ({ config }: any) => ({
             opacity: 0,
             scale: 0.5,
             x: config.x + (Math.sin(config.y) * 100),
             y: config.y + (Math.cos(config.x) * 50),
             rotate: resolvedClassicTuning.enableWordRotation ? config.rotate + 20 : 0,
             transition: { duration: 0.4 }
+        }),
+        'waiting-karaoke': ({ config }: any) => ({
+            opacity: waitingWordPresentation.opacity,
+            scale: config.scale || 1,
+            x: config.x,
+            y: config.y,
+            rotate: config.rotate,
+            transition: { duration: 0.25 }
         }),
         active: ({ config }: any) => ({
             opacity: 1,
@@ -528,10 +556,15 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
     // Body layer is where color transition and blur cleanup happen.
     // Glow is separated so we can overdrive highlight without making the actual glyph unreadable.
     const bodyVariants: Variants = {
-        waiting: ({ baseColor }: any) => ({
+        'waiting-default': ({ baseColor }: any) => ({
             color: baseColor,
-            filter: "blur(10px)",
+            filter: 'blur(10px)',
             transition: { duration: 0.4 }
+        }),
+        'waiting-karaoke': ({ baseColor }: any) => ({
+            color: baseColor,
+            filter: 'none',
+            transition: { duration: 0.25 }
         }),
         active: ({ activeColor, duration, wordRevealMode }: any) => ({
             color: activeColor,
@@ -557,92 +590,24 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         })
     };
 
-    // Glow layer is transparent text + text-shadow only.
-    // This is why active highlights can look large without changing the readable body thickness.
+    // Soft multi-layer glow muddy against particle stages — keep glow layer inert.
     const glowVariants: Variants = {
-        waiting: {
+        'waiting-default': {
             color: "transparent",
             textShadow: "none",
         },
-        active: ({ activeColor, duration, index, total, charStartTime, charEndTime, wordStartTime, wordRevealMode }: any) => {
-            if (wordRevealMode === 'instant') {
-                return {
-                    color: "transparent",
-                    textShadow: [
-                        "none",
-                        `0 0 14px ${activeColor}, 0 0 24px ${activeColor}`,
-                        "none"
-                    ],
-                    transition: {
-                        duration: Math.min(duration || 0.08, 0.12),
-                        times: [0, 0.35, 1],
-                        ease: "easeOut"
-                    }
-                };
-            }
-
-            if (wordRevealMode === 'fast') {
-                return {
-                    color: "transparent",
-                    textShadow: [
-                        "none",
-                        `0 0 18px ${activeColor}, 0 0 32px ${activeColor}`,
-                        "none"
-                    ],
-                    transition: {
-                        duration: Math.min(Math.max(duration || 0.12, 0.12), 0.2),
-                        times: [0, 0.4, 1],
-                        ease: "easeInOut"
-                    }
-                };
-            }
-
-            if (total !== undefined && total > 1) {
-                const singleDuration = duration / total;
-                const hasCharTiming = typeof charStartTime === 'number'
-                    && typeof charEndTime === 'number'
-                    && typeof wordStartTime === 'number';
-                const resolvedCharDuration = hasCharTiming ? charEndTime - charStartTime : 0;
-                const charDuration = hasCharTiming
-                    ? Math.max(resolvedCharDuration, 0.001)
-                    : singleDuration;
-                const charDelay = hasCharTiming
-                    ? Math.max(0, charStartTime - wordStartTime)
-                    : singleDuration * index;
-                return {
-                    color: "transparent",
-                    textShadow: [
-                        "none",
-                        `0 0 20px ${activeColor}, 0 0 40px ${activeColor}`,
-                        "none"
-                    ],
-                    transition: {
-                        duration: charDuration * 6, // stretch the fade over a few letters
-                        times: [0, 0.3, 1], // peak early, then fade
-                        delay: charDelay,
-                        ease: "easeInOut"
-                    }
-                };
-            }
-            return {
-                color: "transparent",
-                textShadow: [
-                    "none",
-                    `0 0 20px ${activeColor}, 0 0 40px ${activeColor}`,
-                    `0 0 20px ${activeColor}, 0 0 40px ${activeColor}`,
-                ],
-                transition: {
-                    duration: (duration || 0.1), // stretch the fade over the word duration
-                    times: [0, 0.9, 1], // peak early, then fade
-                    ease: "easeInOut"
-                }
-            };
-        },
-        passed: ({ wordRevealMode }: any) => ({
+        'waiting-karaoke': {
             color: "transparent",
             textShadow: "none",
-            transition: { duration: wordRevealMode === 'instant' ? 0.12 : wordRevealMode === 'fast' ? 0.22 : 0.9, ease: "easeOut" }
-        })
+        },
+        active: {
+            color: "transparent",
+            textShadow: "none",
+        },
+        passed: {
+            color: "transparent",
+            textShadow: "none",
+        },
     };
 
     const lyricContainerFloat = useMemo(() => {
@@ -729,6 +694,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
                                         renderProfile={activeWordRenderProfile!}
                                         isChorus={activeLine.isChorus}
                                         fontSize={mainFontSize}
+                                        lyricWordMode={lyricWordMode}
                                     />
                                 );
                             })}

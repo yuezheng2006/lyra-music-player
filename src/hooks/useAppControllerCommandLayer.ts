@@ -57,6 +57,7 @@ export function useAppControllerCommandLayer(
         handleSetMonetBackgroundTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
+        handleSetLyricWordMode,
         handleToggleAlternativeLyricSources,
         handleToggleDaylight,
         handleToggleHidePlayerTranslationSubtitle,
@@ -276,6 +277,7 @@ export function useAppControllerCommandLayer(
         isGeneratingTheme,
         generateAITheme: generateCurrentSongTheme,
         setVisualizerMode: handleSetVisualizerMode,
+        setLyricWordMode: handleSetLyricWordMode,
         setVisualizerBackgroundMode: handleSetVisualizerBackgroundMode,
         setMonetBackgroundTuning: handleSetMonetBackgroundTuning,
         toggleTransparentBackground: () => {
@@ -321,6 +323,7 @@ export function useAppControllerCommandLayer(
         handleSetMonetBackgroundTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
+        handleSetLyricWordMode,
         handleToggleHidePlayerTranslationSubtitle,
         handleToggleShowSubtitleTranslation,
         hidePlayerTranslationSubtitle,
@@ -450,11 +453,16 @@ export function useAppControllerCommandLayer(
         if (!preset) {
             return;
         }
-        // Colors only: never sync font / animation / 3D atmosphere from a lyric-color chip.
-        const nextDualTheme = applyLyricColorPresetToDualTheme(activeDualTheme, preset, { includeMotion: false });
+        // Color stays independent from the font picker; still apply glow/rhythm emphasis.
+        const nextDualTheme = applyLyricColorPresetToDualTheme(activeDualTheme, preset, { includeEmphasis: true });
         saveStoredLyricColorPresetId(presetId);
-        saveLyricColorDualTheme(nextDualTheme, currentSong?.id ?? null);
-    }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme]);
+        const label = t(preset.labelKey, preset.labelFallback);
+        saveLyricColorDualTheme(
+            nextDualTheme,
+            currentSong?.id ?? null,
+            t('status.lyricColorPresetApplied', { name: label }),
+        );
+    }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme, t]);
 
     useSongThemeAutoGeneration({
         enabled: songThemeAutoSwitchEnabled && songThemeAutoGenerateEnabled,

@@ -1,9 +1,18 @@
+import type { CSSProperties } from 'react';
+
 // src/components/app/home/homeSurfaceStyles.ts
 // Shared chrome spacing so home / browse / search content clears titlebar and floating dock.
 
-export const resolveHomeSolidBackgroundClass = (isDaylight: boolean): string => (
-    isDaylight ? 'bg-[#f3f1ec]' : 'bg-[#121214]'
+export const resolveHomeSolidBackgroundClass = (_isDaylight: boolean): string => (
+    'bg-[var(--shell-surface)] transition-colors duration-500'
 );
+
+/** Inline shell background so overlays (GridView etc.) follow cover theme instead of static --bg-color. */
+export const resolveShellSurfaceBackgroundStyle = (): CSSProperties => ({
+    backgroundColor: 'var(--shell-surface)',
+    backgroundImage: 'var(--shell-canvas)',
+    color: 'var(--shell-text)',
+});
 
 /**
  * Clears Electron custom titlebar (h-8 ≈ 32px) plus a breathing gap.

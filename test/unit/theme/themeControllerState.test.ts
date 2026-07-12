@@ -278,7 +278,7 @@ describe('themeControllerState', () => {
         expect(builtinTheme.dark.backgroundColor).toMatch(/^#/);
         expect(builtinTheme.light.backgroundColor).toMatch(/^#/);
         expect(builtinTheme.dark.backgroundColor).not.toBe(builtinTheme.light.backgroundColor);
-        expect(builtinTheme.dark.primaryColor).toBe('#f8fafc');
+        expect(builtinTheme.dark.primaryColor).toBe('#fafafa');
         expect(builtinTheme.light.primaryColor).toBe('#111827');
     });
 

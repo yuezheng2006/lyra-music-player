@@ -21,6 +21,7 @@ import { useAppSidebarCollapse } from '@/hooks/useAppSidebarCollapse';
 import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
 import { useDailyRecommendStore } from '@/stores/useDailyRecommendStore';
 import type { AppSidebarActive } from '@/components/app/chrome/AppSidebar';
+import { useCoverShellTheme } from '@/hooks/useCoverShellTheme';
 
 interface AppRootViewProps {
     controller: AppControllerResult;
@@ -147,6 +148,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
         visualizerOpacity,
         visualizerTheme,
     } = controller;
+    const shellTheme = useCoverShellTheme(getCoverUrl(), isDaylight);
 
     // Immersive fullscreen: player canvas only — hide sidebar + docked bar.
     const immersiveCanvas = currentView === 'player' && isPlayerChromeHidden;
@@ -172,6 +174,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
             isMainWindowClickThroughEnabled={isMainWindowClickThroughEnabled}
             showMainWindowClickThroughToggle={isMainWindowClickThroughEnabled ? isClickThroughToggleHotspotActive : isTitlebarRevealed}
             isDaylight={isDaylight}
+            shellTheme={shellTheme}
             onToggleMainWindowClickThrough={() => {
                 const nextEnabled = !isMainWindowClickThroughEnabled;
                 if (!nextEnabled) {
@@ -286,6 +289,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         songArtist={currentSongArtist}
                         songAlbum={currentSongAlbum}
                         coverUrl={getCoverUrl()}
+                        shellCanvasBackground={shellTheme.stageAtmosphere}
                         showText={currentView === 'player' && playerLyricsVisible && !isSettingsModalOpen}
                         useCoverColorBg={useCoverColorBg}
                         seed={visualizerGeometrySeed}

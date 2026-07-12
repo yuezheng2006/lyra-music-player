@@ -38,8 +38,8 @@ export const ControlsTabInteractive3dScenePanel: React.FC<ControlsTabInteractive
     onInteractive3dSceneTuningChange,
     onToggleEnableSmartAtmosphere,
 }) => (
-    <div className="space-y-2" data-testid="controls-interactive3d-scene-panel">
-        <div className="space-y-1.5" data-testid="controls-interactive3d-mineradio-presets">
+    <div className="space-y-1.5" data-testid="controls-interactive3d-scene-panel">
+        <div className="space-y-1" data-testid="controls-interactive3d-mineradio-presets">
             <div className="flex items-center justify-between gap-2">
                 <span className={`text-[10px] font-medium ${optionStyles.sectionHintClass}`}>
                     {t('options.mineradioVisualPreset') || '3D 风格'}
@@ -59,7 +59,7 @@ export const ControlsTabInteractive3dScenePanel: React.FC<ControlsTabInteractive
                     {t('options.enableSmartAtmosphere') || '智能氛围'}
                 </button>
             </div>
-            <div className={`grid grid-cols-3 gap-1 ${optionStyles.wellBg} p-1 rounded-xl`}>
+            <div className={`grid grid-cols-3 gap-0.5 ${optionStyles.wellBg} p-0.5 rounded-xl`}>
                 {INTERACTIVE3D_VISUAL_PRESET_OPTIONS.map(preset => {
                     const isActive = interactive3dSceneTuning.visualPreset === preset;
 
@@ -73,7 +73,7 @@ export const ControlsTabInteractive3dScenePanel: React.FC<ControlsTabInteractive
                                     applyMineradioVisualPreset(preset, interactive3dSceneTuning),
                                 );
                             }}
-                            className={`py-1.5 ${getControlsTabOptionButtonClass(isActive, optionStyles)}`}
+                            className={`py-1 ${getControlsTabOptionButtonClass(isActive, optionStyles)}`}
                         >
                             {getMineradioPresetLabel(preset, t)}
                         </button>

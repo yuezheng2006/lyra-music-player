@@ -73,6 +73,7 @@ type BuildPlayerPanelModelParams = {
     isCommandPaletteOpen?: boolean;
     playQueue: LegacyUnifiedPanelProps['queue']['playQueue'];
     playSong: LegacyUnifiedPanelProps['queue']['onPlaySong'];
+    addSongsToQueue?: LegacyUnifiedPanelProps['queue']['onAddSongs'];
     queueScrollRef: RefObject<HTMLDivElement | null>;
     shuffleQueue: LegacyUnifiedPanelProps['queue']['onShuffle'];
     localPlaylists: LegacyUnifiedPanelProps['library']['localPlaylists'];
@@ -177,6 +178,7 @@ export const buildPlayerPanelModel = ({
     isCommandPaletteOpen,
     playQueue,
     playSong,
+    addSongsToQueue,
     queueScrollRef,
     shuffleQueue,
     localPlaylists,
@@ -297,6 +299,7 @@ export const buildPlayerPanelModel = ({
         queue: {
             playQueue,
             onPlaySong: playSong,
+            onAddSongs: addSongsToQueue,
             queueScrollRef,
             onShuffle: shuffleQueue,
         },

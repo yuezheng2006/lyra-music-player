@@ -22,6 +22,21 @@ export const getLocalSongId = (localSong: LocalSong): number => {
     return combined === 0 ? -1 : -combined;
 };
 
+const getLocalSongDisplayTitle = (localSong: LocalSong): string => {
+    if (localSong.embeddedTitle?.trim()) {
+        return localSong.embeddedTitle.trim();
+    }
+
+    const importedTitle = localSong.title?.trim() || '';
+    if (!/^\d{8,}$/.test(importedTitle)) {
+        return importedTitle || localSong.fileName;
+    }
+
+    return localSong.matchedArtists?.trim()
+        || localSong.artist?.trim()
+        || localSong.fileName;
+};
+
 export function buildUnifiedLocalSong({
     localSong,
     matchedSong,
@@ -36,7 +51,7 @@ export function buildUnifiedLocalSong({
     const useMatchedLyrics =
         localSong.lyricsSource === 'online'
         || (!localSong.lyricsSource && !localSong.hasLocalLyrics && !localSong.hasEmbeddedLyrics);
-    const displayTitle = localSong.embeddedTitle || localSong.title || localSong.fileName;
+    const displayTitle = getLocalSongDisplayTitle(localSong);
     const displayArtist = preferOnlineMetadata
         ? (localSong.matchedArtists || localSong.embeddedArtist || localSong.artist)
         : (localSong.embeddedArtist || localSong.matchedArtists || localSong.artist);
@@ -93,25 +108,12 @@ export function buildUnifiedLocalSong({
 }
 
 export function buildLocalQueue(queue: LocalSong[], currentSong?: UnifiedSong): UnifiedSong[] {
-    const convertedQueue = queue.map(song => {
-        const useMatchedLyrics =
-            song.lyricsSource === 'online'
-            || (!song.lyricsSource && !song.hasLocalLyrics && !song.hasEmbeddedLyrics);
-
-        return {
-            id: getLocalSongId(song),
-            name: song.title || song.fileName,
-            artists: song.artist ? [{ id: 0, name: song.artist }] : [],
-            album: song.album ? { id: 0, name: song.album } : { id: 0, name: '' },
-            duration: song.duration,
-            isPureMusic: useMatchedLyrics ? song.matchedIsPureMusic : false,
-            ar: song.artist ? [{ id: 0, name: song.artist }] : [],
-            al: song.album ? { id: 0, name: song.album, picUrl: song.matchedCoverUrl } : undefined,
-            dt: song.duration,
-            isLocal: true,
-            localData: song
-        } as UnifiedSong;
-    });
+    const convertedQueue = queue.map(song => buildUnifiedLocalSong({
+        localSong: song,
+        matchedSong: null,
+        coverUrl: song.matchedCoverUrl || null,
+        preferOnlineMetadata: song.useOnlineMetadata === true,
+    }));
 
     if (!currentSong) {
         return convertedQueue;

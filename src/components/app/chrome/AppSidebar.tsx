@@ -10,6 +10,7 @@ import {
     Sparkles,
 } from 'lucide-react';
 import { useDailyRecommendStore } from '../../../stores/useDailyRecommendStore';
+import type { Theme } from '../../../types';
 
 // src/components/app/chrome/AppSidebar.tsx
 // Expanded: full Qishui rail. Collapsed: zero-width, only a translucent expand toggle.
@@ -19,6 +20,7 @@ export type AppSidebarActive = 'home' | 'daily' | 'podcast' | 'local';
 type AppSidebarProps = {
     active: AppSidebarActive;
     isDaylight: boolean;
+    theme?: Theme;
     collapsed: boolean;
     onToggleCollapsed: () => void;
     onOpenHome: () => void;
@@ -28,13 +30,11 @@ type AppSidebarProps = {
     onOpenSettings?: () => void;
 };
 
-const navButtonClass = (active: boolean, isDaylight: boolean) => {
+const navButtonClass = (active: boolean) => {
     if (active) {
-        return `gap-3 px-3 py-2.5 ${isDaylight ? 'bg-black/[0.08] text-black' : 'bg-white/[0.12] text-white'}`;
+        return 'gap-3 px-3 py-2.5 bg-[var(--shell-hover)] text-[color:var(--shell-text)]';
     }
-    return `gap-3 px-3 py-2.5 ${isDaylight
-        ? 'text-black/55 hover:bg-black/[0.05] hover:text-black'
-        : 'text-white/55 hover:bg-white/[0.08] hover:text-white'}`;
+    return 'gap-3 px-3 py-2.5 text-[color:var(--shell-muted-text)] hover:bg-[var(--shell-hover)] hover:text-[color:var(--shell-text)]';
 };
 
 const AppSidebar: React.FC<AppSidebarProps> = ({
@@ -51,11 +51,10 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
     const { t } = useTranslation();
     const preloadDailyRecommend = useDailyRecommendStore(state => state.preload);
     const [showUpdateIndicator, setShowUpdateIndicator] = useState(false);
-    const shellClass = isDaylight
-        ? 'bg-[#f3f1ec]/92 border-black/8 text-black'
-        : 'bg-black/35 border-white/8 text-white';
-    const brandMuted = isDaylight ? 'text-black/40' : 'text-white/40';
-    const sectionLabel = isDaylight ? 'text-black/35' : 'text-white/35';
+
+    const shellClass = 'text-[color:var(--shell-text)]';
+    const brandMuted = 'text-[color:var(--shell-muted-text)]';
+    const sectionLabel = 'text-[color:var(--shell-muted-text)]';
     const expandToggleClass = isDaylight
         ? 'bg-white/45 text-black/55 border-black/10 hover:bg-white/70 hover:text-black shadow-[0_8px_24px_rgba(0,0,0,0.08)]'
         : 'bg-black/35 text-white/70 border-white/12 hover:bg-black/55 hover:text-white shadow-[0_8px_24px_rgba(0,0,0,0.28)]';
@@ -97,7 +96,12 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                 <button
                     type="button"
                     onClick={onToggleCollapsed}
-                    className={`pointer-events-auto absolute left-3 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition-all duration-200 ${expandToggleClass}`}
+                    style={{
+                        backgroundColor: 'var(--shell-sidebar-glass)',
+                        color: 'var(--shell-text)',
+                        borderColor: 'var(--shell-border)',
+                    }}
+                    className={`pointer-events-auto absolute left-3 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-xl transition-all duration-200 ${expandToggleClass.replace(/bg-\S+/, '')}`}
                     title={t('app.sidebarExpand')}
                     aria-label={t('app.sidebarExpand')}
                 >
@@ -112,10 +116,12 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 
     return (
         <aside
-            className={`relative z-[50] flex h-full w-[220px] shrink-0 flex-col border-r backdrop-blur-xl transition-[width,opacity] duration-300 ease-out ${shellClass}`}
+            className={`relative z-[50] flex h-full w-[220px] shrink-0 flex-col border-r backdrop-blur-2xl transition-all duration-300 ease-out ${shellClass}`}
             style={{
                 WebkitAppRegion: 'no-drag',
                 ['--app-sidebar-width' as string]: '220px',
+                backgroundColor: 'var(--shell-sidebar-glass)',
+                borderColor: 'var(--shell-border)',
             } as React.CSSProperties}
             data-collapsed="false"
         >
@@ -150,7 +156,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                 <button
                     type="button"
                     onClick={onOpenHome}
-                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'home', isDaylight)}`}
+                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'home')}`}
                     aria-current={active === 'home' ? 'page' : undefined}
                     title={t('app.sidebarHome')}
                     aria-label={t('app.sidebarHome')}
@@ -164,7 +170,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                     onClick={onOpenDaily}
                     onMouseEnter={preloadDailyRecommend}
                     onFocus={preloadDailyRecommend}
-                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'daily', isDaylight)}`}
+                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'daily')}`}
                     aria-current={active === 'daily' ? 'page' : undefined}
                     title={t('app.sidebarDaily')}
                     aria-label={t('app.sidebarDaily')}
@@ -176,7 +182,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                 <button
                     type="button"
                     onClick={onOpenPodcast}
-                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'podcast', isDaylight)}`}
+                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'podcast')}`}
                     aria-current={active === 'podcast' ? 'page' : undefined}
                     title={t('app.sidebarPodcast')}
                     aria-label={t('app.sidebarPodcast')}
@@ -188,7 +194,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                 <button
                     type="button"
                     onClick={onOpenLocal}
-                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'local', isDaylight)}`}
+                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'local')}`}
                     aria-current={active === 'local' ? 'page' : undefined}
                     title={t('app.sidebarLocal')}
                     aria-label={t('app.sidebarLocal')}
@@ -201,12 +207,12 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
             {/* Dock sits in the content column only — pin settings to the sidebar foot. */}
             {onOpenSettings ? (
                 <div className="mt-auto shrink-0 border-t px-3 pb-4 pt-3" style={{
-                    borderColor: isDaylight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)',
+                    borderColor: 'var(--shell-border)',
                 }}>
                     <button
                         type="button"
                         onClick={onOpenSettings}
-                        className={`relative flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(false, isDaylight)}`}
+                        className={`relative flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(false)}`}
                         title={t('app.sidebarSettings')}
                         aria-label={t('app.sidebarSettings')}
                     >

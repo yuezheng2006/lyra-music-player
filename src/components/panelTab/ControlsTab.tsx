@@ -1,22 +1,27 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Repeat, Repeat1, RepeatOff, Heart, Sparkles, RotateCcw, Sun, Moon, Volume2, Volume1, VolumeX } from 'lucide-react';
+import { Repeat, Repeat1, RepeatOff, Heart, Sparkles, Volume2, Volume1, VolumeX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Theme, ThemeMode, VisualizerMode, type Interactive3dSceneTuning, type VisualizerBackgroundMode } from '../../types';
 import type { ThemeSourceModel } from '../../hooks/themeControllerState';
 import { getVisualizerModeLabel, VISUALIZER_REGISTRY } from '../visualizer/registry';
-import { useThemeQuickEditorStore } from '../../stores/useThemeQuickEditorStore';
-import { resolveVisualizerBackgroundMode } from '../../stores/useSettingsUiStore';
-import ControlsTabPlayerBackgroundSection from './ControlsTabPlayerBackgroundSection';
+import {
+    applyMineradioVisualPreset,
+    getMineradioPresetLabelFallback,
+    INTERACTIVE3D_VISUAL_PRESET_OPTIONS,
+} from '../visualizer/geometric/mineradioVisualPresets';
 import { getControlsTabOptionButtonClass, getControlsTabOptionStyles } from './controlsTabOptionStyles';
 import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
+import LyricFontPresetSelector from '../shared/LyricFontPresetSelector';
+import LyricVisualEffectSelector from '../shared/LyricVisualEffectSelector';
+import LyricWordModeToggle from '../shared/LyricWordModeToggle';
+import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import {
     resolveActiveLyricColorPresetId,
     type LyricColorPresetId,
 } from '../../utils/theme/lyricColorPresets';
 
-// Controls tab keeps the visualizer picker local so it can expand into a full-tab overlay
-// without changing the rest of the player state flow.
+// Controls tab: high-frequency player shortcuts only. Theme/background/intensity live in Settings.
 
 interface ControlsTabProps {
     loopMode: 'off' | 'all' | 'one';
@@ -66,48 +71,37 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
     onLike,
     isLiked,
     onGenerateAITheme,
-    onActivateSmartTheme,
     isGeneratingTheme,
     canGenerateAITheme,
     theme,
-    onThemeChange,
-    bgMode,
-    onBgModeChange,
-    hasCustomTheme,
-    themeSourceModel,
-    onResetTheme,
-    defaultTheme,
-    daylightTheme,
     visualizerMode,
     onVisualizerModeChange,
-    useCoverColorBg,
-    onToggleCoverColorBg,
     isDaylight,
-    onToggleDaylight,
     volume,
     isMuted,
     onVolumePreview,
     onVolumeChange,
     onToggleMute,
     loopToggleDisabled = false,
-    visualizerBackgroundMode = null,
     interactive3dSceneTuning,
-    enableSmartAtmosphere = true,
-    disableVisualizerVignette = false,
     onVisualizerBackgroundModeChange,
     onInteractive3dSceneTuningChange,
-    onToggleEnableSmartAtmosphere,
-    onToggleDisableVisualizerVignette,
     onOpenAdvancedBackgroundSettings,
     onApplyLyricColorPreset,
 }) => {
     const { t } = useTranslation();
-    const openThemeQuickEditor = useThemeQuickEditorStore(state => state.openEditor);
+    const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const lyricFontPresetId = useSettingsUiStore(state => state.lyricFontPresetId);
+    const visualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
+    const handleSetLyricsCustomFont = useSettingsUiStore(state => state.handleSetLyricsCustomFont);
+    const handleSetLyricWordMode = useSettingsUiStore(state => state.handleSetLyricWordMode);
+    const handleSetLyricFontPresetId = useSettingsUiStore(state => state.handleSetLyricFontPresetId);
+    const handleSetVisualEffectIntensity = useSettingsUiStore(state => state.handleSetVisualEffectIntensity);
     const [sliderVolume, setSliderVolume] = useState(isMuted ? 0 : volume);
     const isDraggingRef = useRef(false);
     const pendingVolumeRef = useRef(sliderVolume);
     const optionStyles = getControlsTabOptionStyles(isDaylight);
-    const animationIntensityModes: Array<'calm' | 'normal' | 'chaotic'> = ['calm', 'normal', 'chaotic'];
+    const { wellBg, sectionHintClass } = optionStyles;
 
     useEffect(() => {
         if (!isDraggingRef.current) {
@@ -119,7 +113,6 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
 
     const loopButtonBg = isDaylight ? 'bg-black/5 hover:bg-zinc-300/85' : 'bg-white/5 hover:bg-white/10';
     const buttonBg = isDaylight ? 'bg-black/5 hover:bg-black/10' : 'bg-white/5 hover:bg-white/10';
-    const { wellBg, sectionHintClass } = optionStyles;
 
     const handleSliderInput = (nextVolume: number) => {
         isDraggingRef.current = true;
@@ -136,118 +129,81 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
         onVolumeChange(pendingVolumeRef.current);
     };
 
-    const toggleAnimationIntensity = (mode: 'calm' | 'normal' | 'chaotic') => {
-        onThemeChange({ ...theme, animationIntensity: mode });
-    };
-
-    const handleVisualizerSelect = (mode: VisualizerMode) => {
-        onVisualizerModeChange(mode);
-    };
-
-    const formatThemeDisplayName = (name: string) => {
-        if (themeSourceModel.activeSource !== 'default') {
-            return name;
-        }
-
-        return name === defaultTheme.name
-            ? t('theme.midnightDefault')
-            : (name === daylightTheme.name ? t('theme.daylightDefault') : name);
-    };
-    const activeThemeSource = themeSourceModel.current;
-    const aiThemeSource = themeSourceModel.options.ai;
-    const customThemeSource = themeSourceModel.options.custom;
-    const currentEditableSource = themeSourceModel.editableSource;
-    const themeDisplayName = formatThemeDisplayName(activeThemeSource.label || theme.name);
-    const resolvedPlayerBackgroundMode = resolveVisualizerBackgroundMode(visualizerBackgroundMode, visualizerMode);
-    const coverColorTintApplies = resolvedPlayerBackgroundMode === 'common';
-    const aiSwatchColor = aiThemeSource.theme?.backgroundColor ?? 'rgba(114,119,134,0.4)';
-    const customSwatchColor = customThemeSource.theme?.accentColor ?? 'rgba(114,119,134,0.4)';
-    const openCurrentThemeQuickEditor = () => {
-        if (currentEditableSource) {
-            openThemeQuickEditor(currentEditableSource);
-        }
-    };
-
     return (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="relative"
+            data-testid="controls-tab"
         >
-            <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-1" data-testid="controls-quick-actions">
                     <button
+                        type="button"
                         onClick={onToggleLoop}
                         disabled={loopToggleDisabled}
-                        className={`h-12 rounded-xl flex items-center justify-center transition-colors ${loopButtonBg} ${loopToggleDisabled ? 'opacity-35 cursor-not-allowed' : ''}`}
+                        className={`h-7 rounded-lg flex items-center justify-center transition-colors ${loopButtonBg} ${loopToggleDisabled ? 'opacity-35 cursor-not-allowed' : ''}`}
                     >
-                        {loopMode === 'off' ? <RepeatOff size={20} /> : loopMode === 'one' ? <Repeat1 size={20} /> : <Repeat size={20} />}
+                        {loopMode === 'off' ? <RepeatOff size={15} /> : loopMode === 'one' ? <Repeat1 size={15} /> : <Repeat size={15} />}
                     </button>
 
                     <button
+                        type="button"
                         onClick={onLike}
-                        className={`h-12 rounded-xl flex items-center justify-center transition-colors ${isLiked ? 'bg-red-500/20 text-red-500' : buttonBg}`}
+                        className={`h-7 rounded-lg flex items-center justify-center transition-colors ${isLiked ? 'bg-red-500/20 text-red-500' : buttonBg}`}
                     >
-                        <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
+                        <Heart size={15} fill={isLiked ? 'currentColor' : 'none'} />
                     </button>
 
                     <button
+                        type="button"
                         onClick={onGenerateAITheme}
                         disabled={isGeneratingTheme || !canGenerateAITheme}
-                        className={`h-12 rounded-xl flex items-center justify-center transition-colors ${isGeneratingTheme ? 'bg-blue-500/20 text-blue-300' : buttonBg}`}
+                        className={`h-7 rounded-lg flex items-center justify-center transition-colors ${isGeneratingTheme ? 'bg-blue-500/20 text-blue-300' : buttonBg}`}
                     >
-                        <Sparkles size={20} className={isGeneratingTheme ? 'animate-pulse' : ''} />
+                        <Sparkles size={15} className={isGeneratingTheme ? 'animate-pulse' : ''} />
                     </button>
                 </div>
 
-                <div className="pt-2 border-t border-white/5 space-y-4">
-                    <div>
-                        <div className="flex items-center justify-between mb-2">
-                            <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                                {t('ui.volume') || 'Volume'}
-                            </label>
-                            <span className="text-[10px] font-bold opacity-60">
-                                {Math.round(sliderVolume * 100)}%
-                            </span>
-                        </div>
-                        <div className={`flex items-center gap-3 ${wellBg} p-2 rounded-xl`}>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onToggleMute();
-                                }}
-                                className="opacity-40 hover:opacity-100 transition-opacity"
-                            >
-                                {isMuted || sliderVolume === 0 ? <VolumeX size={16} /> : sliderVolume < 0.5 ? <Volume1 size={16} /> : <Volume2 size={16} />}
-                            </button>
-                            <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.01"
-                                value={sliderVolume}
-                                onInput={(e) => handleSliderInput(parseFloat(e.currentTarget.value))}
-                                onChange={(e) => handleSliderInput(parseFloat(e.currentTarget.value))}
-                                onMouseUp={commitVolumeChange}
-                                onTouchEnd={commitVolumeChange}
-                                onKeyUp={commitVolumeChange}
-                                onBlur={commitVolumeChange}
-                                className="flex-1 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-(--text-primary)"
-                                style={{ accentColor: theme.primaryColor }}
-                            />
-                        </div>
+                <div className="space-y-2 border-t border-white/5 pt-1.5">
+                    <div className={`flex items-center gap-2 ${wellBg} rounded-lg px-1.5 py-1`}>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleMute();
+                            }}
+                            className="opacity-40 hover:opacity-100 transition-opacity"
+                            aria-label={t('ui.volume') || 'Volume'}
+                        >
+                            {isMuted || sliderVolume === 0 ? <VolumeX size={14} /> : sliderVolume < 0.5 ? <Volume1 size={14} /> : <Volume2 size={14} />}
+                        </button>
+                        <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value={sliderVolume}
+                            onInput={(e) => handleSliderInput(parseFloat(e.currentTarget.value))}
+                            onChange={(e) => handleSliderInput(parseFloat(e.currentTarget.value))}
+                            onMouseUp={commitVolumeChange}
+                            onTouchEnd={commitVolumeChange}
+                            onKeyUp={commitVolumeChange}
+                            onBlur={commitVolumeChange}
+                            className="flex-1 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-(--text-primary)"
+                            style={{ accentColor: theme.primaryColor }}
+                            aria-label={t('ui.volume') || 'Volume'}
+                        />
+                        <span className="w-8 text-right text-[10px] font-bold opacity-55 tabular-nums">
+                            {Math.round(sliderVolume * 100)}%
+                        </span>
                     </div>
 
-                    <div className="space-y-2" data-testid="controls-lyrics-animation-section">
-                        <div>
-                            <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                                {t('ui.lyricsAnimationStyle') || t('ui.visualizer') || '歌词样式'}
-                            </label>
-                            <p className={`mt-1 text-[9px] leading-snug ${sectionHintClass}`}>
-                                {t('ui.lyricsAnimationStyleDesc') || '播放页歌词的排版与动效模式'}
-                            </p>
-                        </div>
-                        <div className={`grid grid-cols-4 gap-1 ${wellBg} p-1 rounded-xl`} data-testid="controls-visualizer-mode-group">
+                    <div className="space-y-1" data-testid="controls-lyrics-animation-section">
+                        <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                            {t('ui.lyricsAnimationStyle') || t('ui.visualizer') || '歌词样式'}
+                        </label>
+                        <div className={`grid grid-cols-4 gap-0.5 ${wellBg} p-0.5 rounded-lg`} data-testid="controls-visualizer-mode-group">
                             {VISUALIZER_REGISTRY.map((entry) => {
                                 const isActive = entry.mode === visualizerMode;
                                 return (
@@ -255,8 +211,8 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                                         key={entry.mode}
                                         type="button"
                                         data-testid={`controls-visualizer-mode-${entry.mode}`}
-                                        onClick={() => handleVisualizerSelect(entry.mode)}
-                                        className={`px-1 py-1.5 ${getControlsTabOptionButtonClass(isActive, optionStyles)}`}
+                                        onClick={() => onVisualizerModeChange(entry.mode)}
+                                        className={`px-0.5 py-1 ${getControlsTabOptionButtonClass(isActive, optionStyles)}`}
                                     >
                                         {getVisualizerModeLabel(entry.mode, t)}
                                     </button>
@@ -265,46 +221,32 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                         </div>
                     </div>
 
-                    <div className="space-y-2" data-testid="controls-animation-intensity-section">
-                        <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                            {t('ui.animationIntensity') || '动画强度'}
-                        </label>
-                        <div className={`grid grid-cols-3 gap-1 ${wellBg} p-1 rounded-xl`} data-testid="controls-animation-intensity-group">
-                            {animationIntensityModes.map((mode) => {
-                                const isActive = theme.animationIntensity === mode;
-                                return (
-                                    <button
-                                        key={mode}
-                                        type="button"
-                                        data-testid={`controls-animation-intensity-${mode}`}
-                                        onClick={() => toggleAnimationIntensity(mode)}
-                                        className={`py-1.5 capitalize ${getControlsTabOptionButtonClass(isActive, optionStyles)}`}
-                                    >
-                                        {t(`animation.${mode}`)}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
+                    <LyricWordModeToggle
+                        value={lyricWordMode}
+                        onChange={handleSetLyricWordMode}
+                        sectionLabel={t('ui.lyricWordMode') || '逐字'}
+                        defaultLabel={t('ui.lyricWordModeDefault') || '默认'}
+                        karaokeLabel={t('ui.lyricWordModeKaraoke') || t('ui.visualizerKaraoke') || 'K歌'}
+                        wellClassName={wellBg}
+                        buttonClassName={selected => getControlsTabOptionButtonClass(selected, optionStyles)}
+                        testIdPrefix="controls-lyric-word-mode"
+                    />
 
                     {onApplyLyricColorPreset && (
-                        <div className="space-y-2" data-testid="controls-lyric-color-presets">
-                            <div>
-                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                                    {t('options.lyricColorPresetTitle') || '歌词颜色'}
-                                </label>
-                                <p className={`mt-1 text-[9px] leading-snug ${sectionHintClass}`}>
-                                    {t('options.lyricColorPresetDesc') || '只改歌词颜色，不影响字体、动效和背景。'}
-                                </p>
-                            </div>
-                            <div className={`${wellBg} p-1 rounded-xl`}>
+                        <div className="space-y-1" data-testid="controls-lyric-color-presets">
+                            <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                                {t('options.lyricColorPresetTitle') || '歌词颜色'}
+                            </label>
+                            <div className={`${wellBg} p-0.5 rounded-lg`}>
                                 <LyricColorPresetGrid
+                                    compact
                                     onSelect={onApplyLyricColorPreset}
                                     activePresetId={resolveActiveLyricColorPresetId(
                                         theme,
                                         isDaylight ? 'light' : 'dark',
                                     )}
                                     isDaylight={isDaylight}
+                                    className="!grid-cols-3 gap-0.5"
                                     inactiveButtonClassName={isDaylight
                                         ? 'text-stone-800 hover:bg-black/[0.05]'
                                         : 'text-white/88 hover:bg-white/[0.08]'}
@@ -312,105 +254,80 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                                     buttonClassName="w-full"
                                 />
                             </div>
+                            <div className={`mt-2 space-y-1 border-t pt-2 ${
+                                isDaylight ? 'border-black/10' : 'border-white/10'
+                            }`}>
+                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                                    {t('options.lyricFontPreset') || '歌词字体'}
+                                </label>
+                                <div className={`${wellBg} p-0.5 rounded-lg`}>
+                                    <LyricFontPresetSelector
+                                        selectedPresetId={lyricFontPresetId}
+                                        onPresetChange={(presetId) => {
+                                            handleSetLyricsCustomFont(null);
+                                            handleSetLyricFontPresetId(presetId);
+                                        }}
+                                        isDaylight={isDaylight}
+                                    />
+                                </div>
+                            </div>
+                            <div className={`mt-2 space-y-1 border-t pt-2 ${
+                                isDaylight ? 'border-black/10' : 'border-white/10'
+                            }`}>
+                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                                    {t('options.visualEffectIntensity') || '效果强度'}
+                                </label>
+                                <div className={`${wellBg} p-0.5 rounded-lg`}>
+                                    <LyricVisualEffectSelector
+                                        selectedIntensity={visualEffectIntensity}
+                                        onIntensityChange={handleSetVisualEffectIntensity}
+                                        isDaylight={isDaylight}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     )}
 
-                    <div className="space-y-2" data-testid="controls-panel-theme-section">
-                        <div>
-                            <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                                {t('ui.panelTheme') || t('ui.background') || '界面配色'}
-                            </label>
-                            <p className={`mt-1 text-[9px] leading-snug ${sectionHintClass}`}>
-                                {t('ui.panelThemeDesc') || '面板与控件的日/夜配色方案'}
-                            </p>
-                        </div>
-                        <div className={`grid ${hasCustomTheme ? 'grid-cols-3' : 'grid-cols-2'} gap-1 ${wellBg} p-1 rounded-xl`} data-testid="controls-panel-theme-group">
-                            <button
-                                type="button"
-                                onClick={() => onBgModeChange('default')}
-                                className={`py-1.5 flex items-center justify-center gap-2 ${getControlsTabOptionButtonClass(themeSourceModel.activeSource === 'default', optionStyles)}`}
-                            >
-                                <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: isDaylight ? daylightTheme.backgroundColor : defaultTheme.backgroundColor }} />
-                                {t('ui.default')}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (isGeneratingTheme) return;
-                                    onActivateSmartTheme();
-                                }}
-                                disabled={isGeneratingTheme}
-                                className={`py-1.5 flex items-center justify-center gap-2 ${getControlsTabOptionButtonClass(themeSourceModel.activeSource === 'ai', optionStyles, isGeneratingTheme)}`}
-                                title={t('ui.smartThemeHint') || '有缓存则应用，否则分析当前歌曲并生成'}
-                            >
-                                <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: aiSwatchColor }} />
-                                {isGeneratingTheme ? (t('ui.generatingTheme') || '生成中...') : t('ui.smartTheme')}
-                            </button>
-                            {hasCustomTheme && (
-                                <button
-                                    type="button"
-                                    onClick={() => onBgModeChange('custom')}
-                                    className={`py-1.5 flex items-center justify-center gap-2 ${getControlsTabOptionButtonClass(themeSourceModel.activeSource === 'custom', optionStyles)}`}
-                                >
-                                    <div className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: customSwatchColor }} />
-                                    {t('options.customTheme') || 'Custom'}
-                                </button>
-                            )}
-                        </div>
-
-                        <div className={`grid grid-cols-2 gap-1 ${wellBg} p-1 rounded-xl`} data-testid="controls-panel-appearance-group">
-                            <button
-                                type="button"
-                                data-testid="controls-appearance-light"
-                                onClick={() => { if (!isDaylight) onToggleDaylight(); }}
-                                className={`py-1.5 flex items-center justify-center gap-1.5 ${getControlsTabOptionButtonClass(isDaylight, optionStyles)}`}
-                            >
-                                <Sun size={12} />
-                                {t('ui.appearanceLight') || '浅色'}
-                            </button>
-                            <button
-                                type="button"
-                                data-testid="controls-appearance-dark"
-                                onClick={() => { if (isDaylight) onToggleDaylight(); }}
-                                className={`py-1.5 flex items-center justify-center gap-1.5 ${getControlsTabOptionButtonClass(!isDaylight, optionStyles)}`}
-                            >
-                                <Moon size={12} />
-                                {t('ui.appearanceDark') || '深色'}
-                            </button>
-                            {coverColorTintApplies && (
-                                <>
+                    {interactive3dSceneTuning && onInteractive3dSceneTuningChange && (
+                        <div className="space-y-1" data-testid="controls-interactive3d-presets-section">
+                            <div className="flex items-center justify-between gap-2">
+                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                                    {t('options.mineradioVisualPreset') || '3D 风格'}
+                                </label>
+                                {onOpenAdvancedBackgroundSettings && (
                                     <button
                                         type="button"
-                                        data-testid="controls-cover-color-tint-off"
-                                        onClick={() => onToggleCoverColorBg(false)}
-                                        className={`py-1.5 ${getControlsTabOptionButtonClass(!useCoverColorBg, optionStyles)}`}
+                                        data-testid="controls-open-more-settings"
+                                        onClick={onOpenAdvancedBackgroundSettings}
+                                        className={`text-[10px] transition-opacity hover:opacity-80 ${sectionHintClass}`}
                                     >
-                                        {t('ui.coverColorTintOff') || '默认色'}
+                                        {t('ui.moreBackgroundSettings') || '更多…'}
                                     </button>
-                                    <button
-                                        type="button"
-                                        data-testid="controls-cover-color-tint-on"
-                                        onClick={() => onToggleCoverColorBg(true)}
-                                        className={`py-1.5 ${getControlsTabOptionButtonClass(useCoverColorBg, optionStyles)}`}
-                                    >
-                                        {t('ui.coverColorTintOn') || '封面取色'}
-                                    </button>
-                                </>
-                            )}
+                                )}
+                            </div>
+                            <div className={`grid grid-cols-3 gap-0.5 ${wellBg} p-0.5 rounded-lg`}>
+                                {INTERACTIVE3D_VISUAL_PRESET_OPTIONS.map(preset => {
+                                    const isActive = interactive3dSceneTuning.visualPreset === preset;
+                                    return (
+                                        <button
+                                            key={preset}
+                                            type="button"
+                                            data-testid={`controls-interactive3d-preset-${preset}`}
+                                            onClick={() => {
+                                                onVisualizerBackgroundModeChange?.('interactive3d');
+                                                onInteractive3dSceneTuningChange(
+                                                    applyMineradioVisualPreset(preset, interactive3dSceneTuning),
+                                                );
+                                            }}
+                                            className={`py-1 ${getControlsTabOptionButtonClass(isActive, optionStyles)}`}
+                                        >
+                                            {t(`options.mineradioPreset.${preset}`) || getMineradioPresetLabelFallback(preset)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
-
-                    <ControlsTabPlayerBackgroundSection
-                        visualizerMode={visualizerMode}
-                        visualizerBackgroundMode={visualizerBackgroundMode}
-                        interactive3dSceneTuning={interactive3dSceneTuning}
-                        enableSmartAtmosphere={enableSmartAtmosphere}
-                        isDaylight={isDaylight}
-                        onVisualizerBackgroundModeChange={onVisualizerBackgroundModeChange ?? (() => undefined)}
-                        onInteractive3dSceneTuningChange={onInteractive3dSceneTuningChange ?? (() => undefined)}
-                        onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere ?? (() => undefined)}
-                        onOpenAdvancedBackgroundSettings={onOpenAdvancedBackgroundSettings}
-                    />
+                    )}
                 </div>
             </div>
         </motion.div>

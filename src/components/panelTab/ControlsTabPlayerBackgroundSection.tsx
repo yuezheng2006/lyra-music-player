@@ -67,16 +67,11 @@ const ControlsTabPlayerBackgroundSection: React.FC<ControlsTabPlayerBackgroundSe
         && !PLAYER_BACKGROUND_MODES.includes(visualizerBackgroundMode);
 
     return (
-        <div className="space-y-2 pt-2" data-testid="controls-player-background-section">
-            <div className="flex items-start justify-between gap-2">
-                <div>
-                    <label className={`text-[10px] font-bold uppercase tracking-widest ${sectionHintClass}`}>
-                        {t('ui.playerPageBackground') || '播放页背景'}
-                    </label>
-                    <p className={`mt-1 text-[9px] leading-snug ${sectionHintClass}`}>
-                        {t('ui.playerPageBackgroundDesc') || '只改背景，与歌词样式互不影响'}
-                    </p>
-                </div>
+        <div className="space-y-1.5 pt-1" data-testid="controls-player-background-section">
+            <div className="flex items-center justify-between gap-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest opacity-40">
+                    {t('ui.playerPageBackground') || '播放页背景'}
+                </label>
                 {onOpenAdvancedBackgroundSettings && (
                     <button
                         type="button"
@@ -88,14 +83,14 @@ const ControlsTabPlayerBackgroundSection: React.FC<ControlsTabPlayerBackgroundSe
                 )}
             </div>
 
-            <div className={`grid grid-cols-3 gap-1 ${wellBg} p-1 rounded-xl`} data-testid="controls-player-background-mode-group">
+            <div className={`grid grid-cols-3 gap-0.5 ${wellBg} p-0.5 rounded-xl`} data-testid="controls-player-background-mode-group">
                 {PLAYER_BACKGROUND_MODES.map(mode => (
                     <button
                         key={mode}
                         type="button"
                         data-testid={`controls-player-background-mode-${mode}`}
                         onClick={() => onVisualizerBackgroundModeChange(mode)}
-                        className={`py-1.5 ${getControlsTabOptionButtonClass(
+                        className={`py-1 ${getControlsTabOptionButtonClass(
                             resolvedBackgroundMode === mode && !isAdvancedBackgroundMode,
                             optionStyles,
                         )}`}

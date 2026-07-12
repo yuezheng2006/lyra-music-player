@@ -14,6 +14,8 @@ import AudioOverlay from './AudioOverlay';
 import MonetFloatingDecor from './MonetFloatingDecor';
 import MonetLyricsRail from './MonetLyricsRail';
 import { buildMonetVisibleLineEntries, resolveClampFontPx } from './monetLyricsModel';
+import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+import { resolveLyricRailAfterCount } from '../../../utils/lyrics/lyricWordMode';
 
 // src/components/visualizer/monet/VisualizerMonet.tsx
 // Monet keeps the poster layout here while its lyric rail owns measured scrolling and line states.
@@ -43,9 +45,13 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
         onMonetTuningChange,
         onLyricLineSeek,
         seed,
+        immersiveLyrics = false,
     } = props;
     const { t } = useTranslation();
     const { titleColor, activeColor, hintColor } = resolveLyricStageInkColors(theme);
+    const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const lyricFontPresetId = useSettingsUiStore(state => state.lyricFontPresetId);
+    const visualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
 
     const handleSetMonetTuning = onMonetTuningChange;
 
@@ -121,12 +127,13 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
         upcomingLine,
         currentTime: currentTimeValue,
         before: 2,
-        after: 2,
+        after: resolveLyricRailAfterCount(lyricWordMode),
     }), [
         activeLine,
         currentLineIndex,
         currentTimeValue,
         lines,
+        lyricWordMode,
         recentCompletedLine,
         upcomingLine,
     ]);
@@ -261,6 +268,10 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                                     audioBands={audioBands}
                                     onLyricLineSeek={onLyricLineSeek}
                                     seekDisabled={isPreviewMode}
+                                    immersiveLyrics={immersiveLyrics}
+                                    lyricFontPresetId={lyricFontPresetId}
+                                    visualEffectIntensity={visualEffectIntensity}
+                                    presentation={lyricWordMode === 'karaoke' ? 'karaoke' : 'monet'}
                                 />
                             </motion.div>
 

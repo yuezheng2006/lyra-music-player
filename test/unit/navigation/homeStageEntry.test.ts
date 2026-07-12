@@ -112,7 +112,7 @@ describe('home stage entry source contracts', () => {
 
         expect(content).toContain('stageEnabled?: boolean;');
         expect(content).toContain('onOpenStagePlayer?: () => void;');
-        expect(content).toContain('{stageEnabled && (');
+        expect(content).toContain('{stageEnabled ? (');
         expect(content).toContain("onClick={() => onOpenStagePlayer?.()}");
         expect(content).toContain("t('home.stage')");
     });
