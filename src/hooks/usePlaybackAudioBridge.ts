@@ -196,30 +196,52 @@ export function usePlaybackAudioBridge({
         const attemptAutoPlay = () => {
             if (!shouldAutoPlayRef.current) return;
 
-            syncOutputGain(getTargetPlaybackVolume(), 0);
-            const playPromise = audioElement.play();
-            if (playPromise === undefined) return;
+            // Match resumePlayback: wire Web Audio and wake a suspended context before play().
+            setupAudioAnalyzer();
+            const audioContext = audioContextRef.current;
+            const kickPlay = () => {
+                if (!shouldAutoPlayRef.current) return;
 
-            playPromise
-                .then(() => {
-                    shouldAutoPlayRef.current = false;
-                    setPlayerState(PlayerState.PLAYING);
-                    setupAudioAnalyzer();
-                })
-                .catch(error => {
-                    if (audioElement && !audioElement.paused && !audioElement.ended) {
+                syncOutputGain(getTargetPlaybackVolume(), 0);
+                const playPromise = audioElement.play();
+                if (playPromise === undefined) return;
+
+                playPromise
+                    .then(() => {
                         shouldAutoPlayRef.current = false;
                         setPlayerState(PlayerState.PLAYING);
                         setupAudioAnalyzer();
-                        return;
-                    }
+                    })
+                    .catch(error => {
+                        if (audioElement && !audioElement.paused && !audioElement.ended) {
+                            shouldAutoPlayRef.current = false;
+                            setPlayerState(PlayerState.PLAYING);
+                            setupAudioAnalyzer();
+                            return;
+                        }
 
-                    if (error instanceof DOMException && error.name === 'NotAllowedError') {
-                        shouldAutoPlayRef.current = false;
-                        setStatusMsg({ type: 'info', text: t('status.clickToPlay') });
-                        setPlayerState(PlayerState.PAUSED);
-                    }
-                });
+                        // Src reload often aborts the first play(); keep autoplay armed for canplay.
+                        if (error instanceof DOMException && error.name === 'AbortError') {
+                            return;
+                        }
+
+                        if (error instanceof DOMException && error.name === 'NotAllowedError') {
+                            shouldAutoPlayRef.current = false;
+                            setStatusMsg({ type: 'info', text: t('status.clickToPlay') });
+                            setPlayerState(PlayerState.PAUSED);
+                            return;
+                        }
+
+                        console.warn('[Audio] autoplay failed', error);
+                    });
+            };
+
+            if (audioContext && audioContext.state === 'suspended') {
+                void audioContext.resume().then(kickPlay).catch(() => kickPlay());
+                return;
+            }
+
+            kickPlay();
         };
 
         attemptAutoPlay();
@@ -232,7 +254,7 @@ export function usePlaybackAudioBridge({
             audioElement.removeEventListener('canplay', handlePlaybackReady);
             audioElement.removeEventListener('loadeddata', handlePlaybackReady);
         };
-    }, [audioRef, audioSrc, getTargetPlaybackVolume, setPlayerState, setStatusMsg, setupAudioAnalyzer, shouldAutoPlayRef, syncOutputGain, t]);
+    }, [audioContextRef, audioRef, audioSrc, getTargetPlaybackVolume, setPlayerState, setStatusMsg, setupAudioAnalyzer, shouldAutoPlayRef, syncOutputGain, t]);
 
     return {
         setupAudioAnalyzer,

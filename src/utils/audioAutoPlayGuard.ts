@@ -1,17 +1,12 @@
 // src/utils/audioAutoPlayGuard.ts
-// Keeps pending autoplay alive across src clear / reload pause events.
-
-/** HTMLMediaElement.HAVE_CURRENT_DATA */
-const HAVE_CURRENT_DATA = 2;
+// Keeps pending autoplay alive across src swap / reload pause events.
 
 /**
- * When React clears or swaps audio `src`, the element fires `pause`.
- * That must not wipe `shouldAutoPlay` or the next source will stay silent.
+ * When React swaps audio `src`, the element fires `pause` while the *old*
+ * currentSrc/readyState are often still set. Clearing shouldAutoPlay there
+ * leaves the next source silent. If autoplay is armed, always preserve it;
+ * user pause must clear the flag *before* calling element.pause().
  */
-export function shouldPreserveAutoPlayOnPause(
-    shouldAutoPlay: boolean,
-    currentSrc: string,
-    readyState: number,
-): boolean {
-    return shouldAutoPlay && (!currentSrc || readyState < HAVE_CURRENT_DATA);
+export function shouldPreserveAutoPlayOnPause(shouldAutoPlay: boolean): boolean {
+    return shouldAutoPlay;
 }

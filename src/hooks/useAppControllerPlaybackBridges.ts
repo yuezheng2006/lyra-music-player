@@ -123,6 +123,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         duration,
         audioRef,
         audioContextRef,
+        shouldAutoPlayRef: shouldAutoPlay,
         currentTime,
         stageLyricsClockRef,
         setPlayerState,

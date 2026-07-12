@@ -68,13 +68,9 @@ export function AppAudioElement(props: AppAudioElementProps) {
             }}
             onPause={(e) => {
                 const audioElement = e.currentTarget;
-                // Clearing or swapping `src` pauses the element. Keep autoplay intent so the
-                // next source can still start after an async URL fetch.
-                if (shouldPreserveAutoPlayOnPause(
-                    shouldAutoPlay.current,
-                    audioElement.currentSrc,
-                    audioElement.readyState,
-                )) {
+                // Src swaps fire pause with the old currentSrc still attached.
+                // Never wipe armed autoplay here — pausePlayback clears it first.
+                if (shouldPreserveAutoPlayOnPause(shouldAutoPlay.current)) {
                     if (!audioElement.ended) {
                         setPlayerState(PlayerState.PAUSED);
                     }
@@ -155,7 +151,10 @@ export function AppAudioElement(props: AppAudioElementProps) {
                     return;
                 }
 
-                currentTime.set(0); // Ensure currentTime is reset when new audio loads
+                // Don't yank the dock clock backward if playback already advanced.
+                if (audioElement.currentTime < 0.25) {
+                    currentTime.set(audioElement.currentTime);
+                }
             }}
             onDurationChange={(e) => {
                 const nextDuration = resolvePlaybackDurationSec(

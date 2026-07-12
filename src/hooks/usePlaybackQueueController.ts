@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+import { flushSync } from 'react-dom';
 import type { MotionValue } from 'framer-motion';
 import { getCachedCoverUrl } from '../services/coverCache';
 import { loadOnlineSongAudioSource, loadOnlineSongLyrics } from '../services/onlinePlayback';
@@ -565,11 +566,6 @@ export function usePlaybackQueueController({
             navigateToPlayer();
         }
 
-        // Stop prior audio without clearing React src (avoids autoplay-flag races).
-        if (audioRef.current && !audioRef.current.paused) {
-            audioRef.current.pause();
-        }
-
         prefetched = getPrefetchedData(song, effectiveAudioQuality);
 
         try {
@@ -654,9 +650,42 @@ export function usePlaybackQueueController({
         } else {
             currentOnlineAudioUrlFetchedAtRef.current = null;
         }
-        // Arm autoplay in the same turn as the real src so onPause from src swaps cannot clear it first.
+        // Arm autoplay before committing src. flushSync so the <audio> element has the new URL
+        // before we kick play() — otherwise React's later effect can lose to src-swap pause races.
         shouldAutoPlayRef.current = true;
-        setAudioSrc(audioResult.audioSrc);
+        flushSync(() => {
+            setAudioSrc(audioResult.audioSrc);
+        });
+
+        const audioElement = audioRef.current;
+        if (audioElement) {
+            shouldAutoPlayRef.current = true;
+            void audioElement.play().then(() => {
+                if (currentSongRef.current !== song.id) {
+                    return;
+                }
+                shouldAutoPlayRef.current = false;
+                setPlayerState(PlayerState.PLAYING);
+            }).catch((error) => {
+                if (audioElement && !audioElement.paused && !audioElement.ended) {
+                    shouldAutoPlayRef.current = false;
+                    setPlayerState(PlayerState.PLAYING);
+                    return;
+                }
+                // AbortError is common while the element reloads; autoplay effect retries on canplay.
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    return;
+                }
+                if (error instanceof DOMException && error.name === 'NotAllowedError') {
+                    shouldAutoPlayRef.current = false;
+                    setStatusMsg({ type: 'info', text: t('status.clickToPlay') });
+                    setPlayerState(PlayerState.PAUSED);
+                    return;
+                }
+                console.warn('[App] Forced autoplay failed', error);
+            });
+        }
+
         clearPendingIfCurrent();
         setStatusMsg(prev => {
             if (!prev || prev.persistent || prev.type !== 'info') {

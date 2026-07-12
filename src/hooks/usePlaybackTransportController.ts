@@ -12,6 +12,7 @@ type UsePlaybackTransportControllerParams = {
     duration: number;
     audioRef: RefObject<HTMLAudioElement | null>;
     audioContextRef: MutableRefObject<AudioContext | null>;
+    shouldAutoPlayRef: MutableRefObject<boolean>;
     currentTime: { set: (value: number) => void };
     stageLyricsClockRef: MutableRefObject<{
         startTimeSec: number;
@@ -44,6 +45,7 @@ export function usePlaybackTransportController({
     duration,
     audioRef,
     audioContextRef,
+    shouldAutoPlayRef,
     currentTime,
     stageLyricsClockRef,
     setPlayerState,
@@ -140,10 +142,12 @@ export function usePlaybackTransportController({
             return;
         }
 
+        // Clear before pause so AppAudioElement onPause does not treat this as a src-swap preserve.
+        shouldAutoPlayRef.current = false;
         audioRef.current.pause();
         syncOutputGain(getTargetPlaybackVolume(), 0);
         setPlayerState(PlayerState.PAUSED);
-    }, [activePlaybackContext, audioRef, audioSrc, currentTime, duration, getSyntheticStageLyricsTime, getTargetPlaybackVolume, isNowPlayingStageActive, setPlayerState, stageActiveEntryKind, stageLyricsClockRef, syncOutputGain, syncStageLyricsClock]);
+    }, [activePlaybackContext, audioRef, audioSrc, currentTime, duration, getSyntheticStageLyricsTime, getTargetPlaybackVolume, isNowPlayingStageActive, setPlayerState, shouldAutoPlayRef, stageActiveEntryKind, stageLyricsClockRef, syncOutputGain, syncStageLyricsClock]);
 
     return {
         resumePlayback,
