@@ -532,7 +532,8 @@ export function usePlaybackQueueController({
         };
 
         // Commit UI immediately: enter player + show this track before audio/lyrics resolve.
-        shouldAutoPlayRef.current = true;
+        // Do NOT setAudioSrc(null) or flip shouldAutoPlay yet — clearing src fires onPause and
+        // used to wipe autoplay intent before the real URL arrived.
         currentSongRef.current = song.id;
         pendingResumeTimeRef.current = resumeTimeSec;
         lastAudioRecoverySourceRef.current = null;
@@ -547,7 +548,6 @@ export function usePlaybackQueueController({
         }
         setCurrentSong({ ...song });
         setCachedCoverUrl(null);
-        setAudioSrc(null);
         setIsLyricsLoading(true);
         setStatusMsg({ type: 'info', text: t('status.loadingSong') });
         setPlayerState(PlayerState.IDLE);
@@ -560,6 +560,11 @@ export function usePlaybackQueueController({
 
         if (shouldNavigateToPlayer) {
             navigateToPlayer();
+        }
+
+        // Stop prior audio without clearing React src (avoids autoplay-flag races).
+        if (audioRef.current && !audioRef.current.paused) {
+            audioRef.current.pause();
         }
 
         prefetched = getPrefetchedData(song, effectiveAudioQuality);
@@ -646,6 +651,8 @@ export function usePlaybackQueueController({
         } else {
             currentOnlineAudioUrlFetchedAtRef.current = null;
         }
+        // Arm autoplay in the same turn as the real src so onPause from src swaps cannot clear it first.
+        shouldAutoPlayRef.current = true;
         setAudioSrc(audioResult.audioSrc);
         clearPendingIfCurrent();
         setStatusMsg(prev => {
@@ -701,6 +708,7 @@ export function usePlaybackQueueController({
         }
     }, [
         audioQuality,
+        audioRef,
         blobUrlRef,
         clearPendingUnavailableSkip,
         currentOnlineAudioUrlFetchedAtRef,

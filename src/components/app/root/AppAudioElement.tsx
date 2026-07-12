@@ -3,6 +3,7 @@ import type { MutableRefObject, RefObject } from 'react';
 import { PlayerState, type SongResult, type StageLoopMode } from '@/types';
 import { LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC } from '@/components/app/root/appConstants';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong } from '@/utils/appPlaybackGuards';
+import { shouldPreserveAutoPlayOnPause } from '@/utils/audioAutoPlayGuard';
 
 export interface AppAudioElementProps {
     audioRef: RefObject<HTMLAudioElement | null>;
@@ -65,8 +66,21 @@ export function AppAudioElement(props: AppAudioElementProps) {
                 setPlayerState(PlayerState.PLAYING);
             }}
             onPause={(e) => {
+                const audioElement = e.currentTarget;
+                // Clearing or swapping `src` pauses the element. Keep autoplay intent so the
+                // next source can still start after an async URL fetch.
+                if (shouldPreserveAutoPlayOnPause(
+                    shouldAutoPlay.current,
+                    audioElement.currentSrc,
+                    audioElement.readyState,
+                )) {
+                    if (!audioElement.ended) {
+                        setPlayerState(PlayerState.PAUSED);
+                    }
+                    return;
+                }
                 shouldAutoPlay.current = false;
-                if (!e.currentTarget.ended) {
+                if (!audioElement.ended) {
                     setPlayerState(PlayerState.PAUSED);
                 }
             }}
