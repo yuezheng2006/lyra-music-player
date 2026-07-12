@@ -309,11 +309,21 @@ export const PolaroidCard = React.memo<{
                     {!isEditMode && !isUnavailable && mode === 'tracks' && !showNowPlayingChrome && (
                         <>
                             <div className="absolute inset-0 z-[5] bg-black/0 transition-colors duration-200 group-hover/cover:bg-black/30 pointer-events-none" />
-                            <div className="absolute inset-0 z-[6] flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover/cover:opacity-100 pointer-events-none">
+                            <button
+                                type="button"
+                                onClick={handleCoverActivate}
+                                className={`absolute inset-0 z-[6] flex items-center justify-center transition-opacity duration-200 pointer-events-auto ${
+                                    isFocused
+                                        ? 'opacity-100'
+                                        : 'opacity-0 group-hover/cover:opacity-100'
+                                }`}
+                                aria-label={t('playlist.play') || 'Play'}
+                                title={t('playlist.play') || 'Play'}
+                            >
                                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/45 text-white shadow-lg backdrop-blur-sm">
                                     <Play size={22} fill="currentColor" className="ml-0.5" />
                                 </div>
-                            </div>
+                            </button>
                             <AnimatePresence>
                                 {coverPlayPulse && (
                                     <motion.div

@@ -1,14 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { MotionValue } from 'framer-motion';
 import { getCachedCoverUrl } from '../services/coverCache';
-import { hasCachedAudio } from '../services/audioCache';
 import { loadOnlineSongAudioSource, loadOnlineSongLyrics } from '../services/onlinePlayback';
 import { isSongMarkedUnavailable, neteaseApi } from '../services/netease';
 import { getProviderSongCacheKey, isNeteaseOnlineSong } from '../services/musicProviders/registry';
 import { getPrefetchedData, invalidateAndRefetch, prefetchNearbySongs } from '../services/prefetchService';
 import type { ThemeCacheSongKey } from '../services/themeCache';
-import { loadOnlineLyricsState } from '../utils/onlineLyricsState';
 import { PlayerState, type HomeViewTab, type SearchSourceId, type StagePlayerQueueDiffOp, type StagePlayerSnapshot } from '../types';
 import type { LocalSong, NeteaseUser, OnlineMusicProviderId, QueueAddBehavior, SongResult, StatusMessage, UnifiedSong } from '../types';
 import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterStore';
@@ -203,6 +201,8 @@ export function usePlaybackQueueController({
     lastAudioRecoverySourceRef,
 }: UsePlaybackQueueControllerParams) {
     const [pendingUnavailableReplacement, setPendingUnavailableReplacement] = useState<UnavailableReplacementRequest | null>(null);
+    /** Online playSong in-flight song id — prevents same-card re-clicks from aborting URL fetch. */
+    const pendingOnlinePlaySongIdRef = useRef<SongResult['id'] | null>(null);
 
     const appendNeteaseSongsToMainQueue = useCallback((songs: SongResult[], options?: { suppressToast?: boolean }) => {
         if (songs.length === 0) {
@@ -457,8 +457,6 @@ export function usePlaybackQueueController({
             setIsPanelOpen(true);
         }
 
-        const playbackRequestId = ++playbackRequestIdRef.current;
-        const isLatestPlaybackRequest = () => playbackRequestIdRef.current === playbackRequestId;
         const isLocal = isLocalPlaybackSong(song);
         const isNavidrome = isNavidromePlaybackSong(song);
         const effectiveAudioQuality = options.quality || audioQuality;
@@ -514,21 +512,57 @@ export function usePlaybackQueueController({
             return;
         }
 
-        prefetched = getPrefetchedData(song, effectiveAudioQuality);
-
-        const hasImmediatePrefetchedAudio = Boolean(
-            prefetched?.audioUrl &&
-            prefetched.audioUrl !== 'CACHED_IN_DB'
-        );
-        const hasCachedAudioBlob = hasImmediatePrefetchedAudio
-            ? null
-            : await hasCachedAudio(getProviderSongCacheKey('audio', song));
-
-        if (!isLatestPlaybackRequest()) return;
-
-        if (!hasImmediatePrefetchedAudio && !hasCachedAudioBlob) {
-            setStatusMsg({ type: 'info', text: t('status.loadingSong') });
+        // Same-song re-clicks must not cancel an in-flight URL fetch (that feels like “click does nothing”).
+        if (pendingOnlinePlaySongIdRef.current === song.id) {
+            if (shouldNavigateToPlayer) {
+                navigateToPlayer();
+            }
+            setStatusMsg(prev => prev?.persistent ? prev : { type: 'info', text: t('status.loadingSong') });
+            return;
         }
+
+        const playbackRequestId = ++playbackRequestIdRef.current;
+        const isLatestPlaybackRequest = () => playbackRequestIdRef.current === playbackRequestId;
+        pendingOnlinePlaySongIdRef.current = song.id;
+
+        const clearPendingIfCurrent = () => {
+            if (pendingOnlinePlaySongIdRef.current === song.id) {
+                pendingOnlinePlaySongIdRef.current = null;
+            }
+        };
+
+        // Commit UI immediately: enter player + show this track before audio/lyrics resolve.
+        shouldAutoPlayRef.current = true;
+        currentSongRef.current = song.id;
+        pendingResumeTimeRef.current = resumeTimeSec;
+        lastAudioRecoverySourceRef.current = null;
+        clearOnlinePlaybackRecoveryState();
+        currentOnlineAudioUrlFetchedAtRef.current = null;
+
+        setLyrics(null);
+        setCurrentLineIndex(-1);
+        if (resumeTimeSec === null) {
+            currentTime.set(0);
+            setDuration(0);
+        }
+        setCurrentSong({ ...song });
+        setCachedCoverUrl(null);
+        setAudioSrc(null);
+        setIsLyricsLoading(true);
+        setStatusMsg({ type: 'info', text: t('status.loadingSong') });
+        setPlayerState(PlayerState.IDLE);
+
+        if (queue.length > 0 || playQueue.length === 0) {
+            setPlayQueue(newQueue);
+        }
+
+        void persistLastPlaybackCache(song, newQueue);
+
+        if (shouldNavigateToPlayer) {
+            navigateToPlayer();
+        }
+
+        prefetched = getPrefetchedData(song, effectiveAudioQuality);
 
         try {
             preloadedOnlineAudioResult = await loadOnlineSongAudioSource(song, effectiveAudioQuality, prefetched);
@@ -553,6 +587,7 @@ export function usePlaybackQueueController({
                     : 'status.playbackError';
 
                 setIsLyricsLoading(false);
+                clearPendingIfCurrent();
 
                 if (canSkip && nextSong) {
                     showTimedSkipPrompt(unavailablePromptKey, () => {
@@ -571,47 +606,20 @@ export function usePlaybackQueueController({
             console.error('[App] Failed to fetch song URL:', error);
             setStatusMsg({ type: 'error', text: t('status.playbackError') });
             setIsLyricsLoading(false);
+            clearPendingIfCurrent();
             return;
         }
-
-        shouldAutoPlayRef.current = true;
-        currentSongRef.current = song.id;
-        pendingResumeTimeRef.current = resumeTimeSec;
-        lastAudioRecoverySourceRef.current = null;
-        clearOnlinePlaybackRecoveryState();
-        currentOnlineAudioUrlFetchedAtRef.current = null;
-
-        const onlineLyricsState = await loadOnlineLyricsState(song);
-
-        setLyrics(null);
-        setCurrentLineIndex(-1);
-        if (resumeTimeSec === null) {
-            currentTime.set(0);
-            setDuration(0);
-        }
-        setCurrentSong({ ...song, onlineLyricsState: onlineLyricsState ?? undefined });
-        setCachedCoverUrl(null);
-        setAudioSrc(null);
-        setIsLyricsLoading(true);
 
         if (blobUrlRef.current) {
             URL.revokeObjectURL(blobUrlRef.current);
             blobUrlRef.current = null;
         }
 
-        if (queue.length > 0 || playQueue.length === 0) {
-            setPlayQueue(newQueue);
-        }
-
-        void persistLastPlaybackCache({ ...song, onlineLyricsState: onlineLyricsState ?? undefined }, newQueue);
-
-        if (shouldNavigateToPlayer) {
-            navigateToPlayer();
-        }
-        setPlayerState(PlayerState.IDLE);
-
         const cachedCoverUrl = await getCachedCoverUrl(getProviderSongCacheKey('cover', song));
-        if (currentSongRef.current !== song.id) return;
+        if (!isLatestPlaybackRequest() || currentSongRef.current !== song.id) {
+            clearPendingIfCurrent();
+            return;
+        }
         if (cachedCoverUrl) {
             setCachedCoverUrl(cachedCoverUrl);
         } else if (prefetched?.coverUrl) {
@@ -623,6 +631,7 @@ export function usePlaybackQueueController({
             setStatusMsg({ type: 'error', text: t('status.playbackError') });
             setPlayerState(PlayerState.IDLE);
             setIsLyricsLoading(false);
+            clearPendingIfCurrent();
             return;
         }
 
@@ -638,6 +647,7 @@ export function usePlaybackQueueController({
             currentOnlineAudioUrlFetchedAtRef.current = null;
         }
         setAudioSrc(audioResult.audioSrc);
+        clearPendingIfCurrent();
         setStatusMsg(prev => {
             if (!prev || prev.persistent || prev.type !== 'info') {
                 return prev;
@@ -648,6 +658,7 @@ export function usePlaybackQueueController({
             return prev;
         });
 
+        // Lyrics never block audio: resolve asynchronously after playback has started.
         void loadOnlineSongLyrics(song, prefetched, userId, {
             isCurrent: () => currentSongRef.current === song.id,
             onLyrics: resolvedLyrics => setLyrics(resolvedLyrics),
@@ -658,8 +669,7 @@ export function usePlaybackQueueController({
                 setCurrentSong(prev => prev?.id === song.id ? { ...prev, onlineLyricsState: state ?? undefined } : prev);
             },
             onAutoMatchStart: () => {
-                // Audio may already be playing on browse overlays; avoid a misleading
-                // "matching lyrics" toast that looks like playback is still blocked.
+                // Audio may already be playing; avoid a toast that looks like playback is blocked.
             },
             onDone: () => {
                 setIsLyricsLoading(false);

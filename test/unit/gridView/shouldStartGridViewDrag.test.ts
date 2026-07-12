@@ -46,6 +46,12 @@ describe('shouldStartGridViewDrag', () => {
         expect(shouldStartGridViewDrag(cover as unknown as EventTarget, 'tracks')).toBe(false);
     });
 
+    it('blocks drag when pointerdown lands on a tracks-mode card frame', () => {
+        const frame = createElement(['folia-grid-card-frame']);
+        const cover = createElement(['cover'], { parent: frame });
+        expect(shouldStartGridViewDrag(cover as unknown as EventTarget, 'tracks')).toBe(false);
+    });
+
     it('allows drag on empty canvas in tracks mode', () => {
         const canvas = createElement(['canvas']);
         expect(shouldStartGridViewDrag(canvas as unknown as EventTarget, 'tracks')).toBe(true);

@@ -532,7 +532,8 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
     }, [legacyProps]);
 
     const handlePlayAll = useCallback((songs: SongResult[]) => {
-        legacyProps.onPlayAll?.(songs, { shouldNavigateToPlayer: false });
+        // Always enter the player so click feedback is immediate while the URL resolves.
+        legacyProps.onPlayAll?.(songs, { shouldNavigateToPlayer: true });
     }, [legacyProps]);
 
     const handleAddTrackToQueue = useCallback((track: SongResult) => {

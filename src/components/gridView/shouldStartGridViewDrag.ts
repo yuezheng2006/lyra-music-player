@@ -38,8 +38,11 @@ export function shouldStartGridViewDrag(
         return false;
     }
 
-    // Tracks mode: never start drag from inside a song card.
-    if (mode === 'tracks' && root.closest('.theme-polaroid-card')) {
+    // Tracks mode: never start drag from inside a song card (or its frame chrome).
+    if (
+        mode === 'tracks'
+        && (root.closest('.theme-polaroid-card') || root.closest('.folia-grid-card-frame'))
+    ) {
         return false;
     }
 
