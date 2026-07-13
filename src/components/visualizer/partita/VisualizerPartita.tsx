@@ -10,7 +10,10 @@ import { type VisualizerSharedProps } from '../definition';
 import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { resolveWordColor } from '../wordColoring';
-import { resolveLyricContainerFit } from '../resolveLyricContainerFit';
+import {
+    resolveLyricContainerFit,
+    resolveLyricRhythmScaleHeadroom,
+} from '../resolveLyricContainerFit';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { resolveWaitingWordPresentation, resolveLyricWordAnimateKey } from '../../../utils/lyrics/lyricWordMode';
 
@@ -726,7 +729,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
             const next = Math.max(240, Math.round(width));
             setStageWidth(prev => (prev === next ? prev : next));
         };
-        apply(node.getBoundingClientRect().width);
+        apply(node.offsetWidth || node.getBoundingClientRect().width);
         const observer = new ResizeObserver((entries) => {
             const entry = entries[0];
             if (!entry) return;
@@ -786,8 +789,10 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
             preferredWidthRatio: 0.062,
             minFontPx: 20,
             maxFontPx: 48,
+            scaleHeadroom: resolveLyricRhythmScaleHeadroom(theme.lyricRhythmScaleMultiplier ?? 1),
+            glowInsetPx: theme.lyricGlowUsesAccent ? 36 : 20,
         }),
-        [stageWidth, lyricsFontScale, densityScale],
+        [stageWidth, lyricsFontScale, densityScale, theme.lyricGlowUsesAccent, theme.lyricRhythmScaleMultiplier],
     );
     const mainFontSize = lyricFit.fontSizeCss;
     const emptyFontSize = `${Math.max(16, lyricFit.fontPx * 0.55).toFixed(2)}px`;

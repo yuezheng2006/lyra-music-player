@@ -14,7 +14,11 @@ import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { type VisualizerSharedProps } from '../definition';
 import { useVisualizerRuntime } from '../runtime';
 import VisualizerShell from '../VisualizerShell';
-import { resolveLyricContainerFit } from '../resolveLyricContainerFit';
+import {
+    resolveLyricContainerFit,
+    resolveLyricLineFitScale,
+    resolveLyricRhythmScaleHeadroom,
+} from '../resolveLyricContainerFit';
 import { colorWithAlpha } from '../colorMix';
 import DazibaoWord from './dazibaoWordStage';
 
@@ -62,7 +66,7 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
             const next = Math.max(240, Math.round(width));
             setStageWidth(prev => (prev === next ? prev : next));
         };
-        apply(node.getBoundingClientRect().width);
+        apply(node.offsetWidth || node.getBoundingClientRect().width);
         const observer = new ResizeObserver((entries) => {
             const entry = entries[0];
             if (!entry) return;
@@ -92,8 +96,17 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
             preferredWidthRatio: 0.11,
             minFontPx: 36,
             maxFontPx: immersiveLyrics ? 120 : 92,
+            scaleHeadroom: resolveLyricRhythmScaleHeadroom(theme.lyricRhythmScaleMultiplier ?? 1),
+            glowInsetPx: theme.lyricGlowUsesAccent ? 40 : 24,
         }),
-        [immersiveLyrics, isChorus, lyricsFontScale, stageWidth],
+        [
+            immersiveLyrics,
+            isChorus,
+            lyricsFontScale,
+            stageWidth,
+            theme.lyricGlowUsesAccent,
+            theme.lyricRhythmScaleMultiplier,
+        ],
     );
     const letterSpacingPx = getLyricLetterSpacingPx(fontPreset, lyricFit.fontPx);
     const activeColor = theme.accentColor;
@@ -107,6 +120,21 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
         const layoutUnits = buildPostLyricLayoutUnits(activeLine, { semantic: true, sticky: true });
         return buildDisplayWordsFromLayoutUnits(layoutUnits);
     }, [activeLine]);
+
+    const lineFitScale = useMemo(() => {
+        if (!displayWords.length || typeof document === 'undefined') return 1;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return 1;
+        const weight = Math.max(fontPreset.fontWeight, 700);
+        ctx.font = `${weight} ${lyricFit.fontPx}px ${fontStack}`;
+        const gap = lyricFit.fontPx * 0.14;
+        const contentWidth = displayWords.reduce((sum, word, index) => {
+            const width = ctx.measureText(word.text).width + Math.max(0, letterSpacingPx) * Math.max(0, word.text.length - 1);
+            return sum + width + (index > 0 ? gap : 0);
+        }, 0);
+        return resolveLyricLineFitScale(contentWidth * 1.08, lyricFit.usableWidth);
+    }, [displayWords, fontPreset.fontWeight, fontStack, letterSpacingPx, lyricFit.fontPx, lyricFit.usableWidth]);
 
     const translationFontPx = Math.max(16, lyricFit.fontPx * 0.28);
     const showTranslation = Boolean(
@@ -150,6 +178,8 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
                                         style={{
                                             fontFamily: fontStack,
                                             fontWeight: Math.max(fontPreset.fontWeight, 700),
+                                            transform: lineFitScale < 0.999 ? `scale(${lineFitScale})` : undefined,
+                                            transformOrigin: 'center center',
                                         }}
                                     >
                                         {displayWords.map((word, index) => (

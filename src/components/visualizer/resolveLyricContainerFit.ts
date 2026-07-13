@@ -1,5 +1,5 @@
 // src/components/visualizer/resolveLyricContainerFit.ts
-// Shared safe-area / font sizing for DOM lyric modes (classic / partita).
+// Shared safe-area / font sizing for DOM lyric modes (classic / partita / dazibao).
 
 export type LyricContainerFitInput = {
     /** Measured lyric stage width in CSS pixels. */
@@ -15,6 +15,13 @@ export type LyricContainerFitInput = {
     /** Absolute min/max font size in px before scale. */
     minFontPx?: number;
     maxFontPx?: number;
+    /**
+     * Extra shrink so post-layout transforms (LyricRhythmStage scale) stay on-screen.
+     * Use resolveLyricRhythmScaleHeadroom(theme.lyricRhythmScaleMultiplier).
+     */
+    scaleHeadroom?: number;
+    /** Extra inset per side for drop-shadow / bloom that paints past glyph bounds. */
+    glowInsetPx?: number;
 };
 
 export type LyricContainerFit = {
@@ -23,6 +30,8 @@ export type LyricContainerFit = {
     fontPx: number;
     /** CSS font-size string using px so it never tracks the wrong viewport. */
     fontSizeCss: string;
+    /** Effective headroom applied when resolving this fit. */
+    scaleHeadroom: number;
 };
 
 const DEFAULT_SIDE_PADDING_RATIO = 0.08;
@@ -32,8 +41,33 @@ const DEFAULT_MIN_FONT_PX = 22;
 const DEFAULT_MAX_FONT_PX = 56;
 
 /**
+ * mapRhythmScaleBoost peaks near ~1.16 with full beat/punch; keep a little slack for glow.
+ * LyricRhythmStage multiplies this by lyricRhythmScaleMultiplier (up to ~1.6).
+ */
+export const LYRIC_RHYTHM_BEAT_SCALE_HEADROOM = 1.18;
+
+/** Resolve how much narrower layout must be so rhythm scale never clips the stage. */
+export const resolveLyricRhythmScaleHeadroom = (
+    scaleMultiplier = 1,
+    options: { includeBeatHeadroom?: boolean } = {},
+): number => {
+    const multiplier = Math.min(2.2, Math.max(1, Number.isFinite(scaleMultiplier) ? scaleMultiplier : 1));
+    const beat = options.includeBeatHeadroom === false ? 1 : LYRIC_RHYTHM_BEAT_SCALE_HEADROOM;
+    return multiplier * beat;
+};
+
+/** Uniform shrink so a measured line stays inside the usable stage width. */
+export const resolveLyricLineFitScale = (
+    contentWidth: number,
+    usableWidth: number,
+): number => {
+    if (!(contentWidth > 0) || !(usableWidth > 0)) return 1;
+    return Math.min(1, usableWidth / contentWidth);
+};
+
+/**
  * Resolve lyric font size from the real stage container, not window.innerWidth / vw.
- * Keeps clear padding from sidebar / chrome / DevTools edges.
+ * Keeps clear padding from sidebar / chrome / DevTools edges and rhythm scale.
  */
 export const resolveLyricContainerFit = (input: LyricContainerFitInput): LyricContainerFit => {
     const containerWidth = Math.max(0, input.containerWidth || 0);
@@ -43,8 +77,15 @@ export const resolveLyricContainerFit = (input: LyricContainerFitInput): LyricCo
     const preferredWidthRatio = Math.min(0.12, Math.max(0.04, input.preferredWidthRatio ?? DEFAULT_PREFERRED_WIDTH_RATIO));
     const minFontPx = Math.max(14, input.minFontPx ?? DEFAULT_MIN_FONT_PX);
     const maxFontPx = Math.max(minFontPx, input.maxFontPx ?? DEFAULT_MAX_FONT_PX);
+    const scaleHeadroom = Math.min(2.5, Math.max(1, input.scaleHeadroom ?? 1));
+    const glowInsetPx = Math.max(0, input.glowInsetPx ?? 0);
 
-    const sidePaddingPx = Math.max(minSidePaddingPx, Math.round(containerWidth * sidePaddingRatio));
+    // Reserve space for LyricRhythmStage scale + bloom so glyphs never meet the clip edge.
+    const safeWidth = Math.max(120, containerWidth - glowInsetPx * 2);
+    const layoutWidth = Math.max(120, safeWidth / scaleHeadroom);
+    const ratioPaddingPx = Math.round(layoutWidth * sidePaddingRatio);
+    const headroomPaddingPx = Math.max(0, Math.round((containerWidth - layoutWidth) / 2));
+    const sidePaddingPx = Math.max(minSidePaddingPx, ratioPaddingPx, headroomPaddingPx);
     const usableWidth = Math.max(120, containerWidth - sidePaddingPx * 2);
     const rawFontPx = usableWidth * preferredWidthRatio * lyricsFontScale;
     const fontPx = Math.min(maxFontPx * lyricsFontScale, Math.max(minFontPx, rawFontPx));
@@ -54,6 +95,7 @@ export const resolveLyricContainerFit = (input: LyricContainerFitInput): LyricCo
         usableWidth,
         fontPx,
         fontSizeCss: `${fontPx.toFixed(2)}px`,
+        scaleHeadroom,
     };
 };
 

@@ -1,5 +1,6 @@
 import { useMotionValue, useTransform, type MotionValue } from 'framer-motion';
 import { colorWithAlpha } from '../../components/visualizer/colorMix';
+import { resolveLyricRhythmScaleHeadroom } from '../../components/visualizer/resolveLyricContainerFit';
 import {
     buildRhythmPresentation,
     mapRhythmGlow,
@@ -33,18 +34,23 @@ export const useLyricRhythmMotion = ({
     const defaultCinema = useMotionValue(0.82);
     const defaultEnergy = useMotionValue(0.42);
     const pulseSource = beatPulse ?? audioPower;
+    const scaleCap = resolveLyricRhythmScaleHeadroom(scaleMultiplier);
 
     const scale = useTransform(
         [pulseSource, cameraPunch ?? zero, cinemaScale ?? defaultCinema, atmosphereEnergy ?? defaultEnergy, audioPower],
-        ([pulse, punch, cinema, energy, power]: number[]) => mapRhythmScaleBoost({
-            beatPulse: resolvePresentationBeatPulse(
-                beatPulse ? (pulse || 0) : 0,
-                power || 0,
-            ),
-            cameraPunch: beatPulse ? (punch || 0) : 0,
-            cinemaScale: beatPulse ? (cinema || 0.82) : 0.82,
-            atmosphereEnergy: beatPulse ? (energy || 0.42) : 0.42,
-        }) * scaleMultiplier,
+        ([pulse, punch, cinema, energy, power]: number[]) => {
+            const raw = mapRhythmScaleBoost({
+                beatPulse: resolvePresentationBeatPulse(
+                    beatPulse ? (pulse || 0) : 0,
+                    power || 0,
+                ),
+                cameraPunch: beatPulse ? (punch || 0) : 0,
+                cinemaScale: beatPulse ? (cinema || 0.82) : 0.82,
+                atmosphereEnergy: beatPulse ? (energy || 0.42) : 0.42,
+            }) * scaleMultiplier;
+            // Never exceed the headroom reserved by resolveLyricContainerFit.
+            return Math.min(scaleCap, raw);
+        },
     );
 
     const glowShadow = useTransform(

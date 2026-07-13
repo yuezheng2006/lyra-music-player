@@ -20,6 +20,8 @@ describe('dazibao lyric fit', () => {
             preferredWidthRatio: 0.11,
             minFontPx: 36,
             maxFontPx: 92,
+            // Billboard tests compare base font clamps without rhythm headroom.
+            scaleHeadroom: 1,
         });
 
         expect(dazibao.fontPx).toBeGreaterThan(classic.fontPx * 1.4);
