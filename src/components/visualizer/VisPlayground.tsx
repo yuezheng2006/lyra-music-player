@@ -46,7 +46,7 @@ import {
     VIS_PLAYGROUND_PREVIEW_LINES,
     VIS_PLAYGROUND_PREVIEW_LOOP_DURATION,
 } from './PreviewPlaceholder';
-import { getVisualizerModeLabel, getVisualizerRegistryEntry, getVisualizerScopedSeed } from './registry';
+import { getVisualizerModeLabel, getVisualizerScopedSeed, useVisualizerRegistryEntry } from './registry';
 import VisPlaygroundPreviewHotspots, { type VisPlaygroundEditSection } from './VisPlaygroundPreviewHotspots';
 import VisPlaygroundSettingsPanel from './VisPlaygroundSettingsPanel';
 import { SearchClearButton } from '../shared/SearchClearButton';
@@ -165,9 +165,9 @@ type QueryLocalFontsWindow = Window & {
 const PREVIEW_THEME: Theme = {
     name: 'Preview Theme',
     backgroundColor: '#09090b',
-    primaryColor: '#fafafa',
-    accentColor: '#ffffff',
-    secondaryColor: '#b8b8c2',
+    primaryColor: '#f4f4f5',
+    accentColor: '#f4f4f5',
+    secondaryColor: '#a1a1aa',
     fontStyle: 'sans',
     animationIntensity: 'normal',
 };
@@ -517,7 +517,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
         setCurrentLineIndex(prev => (prev === nextIndex ? prev : nextIndex));
     });
 
-    const visualizerEntry = getVisualizerRegistryEntry(visualizerMode);
+    const visualizerEntry = useVisualizerRegistryEntry(visualizerMode);
     const resolvedVisualizerBackgroundMode = useMemo(
         () => resolveVisualizerBackgroundMode(visualizerBackgroundMode, visualizerMode),
         [visualizerBackgroundMode, visualizerMode],
@@ -542,7 +542,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     ].join(' ');
 
     const handleResetVisualizerTuning = () => {
-        visualizerEntry.resetSettings?.({
+        visualizerEntry?.resetSettings?.({
             resetClassicTuning: onResetClassicTuning,
             resetPartitaTuning: onResetPartitaTuning,
             resetFumeTuning: onResetFumeTuning,

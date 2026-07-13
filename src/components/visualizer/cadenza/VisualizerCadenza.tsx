@@ -548,7 +548,7 @@ const buildPreparedState = (
 };
 
 const getActiveColor = (wordText: string, theme: Theme) => {
-    return resolveWordColor(wordText, theme.wordColors, theme.accentColor);
+    return resolveWordColor(wordText, theme.wordColors, theme.primaryColor);
 };
 
 const buildSegmentMetas = (prepared: PreparedTextWithSegments) => {
@@ -1303,7 +1303,7 @@ const VisualizerCadenza: React.FC<VisualizerProps> = (props) => {
     });
     const tuning = cadenzaTuning;
     const emptyFontSize = `clamp(${(1.5 * lyricsFontScale).toFixed(3)}rem, ${(3.5 * lyricsFontScale).toFixed(3)}vw, ${(2.25 * lyricsFontScale).toFixed(3)}rem)`;
-    const translationFontSize = `clamp(${(1.125 * lyricsFontScale).toFixed(3)}rem, ${(2.6 * lyricsFontScale).toFixed(3)}vw, ${(1.25 * lyricsFontScale).toFixed(3)}rem)`;
+    const translationFontSize = `clamp(${(1.35 * lyricsFontScale).toFixed(3)}rem, ${(3.1 * lyricsFontScale).toFixed(3)}vw, ${(1.55 * lyricsFontScale).toFixed(3)}rem)`;
     const upcomingFontSize = `clamp(${(0.875 * lyricsFontScale).toFixed(3)}rem, ${(2 * lyricsFontScale).toFixed(3)}vw, ${(1 * lyricsFontScale).toFixed(3)}rem)`;
 
     const preparedStateContext = useMemo<PreparedStateCacheContext>(() => ({

@@ -15,6 +15,7 @@ import {
     INTERACTIVE3D_VISUAL_PRESET_OPTIONS,
 } from './visualizer/geometric/mineradioVisualPresets';
 import { VISUALIZER_REGISTRY } from './visualizer/registry';
+import LyricColorPicker from './shared/LyricColorPicker';
 import LyricColorPresetGrid from './shared/LyricColorPresetGrid';
 import LyricWordModeToggle from './shared/LyricWordModeToggle';
 import LyricVisualEffectSelector from './shared/LyricVisualEffectSelector';
@@ -40,6 +41,7 @@ type FloatingPlayerBackgroundMenuProps = {
     visualizerMode: VisualizerMode;
     onVisualizerModeChange: (mode: VisualizerMode) => void;
     theme?: Theme | null;
+    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
     onOpenChange?: (open: boolean) => void;
     backgroundMenuLabel: string;
@@ -70,6 +72,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
     visualizerMode,
     onVisualizerModeChange,
     theme = null,
+    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
     onOpenChange,
     backgroundMenuLabel,
@@ -79,6 +82,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
     getPresetLabel,
     getVisualizerLabel,
     buildToolButtonClass,
+    primaryColor,
 }) => {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
@@ -209,32 +213,44 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                         />
                     </div>
 
-                    {onApplyLyricColorPreset ? (
+                    {(onApplyLyricBodyColor || onApplyLyricColorPreset) ? (
                         <>
                             <div className={`mb-1.5 px-1 text-[12px] font-semibold uppercase tracking-[0.12em] ${
                                 isDaylight ? 'text-black/55' : 'text-white/60'
                             }`}>
                                 {lyricColorSectionLabel}
                             </div>
-                            <div className={`rounded-xl p-1.5 ${isDaylight ? 'bg-black/[0.05]' : 'bg-white/[0.07]'}`}>
-                                <LyricColorPresetGrid
-                                    emphasis
-                                    onSelect={onApplyLyricColorPreset}
-                                    activePresetId={resolveActiveLyricColorPresetId(
-                                        theme,
-                                        isDaylight ? 'light' : 'dark',
-                                    )}
-                                    isDaylight={isDaylight}
-                                    className="!grid-cols-2 gap-2"
-                                    buttonClassName="w-full"
-                                    inactiveButtonClassName={isDaylight
-                                        ? 'text-black/90 hover:bg-black/5'
-                                        : 'text-white/95 hover:bg-white/10'}
-                                    activeButtonClassName={isDaylight
-                                        ? 'bg-white text-stone-950 shadow-sm ring-1 ring-black/10'
-                                        : 'bg-white text-zinc-950 shadow-sm ring-1 ring-white/35'}
-                                />
-                            </div>
+                            {onApplyLyricColorPreset ? (
+                                <div className={`rounded-xl p-1.5 ${isDaylight ? 'bg-black/[0.05]' : 'bg-white/[0.07]'}`}>
+                                    <LyricColorPresetGrid
+                                        emphasis
+                                        onSelect={onApplyLyricColorPreset}
+                                        activePresetId={resolveActiveLyricColorPresetId(
+                                            theme,
+                                            isDaylight ? 'light' : 'dark',
+                                        )}
+                                        isDaylight={isDaylight}
+                                        className="!grid-cols-2 gap-2"
+                                        buttonClassName="w-full"
+                                        inactiveButtonClassName={isDaylight
+                                            ? 'text-black/90 hover:bg-black/5'
+                                            : 'text-white/95 hover:bg-white/10'}
+                                        activeButtonClassName={isDaylight
+                                            ? 'bg-white text-stone-950 shadow-sm ring-1 ring-black/10'
+                                            : 'bg-white text-zinc-950 shadow-sm ring-1 ring-white/35'}
+                                    />
+                                </div>
+                            ) : null}
+                            {onApplyLyricBodyColor ? (
+                                <div className={`rounded-xl p-1.5 ${onApplyLyricColorPreset ? 'mt-2' : ''} ${isDaylight ? 'bg-black/[0.05]' : 'bg-white/[0.07]'}`}>
+                                    <LyricColorPicker
+                                        color={theme?.primaryColor || primaryColor || '#f4f4f5'}
+                                        onChange={onApplyLyricBodyColor}
+                                        isDaylight={isDaylight}
+                                        compact
+                                    />
+                                </div>
+                            ) : null}
 
                             {/* Typography block: lyric font */}
                             <div className={`mt-3 border-t pt-3 ${

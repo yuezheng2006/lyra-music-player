@@ -4,6 +4,7 @@ import { resolveInteractive3dQualityProfile } from './interactive3dSceneRegistry
 import { resolveGeometricQualityProfile } from './geometricQuality';
 import MineradioPlaybackStage from './mineradio/MineradioPlaybackStage';
 import {
+    DEFAULT_LYRIC_COLUMN_END_RATIO,
     measureLyricColumnEndRatio,
     resolveInteractive3dStageContainmentStyle,
     shouldContainInteractive3dStageForMode,
@@ -159,6 +160,11 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                     lines={lines}
                     showLyrics={showLyrics}
                     immersiveLyrics={immersiveLyrics}
+                    lyricColumnEndRatio={
+                        needsContainment
+                            ? (lyricColumnEndRatio ?? DEFAULT_LYRIC_COLUMN_END_RATIO)
+                            : undefined
+                    }
                     playing={playing}
                     paused={paused}
                     cameraControlState={cameraControlState}

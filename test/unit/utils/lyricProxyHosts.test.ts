@@ -16,6 +16,8 @@ describe('lyricProxyHosts', () => {
     expect(isAllowedLyricProxyHost('p3-luna.douyinpic.com')).toBe(true);
     expect(isAllowedLyricProxyHost('p3.douyinpic.com')).toBe(true);
     expect(isAllowedLyricProxyHost('p26-sign.byteimg.com')).toBe(true);
+    expect(isAllowedLyricProxyHost('i.ytimg.com')).toBe(true);
+    expect(isAllowedLyricProxyHost('yt3.googleusercontent.com')).toBe(true);
   });
 
   it('rejects unrelated hosts', () => {
@@ -26,5 +28,6 @@ describe('lyricProxyHosts', () => {
   it('picks CDN-friendly referers for cover proxy', () => {
     expect(resolveCoverProxyReferer('https://p1.music.126.net/abc.jpg')).toBe('https://music.163.com/');
     expect(resolveCoverProxyReferer('https://y.gtimg.cn/music/photo_new/T002.jpg')).toBe('https://y.qq.com/');
+    expect(resolveCoverProxyReferer('https://i.ytimg.com/vi/abc/hqdefault.jpg')).toBe('https://music.youtube.com/');
   });
 });

@@ -293,7 +293,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                         cinemaScale={resolvedCinemaScale}
                         atmosphereEnergy={resolvedAtmosphereEnergy}
                         scaleMultiplier={theme.lyricRhythmScaleMultiplier}
-                        glowColor={theme.lyricGlowUsesAccent ? theme.accentColor : null}
+                        glowColor={theme.lyricGlowUsesAccent ? theme.primaryColor : null}
                         className="w-full h-full overflow-hidden"
                     >
                         {children}

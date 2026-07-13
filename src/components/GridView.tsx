@@ -1,6 +1,6 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useMotionValue, animate, AnimatePresence, useDragControls } from 'framer-motion';
-import { ChevronLeft, Disc, Play, Pause, Plus, Check, Loader2, Heart, ListPlus, Pencil, Search, X, RefreshCw, Trash2, Star, List, Rows3, Orbit } from 'lucide-react';
+import { ChevronLeft, Play, Pause, Plus, Check, Loader2, Heart, ListPlus, Pencil, Search, X, RefreshCw, Trash2, Star, List, Rows3, Orbit } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { SongResult, Theme } from '../types';
@@ -22,6 +22,7 @@ import { buildGridViewCardCoords } from './folia-grid/hexViewport';
 import PlaylistSelectionDialog from './shared/PlaylistSelectionDialog';
 import TextInputDialog from './shared/TextInputDialog';
 import { SidePanelList, TrackListItem } from './shared/SidePanelList';
+import LazyCoverImage from './shared/LazyCoverImage';
 import { shouldStartGridViewDrag } from './gridView/shouldStartGridViewDrag';
 import { isSameTrackId } from './gridView/isSameTrackId';
 import { APP_CONTENT_TOP_OFFSET_CLASS, resolveShellSurfaceBackgroundStyle } from './app/home/homeSurfaceStyles';
@@ -235,7 +236,7 @@ export const PolaroidCard = React.memo<{
                     height: 'auto',
                     transform: isFocused || showNowPlayingChrome ? 'translateY(-4px) scale(1.02)' : undefined,
                     boxShadow: showNowPlayingChrome
-                        ? `0 24px 48px rgba(0,0,0,0.18), 0 0 0 2px color-mix(in srgb, ${accent} 78%, transparent), 0 0 28px color-mix(in srgb, ${accent} 28%, transparent)`
+                        ? `0 18px 36px rgba(0,0,0,0.16), 0 0 0 1.5px color-mix(in srgb, ${accent} 55%, transparent)`
                         : isFocused
                             ? `0 24px 48px rgba(0,0,0,0.18), 0 0 0 2px color-mix(in srgb, ${accent} 70%, transparent)`
                             : undefined,
@@ -268,45 +269,14 @@ export const PolaroidCard = React.memo<{
                     }`}
                     onClick={handleCoverActivate}
                 >
-                    {item.coverUrl ? (
-                        <>
-                            <img
-                                src={item.coverUrl}
-                                alt={typeof item.name === 'string' ? item.name : ''}
-                                loading="lazy"
-                                decoding="async"
-                                ref={(el) => {
-                                    if (el && el.complete) {
-                                        el.style.opacity = isUnavailable ? '0.3' : '1';
-                                        const placeholder = el.nextElementSibling as HTMLElement;
-                                        if (placeholder) {
-                                            placeholder.style.opacity = '0';
-                                            placeholder.style.display = 'none';
-                                        }
-                                    }
-                                }}
-                                onLoad={(e) => {
-                                    const img = e.currentTarget;
-                                    img.style.opacity = isUnavailable ? '0.3' : '1';
-                                    const placeholder = img.nextElementSibling as HTMLElement;
-                                    if (placeholder) {
-                                        placeholder.style.opacity = '0';
-                                        setTimeout(() => {
-                                            placeholder.style.display = 'none';
-                                        }, 350);
-                                    }
-                                }}
-                                className="w-full h-full object-cover transition-opacity duration-350 pointer-events-none select-none opacity-0"
-                            />
-                            <div className="absolute inset-0 bg-zinc-300/40 dark:bg-zinc-700/40 transition-opacity duration-350 flex items-center justify-center">
-                                <Disc size={48} className="opacity-20 animate-spin" style={{ animationDuration: '3s', color: 'var(--text-primary)' }} />
-                            </div>
-                        </>
-                    ) : (
-                        <div className="absolute inset-0 bg-zinc-300/40 dark:bg-zinc-700/40 flex items-center justify-center">
-                            <Disc size={48} className="opacity-20" style={{ color: 'var(--text-primary)' }} />
-                        </div>
-                    )}
+                    <LazyCoverImage
+                        src={item.coverUrl}
+                        alt={typeof item.name === 'string' ? item.name : ''}
+                        placeholderLabel={typeof item.name === 'string' ? item.name : ''}
+                        placeholderVariant={mode === 'tracks' ? 'song' : 'playlist'}
+                        sizePx={320}
+                        className={`w-full h-full object-cover pointer-events-none select-none ${isUnavailable ? 'opacity-30' : ''}`}
+                    />
 
                     {!isEditMode && !isUnavailable && mode === 'tracks' && !showNowPlayingChrome && (
                         <>
@@ -371,59 +341,38 @@ export const PolaroidCard = React.memo<{
 
                     {showNowPlayingChrome && (
                         <>
+                            {/* Soft edge wash only — keep cover readable, no center badge. */}
                             <div
                                 className="absolute inset-0 z-[5] pointer-events-none"
                                 style={{
                                     background: showPlayingEq
-                                        ? `linear-gradient(180deg, color-mix(in srgb, ${accent} 18%, transparent) 0%, transparent 42%, rgba(0,0,0,0.38) 100%)`
-                                        : 'linear-gradient(180deg, rgba(0,0,0,0.12) 0%, transparent 45%, rgba(0,0,0,0.28) 100%)',
+                                        ? `linear-gradient(180deg, color-mix(in srgb, ${accent} 10%, transparent) 0%, transparent 38%, rgba(0,0,0,0.22) 100%)`
+                                        : 'linear-gradient(180deg, rgba(0,0,0,0.08) 0%, transparent 40%, rgba(0,0,0,0.18) 100%)',
                                 }}
                             />
-                            <div className="absolute inset-0 z-[6] flex items-center justify-center pointer-events-none">
-                                <div
-                                    className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl backdrop-blur-md"
-                                    style={{
-                                        backgroundColor: showPlayingEq
-                                            ? `color-mix(in srgb, ${accent} 55%, rgba(0,0,0,0.55))`
-                                            : 'rgba(0,0,0,0.48)',
-                                        boxShadow: showPlayingEq
-                                            ? `0 10px 28px color-mix(in srgb, ${accent} 35%, transparent)`
-                                            : '0 10px 24px rgba(0,0,0,0.28)',
-                                    }}
-                                >
-                                    {showPlayingEq ? (
-                                        <span className="folia-eq folia-eq--xl text-white" aria-hidden>
-                                            <span className="folia-eq__bar" />
-                                            <span className="folia-eq__bar" />
-                                            <span className="folia-eq__bar" />
-                                            <span className="folia-eq__bar" />
-                                        </span>
-                                    ) : (
-                                        // Current track, not actively playing: static mark, never a spinner.
-                                        <Pause size={20} fill="currentColor" className="opacity-90" />
-                                    )}
-                                </div>
-                            </div>
+                            {/* Single now-playing mark: compact corner chip, no duplicate center icon. */}
                             <div
-                                className="absolute top-2 left-2 z-20 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[9px] font-bold tracking-[0.14em] uppercase backdrop-blur-md"
+                                className="absolute top-2.5 left-2.5 z-20 inline-flex h-7 min-w-7 items-center justify-center gap-1 rounded-full px-2 backdrop-blur-md"
                                 style={{
                                     backgroundColor: showPlayingEq
-                                        ? `color-mix(in srgb, ${accent} 42%, rgba(0,0,0,0.55))`
-                                        : 'rgba(0,0,0,0.55)',
+                                        ? `color-mix(in srgb, ${accent} 28%, rgba(8,8,10,0.62))`
+                                        : 'rgba(8,8,10,0.58)',
                                     color: '#fff',
-                                    boxShadow: '0 8px 20px rgba(0,0,0,0.22)',
+                                    boxShadow: showPlayingEq
+                                        ? `0 6px 16px color-mix(in srgb, ${accent} 22%, transparent), inset 0 0 0 1px color-mix(in srgb, ${accent} 45%, transparent)`
+                                        : '0 6px 14px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(255,255,255,0.12)',
                                 }}
+                                aria-label={showPlayingEq ? (t('player.pause') || 'Playing') : (t('playlist.play') || 'Now')}
                             >
                                 {showPlayingEq ? (
-                                    <span className="folia-eq folia-eq--md text-white" aria-hidden>
+                                    <span className="folia-eq folia-eq--sm text-white" aria-hidden>
                                         <span className="folia-eq__bar" />
                                         <span className="folia-eq__bar" />
                                         <span className="folia-eq__bar" />
                                     </span>
                                 ) : (
-                                    <Pause size={10} fill="currentColor" className="opacity-90" />
+                                    <Pause size={11} fill="currentColor" className="opacity-90" />
                                 )}
-                                <span>{showPlayingEq ? 'PLAYING' : 'NOW'}</span>
                             </div>
                         </>
                     )}
@@ -456,7 +405,6 @@ export const PolaroidCard = React.memo<{
                             className="text-s font-bold tracking-tight max-w-full line-clamp-4 whitespace-normal break-words"
                             style={{
                                 opacity: showNowPlayingChrome ? 1 : 0.9,
-                                color: showNowPlayingChrome ? accent : undefined,
                             }}
                         >
                             {item.name}
@@ -542,8 +490,7 @@ export const PolaroidCard = React.memo<{
                                         backgroundColor: showPlayingEq
                                             ? `color-mix(in srgb, ${accent} 22%, transparent)`
                                             : undefined,
-                                        color: showPlayingEq ? accent : undefined,
-                                        transition: 'opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, color 0.2s ease',
+                                        transition: 'opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease',
                                     }}
                                     className="w-9 h-9 rounded-full bg-zinc-800/10 dark:bg-zinc-100/10 hover:bg-zinc-900 hover:text-zinc-100 dark:hover:bg-zinc-100 dark:hover:text-zinc-900 text-current flex items-center justify-center shadow-sm pointer-events-auto z-10"
                                     title={
@@ -1908,7 +1855,7 @@ export const GridView: React.FC<GridViewProps> = ({
                 className="absolute left-1/2 top-5 -translate-x-1/2 z-[70] text-center flex flex-col items-center select-none cursor-pointer hover:scale-[1.01] active:scale-98 transition-all px-5 py-2 rounded-2xl backdrop-blur-md"
                 style={{
                     backgroundColor: 'color-mix(in srgb, var(--shell-surface) 20%, transparent)',
-                    color: 'var(--shell-text)',
+                    color: 'var(--content-text)',
                 }}
             >
                 <h2 className="text-lg font-bold tracking-tight flex items-center gap-1.5 justify-center">
@@ -1963,7 +1910,7 @@ export const GridView: React.FC<GridViewProps> = ({
                                 backgroundColor: gridViewCardLayout === 'neat'
                                     ? (isDaylight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.12)')
                                     : 'transparent',
-                                color: 'var(--text-primary)',
+                                color: 'var(--content-text)',
                             }}
                             title={t('gridView.layoutNeat') || '整齐布局'}
                         >
@@ -1977,7 +1924,7 @@ export const GridView: React.FC<GridViewProps> = ({
                                 backgroundColor: gridViewCardLayout === 'casual'
                                     ? (isDaylight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.12)')
                                     : 'transparent',
-                                color: 'var(--text-primary)',
+                                color: 'var(--content-text)',
                             }}
                             title={t('gridView.layoutCasual') || '随意布局'}
                         >
@@ -1993,7 +1940,7 @@ export const GridView: React.FC<GridViewProps> = ({
                             backgroundColor: isDaylight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.5)',
                             backdropFilter: 'blur(12px)',
                             borderColor: isDaylight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
-                            color: 'var(--text-primary)',
+                            color: 'var(--content-text)',
                         }}
                         title={t('playlist.viewTracks') || 'View Tracks'}
                     >
@@ -2007,7 +1954,7 @@ export const GridView: React.FC<GridViewProps> = ({
                             backgroundColor: isDaylight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.5)',
                             backdropFilter: 'blur(12px)',
                             borderColor: isDaylight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
-                            color: 'var(--text-primary)',
+                            color: 'var(--content-text)',
                         }}
                         title={t('home.gridSearchPlaceholder') || '搜索歌曲'}
                     >
@@ -2072,7 +2019,7 @@ export const GridView: React.FC<GridViewProps> = ({
                                     }}
                                     placeholder={`${t('home.gridSearchPlaceholder') || 'Filter songs...'} (Esc)`}
                                     className="w-full rounded-full bg-transparent py-3 pl-11 pr-11 text-sm font-medium outline-none placeholder:text-current placeholder:opacity-40"
-                                    style={{ color: 'var(--text-primary)' }}
+                                    style={{ color: 'var(--content-text)' }}
                                 />
                                 <button
                                     type="button"
@@ -2149,11 +2096,14 @@ export const GridView: React.FC<GridViewProps> = ({
                         >
                             {/* Cover Image */}
                             <div className="w-full aspect-square rounded-2xl overflow-hidden shadow-lg mb-4 bg-zinc-800/20 relative shrink-0">
-                                {infoPanelCoverUrl ? (
-                                    <img src={toHttps(infoPanelCoverUrl)} alt={collection.name} className="w-full h-full object-cover select-none pointer-events-none" />
-                                ) : (
-                                    <Disc size={64} className="opacity-20 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-                                )}
+                                <LazyCoverImage
+                                    src={infoPanelCoverUrl ? toHttps(infoPanelCoverUrl) : null}
+                                    alt={collection.name}
+                                    placeholderLabel={collection.name}
+                                    placeholderVariant="playlist"
+                                    sizePx={320}
+                                    className="w-full h-full object-cover select-none pointer-events-none"
+                                />
                                 {showSubscribeButton && (
                                     <button
                                         onClick={(e) => {
@@ -2168,12 +2118,12 @@ export const GridView: React.FC<GridViewProps> = ({
                                         title={playlistSubscribed ? (isNeteaseAlbum ? "取消收藏专辑" : "取消收藏歌单") : (isNeteaseAlbum ? "收藏专辑" : "收藏歌单")}
                                     >
                                         {isSubscribing ? (
-                                            <Loader2 size={18} className="animate-spin opacity-60" style={{ color: 'var(--text-primary)' }} />
+                                            <Loader2 size={18} className="animate-spin opacity-60" style={{ color: 'var(--content-text)' }} />
                                         ) : (
                                             <Star
                                                 size={18}
                                                 className={playlistSubscribed ? "text-yellow-500 fill-yellow-500" : "opacity-60 hover:opacity-100"}
-                                                style={{ color: playlistSubscribed ? undefined : 'var(--text-primary)' }}
+                                                style={{ color: playlistSubscribed ? undefined : 'var(--content-text)' }}
                                             />
                                         )}
                                     </button>
@@ -2194,7 +2144,7 @@ export const GridView: React.FC<GridViewProps> = ({
                                                 }
                                             }}
                                             className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xl font-bold outline-none transition-colors focus:border-sky-400"
-                                            style={{ color: 'var(--text-primary)' }}
+                                            style={{ color: 'var(--content-text)' }}
                                             autoFocus
                                         />
                                     ) : (
@@ -2203,7 +2153,14 @@ export const GridView: React.FC<GridViewProps> = ({
                                     {collection.creator && (
                                         <div className="flex items-center gap-2 mt-2 text-xs opacity-60">
                                             <div className="w-5 h-5 rounded-full overflow-hidden">
-                                                <img src={toHttps(collection.creator.avatarUrl)} alt="avatar" className="w-full h-full object-cover" />
+                                                <LazyCoverImage
+                                                    src={toHttps(collection.creator.avatarUrl)}
+                                                    alt="avatar"
+                                                    placeholderLabel={collection.creator.nickname}
+                                                    placeholderVariant="artist"
+                                                    sizePx={40}
+                                                    className="w-full h-full object-cover"
+                                                />
                                             </div>
                                             <span className="font-semibold">{collection.creator.nickname}</span>
                                         </div>
@@ -2258,7 +2215,7 @@ export const GridView: React.FC<GridViewProps> = ({
                             {/* Buttons Area */}
                             <div
                                 className="space-y-2 mt-4 pt-4 border-t shrink-0"
-                                style={{ borderTopColor: 'color-mix(in srgb, var(--text-primary) 12%, transparent)' }}
+                                style={{ borderTopColor: 'color-mix(in srgb, var(--content-text) 12%, transparent)' }}
                             >
                                 <button
                                     onClick={() => {
@@ -2268,7 +2225,7 @@ export const GridView: React.FC<GridViewProps> = ({
                                     }}
                                     disabled={playableTracks.length === 0}
                                     className="w-full py-3 rounded-full font-bold text-xs transition-transform hover:scale-102 active:scale-98 flex items-center justify-center gap-1.5 shadow-md disabled:opacity-40 disabled:hover:scale-100 cursor-pointer"
-                                    style={{ backgroundColor: 'var(--text-primary)', color: 'var(--bg-color)' }}
+                                    style={{ backgroundColor: 'var(--content-text)', color: 'var(--shell-surface)' }}
                                 >
                                     <Play size={14} fill="currentColor" />
                                     {t('playlist.playAll')}
@@ -2384,7 +2341,7 @@ export const GridView: React.FC<GridViewProps> = ({
                         backgroundColor: isDaylight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.5)',
                         backdropFilter: 'blur(12px)',
                         borderColor: isDaylight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
-                        color: 'var(--text-primary)'
+                        color: 'var(--content-text)'
                     }}
                     title={t('playlist.viewTracks') || 'View Tracks'}
                 >

@@ -9,6 +9,7 @@ import { resolveThemeFontStack } from '../../../utils/fontStacks';
 import { type VisualizerSharedProps } from '../definition';
 import { useVisualizerRuntime } from '../runtime';
 import { colorWithAlpha, mixColors } from '../colorMix';
+import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
 import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { buildWordColorRanges } from '../wordColoring';
@@ -342,8 +343,11 @@ const RingLine: React.FC<RingLineProps> = ({
     const baseFontSize = 72 * lyricsFontScale;
     const fontSpec = `700 ${baseFontSize}px ${fontStack}`;
 
-    const baseColor = useMemo(() => colorWithAlpha(theme.primaryColor, 0.55), [theme.primaryColor]);
-    const highlightColor = theme.accentColor || theme.primaryColor;
+    const baseColor = useMemo(
+        () => colorWithAlpha(theme.primaryColor, LYRIC_LINE_OPACITY.karaokeUnsung),
+        [theme.primaryColor],
+    );
+    const highlightColor = theme.primaryColor;
 
     const isRawScaleRef = useRef(false);
     const normalizePower = useCallback((power: number) => {
@@ -921,7 +925,7 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
                     recentCompletedLine={recentCompletedLine}
                     nextLines={nextLines}
                     theme={theme}
-                    translationFontSize="clamp(1.1rem, 2.2vw, 1.45rem)"
+                    translationFontSize="clamp(1.35rem, 2.8vw, 1.7rem)"
                     upcomingFontSize="clamp(0.95rem, 1.8vw, 1.2rem)"
                     subtitleOverlayOpacity={subtitleOverlayOpacity}
                     hideTranslationSubtitle={hideTranslationSubtitle}

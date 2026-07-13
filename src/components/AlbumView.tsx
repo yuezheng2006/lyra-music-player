@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Play, ChevronLeft, Disc, Loader2, ListPlus, Plus } from 'lucide-react';
+import { Play, ChevronLeft, Loader2, ListPlus, Plus } from 'lucide-react';
 import { SongResult } from '../types';
 import { getSongUnavailableTagText, isSongMarkedUnavailable, neteaseApi } from '../services/netease';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { formatSongName } from '../utils/songNameFormatter';
 import { APP_CONTENT_TOP_OFFSET_CLASS } from './app/home/homeSurfaceStyles';
+import LazyCoverImage from './shared/LazyCoverImage';
 
 interface AlbumViewProps {
     albumId: number;
@@ -136,13 +137,14 @@ const AlbumView: React.FC<AlbumViewProps> = ({ albumId, onBack, onPlaySong, onPl
                             <div
                                 className={`w-48 h-48 md:w-64 md:h-64 rounded-2xl shadow-2xl overflow-hidden mb-6 relative mt-12 md:mt-0 mx-auto md:mx-0 ${placeholderBg} shrink-0`}
                             >
-                                {albumInfo?.picUrl ? (
-                                    <img src={albumInfo.picUrl.replace('http:', 'https:')} alt={albumInfo.name} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-white/5">
-                                        <Disc size={40} className="opacity-20" />
-                                    </div>
-                                )}
+                                <LazyCoverImage
+                                    src={albumInfo?.picUrl?.replace('http:', 'https:')}
+                                    alt={albumInfo?.name}
+                                    placeholderLabel={albumInfo?.name}
+                                    placeholderVariant="playlist"
+                                    sizePx={320}
+                                    className="w-full h-full object-cover"
+                                />
                             </div>
 
                             {/* Scrollable Text Content */}

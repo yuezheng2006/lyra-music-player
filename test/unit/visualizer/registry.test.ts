@@ -5,6 +5,7 @@ import {
     getVisualizerModeLabel,
     getVisualizerRegistryEntry,
     hasVisualizerMode,
+    loadVisualizerRegistryEntry,
 } from '@/components/visualizer/registry';
 
 // test/unit/visualizer/registry.test.ts
@@ -39,7 +40,7 @@ describe('visualizer registry', () => {
     });
 
     it('falls back to classic for an unknown lookup', () => {
-        expect(getVisualizerRegistryEntry('missing-mode').mode).toBe('classic');
+        expect(getVisualizerRegistryEntry('missing-mode' as never).mode).toBe('classic');
     });
 
     it('uses label fallback when the translation key is missing', () => {
@@ -51,5 +52,11 @@ describe('visualizer registry', () => {
     it('does not expose wildfire as a layout mode', () => {
         expect(VISUALIZER_REGISTRY.some(entry => entry.mode === 'dazibao')).toBe(false);
         expect(getVisualizerRegistryEntry('dazibao' as never).mode).toBe('classic');
+    });
+
+    it('lazy-loads a full visualizer entry module', async () => {
+        const entry = await loadVisualizerRegistryEntry('classic');
+        expect(entry.mode).toBe('classic');
+        expect(typeof entry.render).toBe('function');
     });
 });

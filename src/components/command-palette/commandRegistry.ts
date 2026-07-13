@@ -7,6 +7,7 @@ import type {
     CommandPaletteMatch,
     CommandPaletteSearchSource,
 } from './types';
+import { isDiscordPresenceUiEnabled, isNavidromeUiEnabled } from '../../utils/featureFlags';
 
 // src/components/command-palette/commandRegistry.ts
 // Defines command palette entries and the lightweight matching used for autocomplete.
@@ -261,11 +262,55 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
             return true;
         },
     },
+    {
+        id: 'show-shortcuts',
+        group: 'settings',
+        title: 'Show shortcuts',
+        description: 'Open the keyboard shortcuts cheat sheet',
+        keywords: [
+            'shortcuts',
+            'hotkeys',
+            'keyboard',
+            'cheat sheet',
+            '快捷键',
+            '热键',
+            '键盘',
+            'kuaijiejian',
+            'rejian',
+            'kjj',
+        ],
+        execute: (_input, context) => {
+            context.setIsShortcutsCheatSheetOpen(true);
+            return true;
+        },
+    },
+    {
+        id: 'show-onboarding',
+        group: 'settings',
+        title: 'Show onboarding',
+        description: 'Open the first-run getting started wizard',
+        keywords: ['onboarding', 'getting started', 'welcome', '入门', '新手引导', '引导', 'rumen', 'xinshouyindao', 'yindao', 'rm', 'xsyd'],
+        execute: (_input, context) => {
+            context.setIsOnboardingOpen(true);
+            return true;
+        },
+    },
+    {
+        id: 'show-whats-new',
+        group: 'settings',
+        title: "What's new",
+        description: 'Open the latest version highlights',
+        keywords: ['whats new', 'new features', 'changelog', '更新', '新功能', '版本亮点', 'gengxin', 'xingongneng', 'gx', 'xgn'],
+        execute: (_input, context) => {
+            context.setIsWhatsNewOpen(true);
+            return true;
+        },
+    },
     createSettingsCommand('settings-options', 'Open Options', 'Open the options center', ['settings', 'options', '设置', '选项', 'shezhi', 'xuanxiang', 'sz', 'xx'], 'options'),
     createSettingsCommand('settings-appearance', 'Appearance settings', 'Open visual and appearance settings', ['appearance', 'visual settings', '外观', '视觉', 'waiguan', 'shijue', 'wg', 'sj'], 'options', 'appearance'),
     createSettingsCommand('settings-general', 'General settings', 'Open general app preferences', ['general', 'language settings', 'locale', '通用', '语言', 'tongyong', 'yuyan', 'ty', 'yy'], 'options', 'general'),
     createSettingsCommand('settings-playback', 'Playback settings', 'Open playback behavior settings', ['playback settings', 'playback', '播放', '播放设置', 'bofang', 'bofangshezhi', 'bf', 'bfsz'], 'options', 'playback'),
-    createSettingsCommand('settings-integration', 'Integration settings', 'Open music account, Stage, Now Playing, and Navidrome settings', ['integration', 'stage', 'now playing', 'navidrome settings', 'qq music settings', 'qq music cookie', '集成', '连接', 'QQ音乐', 'QQ音乐登录', 'jicheng', 'lianjie', 'qqyinyue', 'qqdenglu', 'jc', 'lj'], 'options', 'integration'),
+    createSettingsCommand('settings-integration', 'Integration settings', 'Open music account, Stage, Now Playing, and provider settings', ['integration', 'stage', 'now playing', 'qq music settings', 'qq music cookie', '集成', '连接', 'QQ音乐', 'QQ音乐登录', 'jicheng', 'lianjie', 'qqyinyue', 'qqdenglu', 'jc', 'lj'], 'options', 'integration'),
     createSettingsCommand('settings-discord-presence', 'Discord playback status', 'Open Discord Rich Presence settings', ['discord', 'rich presence', 'discord presence', 'playing status', '播放状态', 'discord状态', 'discordzhuangtai', 'bofangzhuangtai', 'dc', 'zt'], 'options', 'integration'),
     createSettingsCommand('settings-obs-browser-source', 'OBS browser source', 'Open OBS browser source settings', ['obs', 'browser source', 'live source', '直播源', '浏览器源', 'zhiboyuan', 'liulanqiyuan', 'zby', 'llqy'], 'options', 'integration'),
     createSettingsCommand('settings-storage', 'Storage settings', 'Open cache and storage settings', ['storage', 'cache', '存储', '缓存', 'cunchu', 'huancun', 'cc', 'hc'], 'options', 'storage'),
@@ -773,6 +818,16 @@ export const getCommandPaletteMatches = (
     const normalizedQuery = normalize(query);
 
     const filteredCommands = COMMAND_PALETTE_COMMANDS.filter(command => {
+        if (command.id === 'search-navidrome'
+            || command.id === 'home-navidrome'
+            || command.id === 'panel-navi') {
+            return isNavidromeUiEnabled();
+        }
+
+        if (command.id === 'settings-discord-presence') {
+            return isDiscordPresenceUiEnabled();
+        }
+
         if (command.id === 'settings-desktop') {
             const isWebBrowser = typeof window !== 'undefined';
             const isElectron = isWebBrowser && Boolean((window as any).electron);

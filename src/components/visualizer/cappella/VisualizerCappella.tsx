@@ -1649,7 +1649,7 @@ const VisualizerCappella: React.FC<VisualizerCappellaProps> = (props) => {
                 recentCompletedLine={recentCompletedLine}
                 nextLines={nextLines}
                 theme={theme}
-                translationFontSize={`${Math.max(14, 16 * lyricsFontScale)}px`}
+                translationFontSize={`${Math.max(17, 20 * lyricsFontScale)}px`}
                 upcomingFontSize={`${Math.max(12, 14 * lyricsFontScale)}px`}
                 subtitleOverlayOpacity={subtitleOverlayOpacity}
                 isPlayerChromeHidden={isPlayerChromeHidden}

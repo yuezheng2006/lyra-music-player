@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Play, ChevronLeft, Disc, Loader2, Pencil, ListPlus, Plus } from 'lucide-react';
+import { Play, ChevronLeft, Loader2, Pencil, ListPlus, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { SubsonicAlbum, SubsonicSong, NavidromeSong, NavidromeConfig } from '../../types/navidrome';
@@ -7,6 +7,7 @@ import { navidromeApi } from '../../services/navidromeService';
 import { Theme } from '../../types';
 import PlaylistSelectionDialog from '../shared/PlaylistSelectionDialog';
 import TextInputDialog from '../shared/TextInputDialog';
+import LazyCoverImage from '../shared/LazyCoverImage';
 
 interface NavidromeAlbumViewProps {
     album: SubsonicAlbum;
@@ -134,11 +135,14 @@ const NavidromeAlbumView: React.FC<NavidromeAlbumViewProps> = ({
                 <div className="w-full md:w-[400px] p-8 md:p-12 flex flex-col items-center md:items-start relative shrink-0 md:h-full md:overflow-y-auto custom-scrollbar">
                     {/* Album Art */}
                     <div className="w-48 h-48 md:w-64 md:h-64 rounded-2xl shadow-2xl overflow-hidden mb-6 relative mt-12 md:mt-0 mx-auto md:mx-0 bg-zinc-800 flex items-center justify-center">
-                        {coverUrl ? (
-                            <img src={coverUrl} alt={album.name} className="w-full h-full object-cover" />
-                        ) : (
-                            <Disc size={64} className="opacity-20" />
-                        )}
+                        <LazyCoverImage
+                            src={coverUrl}
+                            alt={album.name}
+                            placeholderLabel={album.name}
+                            placeholderVariant="playlist"
+                            sizePx={320}
+                            className="w-full h-full object-cover"
+                        />
                     </div>
 
                     <div className="text-center md:text-left space-y-2 w-full mb-6">

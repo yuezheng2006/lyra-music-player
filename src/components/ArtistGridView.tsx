@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useMotionValue, animate, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Disc, Loader2 } from 'lucide-react';
+import { ChevronLeft, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SongResult, Theme } from '../types';
 import { LocalSong } from '../types';
@@ -11,6 +11,7 @@ import { createCoverPlaceholder } from '../utils/coverPlaceholders';
 import { getSizedCoverUrl } from '../utils/coverUrl';
 import { getBlobObjectUrlSignature, isBlob } from '../utils/blobGuards';
 import { PolaroidCard } from './GridView';
+import LazyCoverImage from './shared/LazyCoverImage';
 import { HexGridCoord, CubeCoord, getHexCubicSpiral } from './folia-grid/hexViewport';
 import { useFoliaHexViewport } from './folia-grid/useFoliaHexViewport';
 import { APP_CONTENT_TOP_PADDING_CLASS, resolveShellSurfaceBackgroundStyle } from './app/home/homeSurfaceStyles';
@@ -805,13 +806,14 @@ const ArtistGridView: React.FC<ArtistGridViewProps> = ({
                                 backgroundColor: 'color-mix(in srgb, var(--bg-color) 20%, transparent)',
                             }}
                         >
-                            {item.coverUrl ? (
-                                <img src={item.coverUrl} alt="avatar" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-white/5">
-                                    <Disc size={48} className="opacity-20 animate-spin" style={{ animationDuration: '4s' }} />
-                                </div>
-                            )}
+                            <LazyCoverImage
+                                src={item.coverUrl}
+                                alt={typeof item.name === 'string' ? item.name : 'avatar'}
+                                placeholderLabel={typeof item.name === 'string' ? item.name : ''}
+                                placeholderVariant="artist"
+                                sizePx={Math.round(layoutConfig.avatarSize || 240)}
+                                className="w-full h-full object-cover"
+                            />
                         </div>
                     </div>
                 );

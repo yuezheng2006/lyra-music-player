@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import VisualizerRenderer from '@/components/visualizer/VisualizerRenderer';
@@ -11,6 +11,9 @@ import ThemeQuickEditorHost from '@/components/panelTab/ThemeQuickEditor';
 import AppDialogs from '@/components/app/dialogs/AppDialogs';
 import AppOverlays from '@/components/app/overlays/AppOverlays';
 import { UserGuideModal } from '@/components/modal/UserGuideModal';
+import { ShortcutsCheatSheet } from '@/components/shortcuts/ShortcutsCheatSheet';
+import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
+import { WhatsNewModal } from '@/components/onboarding/WhatsNewModal';
 import { ObsBrowserSourceLyrics } from '@/components/obs/ObsBrowserSourceLyrics';
 import { resolvePlayerGeometricBackgroundDisabled } from '@/components/visualizer/resolveInteractive3dFumeLayering';
 import { resolveFloatingPlayerBarReserve } from '@/components/floatingPlayerDockLayout';
@@ -18,10 +21,13 @@ import { VISUALIZER_SUBTITLE_PORTAL_ROOT_ID } from '@/components/visualizer/visu
 import type { AppControllerResult } from '@/hooks/useAppController';
 import { AppAudioElement } from '@/components/app/root/AppAudioElement';
 import { useAppSidebarCollapse } from '@/hooks/useAppSidebarCollapse';
+import { resolveSidebarLayout } from '@/hooks/resolveSidebarLayout';
 import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
 import { useDailyRecommendStore } from '@/stores/useDailyRecommendStore';
+import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
 import type { AppSidebarActive } from '@/components/app/chrome/AppSidebar';
 import { useCoverShellTheme } from '@/hooks/useCoverShellTheme';
+import { useBootSplashLifecycle } from '@/hooks/useBootSplashLifecycle';
 
 interface AppRootViewProps {
     controller: AppControllerResult;
@@ -32,6 +38,33 @@ export function AppRootView({ controller }: AppRootViewProps) {
     const homeViewTab = useSearchNavigationStore(state => state.homeViewTab);
     const setHomeViewTab = useSearchNavigationStore(state => state.setHomeViewTab);
     const preloadDailyRecommend = useDailyRecommendStore(state => state.preload);
+    const isOnboardingOpen = useSettingsUiStore(state => state.isOnboardingOpen);
+    const isWhatsNewOpen = useSettingsUiStore(state => state.isWhatsNewOpen);
+    const setIsOnboardingOpen = useSettingsUiStore(state => state.setIsOnboardingOpen);
+    const setIsWhatsNewOpen = useSettingsUiStore(state => state.setIsWhatsNewOpen);
+    const completeOnboarding = useSettingsUiStore(state => state.completeOnboarding);
+    const markWhatsNewSeen = useSettingsUiStore(state => state.markWhatsNewSeen);
+    const [bootShellReady, setBootShellReady] = useState(false);
+
+    // Mark shell ready after first commit + paint so splash doesn't uncover black.
+    useEffect(() => {
+        let outer = 0;
+        let inner = 0;
+        outer = window.requestAnimationFrame(() => {
+            inner = window.requestAnimationFrame(() => {
+                setBootShellReady(true);
+            });
+        });
+        return () => {
+            window.cancelAnimationFrame(outer);
+            window.cancelAnimationFrame(inner);
+        };
+    }, []);
+
+    useBootSplashLifecycle({
+        ready: bootShellReady,
+        statusText: t('boot.preparingUi'),
+    });
 
     // Warm daily recommend in the background so opening the tab feels instant.
     useEffect(() => {
@@ -107,6 +140,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
         navigateDirectHome,
         navigateToPlayer,
         openSettings,
+        navidromeEnabled,
         nowPlayingConnectionStatus,
         partitaTuning,
         pendingResumeTimeRef,
@@ -150,13 +184,35 @@ export function AppRootView({ controller }: AppRootViewProps) {
     } = controller;
     const shellTheme = useCoverShellTheme(getCoverUrl(), isDaylight);
 
-    // Immersive fullscreen: player canvas only — hide sidebar + docked bar.
+    // Immersive fullscreen hides the rail temporarily; user collapse preference stays independent.
     const immersiveCanvas = currentView === 'player' && isPlayerChromeHidden;
-    const { collapsed: sidebarCollapsed, toggleCollapsed } = useAppSidebarCollapse({
-        forceCollapsed: immersiveCanvas,
+    const { userCollapsed, toggleCollapsed, setCollapsed } = useAppSidebarCollapse();
+    const sidebarCollapsedBeforeImmersiveRef = useRef<boolean | null>(null);
+    const sidebarLayout = resolveSidebarLayout({
+        immersiveCanvas,
+        userCollapsed,
     });
     const playerBarHeight = resolveFloatingPlayerBarReserve(immersiveCanvas);
-    const sidebarWidth = immersiveCanvas || sidebarCollapsed ? '0px' : '220px';
+    const sidebarWidth = sidebarLayout.width;
+
+    // Snapshot / restore user collapse across immersive enter-exit so fullscreen never force-expands the rail.
+    useEffect(() => {
+        if (immersiveCanvas) {
+            if (sidebarCollapsedBeforeImmersiveRef.current === null) {
+                sidebarCollapsedBeforeImmersiveRef.current = userCollapsed;
+            }
+            return;
+        }
+
+        const snapshot = sidebarCollapsedBeforeImmersiveRef.current;
+        if (snapshot === null) {
+            return;
+        }
+        sidebarCollapsedBeforeImmersiveRef.current = null;
+        if (snapshot !== userCollapsed) {
+            setCollapsed(snapshot);
+        }
+    }, [immersiveCanvas, setCollapsed, userCollapsed]);
 
     return (
         <AppShell
@@ -206,36 +262,51 @@ export function AppRootView({ controller }: AppRootViewProps) {
             />}
         >
             <div className="relative flex min-h-0 flex-1 w-full">
-                {!immersiveCanvas ? (
-                    <AppSidebar
-                        active={((): AppSidebarActive => {
-                            if (homeViewTab === 'daily') return 'daily';
-                            if (homeViewTab === 'podcast') return 'podcast';
-                            if (homeViewTab === 'local') return 'local';
-                            return 'home';
-                        })()}
-                        isDaylight={isDaylight}
-                        collapsed={sidebarCollapsed}
-                        onToggleCollapsed={toggleCollapsed}
-                        onOpenHome={() => {
-                            setHomeViewTab('playlist');
-                            navigateDirectHome();
-                        }}
-                        onOpenDaily={() => {
-                            setHomeViewTab('daily');
-                            navigateDirectHome({ clearContext: false });
-                        }}
-                        onOpenPodcast={() => {
-                            setHomeViewTab('podcast');
-                            navigateDirectHome({ clearContext: false });
-                        }}
-                        onOpenLocal={() => {
-                            setHomeViewTab('local');
-                            navigateDirectHome({ clearContext: false });
-                        }}
-                        onOpenSettings={() => openSettings('options')}
-                    />
-                ) : null}
+                <AppSidebar
+                    active={((): AppSidebarActive => {
+                        if (homeViewTab === 'daily') return 'daily';
+                        if (homeViewTab === 'podcast') return 'podcast';
+                        if (homeViewTab === 'local') return 'local';
+                        if (homeViewTab === 'navidrome' && navidromeEnabled) return 'navidrome';
+                        if (homeViewTab === 'ytmusic') return 'ytmusic';
+                        if (homeViewTab === 'history') return 'history';
+                        return 'home';
+                    })()}
+                    isDaylight={isDaylight}
+                    collapsed={sidebarLayout.collapsed}
+                    forceHidden={sidebarLayout.forceHidden}
+                    navidromeEnabled={navidromeEnabled}
+                    onToggleCollapsed={toggleCollapsed}
+                    onOpenHome={() => {
+                        setHomeViewTab('playlist');
+                        navigateDirectHome();
+                    }}
+                    onOpenDaily={() => {
+                        setHomeViewTab('daily');
+                        navigateDirectHome({ clearContext: false });
+                    }}
+                    onOpenPodcast={() => {
+                        setHomeViewTab('podcast');
+                        navigateDirectHome({ clearContext: false });
+                    }}
+                    onOpenLocal={() => {
+                        setHomeViewTab('local');
+                        navigateDirectHome({ clearContext: false });
+                    }}
+                    onOpenNavidrome={() => {
+                        setHomeViewTab('navidrome');
+                        navigateDirectHome({ clearContext: false });
+                    }}
+                    onOpenYtmusic={() => {
+                        setHomeViewTab('ytmusic');
+                        navigateDirectHome({ clearContext: false });
+                    }}
+                    onOpenHistory={() => {
+                        setHomeViewTab('history');
+                        navigateDirectHome({ clearContext: false });
+                    }}
+                    onOpenSettings={() => openSettings('options')}
+                />
 
                 <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
             {/* Home Mount Point */}
@@ -414,6 +485,62 @@ export function AppRootView({ controller }: AppRootViewProps) {
 
             <AppDialogs model={appDialogsModel} />
             <UserGuideModal theme={theme} />
+            <ShortcutsCheatSheet />
+            <OnboardingWizard
+                isOpen={isOnboardingOpen}
+                onClose={() => {
+                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+                    completeOnboarding(appVersion);
+                }}
+                onComplete={() => {
+                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+                    completeOnboarding(appVersion);
+                }}
+                onConnectNetease={() => {
+                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+                    completeOnboarding(appVersion);
+                    openSettings('options', 'integration');
+                }}
+                onConnectQQ={() => {
+                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+                    completeOnboarding(appVersion);
+                    openSettings('options', 'integration');
+                }}
+                onOpenLocal={() => {
+                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+                    completeOnboarding(appVersion);
+                    setHomeViewTab('local');
+                }}
+                onOpenNavidrome={() => {
+                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+                    completeOnboarding(appVersion);
+                    if (navidromeEnabled) {
+                        setHomeViewTab('navidrome');
+                        navigateDirectHome({ clearContext: false });
+                        return;
+                    }
+                    openSettings('options', 'integration');
+                }}
+                onOpenDailyRecommend={() => {
+                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+                    completeOnboarding(appVersion);
+                    setHomeViewTab('daily');
+                }}
+                onOpenPlayer={() => {
+                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+                    completeOnboarding(appVersion);
+                    navigateToPlayer();
+                }}
+            />
+            <WhatsNewModal
+                isOpen={isWhatsNewOpen}
+                isDaylight={isDaylight}
+                onClose={() => {
+                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
+                    markWhatsNewSeen(appVersion);
+                    setIsWhatsNewOpen(false);
+                }}
+            />
         </AppShell>
     );
 }

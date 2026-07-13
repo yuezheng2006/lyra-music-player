@@ -82,6 +82,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         handleSetInteractive3dSceneTuning,
         visualizerMode,
         handleSetVisualizerMode,
+        onApplyLyricBodyColor,
         onApplyLyricColorPreset,
         t,
         settingsModalState,
@@ -236,6 +237,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         onInteractive3dSceneTuningChange: handleSetInteractive3dSceneTuning,
         visualizerMode,
         onVisualizerModeChange: handleSetVisualizerMode,
+        onApplyLyricBodyColor,
         onApplyLyricColorPreset,
         backgroundMenuLabel: t('player.backgroundMenu') || t('ui.playerPageBackground') || 'Background',
         backgroundModeInteractive3dLabel: t('options.visualizerBackgroundModeInteractive3d') || '3D',
@@ -320,6 +322,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         handleSetInteractive3dSceneTuning,
         visualizerMode,
         handleSetVisualizerMode,
+        onApplyLyricBodyColor,
         onApplyLyricColorPreset,
     ]);
 

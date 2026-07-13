@@ -9,7 +9,16 @@ import {
     DEFAULT_LYRIC_VISUAL_EFFECT_INTENSITY,
     generateIntenseGlow,
     getRecommendedEffectConfig,
+    buildLyricActiveStrokeOrNone,
+    buildLyricHighlightStroke,
+    buildLyricKaraokeOutlineLayers,
+    buildLyricKaraokeOutlinePair,
+    buildLyricOutlineDropShadowFilter,
+    buildLyricStageStroke,
     parseLyricVisualEffectIntensity,
+    resolveLyricContrastStrokeColor,
+    resolveLyricOutlineWidthPx,
+    resolveLyricRimScale,
 } from '@/utils/lyricVisualEffects';
 
 // test/unit/theme/lyricVisualEffects.test.ts
@@ -38,14 +47,54 @@ describe('lyricVisualEffects', () => {
         expect(rgbaGlow).not.toMatch(/rgba\(255, 51, 102, 0\.8,/);
     });
 
-    it('enables stroke and keeps soft glow off for recommended configs', () => {
+    it('always enables fine stroke and keeps soft glow off for recommended configs', () => {
         const strong = getRecommendedEffectConfig(false, true, 'strong');
         expect(strong.enable3D).toBe(false);
         expect(strong.enableIntenseGlow).toBe(false);
         expect(strong.enableStroke).toBe(true);
         expect(strong.intensity).toBe('strong');
 
+        const subtle = getRecommendedEffectConfig(false, false, 'subtle');
+        expect(subtle.enableStroke).toBe(true);
+
         const combined = combineShadowEffects('#111111', '#ff3366', strong);
         expect(combined).toContain('0 1px 0');
+    });
+
+    it('keeps stage stroke fine relative to previous thick outline', () => {
+        expect(buildLyricStageStroke('strong').WebkitTextStroke).toMatch(/^0\.038em /);
+        expect(buildLyricStageStroke('subtle').WebkitTextStroke).toMatch(/^0\.024em /);
+    });
+
+    it('builds karaoke 色字白边 outline (white rim on chromatic fills)', () => {
+        expect(resolveLyricContrastStrokeColor('#ff3b30')).toBe('#ffffff');
+        expect(resolveLyricContrastStrokeColor('#ffe566')).toBe('#ffffff');
+        expect(resolveLyricContrastStrokeColor('#111111')).toBe('#ffffff');
+        expect(resolveLyricContrastStrokeColor('#ffffff')).toContain('24, 18, 12');
+
+        const pair = buildLyricKaraokeOutlinePair('strong', '#ff3b30');
+        expect(pair.outline.color).toBe('#ffffff');
+        expect(pair.outline.WebkitTextStroke).toMatch(/^0\.11em /);
+        expect(pair.outline.textShadow).toContain('#ffffff');
+        expect(pair.fill.color).toBe('#ff3b30');
+        expect(pair.fill.WebkitTextStroke).toBe('0');
+
+        const highlight = buildLyricHighlightStroke('strong', '#ff3b30');
+        expect(highlight.WebkitTextStroke).toMatch(/^0\.11em #ffffff/);
+        expect(buildLyricActiveStrokeOrNone(false, 'strong', '#fff').WebkitTextStroke).toBe('0');
+        expect(buildLyricActiveStrokeOrNone(true, 'strong', '#b91c1c').WebkitTextStroke).toMatch(/^0\.11em #ffffff/);
+
+        const drop = buildLyricOutlineDropShadowFilter('#ffffff', 6);
+        expect(drop).toContain('drop-shadow(');
+        expect(drop).toContain('#ffffff');
+        expect(drop.split('drop-shadow').length).toBeGreaterThan(8);
+
+        const layers = buildLyricKaraokeOutlineLayers('#ff3b30', 64, 'strong');
+        expect(layers.rimColor).toBe('#ffffff');
+        expect(layers.rimScale).toBe(resolveLyricRimScale('strong'));
+        expect(layers.rimScale).toBeGreaterThan(1.1);
+        expect(layers.rimTextShadow).toContain('#ffffff');
+        expect(layers.fillFilter).toContain('drop-shadow(');
+        expect(resolveLyricOutlineWidthPx(64, 'strong')).toBeGreaterThanOrEqual(4);
     });
 });

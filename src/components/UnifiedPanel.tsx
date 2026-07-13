@@ -16,6 +16,8 @@ import TextInputDialog from './shared/TextInputDialog';
 import type { OnlineLyricsState } from '../types';
 import type { ThemeSourceModel } from '../hooks/themeControllerState';
 import type { LyricColorPresetId } from '../utils/theme/lyricColorPresets';
+import { isNavidromeUiEnabled } from '../utils/featureFlags';
+import LazyCoverImage from './shared/LazyCoverImage';
 
 export type PanelTab = 'cover' | 'controls' | 'queue' | 'account' | 'local' | 'navi' | 'onlineLyrics';
 
@@ -90,6 +92,7 @@ type UnifiedPanelPlaybackProps = {
     onToggleEnableSmartAtmosphere?: (enabled: boolean) => void;
     onToggleDisableVisualizerVignette?: (disabled: boolean) => void;
     onOpenAdvancedBackgroundSettings?: () => void;
+    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
 };
 
@@ -219,6 +222,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
         onToggleEnableSmartAtmosphere,
         onToggleDisableVisualizerVignette,
         onOpenAdvancedBackgroundSettings,
+        onApplyLyricBodyColor,
         onApplyLyricColorPreset,
     } = playback;
     const { playQueue, onPlaySong, onAddSongs, queueScrollRef, onShuffle } = queue;
@@ -261,8 +265,9 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
 
     const isStage = isStageContext || Boolean(currentSong && (currentSong as any).isStage === true);
     const isNavidrome = currentSong && (currentSong as any).isNavidrome === true;
-    const isLocal = currentSong && !isNavidrome && (((currentSong as any).isLocal === true) || Boolean((currentSong as any).localData));
-    const isNetease = Boolean(currentSong && !isLocal && !isNavidrome && !isStage);
+    const isYtm = currentSong && (currentSong as any).isYtm === true;
+    const isLocal = currentSong && !isNavidrome && !isYtm && (((currentSong as any).isLocal === true) || Boolean((currentSong as any).localData));
+    const isNetease = Boolean(currentSong && !isLocal && !isNavidrome && !isYtm && !isStage);
     const canCreateLocalPlaylist = isLocal;
     const canCreateNavidromePlaylist = isNavidrome;
     const canAddCurrentSongToPlaylist =
@@ -342,7 +347,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
 
     if (isLocal) {
         tabs.splice(1, 0, { id: 'local' as PanelTab, label: t('localMusic.folder'), icon: FileAudio });
-    } else if (isNavidrome) {
+    } else if (isNavidrome && isNavidromeUiEnabled()) {
         tabs.splice(1, 0, { id: 'navi' as PanelTab, label: 'Navidrome', icon: Cloud });
     } else if (isNetease) {
         tabs.splice(1, 0, { id: 'onlineLyrics' as PanelTab, label: t('localMusic.lyrics'), icon: FileText });
@@ -690,11 +695,14 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                             : 'h-[72px] rounded-xl'
                                     }`}
                                 >
-                                    {coverUrl ? (
-                                        <img src={coverUrl} alt="Art" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <Disc size={isCompactCover ? 22 : 40} className="text-white/20" />
-                                    )}
+                                    <LazyCoverImage
+                                        src={coverUrl}
+                                        alt="Art"
+                                        placeholderLabel={currentSong?.name}
+                                        placeholderArtist={(currentSong?.ar || currentSong?.artists || []).map(a => a.name).join(', ')}
+                                        sizePx={currentTab === 'cover' ? 480 : 144}
+                                        className="w-full h-full object-cover"
+                                    />
 
                                     <div className={`absolute inset-0 pointer-events-none transition-opacity duration-200 ${
                                         supportsHover
@@ -856,6 +864,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                             onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere}
                                             onToggleDisableVisualizerVignette={onToggleDisableVisualizerVignette}
                                             onOpenAdvancedBackgroundSettings={onOpenAdvancedBackgroundSettings}
+                                            onApplyLyricBodyColor={onApplyLyricBodyColor}
                                             onApplyLyricColorPreset={onApplyLyricColorPreset}
                                         />
                                     )}

@@ -13,7 +13,7 @@ import { FreeSourceNotice } from './shared/FreeSourceNotice';
 import { SearchClearButton } from './shared/SearchClearButton';
 import { SearchShortcutChips } from './shared/SearchShortcutChips';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
-import { createSongCoverPlaceholder } from '../utils/coverPlaceholders';
+import LazyCoverImage from './shared/LazyCoverImage';
 import {
     getOnlineSearchShortcutGroups,
     isSearchShortcutProvider,
@@ -60,23 +60,18 @@ const SearchResultCover: React.FC<{ track: UnifiedSong }> = ({ track }) => {
     useEffect(() => {
         let objectUrl: string | undefined;
 
-        const artistLabel = track.ar?.map(a => a.name).filter(Boolean).join(', ')
-            || track.artists?.map(a => a.name).filter(Boolean).join(', ')
-            || '';
-        const fallback = createSongCoverPlaceholder(track.name, artistLabel);
-
         if (track.isLocal && track.localData) {
             const localSong = track.localData;
             if (localSong.useOnlineCover !== false && localSong.matchedCoverUrl) {
-                setSrc(toSafeRemoteUrl(localSong.matchedCoverUrl) || fallback);
+                setSrc(toSafeRemoteUrl(localSong.matchedCoverUrl));
             } else if (isBlob(localSong.embeddedCover)) {
                 objectUrl = URL.createObjectURL(localSong.embeddedCover);
                 setSrc(objectUrl);
             } else {
-                setSrc(fallback);
+                setSrc(undefined);
             }
         } else {
-            setSrc(toSafeRemoteUrl(track.al?.picUrl || track.album?.picUrl) || fallback);
+            setSrc(toSafeRemoteUrl(track.al?.picUrl || track.album?.picUrl));
         }
 
         return () => {
@@ -84,7 +79,19 @@ const SearchResultCover: React.FC<{ track: UnifiedSong }> = ({ track }) => {
         };
     }, [track]);
 
-    return <img src={src || createSongCoverPlaceholder(track.name)} className="w-full h-full object-cover" loading="lazy" alt="" />;
+    const artistLabel = track.ar?.map(a => a.name).filter(Boolean).join(', ')
+        || track.artists?.map(a => a.name).filter(Boolean).join(', ')
+        || '';
+
+    return (
+        <LazyCoverImage
+            src={src}
+            placeholderLabel={track.name}
+            placeholderArtist={artistLabel}
+            sizePx={80}
+            className="w-full h-full object-cover"
+        />
+    );
 };
 
 const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({

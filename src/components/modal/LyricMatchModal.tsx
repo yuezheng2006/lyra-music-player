@@ -20,6 +20,7 @@ import {
 } from './lyricMatchResultHelpers';
 import { LyricPreviewPanel } from './LyricPreviewPanel';
 import { SearchClearButton } from '../shared/SearchClearButton';
+import LazyCoverImage from '../shared/LazyCoverImage';
 
 interface LyricMatchModalProps {
     song: LocalSong;
@@ -415,17 +416,14 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                                                     }`}
                                             >
                                                 <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0">
-                                                    {resultCoverUrl ? (
-                                                        <img
-                                                            src={resultCoverUrl}
-                                                            alt={result.name}
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center">
-                                                            <Music size={16} className="opacity-20" />
-                                                        </div>
-                                                    )}
+                                                    <LazyCoverImage
+                                                        src={resultCoverUrl}
+                                                        alt={result.name}
+                                                        placeholderLabel={result.name}
+                                                        placeholderArtist={resultArtists}
+                                                        sizePx={80}
+                                                        className="w-full h-full object-cover"
+                                                    />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
@@ -455,17 +453,13 @@ const LyricMatchModal: React.FC<LyricMatchModalProps> = ({ song, onClose, onMatc
                         <div className="flex flex-col items-center justify-start w-full flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                             {/* Cover Image */}
                             <div className="w-32 h-32 min-h-[64px] rounded-2xl overflow-hidden bg-zinc-800 shadow-md flex-shrink transition-all duration-300">
-                                {previewCoverUrl ? (
-                                    <img
-                                        src={previewCoverUrl}
-                                        alt="Cover"
-                                        className="w-full h-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                        <Music size={28} className="opacity-10" />
-                                    </div>
-                                )}
+                                <LazyCoverImage
+                                    src={previewCoverUrl}
+                                    alt="Cover"
+                                    placeholderLabel={selectedResult?.name || song.title || song.fileName}
+                                    sizePx={256}
+                                    className="w-full h-full object-cover"
+                                />
                             </div>
 
                             {/* Toggle Buttons in a single row */}

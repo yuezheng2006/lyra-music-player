@@ -23,6 +23,7 @@ import { FALLBACK_AI_DUAL_THEME, sanitizeDualTheme, sanitizeTheme } from '../ser
 import { extractColors } from '../utils/colorExtractor';
 import { withDerivedAtmosphereHints } from '../utils/atmosphere/deriveAtmosphereThemeHints';
 import { isPureMusicLyricText } from '../utils/lyrics/pureMusic';
+import { applyStoredLyricColorPresetToDualTheme } from '../utils/theme/lyricColorPresets';
 import {
     buildThemeSourceModel,
     buildBuiltinDualTheme,
@@ -415,19 +416,20 @@ export function useThemeController({
 
     /**
      * Apply lyric-color preset onto the current theme source.
-     * Does not pretend to be a full theme switch: no atmosphere bridge, simple status copy.
+     * Silent by default — matches font / intensity pickers (no toast).
+     * Pass `statusText` only when an explicit confirmation toast is required.
      */
     const saveLyricColorDualTheme = (
         dualTheme: DualTheme,
         songKey?: ThemeCacheSongKey | null,
-        statusText?: string,
+        statusText?: string | null,
     ) => {
-        const toast = statusText || '已切换歌词颜色';
-
         if (bgMode === 'custom') {
             const sanitized = applyStoredAnimationIntensityToDualTheme(sanitizeCustomDualTheme(dualTheme));
             setCustomTheme(sanitized);
-            setStatusMsg({ type: 'success', text: toast });
+            if (statusText) {
+                setStatusMsg({ type: 'success', text: statusText });
+            }
             return sanitized;
         }
 
@@ -441,7 +443,9 @@ export function useThemeController({
         if (songKey != null) {
             void saveToCache(`dual_theme_${songKey}`, sanitized);
         }
-        setStatusMsg({ type: 'success', text: toast });
+        if (statusText) {
+            setStatusMsg({ type: 'success', text: statusText });
+        }
         return sanitized;
     };
 
@@ -589,8 +593,10 @@ export function useThemeController({
                 isPureMusic,
                 songTitle: songTitle || undefined,
             });
-            const normalizedDualTheme = withDerivedAtmosphereHints(
-                applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme)),
+            const normalizedDualTheme = applyStoredLyricColorPresetToDualTheme(
+                withDerivedAtmosphereHints(
+                    applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme)),
+                ),
             );
             if (currentSong) {
                 await saveToCache(`dual_theme_${currentSong.id}`, normalizedDualTheme);
@@ -617,8 +623,10 @@ export function useThemeController({
             const shouldApply = options.shouldApply?.() ?? true;
             if (isMissingAiApiKeyError(error)) {
                 const coverColors = coverUrl ? await extractColors(coverUrl, 5) : [];
-                const fallbackTheme = withDerivedAtmosphereHints(
-                    applyStoredAnimationIntensityToDualTheme(buildBuiltinDualTheme({ coverColors })),
+                const fallbackTheme = applyStoredLyricColorPresetToDualTheme(
+                    withDerivedAtmosphereHints(
+                        applyStoredAnimationIntensityToDualTheme(buildBuiltinDualTheme({ coverColors })),
+                    ),
                 );
 
                 if (currentSong) {

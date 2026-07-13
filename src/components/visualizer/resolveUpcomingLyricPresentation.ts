@@ -14,7 +14,7 @@ const LIGHT_OVERLAY_FILL = '#f8fafc';
 
 /** Builds a dual-halo shadow readable on both bright chrome and dark particle fields. */
 const buildOverlayTextShadow = (theme: Theme) => {
-    const accentGlow = colorWithAlpha(theme.accentColor || '#fbbf24', 0.42);
+    const bodyGlow = colorWithAlpha(theme.primaryColor || '#f8fafc', 0.42);
     const darkHalo = colorWithAlpha('#000000', 0.9);
     const midHalo = colorWithAlpha('#000000', 0.68);
     const lightHalo = colorWithAlpha('#ffffff', 0.46);
@@ -25,7 +25,7 @@ const buildOverlayTextShadow = (theme: Theme) => {
         `0 2px 8px ${midHalo}`,
         `0 0 14px ${midHalo}`,
         `0 0 6px ${lightHalo}`,
-        `0 0 18px ${accentGlow}`,
+        `0 0 18px ${bodyGlow}`,
     ].join(', ');
 };
 
@@ -35,11 +35,11 @@ export const resolveUpcomingLyricPresentation = (
     subtitleOverlayOpacity = 0.6,
 ): UpcomingLyricPresentation => {
     const lineOpacity = Math.max(0.88, Math.min(1, subtitleOverlayOpacity + 0.32));
-    const accentTint = theme.accentColor;
+    const bodyTint = theme.primaryColor;
     const color = mixColors(
         LIGHT_OVERLAY_FILL,
-        accentTint || LIGHT_OVERLAY_FILL,
-        accentTint ? 0.14 : 0,
+        bodyTint || LIGHT_OVERLAY_FILL,
+        bodyTint ? 0.14 : 0,
         0.94,
     );
 
@@ -50,16 +50,37 @@ export const resolveUpcomingLyricPresentation = (
     };
 };
 
-/** Reuses overlay contrast rules for translation subtitles rendered in the same slot. */
+export interface BottomSubtitlePresentation {
+    color: string;
+    textShadow: string;
+    opacity: number;
+    letterSpacing: string;
+    fontWeight: number;
+    accentRuleColor: string;
+}
+
+/**
+ * Translation caption styling: same body hue as lyrics, full opacity for bilingual caption.
+ */
 export const resolveVisualizerBottomSubtitlePresentation = (
     theme: Theme,
     subtitleOverlayOpacity = 0.6,
-) => {
+): BottomSubtitlePresentation => {
     const upcomingPresentation = resolveUpcomingLyricPresentation(theme, subtitleOverlayOpacity);
+    const bodyTint = theme.primaryColor;
+    const color = mixColors(
+        LIGHT_OVERLAY_FILL,
+        bodyTint || LIGHT_OVERLAY_FILL,
+        bodyTint ? 0.32 : 0,
+        0.96,
+    );
 
     return {
-        color: upcomingPresentation.color,
+        color,
         textShadow: upcomingPresentation.textShadow,
-        opacity: Math.max(0.86, Math.min(1, subtitleOverlayOpacity + 0.18)),
+        opacity: 1,
+        letterSpacing: '0.08em',
+        fontWeight: 600,
+        accentRuleColor: colorWithAlpha(bodyTint || LIGHT_OVERLAY_FILL, 0.72),
     };
 };

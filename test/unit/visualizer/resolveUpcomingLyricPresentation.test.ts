@@ -49,12 +49,15 @@ describe('resolveUpcomingLyricPresentation', () => {
 });
 
 describe('resolveVisualizerBottomSubtitlePresentation', () => {
-    it('reuses overlay contrast styling for translation subtitles', () => {
+    it('styles translation as a high-presence caption with accent emphasis', () => {
         const presentation = resolveVisualizerBottomSubtitlePresentation(DAYLIGHT_THEME as never, 0.4);
 
-        expect(presentation.opacity).toBeGreaterThanOrEqual(0.86);
-        expect(estimateLuminance(presentation.color)).toBeGreaterThan(0.72);
+        expect(presentation.opacity).toBe(1);
+        expect(presentation.fontWeight).toBe(600);
+        expect(presentation.letterSpacing).toBe('0.08em');
+        expect(estimateLuminance(presentation.color)).toBeGreaterThan(0.55);
         expect(presentation.textShadow).toContain('0 0 14px');
+        expect(presentation.accentRuleColor).toMatch(/rgba?\(/);
     });
 });
 

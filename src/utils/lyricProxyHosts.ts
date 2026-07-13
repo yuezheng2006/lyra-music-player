@@ -19,6 +19,12 @@ export function isAllowedLyricProxyHost(hostname: string): boolean {
     host.endsWith('.douyinpic.com') ||
     host === 'byteimg.com' ||
     host.endsWith('.byteimg.com') ||
+    host === 'ytimg.com' ||
+    host.endsWith('.ytimg.com') ||
+    host === 'googleusercontent.com' ||
+    host.endsWith('.googleusercontent.com') ||
+    host === 'ggpht.com' ||
+    host.endsWith('.ggpht.com') ||
     host === 'amll-ttml-db.stevexmh.net'
   );
 }
@@ -52,6 +58,16 @@ export function resolveCoverProxyReferer(url: string): string {
       || host.endsWith('.byteimg.com')
     ) {
       return 'https://qishui.douyin.com/';
+    }
+    if (
+      host === 'ytimg.com'
+      || host.endsWith('.ytimg.com')
+      || host === 'googleusercontent.com'
+      || host.endsWith('.googleusercontent.com')
+      || host === 'ggpht.com'
+      || host.endsWith('.ggpht.com')
+    ) {
+      return 'https://music.youtube.com/';
     }
   } catch {
     // ignore invalid urls

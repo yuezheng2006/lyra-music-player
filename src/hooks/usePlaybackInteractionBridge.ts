@@ -5,6 +5,7 @@ import { neteaseApi } from '../services/netease';
 import { PlayerState } from '../types';
 import type { ReplayGainMode, SongResult, StageLoopMode, StatusMessage } from '../types';
 import { replayGainModeLabels } from '../utils/appPlaybackHelpers';
+import { isModKeyChord } from '@/components/shortcuts/shortcutKeyboardGuards';
 
 // src/hooks/usePlaybackInteractionBridge.ts
 
@@ -235,13 +236,27 @@ export function usePlaybackInteractionBridge({
                     break;
                 case 'KeyH':
                     if (currentView !== 'player' || isPanelOpen || hasBlockingWindow()) return;
-                    if (event.ctrlKey || event.altKey || event.metaKey) return;
+                    if (!isModKeyChord({
+                        code: event.code,
+                        expectedCode: 'KeyH',
+                        metaKey: event.metaKey,
+                        ctrlKey: event.ctrlKey,
+                        altKey: event.altKey,
+                        shiftKey: event.shiftKey,
+                    })) return;
                     event.preventDefault();
                     setIsPlayerChromeHidden(prev => !prev);
                     break;
                 case 'KeyP':
                     if (currentView !== 'player' || hasBlockingWindow()) return;
-                    if (event.ctrlKey || event.altKey || event.metaKey) return;
+                    if (!isModKeyChord({
+                        code: event.code,
+                        expectedCode: 'KeyP',
+                        metaKey: event.metaKey,
+                        ctrlKey: event.ctrlKey,
+                        altKey: event.altKey,
+                        shiftKey: event.shiftKey,
+                    })) return;
                     event.preventDefault();
                     setIsPanelOpen(prev => !prev);
                     break;

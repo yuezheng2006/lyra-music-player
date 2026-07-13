@@ -335,7 +335,7 @@ const resolveFumePassedFadeDuration = (lines: Line[], textHoldRatio: number) => 
 };
 
 const getActiveColor = (wordText: string, theme: Theme) => {
-    return resolveWordColor(wordText, theme.wordColors, theme.accentColor, {
+    return resolveWordColor(wordText, theme.wordColors, theme.primaryColor, {
         cjkMatchMode: 'bidirectional-contains',
     });
 };
@@ -2062,7 +2062,7 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
         () => resolveFumePassedFadeDuration(lines, textHoldRatio),
         [lines, textHoldRatio],
     );
-    const translationFontSize = `clamp(${(1.05 * lyricsFontScale).toFixed(3)}rem, ${(2.2 * lyricsFontScale).toFixed(3)}vw, ${(1.2 * lyricsFontScale).toFixed(3)}rem)`;
+    const translationFontSize = `clamp(${(1.25 * lyricsFontScale).toFixed(3)}rem, ${(2.7 * lyricsFontScale).toFixed(3)}vw, ${(1.45 * lyricsFontScale).toFixed(3)}rem)`;
     const upcomingFontSize = `clamp(${(0.875 * lyricsFontScale).toFixed(3)}rem, ${(1.8 * lyricsFontScale).toFixed(3)}vw, ${(1 * lyricsFontScale).toFixed(3)}rem)`;
 
     useEffect(() => {
@@ -2699,12 +2699,12 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
                         (block.variant === 'hero' ? 12 : 8)
                         + lineGlowEnvelope * (block.fontPx * (block.variant === 'hero' ? 0.7 : 0.52))
                     ) * glowIntensity;
-                    const lineGlowColor = colorWithAlpha(theme.accentColor, lineGlowAlpha);
+                    const lineGlowColor = colorWithAlpha(theme.primaryColor, lineGlowAlpha);
 
                     context.save();
                     context.fillStyle = lineGlowColor;
                     context.shadowBlur = lineGlowBlur;
-                    context.shadowColor = colorWithAlpha(theme.accentColor, lineGlowAlpha * 1.35);
+                    context.shadowColor = colorWithAlpha(theme.primaryColor, lineGlowAlpha * 1.35);
 
                     for (const renderLine of block.renderLines) {
                         const glowBaseX = block.x + renderLine.left;

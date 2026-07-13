@@ -37,6 +37,18 @@ export type StatusSetter = React.Dispatch<React.SetStateAction<StatusMessage | n
 export const CACHE_SIZE_KEY = 'folia_cache_size';
 const ENABLE_MEDIA_CACHE_KEY = 'folia_enable_media_cache';
 const LAST_SEEN_GUIDE_VERSION_STORAGE_KEY = 'folia_last_seen_guide_version';
+const ONBOARDING_COMPLETED_STORAGE_KEY = 'lyra_onboarding_completed';
+
+const readOnboardingCompleted = (): boolean => {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+    if (localStorage.getItem(ONBOARDING_COMPLETED_STORAGE_KEY) === 'true') {
+        return true;
+    }
+    // Existing installs already used the guide; do not force first-run onboarding.
+    return Boolean(localStorage.getItem(LAST_SEEN_GUIDE_VERSION_STORAGE_KEY));
+};
 
 export type AudioQuality = 'exhigh' | 'lossless' | 'hires';
 export type SettingsModalInitialTab = 'help' | 'options';
@@ -854,7 +866,6 @@ type SettingsUiState = {
     enableAlternativeLyricSources: boolean;
     autoUseBestLyric: boolean;
     preferredAlternativeLyricSource: LyricProviderSource;
-    hidePlayerProgressBar: boolean;
     hidePlayerTranslationSubtitle: boolean;
     showSubtitleTranslation: boolean;
     hidePlayerRightPanelButton: boolean;
@@ -924,8 +935,17 @@ type SettingsUiState = {
     settingsModalState: SettingsModalState;
     lastSeenGuideVersion: string | null;
     isUserGuideModalOpen: boolean;
+    isShortcutsCheatSheetOpen: boolean;
+    onboardingCompleted: boolean;
+    isOnboardingOpen: boolean;
+    isWhatsNewOpen: boolean;
     setLastSeenGuideVersion: (version: string) => void;
     setIsUserGuideModalOpen: (isOpen: boolean) => void;
+    setIsShortcutsCheatSheetOpen: (isOpen: boolean) => void;
+    setIsOnboardingOpen: (isOpen: boolean) => void;
+    setIsWhatsNewOpen: (isOpen: boolean) => void;
+    completeOnboarding: (appVersion?: string | null) => void;
+    markWhatsNewSeen: (appVersion: string) => void;
     setStatusSetter: (setter: StatusSetter | null) => void;
     setAudioQuality: (quality: AudioQuality) => void;
     setTransparentPlayerBackgroundFromSystem: (enabled: boolean) => void;
@@ -953,7 +973,6 @@ type SettingsUiState = {
     handleToggleAlternativeLyricSources: (enable: boolean) => void;
     handleToggleAutoUseBestLyric: (enable: boolean) => void;
     handleSetPreferredAlternativeLyricSource: (source: LyricProviderSource) => void;
-    handleToggleHidePlayerProgressBar: (enable: boolean) => void;
     handleToggleHidePlayerTranslationSubtitle: (enable: boolean) => void;
     handleToggleShowSubtitleTranslation: (enable: boolean) => void;
     handleToggleHidePlayerRightPanelButton: (enable: boolean) => void;
@@ -1042,7 +1061,6 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     enableAlternativeLyricSources: getStoredBoolean('enable_alternative_lyric_sources', true),
     autoUseBestLyric: getStoredBoolean('auto_use_best_lyric', true),
     preferredAlternativeLyricSource: readStoredPreferredAlternativeLyricSource(),
-    hidePlayerProgressBar: getStoredBoolean('hide_player_progress_bar', false),
     hidePlayerTranslationSubtitle: getStoredBoolean('hide_player_translation_subtitle', false),
     showSubtitleTranslation: getStoredBoolean(SHOW_SUBTITLE_TRANSLATION_STORAGE_KEY, true),
     hidePlayerRightPanelButton: getStoredBoolean('hide_player_right_panel_button', false),
@@ -1116,6 +1134,10 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     },
     lastSeenGuideVersion: typeof window !== 'undefined' ? localStorage.getItem(LAST_SEEN_GUIDE_VERSION_STORAGE_KEY) : null,
     isUserGuideModalOpen: false,
+    isShortcutsCheatSheetOpen: false,
+    onboardingCompleted: readOnboardingCompleted(),
+    isOnboardingOpen: false,
+    isWhatsNewOpen: false,
     setLastSeenGuideVersion: (version) => {
         if (typeof window !== 'undefined') {
             localStorage.setItem(LAST_SEEN_GUIDE_VERSION_STORAGE_KEY, version);
@@ -1123,6 +1145,31 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         set({ lastSeenGuideVersion: version });
     },
     setIsUserGuideModalOpen: (isOpen) => set({ isUserGuideModalOpen: isOpen }),
+    setIsShortcutsCheatSheetOpen: (isOpen) => set({ isShortcutsCheatSheetOpen: isOpen }),
+    setIsOnboardingOpen: (isOpen) => set({ isOnboardingOpen: isOpen }),
+    setIsWhatsNewOpen: (isOpen) => set({ isWhatsNewOpen: isOpen }),
+    completeOnboarding: (appVersion) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(ONBOARDING_COMPLETED_STORAGE_KEY, 'true');
+            if (appVersion) {
+                localStorage.setItem(LAST_SEEN_GUIDE_VERSION_STORAGE_KEY, appVersion);
+            }
+        }
+        set({
+            onboardingCompleted: true,
+            isOnboardingOpen: false,
+            ...(appVersion ? { lastSeenGuideVersion: appVersion } : {}),
+        });
+    },
+    markWhatsNewSeen: (appVersion) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(LAST_SEEN_GUIDE_VERSION_STORAGE_KEY, appVersion);
+        }
+        set({
+            lastSeenGuideVersion: appVersion,
+            isWhatsNewOpen: false,
+        });
+    },
     setStatusSetter: (setter) => set({ statusSetter: setter }),
     setAudioQuality: (quality) => {
         if (typeof window !== 'undefined') {
@@ -1238,14 +1285,6 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         notify(get, {
             type: 'info',
             text: `优先匹配歌词源已切换为${getLyricProviderPreferenceLabel(source)}`,
-        });
-    },
-    handleToggleHidePlayerProgressBar: (enable) => {
-        setStoredBoolean('hide_player_progress_bar', enable);
-        set({ hidePlayerProgressBar: enable });
-        notify(get, {
-            type: 'info',
-            text: enable ? '播放页底部控制条已隐藏' : '播放页底部控制条已显示',
         });
     },
     handleToggleHidePlayerTranslationSubtitle: (enable) => {
@@ -2027,7 +2066,6 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     useCoverColorBg: state.useCoverColorBg,
     staticMode: state.staticMode,
     disableHomeDynamicBackground: state.disableHomeDynamicBackground,
-    hidePlayerProgressBar: state.hidePlayerProgressBar,
     hidePlayerTranslationSubtitle: state.hidePlayerTranslationSubtitle,
     showSubtitleTranslation: state.showSubtitleTranslation,
     hidePlayerRightPanelButton: state.hidePlayerRightPanelButton,
@@ -2050,6 +2088,10 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     isDaylight: state.isDaylight,
     lastSeenGuideVersion: state.lastSeenGuideVersion,
     isUserGuideModalOpen: state.isUserGuideModalOpen,
+    isShortcutsCheatSheetOpen: state.isShortcutsCheatSheetOpen,
+    onboardingCompleted: state.onboardingCompleted,
+    isOnboardingOpen: state.isOnboardingOpen,
+    isWhatsNewOpen: state.isWhatsNewOpen,
     visualizerMode: state.visualizerMode,
     lyricWordMode: state.lyricWordMode,
     lyricFontPresetId: state.lyricFontPresetId,
@@ -2095,7 +2137,6 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleToggleCoverColorBg: state.handleToggleCoverColorBg,
     handleToggleStaticMode: state.handleToggleStaticMode,
     handleToggleDisableHomeDynamicBackground: state.handleToggleDisableHomeDynamicBackground,
-    handleToggleHidePlayerProgressBar: state.handleToggleHidePlayerProgressBar,
     handleToggleHidePlayerTranslationSubtitle: state.handleToggleHidePlayerTranslationSubtitle,
     handleToggleShowSubtitleTranslation: state.handleToggleShowSubtitleTranslation,
     handleToggleHidePlayerRightPanelButton: state.handleToggleHidePlayerRightPanelButton,
@@ -2124,6 +2165,11 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     setDaylightPreference: state.setDaylightPreference,
     setLastSeenGuideVersion: state.setLastSeenGuideVersion,
     setIsUserGuideModalOpen: state.setIsUserGuideModalOpen,
+    setIsShortcutsCheatSheetOpen: state.setIsShortcutsCheatSheetOpen,
+    setIsOnboardingOpen: state.setIsOnboardingOpen,
+    setIsWhatsNewOpen: state.setIsWhatsNewOpen,
+    completeOnboarding: state.completeOnboarding,
+    markWhatsNewSeen: state.markWhatsNewSeen,
     handleSetVisualizerMode: state.handleSetVisualizerMode,
     handleSetClassicTuning: state.handleSetClassicTuning,
     handleResetClassicTuning: state.handleResetClassicTuning,

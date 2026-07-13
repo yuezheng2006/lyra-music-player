@@ -144,6 +144,9 @@ const AppShell: React.FC<AppShellProps> = ({
                 ['--shell-muted-text' as string]: shellTheme.mutedText,
                 ['--shell-border' as string]: shellTheme.border,
                 ['--shell-hover' as string]: shellTheme.hover,
+                // List/browse copy stays neutral; only surfaces track the cover palette.
+                ['--content-text' as string]: isDaylight ? '#171717' : '#fafafa',
+                ['--content-muted-text' as string]: isDaylight ? 'rgba(23, 23, 23, 0.55)' : 'rgba(250, 250, 250, 0.45)',
                 backgroundColor: 'var(--shell-surface)',
                 color: 'var(--shell-text)',
                 borderRadius: shouldApplyWindowRadius ? '18px' : undefined,

@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useTransform, animate, AnimatePresence } from 'framer-motion';
-import { Loader2, Disc, Map as MapIcon, X } from 'lucide-react';
+import { Loader2, Map as MapIcon, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { OnlineProviderBadge } from './shared/OnlineProviderBadge';
+import LazyCoverImage from './shared/LazyCoverImage';
 import type { OnlineMusicProviderId } from '../types';
 
 // Convert HTTP to HTTPS only for Netease CDN URLs
@@ -79,13 +80,14 @@ const CarouselItem: React.FC<{
                 className={`rounded-xl overflow-hidden shadow-xl relative transition-all duration-300 ${isActive ? 'ring-2 ring-white/30' : ''}`}
                 style={{ width: coverSize, height: coverSize }}
             >
-                {item.coverUrl ? (
-                    <img src={toSafeUrl(item.coverUrl)} alt={item.name} className="w-full h-full object-cover pointer-events-none" />
-                ) : (
-                    <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
-                        <Disc size={48} className="opacity-20" style={{ color: 'var(--text-primary)' }} />
-                    </div>
-                )}
+                <LazyCoverImage
+                    src={toSafeUrl(item.coverUrl)}
+                    alt={item.name}
+                    placeholderLabel={item.name}
+                    placeholderVariant="playlist"
+                    sizePx={Math.round(coverSize)}
+                    className="w-full h-full object-cover pointer-events-none"
+                />
                 {item.musicProvider && (
                     <OnlineProviderBadge
                         provider={item.musicProvider}
@@ -453,13 +455,14 @@ const Carousel3D: React.FC<Carousel3DProps> = ({
                                             ? isDaylight ? 'ring-4 ring-black/80 scale-105' : 'ring-4 ring-white/80 scale-105'
                                             : isDaylight ? 'ring-0 ring-transparent group-hover:ring-2 group-hover:ring-black/30' : 'ring-0 ring-transparent group-hover:ring-2 group-hover:ring-white/30'
                                             }`}>
-                                            {item.coverUrl ? (
-                                                <img src={toSafeUrl(item.coverUrl)} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
-                                            ) : (
-                                                <div className={`w-full h-full flex items-center justify-center ${isDaylight ? 'bg-zinc-200' : 'bg-zinc-800'}`}>
-                                                    <Disc size={32} className={`opacity-20 ${isDaylight ? 'text-black' : 'text-white'}`} />
-                                                </div>
-                                            )}
+                                            <LazyCoverImage
+                                                src={toSafeUrl(item.coverUrl)}
+                                                alt={item.name}
+                                                placeholderLabel={item.name}
+                                                placeholderVariant="playlist"
+                                                sizePx={160}
+                                                className="w-full h-full object-cover"
+                                            />
 
                                             {/* Overlay for non-selected items to dim them slightly */}
                                             {focusedIndex !== index && (

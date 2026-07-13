@@ -16,11 +16,13 @@ import { resolveOverlaySearchProviders } from '../utils/onlineSearchRouting';
 import { useSearchNavigationStore } from '../stores/useSearchNavigationStore';
 import type { NextTrackOptions, PlaybackNavigationOptions, SkipPromptMessageKey, UnavailableReplacementRequest } from '../types/appPlayback';
 import type { NavidromeSong } from '../types/navidrome';
-import { isLocalPlaybackSong, isNavidromePlaybackSong, resolveNavidromePlaybackCarrier } from '../utils/appPlaybackGuards';
+import { isLocalPlaybackSong, isNavidromePlaybackSong, isYtmPlaybackSong, resolveNavidromePlaybackCarrier, resolveYtmPlaybackCarrier } from '../utils/appPlaybackGuards';
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
 import { buildStagePlayerSnapshot, resolveStagePlayerQueueItemIndex } from '../utils/stagePlayerSnapshot';
 import { clearOnlinePlaybackRecoveryState } from '../components/app/playback/createOnlineRecoveryController';
 import { resolveSongDurationSec } from '../utils/appPlaybackHelpers';
+import { armAutoPlayIntent, unlockHtmlAudioForAutoplay } from '../utils/audioAutoPlayGuard';
+import { recordPlay } from '../services/playHistoryService';
 
 // src/hooks/usePlaybackQueueController.ts
 
@@ -104,6 +106,11 @@ type UsePlaybackQueueControllerParams = {
         queue?: NavidromeSong[],
         options?: PlaybackNavigationOptions,
     ) => Promise<void>;
+    onPlayYtmSong: (
+        track: import('../types/ytmusic').YtmSearchTrack | import('../types/ytmusic').YtmSong,
+        queue?: Array<import('../types/ytmusic').YtmSearchTrack | import('../types/ytmusic').YtmSong>,
+        options?: PlaybackNavigationOptions,
+    ) => Promise<void>;
     searchDeps: SearchDeps;
     audioRef: MutableRefObject<HTMLAudioElement | null>;
     blobUrlRef: MutableRefObject<string | null>;
@@ -130,7 +137,7 @@ type UsePlaybackQueueControllerParams = {
     lastAudioRecoverySourceRef: MutableRefObject<string | null>;
 };
 
-const MAX_UNAVAILABLE_AUTO_SKIP_COUNT = 2;
+const MAX_UNAVAILABLE_AUTO_SKIP_COUNT = 5;
 const UNAVAILABLE_SKIP_CONFIRM_TIMEOUT_MS = 5000;
 const UNAVAILABLE_SKIP_CONFIRM_INTERVAL_MS = 1000;
 
@@ -188,6 +195,7 @@ export function usePlaybackQueueController({
     interruptStagePlaybackForMainTransition,
     onPlayLocalSong,
     onPlayNavidromeSong,
+    onPlayYtmSong,
     searchDeps,
     audioRef,
     blobUrlRef,
@@ -450,6 +458,15 @@ export function usePlaybackQueueController({
         interruptStagePlaybackForMainTransition();
 
         console.log('[App] playSong initiated:', song.name, song.id, 'isFm:', isFmCall);
+
+        // 记录播放历史（所有渠道通用）
+        recordPlay(song).catch(err => {
+            console.error('[PlayHistory] Failed to record play:', err);
+        });
+
+        // Arm before any await — song-url fetch drops the click user gesture.
+        armAutoPlayIntent(shouldAutoPlayRef);
+        unlockHtmlAudioForAutoplay({ audioRef });
         clearPendingUnavailableSkip();
         setStatusMsg(prev => prev?.persistent ? null : prev);
         const shouldNavigateToPlayer = options.shouldNavigateToPlayer ?? true;
@@ -461,6 +478,7 @@ export function usePlaybackQueueController({
 
         const isLocal = isLocalPlaybackSong(song);
         const isNavidrome = isNavidromePlaybackSong(song);
+        const isYtm = isYtmPlaybackSong(song);
         const effectiveAudioQuality = options.quality || audioQuality;
         const resumeTimeSec = typeof options.resumeTimeSec === 'number' && Number.isFinite(options.resumeTimeSec)
             ? Math.max(0, options.resumeTimeSec)
@@ -472,7 +490,7 @@ export function usePlaybackQueueController({
         const skipCount = options.unavailableSkipCount ?? 0;
         playbackAutoSkipCountRef.current = skipCount;
 
-        if (!isLocal && !isNavidrome && isSongMarkedUnavailable(song)) {
+        if (!isLocal && !isNavidrome && !isYtm && isSongMarkedUnavailable(song)) {
             if (await handleMarkedUnavailableSong(song, queueContext, isFmCall, options)) {
                 return;
             }
@@ -514,6 +532,20 @@ export function usePlaybackQueueController({
             return;
         }
 
+        if (isYtm) {
+            const ytmSong = resolveYtmPlaybackCarrier(song);
+            if (!ytmSong) {
+                setStatusMsg({ type: 'error', text: t('status.playbackError') });
+                return;
+            }
+
+            const ytmQueue = queueContext
+                .map(queuedSong => resolveYtmPlaybackCarrier(queuedSong))
+                .filter((queuedSong): queuedSong is NonNullable<typeof queuedSong> => Boolean(queuedSong));
+            await onPlayYtmSong(ytmSong, ytmQueue, { shouldNavigateToPlayer });
+            return;
+        }
+
         // Same-song re-clicks must not cancel an in-flight URL fetch (that feels like “click does nothing”).
         if (pendingOnlinePlaySongIdRef.current === song.id) {
             if (shouldNavigateToPlayer) {
@@ -551,7 +583,12 @@ export function usePlaybackQueueController({
         // expose a finite duration until later (or ever, for some streams).
         setDuration(resolveSongDurationSec(song));
         setCurrentSong({ ...song });
-        setCachedCoverUrl(null);
+        const seedCover = (() => {
+            const raw = song.al?.picUrl || song.album?.picUrl || null;
+            if (!raw) return null;
+            return raw.startsWith('http:') ? raw.replace('http:', 'https:') : raw;
+        })();
+        setCachedCoverUrl(seedCover);
         setIsLyricsLoading(true);
         setStatusMsg({ type: 'info', text: t('status.loadingSong') });
         setPlayerState(PlayerState.IDLE);
@@ -579,13 +616,7 @@ export function usePlaybackQueueController({
 
             if (preloadedOnlineAudioResult.kind === 'unavailable') {
                 const nextSong = getNextPlayableQueueSong(queueContext, song.id);
-                // Browse overlays should not auto-chain skips — that storms song-url lookups.
-                const canSkip = shouldNavigateToPlayer
-                    && Boolean(nextSong)
-                    && skipCount < MAX_UNAVAILABLE_AUTO_SKIP_COUNT;
-                const unavailablePromptKey = isNeteaseOnlineSong(song)
-                    ? 'status.songUnavailablePrompt'
-                    : 'status.playbackErrorPrompt';
+                const canSkip = Boolean(nextSong) && skipCount < MAX_UNAVAILABLE_AUTO_SKIP_COUNT;
                 const unavailableErrorKey = isNeteaseOnlineSong(song)
                     ? 'status.songUnavailable'
                     : 'status.playbackError';
@@ -594,12 +625,10 @@ export function usePlaybackQueueController({
                 clearPendingIfCurrent();
 
                 if (canSkip && nextSong) {
-                    showTimedSkipPrompt(unavailablePromptKey, () => {
-                        if (playbackRequestIdRef.current !== playbackRequestId) return;
-                        void playSong(nextSong, newQueue, isFmCall, {
-                            ...options,
-                            unavailableSkipCount: skipCount + 1,
-                        });
+                    // Immediate skip — do not wait for a confirm prompt when URL is missing.
+                    void playSong(nextSong, newQueue, isFmCall, {
+                        ...options,
+                        unavailableSkipCount: skipCount + 1,
                     });
                 } else {
                     setStatusMsg({ type: 'error', text: t(unavailableErrorKey) });
@@ -608,9 +637,17 @@ export function usePlaybackQueueController({
             }
         } catch (error) {
             console.error('[App] Failed to fetch song URL:', error);
-            setStatusMsg({ type: 'error', text: t('status.playbackError') });
+            const nextSong = getNextPlayableQueueSong(queueContext, song.id);
             setIsLyricsLoading(false);
             clearPendingIfCurrent();
+            if (nextSong && skipCount < MAX_UNAVAILABLE_AUTO_SKIP_COUNT) {
+                void playSong(nextSong, newQueue, isFmCall, {
+                    ...options,
+                    unavailableSkipCount: skipCount + 1,
+                });
+            } else {
+                setStatusMsg({ type: 'error', text: t('status.playbackError') });
+            }
             return;
         }
 
@@ -619,15 +656,21 @@ export function usePlaybackQueueController({
             blobUrlRef.current = null;
         }
 
-        const cachedCoverUrl = await getCachedCoverUrl(getProviderSongCacheKey('cover', song));
+        // Cover cache must not block audio start; apply when ready.
+        prefetched = getPrefetchedData(song, effectiveAudioQuality) ?? prefetched;
+        if (prefetched?.coverUrl && !seedCover) {
+            setCachedCoverUrl(prefetched.coverUrl);
+        }
+        void getCachedCoverUrl(getProviderSongCacheKey('cover', song)).then((cachedCoverUrl) => {
+            if (currentSongRef.current !== song.id || !cachedCoverUrl) {
+                return;
+            }
+            setCachedCoverUrl(cachedCoverUrl);
+        });
+
         if (!isLatestPlaybackRequest() || currentSongRef.current !== song.id) {
             clearPendingIfCurrent();
             return;
-        }
-        if (cachedCoverUrl) {
-            setCachedCoverUrl(cachedCoverUrl);
-        } else if (prefetched?.coverUrl) {
-            setCachedCoverUrl(prefetched.coverUrl);
         }
 
         const audioResult = preloadedOnlineAudioResult;
@@ -677,13 +720,18 @@ export function usePlaybackQueueController({
                     return;
                 }
                 if (error instanceof DOMException && error.name === 'NotAllowedError') {
-                    shouldAutoPlayRef.current = false;
+                    // Keep intent armed: Electron autoplay-policy / canplay retries may still start.
                     setStatusMsg({ type: 'info', text: t('status.clickToPlay') });
                     setPlayerState(PlayerState.PAUSED);
                     return;
                 }
                 console.warn('[App] Forced autoplay failed', error);
             });
+        }
+
+        // Prefetch next tracks as soon as this song is armed — don't wait for lyrics.
+        if (newQueue.length > 1) {
+            void prefetchNearbySongs(song.id, newQueue, effectiveAudioQuality, userId);
         }
 
         clearPendingIfCurrent();
@@ -734,10 +782,6 @@ export function usePlaybackQueueController({
         void restoreCachedThemeForSong(song.id).catch(error => {
             console.warn('Theme load error', error);
         });
-
-        if (newQueue.length > 1) {
-            prefetchNearbySongs(song.id, newQueue, effectiveAudioQuality, userId);
-        }
     }, [
         audioQuality,
         audioRef,
@@ -756,6 +800,7 @@ export function usePlaybackQueueController({
         navigateToPlayer,
         onPlayLocalSong,
         onPlayNavidromeSong,
+        onPlayYtmSong,
         pendingResumeTimeRef,
         persistLastPlaybackCache,
         playQueue,
@@ -1015,15 +1060,13 @@ export function usePlaybackQueueController({
         }
 
         const nextSkipCount = skipCount + 1;
-        showTimedSkipPrompt('status.playbackErrorPrompt', () => {
-            playbackAutoSkipCountRef.current = nextSkipCount;
-            void handleNextTrack({
-                allowStopOnMissing: true,
-                shouldNavigateToPlayer: false,
-                unavailableSkipCount: nextSkipCount,
-            });
+        playbackAutoSkipCountRef.current = nextSkipCount;
+        void handleNextTrack({
+            allowStopOnMissing: true,
+            shouldNavigateToPlayer: false,
+            unavailableSkipCount: nextSkipCount,
         });
-    }, [clearPendingUnavailableSkip, currentSong, handleNextTrack, loopMode, playQueue, playbackAutoSkipCountRef, setPlayerState, showTimedSkipPrompt]);
+    }, [clearPendingUnavailableSkip, currentSong, handleNextTrack, loopMode, playQueue, playbackAutoSkipCountRef, setPlayerState]);
 
     const buildStageQueueOperationSnapshot = useCallback((
         nextCurrentSong: SongResult | null,

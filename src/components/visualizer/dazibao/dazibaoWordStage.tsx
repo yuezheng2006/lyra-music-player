@@ -3,12 +3,13 @@ import { motion, useMotionValueEvent, type MotionValue } from 'framer-motion';
 import type { Word as WordType } from '../../../types';
 import { buildWordGraphemeTimings } from '../../../utils/lyrics/graphemeTiming';
 import {
+    buildLyricKaraokeOutlineLayers,
     combineShadowEffects,
-    getStrokeStyle,
     type LyricVisualEffectConfig,
 } from '../../../utils/lyricVisualEffects';
 import type { WaitingWordPresentation } from '../../../utils/lyrics/lyricWordMode';
 import { colorWithAlpha } from '../colorMix';
+import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
 
 // src/components/visualizer/dazibao/dazibaoWordStage.tsx
 // 野火走位词级砸脸；字体/颜色/特效由 visualEffectConfig 驱动。
@@ -38,7 +39,7 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
     baseColor,
     activeColor,
     glowColor,
-    strokeColor,
+    strokeColor: _strokeColor,
     fontPx,
     fontStack,
     fontWeight,
@@ -64,13 +65,13 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
         }
     });
 
-    const stroke = useMemo(() => {
-        if (!visualEffectConfig.enableStroke) {
-            return { WebkitTextStroke: '0', paintOrder: 'normal' as const };
+    const karaokeOutline = useMemo(() => {
+        if (!visualEffectConfig.enableStroke || status !== 'active') {
+            return null;
         }
-        const width = Math.max(1.2, fontPx * (isChorus ? 0.05 : 0.032));
-        return getStrokeStyle(strokeColor, width, visualEffectConfig.immersive);
-    }, [fontPx, isChorus, strokeColor, visualEffectConfig.enableStroke, visualEffectConfig.immersive]);
+        // 色字白边 — scaled solid rim (calligraphy-safe; no -webkit-text-stroke).
+        return buildLyricKaraokeOutlineLayers(activeColor, fontPx, visualEffectConfig.intensity);
+    }, [activeColor, fontPx, status, visualEffectConfig.enableStroke, visualEffectConfig.intensity]);
 
     const activeShadow = useMemo(() => {
         if (visualEffectConfig.enableIntenseGlow) {
@@ -93,8 +94,8 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
     const opacityTarget = status === 'waiting'
         ? waitingPresentation.opacity
         : status === 'passed'
-            ? 0.88
-            : 1;
+            ? LYRIC_LINE_OPACITY.passedNear
+            : LYRIC_LINE_OPACITY.active;
 
     const faceColor = status === 'waiting' ? baseColor : activeColor;
 
@@ -133,21 +134,37 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
                 filter: { duration: 0.2 },
             }}
         >
-            <span
-                className="relative z-[1] inline-block"
-                style={{
-                    ...sharedType,
-                    color: faceColor,
-                    textShadow: status === 'active'
-                        ? activeShadow
-                        : status === 'passed'
-                            ? passedShadow
-                            : 'none',
-                    WebkitTextStroke: status === 'waiting' ? '0' : stroke.WebkitTextStroke,
-                    paintOrder: stroke.paintOrder,
-                }}
-            >
-                {glyph}
+            <span className="relative z-[1] inline-block">
+                {karaokeOutline ? (
+                    <span
+                        aria-hidden
+                        className="lyric-karaoke-rim absolute inset-0 select-none pointer-events-none"
+                        style={{
+                            ...sharedType,
+                            color: karaokeOutline.rimColor,
+                            transform: `scale(${karaokeOutline.rimScale})`,
+                            transformOrigin: 'center center',
+                            textShadow: karaokeOutline.rimTextShadow,
+                        }}
+                    >
+                        {glyph}
+                    </span>
+                ) : null}
+                <span
+                    className="relative inline-block"
+                    style={{
+                        ...sharedType,
+                        color: faceColor,
+                        // Keep dazibao punch glow on the fill face; rim is the outline twin.
+                        textShadow: status === 'active'
+                            ? activeShadow
+                            : status === 'passed'
+                                ? passedShadow
+                                : 'none',
+                    }}
+                >
+                    {glyph}
+                </span>
             </span>
         </motion.span>
     );

@@ -8,11 +8,15 @@ import GridViewOverlayHost from './home/GridViewOverlayHost';
 import DailyRecommendSurface from './home/DailyRecommendSurface';
 import PodcastBrowseSurface from './home/PodcastBrowseSurface';
 import LocalBrowseSurface from './home/LocalBrowseSurface';
+import NavidromeBrowseSurface from './home/NavidromeBrowseSurface';
+import YTMusicBrowseSurface from './home/YTMusicBrowseSurface';
+import { PlayHistorySurface } from './home/PlayHistorySurface';
 import {
     HOME_HEADER_TOP_PADDING_CLASS,
     resolveHomeSolidBackgroundClass,
 } from './home/homeSurfaceStyles';
 import type { HomeViewModel } from './home/buildHomeModel';
+import { isNavidromeUiEnabled, isYtmusicUiEnabled } from '../../utils/featureFlags';
 
 // App-level entry for the home surface backed by a view model.
 type AppHomeProps = {
@@ -33,13 +37,45 @@ const Home: React.FC<AppHomeProps> = ({ model, isHomeFullyHidden }) => {
         return <LocalBrowseSurface model={model} isDaylight={isDaylight} />;
     }
 
+    if (homeViewTab === 'history') {
+        const solidBg = resolveHomeSolidBackgroundClass(isDaylight);
+        return (
+            <div
+                className={`relative z-20 flex h-full w-full flex-col overflow-hidden ${HOME_HEADER_TOP_PADDING_CLASS} pointer-events-auto ${solidBg}`}
+                style={{ color: 'var(--content-text)' }}
+            >
+                <PlayHistorySurface onPlaySong={model.legacyProps.onPlaySong} isDaylight={isDaylight} />
+            </div>
+        );
+    }
+
+    if (homeViewTab === 'navidrome' && isNavidromeUiEnabled()) {
+        return <NavidromeBrowseSurface model={model} isDaylight={isDaylight} />;
+    }
+
+    if (homeViewTab === 'ytmusic' && isYtmusicUiEnabled()) {
+        const solidBg = resolveHomeSolidBackgroundClass(isDaylight);
+        return (
+            <div
+                className={`relative z-20 flex h-full w-full flex-col overflow-hidden ${HOME_HEADER_TOP_PADDING_CLASS} pointer-events-auto ${solidBg}`}
+                style={{ color: 'var(--content-text)' }}
+            >
+                <YTMusicBrowseSurface
+                    isDaylight={isDaylight}
+                    currentVideoId={(model.legacyProps.currentTrack as { ytmData?: { videoId?: string } } | null)?.ytmData?.videoId ?? null}
+                    onPlayTrack={(track, queue) => model.onPlayYtmTrack?.(track, queue)}
+                />
+            </div>
+        );
+    }
+
     if (homeViewTab === 'daily' || homeViewTab === 'podcast') {
         // Opaque browse surfaces — do not let interactive3d / particle stage show through.
         const solidBg = resolveHomeSolidBackgroundClass(isDaylight);
         return (
             <div
                 className={`relative z-20 flex h-full w-full flex-col overflow-hidden ${HOME_HEADER_TOP_PADDING_CLASS} pointer-events-auto ${solidBg}`}
-                style={{ color: 'var(--text-primary)' }}
+                style={{ color: 'var(--content-text)' }}
             >
                 {homeViewTab === 'daily' ? (
                     <DailyRecommendSurface

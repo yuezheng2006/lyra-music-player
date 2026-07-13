@@ -9,13 +9,18 @@ import { shouldPreheatLine, useVisualizerRuntime, type VisualizerPreheatWindow }
 import { type VisualizerSharedProps } from '../definition';
 import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
-import { resolveWordColor } from '../wordColoring';
+import { resolveLyricActiveWordColor, resolveLyricInkFills } from '../lyricInk';
+import { colorWithAlpha } from '../colorMix';
 import {
     resolveLyricContainerFit,
     resolveLyricRhythmScaleHeadroom,
+    resolveLyricVerticalSafeArea,
 } from '../resolveLyricContainerFit';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { resolveWaitingWordPresentation, resolveLyricWordAnimateKey } from '../../../utils/lyrics/lyricWordMode';
+import { LYRIC_MOTION_BLUR_PX, lyricBlurFilter } from '../../../utils/lyrics/lyricMotionClarity';
+import { buildLyricKaraokeOutlineLayers } from '../../../utils/lyricVisualEffects';
+import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
 
 // This one is still word-driven, but unlike Classic it needs to pre-build a column/chunk structure first.
 // The flow is basically: ask runtime for the active line, optionally preheat the upcoming line,
@@ -161,41 +166,51 @@ const getPartitaWordDisplayDuration = (word: WordType, renderProfile: PartitaLin
 const getPartitaLineContainerMotion = (renderProfile: PartitaLineRenderProfile | null) => {
     if (renderProfile?.lineTransitionMode === 'none') {
         return {
-            initial: { opacity: 1, scale: 1, filter: 'blur(0px)' },
-            animate: { opacity: 1, scale: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' } },
-            exit: { opacity: 0, scale: 1.02, filter: 'blur(6px)', transition: { duration: 0.12, ease: 'easeOut' as const } },
+            initial: { opacity: 1, scale: 1, filter: lyricBlurFilter(0) },
+            animate: { opacity: 1, scale: 1, filter: lyricBlurFilter(0), transitionEnd: { filter: 'none' } },
+            exit: {
+                opacity: 0,
+                scale: 1.02,
+                filter: lyricBlurFilter(LYRIC_MOTION_BLUR_PX.exitNone),
+                transition: { duration: 0.12, ease: 'easeOut' as const },
+            },
         };
     }
 
     if (renderProfile?.lineTransitionMode === 'fast') {
         return {
-            initial: { opacity: 0.35, scale: 0.96, filter: 'blur(4px)' },
+            initial: { opacity: 0.35, scale: 0.96, filter: lyricBlurFilter(LYRIC_MOTION_BLUR_PX.enter) },
             animate: {
                 opacity: 1,
                 scale: 1,
-                filter: 'blur(0px)',
+                filter: lyricBlurFilter(0),
                 transition: { duration: 0.16, ease: 'easeOut' as const },
                 transitionEnd: { filter: 'none' },
             },
             exit: {
                 opacity: 0,
                 scale: 1.04,
-                filter: 'blur(10px)',
+                filter: lyricBlurFilter(LYRIC_MOTION_BLUR_PX.exitFast),
                 transition: { duration: 0.16, ease: 'easeInOut' as const },
             },
         };
     }
 
     return {
-        initial: { opacity: 0, scale: 0.9, filter: 'blur(10px)' },
-        animate: { opacity: 1, scale: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' } },
-        exit: { opacity: 0, scale: 1.1, filter: 'blur(20px)', transition: { duration: 0.3 } },
+        initial: { opacity: 0, scale: 0.96, filter: lyricBlurFilter(LYRIC_MOTION_BLUR_PX.enter) },
+        animate: { opacity: 1, scale: 1, filter: lyricBlurFilter(0), transitionEnd: { filter: 'none' } },
+        exit: {
+            opacity: 0,
+            scale: 1.04,
+            filter: lyricBlurFilter(LYRIC_MOTION_BLUR_PX.exit),
+            transition: { duration: 0.24 },
+        },
     };
 };
 
-const getActiveColor = (wordText: string, theme: Theme) => {
-    return resolveWordColor(wordText, theme.wordColors, theme.accentColor);
-};
+const getActiveColor = (wordText: string, theme: Theme) => (
+    resolveLyricActiveWordColor(wordText, theme)
+);
 
 const getTargetColumnCount = (totalGraphemes: number, wordCount: number) => {
     if (wordCount <= 2 || totalGraphemes <= 5) return 1;
@@ -388,6 +403,10 @@ const PartitaWord: React.FC<{
     const activeEndTime = getPartitaWordActiveEndTime(word, renderProfile);
     const graphemeTimings = useMemo(() => buildWordGraphemeTimings(word), [word]);
     const animateKey = resolveLyricWordAnimateKey(status, lyricWordMode);
+    const outlineLayers = useMemo(() => {
+        const fontPx = Number.parseFloat(String(fontSize)) || 48;
+        return buildLyricKaraokeOutlineLayers(activeColor, fontPx, 'strong');
+    }, [activeColor, fontSize]);
 
     useMotionValueEvent(currentTime, 'change', (latest: number) => {
         let newStatus: 'waiting' | 'active' | 'passed' = 'waiting';
@@ -455,14 +474,30 @@ const PartitaWord: React.FC<{
                 )}
             </span>
 
-            {/* Body Layer */}
-            <motion.span
-                variants={bodyVariants}
-                custom={{ config, activeColor, baseColor, duration, wordRevealMode: renderProfile.wordRevealMode }}
-                className="relative z-10 block"
-            >
-                {word.text}
-            </motion.span>
+            {/* Body Layer — karaoke 色字白边: scaled solid rim */}
+            <span className="relative z-10 block">
+                {status === 'active' ? (
+                    <span
+                        aria-hidden
+                        className="lyric-karaoke-rim pointer-events-none absolute inset-0 select-none block"
+                        style={{
+                            color: outlineLayers.rimColor,
+                            transform: `scale(${outlineLayers.rimScale})`,
+                            transformOrigin: 'center center',
+                            textShadow: outlineLayers.rimTextShadow,
+                        }}
+                    >
+                        {word.text}
+                    </span>
+                ) : null}
+                <motion.span
+                    variants={bodyVariants}
+                    custom={{ config, activeColor, baseColor, duration, wordRevealMode: renderProfile.wordRevealMode }}
+                    className="relative block"
+                >
+                    {word.text}
+                </motion.span>
+            </span>
 
             {/* Chorus Ripple */}
             <AnimatePresence>
@@ -559,7 +594,7 @@ const PartitaChunk: React.FC<{
                             bottom: '-16px',
                             height: '32px',
                             transformOrigin: 'bottom',
-                            backgroundColor: chunkStatus === 'active' ? activeColor : chunkStatus === 'passed' ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.14)',
+                            backgroundColor: chunkStatus === 'active' ? activeColor : colorWithAlpha(activeColor, chunkStatus === 'passed' ? 0.28 : 0.16),
                             boxShadow: chunkStatus === 'active' ? `0 0 10px ${activeColor}45` : 'none',
                         }}
                         animate={{
@@ -579,7 +614,7 @@ const PartitaChunk: React.FC<{
                             bottom: '-8px',
                             width: 'calc(100% + 36px)',
                             transformOrigin: 'left',
-                            backgroundColor: chunkStatus === 'active' ? activeColor : chunkStatus === 'passed' ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.14)',
+                            backgroundColor: chunkStatus === 'active' ? activeColor : colorWithAlpha(activeColor, chunkStatus === 'passed' ? 0.28 : 0.16),
                             boxShadow: chunkStatus === 'active' ? `0 0 10px ${activeColor}35` : 'none',
                         }}
                         animate={{
@@ -603,7 +638,7 @@ const PartitaChunk: React.FC<{
                             bottom: '-16px',
                             height: '32px',
                             transformOrigin: 'bottom',
-                            backgroundColor: chunkStatus === 'active' ? activeColor : chunkStatus === 'passed' ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.14)',
+                            backgroundColor: chunkStatus === 'active' ? activeColor : colorWithAlpha(activeColor, chunkStatus === 'passed' ? 0.28 : 0.16),
                             boxShadow: chunkStatus === 'active' ? `0 0 10px ${activeColor}45` : 'none',
                         }}
                         animate={{
@@ -623,7 +658,7 @@ const PartitaChunk: React.FC<{
                             bottom: '-8px',
                             width: 'calc(100% + 36px)',
                             transformOrigin: 'right',
-                            backgroundColor: chunkStatus === 'active' ? activeColor : chunkStatus === 'passed' ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.14)',
+                            backgroundColor: chunkStatus === 'active' ? activeColor : colorWithAlpha(activeColor, chunkStatus === 'passed' ? 0.28 : 0.16),
                             boxShadow: chunkStatus === 'active' ? `0 0 10px ${activeColor}35` : 'none',
                         }}
                         animate={{
@@ -712,6 +747,9 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
     const [stageWidth, setStageWidth] = useState(() => (
         typeof window === 'undefined' ? 960 : Math.max(320, window.innerWidth - 220)
     ));
+    const [shellHeight, setShellHeight] = useState(() => (
+        typeof window === 'undefined' ? 720 : Math.max(420, window.innerHeight)
+    ));
     const resolvedPartitaTuning = useMemo(() => resolvePartitaTuning(partitaTuning), [partitaTuning]);
     const layoutCacheRef = useRef<Map<string, PartitaSequentialLayout>>(new Map());
 
@@ -725,17 +763,19 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
     useLayoutEffect(() => {
         const node = stageRef.current;
         if (!node || typeof ResizeObserver === 'undefined') return undefined;
-        const apply = (width: number) => {
-            const next = Math.max(240, Math.round(width));
-            setStageWidth(prev => (prev === next ? prev : next));
+        const shell = (node.closest('[data-visualizer-shell="true"]') as HTMLElement | null) ?? node.parentElement;
+        const apply = () => {
+            const nextWidth = Math.max(240, Math.round(node.offsetWidth || node.getBoundingClientRect().width));
+            setStageWidth(prev => (prev === nextWidth ? prev : nextWidth));
+            if (shell) {
+                const nextHeight = Math.max(280, Math.round(shell.clientHeight || shell.offsetHeight));
+                setShellHeight(prev => (prev === nextHeight ? prev : nextHeight));
+            }
         };
-        apply(node.offsetWidth || node.getBoundingClientRect().width);
-        const observer = new ResizeObserver((entries) => {
-            const entry = entries[0];
-            if (!entry) return;
-            apply(entry.contentRect.width);
-        });
+        apply();
+        const observer = new ResizeObserver(() => apply());
         observer.observe(node);
+        if (shell) observer.observe(shell);
         return () => observer.disconnect();
     }, []);
 
@@ -780,6 +820,8 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
     });
 
     const densityScale = sequentialLayout.totalGraphemes > 40 ? 0.8 : 1;
+    const rhythmHeadroom = resolveLyricRhythmScaleHeadroom(theme.lyricRhythmScaleMultiplier ?? 1);
+    const glowInsetPx = theme.lyricGlowUsesAccent ? 36 : 20;
     const lyricFit = useMemo(
         () => resolveLyricContainerFit({
             containerWidth: stageWidth,
@@ -789,14 +831,25 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
             preferredWidthRatio: 0.062,
             minFontPx: 20,
             maxFontPx: 48,
-            scaleHeadroom: resolveLyricRhythmScaleHeadroom(theme.lyricRhythmScaleMultiplier ?? 1),
-            glowInsetPx: theme.lyricGlowUsesAccent ? 36 : 20,
+            scaleHeadroom: rhythmHeadroom,
+            glowInsetPx,
         }),
-        [stageWidth, lyricsFontScale, densityScale, theme.lyricGlowUsesAccent, theme.lyricRhythmScaleMultiplier],
+        [stageWidth, lyricsFontScale, densityScale, glowInsetPx, rhythmHeadroom],
+    );
+    const lyricVertical = useMemo(
+        () => resolveLyricVerticalSafeArea({
+            containerHeight: shellHeight,
+            scaleHeadroom: rhythmHeadroom,
+            glowInsetPx,
+            fontPx: lyricFit.fontPx,
+            minPaddingPx: 52,
+            preferredMaxHeightRatio: 0.7,
+        }),
+        [shellHeight, rhythmHeadroom, glowInsetPx, lyricFit.fontPx],
     );
     const mainFontSize = lyricFit.fontSizeCss;
     const emptyFontSize = `${Math.max(16, lyricFit.fontPx * 0.55).toFixed(2)}px`;
-    const translationFontSize = `${Math.max(14, lyricFit.fontPx * 0.42).toFixed(2)}px`;
+    const translationFontSize = `${Math.max(18, lyricFit.fontPx * 0.58).toFixed(2)}px`;
     const upcomingFontSize = `${Math.max(12, lyricFit.fontPx * 0.34).toFixed(2)}px`;
 
     const layoutVariants: Variants = {
@@ -830,7 +883,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
             },
         }),
         passed: ({ config }: any) => ({
-            opacity: theme.animationIntensity === 'chaotic' ? 0.9 : 0.82,
+            opacity: LYRIC_LINE_OPACITY.passedNear,
             scale: config.scale || 1,
             x: config.x,
             y: config.y,
@@ -848,8 +901,8 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
     const bodyVariants: Variants = {
         'waiting-default': ({ baseColor }: any) => ({
             color: baseColor,
-            filter: 'blur(10px)',
-            transition: { duration: 0.4 },
+            filter: lyricBlurFilter(LYRIC_MOTION_BLUR_PX.waiting),
+            transition: { duration: 0.28 },
         }),
         'waiting-karaoke': ({ baseColor }: any) => ({
             color: baseColor,
@@ -869,10 +922,10 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
         }),
         passed: ({ baseColor, wordRevealMode }: any) => ({
             color: baseColor,
-            filter: 'blur(0px)',
+            filter: 'none',
             transition: {
                 color: { duration: wordRevealMode === 'instant' ? 0.12 : wordRevealMode === 'fast' ? 0.24 : 0.8, ease: 'easeInOut' },
-                filter: { duration: wordRevealMode === 'instant' ? 0.12 : wordRevealMode === 'fast' ? 0.2 : 0.5 },
+                filter: { duration: wordRevealMode === 'instant' ? 0.08 : wordRevealMode === 'fast' ? 0.12 : 0.2 },
             },
             transitionEnd: {
                 filter: 'none',
@@ -995,6 +1048,8 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
         };
     }, [theme.animationIntensity]);
 
+    const lyricInk = useMemo(() => resolveLyricInkFills(theme), [theme]);
+
     return (
         <VisualizerShell
             theme={theme}
@@ -1002,14 +1057,20 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
             audioBands={audioBands}
             sharedProps={props}
         >
+            <div
+                className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
+                style={{ paddingTop: lyricVertical.opticalTopBiasPx }}
+            >
             <motion.div
                 ref={stageRef}
-                className="relative z-10 w-full h-[70vh] flex items-center justify-center pointer-events-none will-change-transform overflow-hidden"
+                className="relative w-full flex items-center justify-center will-change-transform overflow-hidden"
                 style={{
+                    height: `${(lyricVertical.maxHeightRatio * 100).toFixed(2)}%`,
+                    maxHeight: `${(lyricVertical.maxHeightRatio * 100).toFixed(2)}%`,
                     paddingLeft: lyricFit.sidePaddingPx,
                     paddingRight: lyricFit.sidePaddingPx,
-                    paddingTop: 32,
-                    paddingBottom: 32,
+                    paddingTop: lyricVertical.topPaddingPx,
+                    paddingBottom: lyricVertical.bottomPaddingPx,
                 }}
                 animate={lyricContainerFloat.animate}
                 transition={lyricContainerFloat.transition}
@@ -1025,7 +1086,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
                             style={{
                                 perspective: `${sequentialLayout.lineConfig.perspective}px`,
                                 gap: sequentialLayout.lineConfig.columnGap,
-                                minHeight: '320px',
+                                minHeight: Math.min(240, Math.max(120, Math.round(lyricVertical.usableHeight * 0.55))),
                                 maxWidth: lyricFit.usableWidth,
                             }}
                         >
@@ -1048,7 +1109,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
                                                     layoutVariants={layoutVariants}
                                                     bodyVariants={bodyVariants}
                                                     glowVariants={glowVariants}
-                                                    baseColor={theme.primaryColor}
+                                                    baseColor={lyricInk.body}
                                                     renderProfile={activeLineRenderProfile}
                                                     isChorus={activeLine.isChorus}
                                                     showGuideLines={resolvedPartitaTuning.showGuideLines}
@@ -1080,6 +1141,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
                     )}
                 </AnimatePresence>
             </motion.div>
+            </div>
 
             <VisualizerSubtitleOverlay
                 showText={showText}

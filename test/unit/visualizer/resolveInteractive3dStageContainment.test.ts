@@ -3,6 +3,9 @@ import {
     buildInteractive3dStageContainmentMask,
     measureLyricColumnEndRatio,
     resolveInteractive3dStageContainmentStyle,
+    resolveVisiblePaneCenterNdc,
+    resolveVisiblePaneCenterRatio,
+    resolveVisiblePaneLookAtX,
     shouldContainInteractive3dStageForMode,
 } from '@/components/visualizer/geometric/resolveInteractive3dStageContainment';
 
@@ -41,5 +44,19 @@ describe('resolveInteractive3dStageContainmentStyle', () => {
 
         expect(measureLyricColumnEndRatio(stage, column)).toBeCloseTo(0.42, 2);
         expect(measureLyricColumnEndRatio(stage, null)).toBeUndefined();
+    });
+});
+
+describe('resolveVisiblePane framing', () => {
+    it('centers the visible right pane between lyric end and stage end', () => {
+        expect(resolveVisiblePaneCenterRatio(0.4)).toBeCloseTo(0.7, 5);
+        expect(resolveVisiblePaneCenterNdc(0.4)).toBeCloseTo(0.4, 5);
+    });
+
+    it('keeps lookAt bias off so Monet cover particles stay full-bleed centered', () => {
+        expect(resolveVisiblePaneLookAtX(0.4, 8)).toBe(0);
+        expect(resolveVisiblePaneLookAtX(0.4, 8, 0.22)).toBeCloseTo(-3.2 * 0.22, 5);
+        expect(resolveVisiblePaneLookAtX(undefined, 8)).toBe(0);
+        expect(resolveVisiblePaneLookAtX(0.4, 0)).toBe(0);
     });
 });

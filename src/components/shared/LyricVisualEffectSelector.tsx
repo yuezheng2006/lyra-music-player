@@ -18,10 +18,10 @@ const LyricVisualEffectSelector: React.FC<LyricVisualEffectSelectorProps> = ({
 }) => {
     const { t } = useTranslation();
     const intensityOptions = useMemo(() => ([
-        { value: 'subtle' as const, label: t('ui.visualEffectIntensitySubtle') },
-        { value: 'normal' as const, label: t('ui.visualEffectIntensityNormal') },
-        { value: 'strong' as const, label: t('ui.visualEffectIntensityStrong') },
-        { value: 'extreme' as const, label: t('ui.visualEffectIntensityExtreme') },
+        { value: 'subtle' as const, label: t('options.visualEffectIntensitySubtle') },
+        { value: 'normal' as const, label: t('options.visualEffectIntensityNormal') },
+        { value: 'strong' as const, label: t('options.visualEffectIntensityStrong') },
+        { value: 'extreme' as const, label: t('options.visualEffectIntensityExtreme') },
     ]), [t]);
 
     const optionButtonClass = (selected: boolean) => (

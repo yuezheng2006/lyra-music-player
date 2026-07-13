@@ -3,6 +3,7 @@ import type { AudioBands, Interactive3dSceneTuning } from '../../../../types';
 import type { GeometricQualityProfile } from '../geometricQuality';
 import type { InteractiveCameraSnapshot } from '../interactiveCamera/interactiveCameraTypes';
 import { orbitToCameraPosition, resolveOrbitFitCameraRadius } from '../interactiveCamera/interactiveCameraMath';
+import { resolveVisiblePaneLookAtX } from '../resolveInteractive3dStageContainment';
 import {
     buildCoverParticleGeometry,
     coverParticleGridForQualityTier,
@@ -26,6 +27,9 @@ import { CoverParticleAudioSmoother } from './coverParticleAudioUniforms';
 import { CoverParticleBurstSmoother } from './coverParticleBurstSmoother';
 import {
     resolveCoverParticlePointScale,
+    resolveCoverSwapDepthHold,
+    shouldHoldCoverThroughLoadFailure,
+    shouldHoldCoverThroughNullUrl,
     shouldShowCoverLoadMist,
 } from './coverParticleDisplayTuning';
 import { resolveCoverParticlePresetRuntime } from './coverParticlePresetRuntime';
@@ -53,6 +57,8 @@ export interface CoverParticleRuntimeInputs {
     pointerActive: boolean;
     paused: boolean;
     camera?: InteractiveCameraSnapshot;
+    /** Monet left-column end (0–1); biases framing into the visible right pane. */
+    lyricColumnEndRatio?: number;
 }
 
 export type MineradioLyricRuntimeInputs = Omit<LyricStageTickInput, 'beatPulse' | 'dt'>;
@@ -235,6 +241,12 @@ export class CoverParticleRuntime {
 
     private lyricImmersive = false;
 
+    private lyricColumnEndRatio: number | undefined = undefined;
+
+    private paneLookAtX = 0;
+
+    private snapPaneLookAt = false;
+
     private lyricInputProvider: (() => MineradioLyricRuntimeInputs) | null = null;
 
     private latestLyricInputs: MineradioLyricRuntimeInputs = {
@@ -292,6 +304,22 @@ export class CoverParticleRuntime {
         );
         const cinematicPosition = applyCoverParticleCinemaOffset(baseZ, cinemaOffset);
         const orbitBaseline = MINERADIO_ORBIT_BASELINES[preset ?? 'emily'];
+        const focusDistance = orbitBaseline
+            ? Math.max(0.5, this.mineradioOrbit.radius)
+            : Math.max(0.5, Math.abs(cinematicPosition.z));
+        const halfFovTan = Math.tan((this.camera.fov * Math.PI) / 360);
+        const halfWidth = halfFovTan * Math.max(0.05, this.camera.aspect) * focusDistance;
+        const ratioFromInputs = this.latestInputs.lyricColumnEndRatio ?? this.lyricColumnEndRatio;
+        const targetPaneLookAtX = resolveVisiblePaneLookAtX(ratioFromInputs, halfWidth);
+        if (this.snapPaneLookAt) {
+            this.paneLookAtX = targetPaneLookAtX;
+            this.snapPaneLookAt = false;
+        } else {
+            const delta = Math.abs(targetPaneLookAtX - this.paneLookAtX);
+            const ease = delta > 1.2 ? 1 : 0.28;
+            this.paneLookAtX += (targetPaneLookAtX - this.paneLookAtX) * ease;
+        }
+        const paneLookAtX = this.paneLookAtX;
         const targetFov = orbitBaseline
             ? presetProfile.fov
                 - Math.max(0, beat) * (0.85 + immersiveStrength * 0.55)
@@ -332,6 +360,7 @@ export class CoverParticleRuntime {
                 this.mineradioOrbit.theta += (targetTheta - this.mineradioOrbit.theta) * focusEase;
                 this.mineradioOrbit.phi += (targetPhi - this.mineradioOrbit.phi) * focusEase;
                 this.mineradioOrbit.radius += (targetRadius - this.mineradioOrbit.radius) * radiusEase;
+                this.mineradioOrbit.lookAt.x = paneLookAtX;
                 const cy = Math.cos(this.mineradioOrbit.phi);
                 this.camera.position.set(
                     this.mineradioOrbit.lookAt.x
@@ -357,12 +386,12 @@ export class CoverParticleRuntime {
 
             syncRotation(0, 0);
             this.camera.position.set(
-                cinematicPosition.x,
+                cinematicPosition.x + paneLookAtX,
                 cinematicPosition.y,
                 cinematicPosition.z,
             );
             this.camera.rotation.set(0, 0, 0);
-            this.camera.lookAt(0, 0, 0);
+            this.camera.lookAt(paneLookAtX, 0, 0);
             return;
         }
 
@@ -389,12 +418,12 @@ export class CoverParticleRuntime {
 
         if (snapshot.mode === 'gesture') {
             this.camera.position.set(
-                cinematicPosition.x,
+                cinematicPosition.x + paneLookAtX,
                 cinematicPosition.y,
                 cinematicPosition.z,
             );
             this.camera.rotation.set(0, 0, 0);
-            this.camera.lookAt(0, 0, 0);
+            this.camera.lookAt(paneLookAtX, 0, 0);
             syncRotation(snapshot.gesture.rotationX, snapshot.gesture.rotationY);
         }
     }
@@ -691,7 +720,11 @@ export class CoverParticleRuntime {
             }
             this.uniforms.uPreset.value = resolveWebGLPresetIndex(preset);
             this.rebuildCoverGeometry(qualityProfile);
-            this.ensureParticleAlphaVisible();
+            // Reveal particles only after a cover is on screen (or when there is no cover to wait for).
+            // Revealing early while the texture loads shows an unordered cloud.
+            if (!this.coverUrl) {
+                this.ensureParticleAlphaVisible();
+            }
             this.loadCoverTexture(this.coverUrl);
             this.renderFrame();
         }
@@ -708,6 +741,14 @@ export class CoverParticleRuntime {
     setLyricImmersive(enabled: boolean) {
         this.lyricImmersive = enabled;
         this.lyricStage.setImmersive(enabled);
+    }
+
+    /** Bias auto framing into Monet's visible right pane; snap on fullscreen layout jumps. */
+    setLyricColumnEndRatio(ratio: number | undefined, options?: { snap?: boolean }) {
+        this.lyricColumnEndRatio = ratio;
+        if (options?.snap) {
+            this.snapPaneLookAt = true;
+        }
     }
 
     setLyricInputProvider(provider: () => MineradioLyricRuntimeInputs) {
@@ -837,25 +878,38 @@ export class CoverParticleRuntime {
     private loadCoverTexture(url: string | null) {
         if (url === this.loadedCoverUrl) return;
         const loadToken = ++this.coverLoadToken;
+        const hasActiveCover = (this.uniforms.uHasCover.value ?? 0) > 0.5 && !!this.coverTexture;
         this.container?.setAttribute('data-cover-url', url ?? '');
-        this.container?.removeAttribute('data-loaded-cover-url');
-        this.container?.removeAttribute('data-cover-depth-ready');
         this.container?.removeAttribute('data-cover-load-error');
 
         if (!url) {
+            // Track changes can briefly clear coverUrl; keep the live 3D field mounted.
+            if (shouldHoldCoverThroughNullUrl(hasActiveCover)) {
+                return;
+            }
             this.loadedCoverUrl = null;
             this.uniforms.uHasCover.value = 0;
             this.setCoverDepthState(0, 0, 1);
             this.hideLoading();
             this.revokeCoverObjectUrl();
+            this.container?.removeAttribute('data-loaded-cover-url');
+            this.container?.removeAttribute('data-cover-depth-ready');
             return;
         }
-        // Keep the current cover on screen while the next texture loads. The load mist
-        // looks like a different 3D preset and must not flash on every track change.
-        const hasActiveCover = (this.uniforms.uHasCover.value ?? 0) > 0.5 && !!this.coverTexture;
-        if (shouldShowCoverLoadMist(hasActiveCover)) {
+
+        // Keep the current cover on screen while the next texture loads.
+        // Never flash loading mist when a cover URL is pending — that cloud is the
+        // "unordered particles" transition users see on every track change / remount.
+        if (shouldShowCoverLoadMist(hasActiveCover, true)) {
             this.showLoading();
+        } else {
+            if ((this.uniforms.uLoading.value || 0) > 0.001) {
+                this.loadingTween.cancel();
+                this.uniforms.uLoading.value = 0;
+                this.container?.removeAttribute('data-cover-loading');
+            }
         }
+
         this.textureLoader.setCrossOrigin('anonymous');
         void this.resolveCoverTextureUrl(url).then(({ textureUrl, objectUrl }) => {
             if (loadToken !== this.coverLoadToken) {
@@ -878,8 +932,6 @@ export class CoverParticleRuntime {
                     }
                     texture.minFilter = THREE.LinearFilter;
                     texture.magFilter = THREE.LinearFilter;
-                    this.loadedCoverUrl = url;
-                    this.container?.setAttribute('data-loaded-cover-url', url);
 
                     if (this.coverTexture?.image) {
                         this.copyCoverImageToPrevious(this.coverTexture.image as CanvasImageSource);
@@ -898,10 +950,12 @@ export class CoverParticleRuntime {
                     }
                     texture.dispose();
                     if (!coverCanvas) {
-                        this.loadedCoverUrl = null;
-                        this.uniforms.uHasCover.value = 0;
-                        this.setCoverDepthState(0, 0, 1);
                         this.container?.setAttribute('data-cover-load-error', 'canvas-unreadable');
+                        if (!shouldHoldCoverThroughLoadFailure(hasActiveCover)) {
+                            this.loadedCoverUrl = null;
+                            this.uniforms.uHasCover.value = 0;
+                            this.setCoverDepthState(0, 0, 1);
+                        }
                         this.hideLoading();
                         return;
                     }
@@ -915,35 +969,46 @@ export class CoverParticleRuntime {
                     this.coverTexture.needsUpdate = true;
                     this.uniforms.uCoverTex.value = this.coverTexture;
                     this.uniforms.uHasCover.value = 1;
-                    this.setCoverDepthState(
-                        this.uniforms.uHasDepth.value > 0.5 ? 0.22 : 0,
-                        0.20,
-                        120,
-                    );
+                    this.loadedCoverUrl = url;
+                    this.container?.setAttribute('data-loaded-cover-url', url);
+
+                    // Hold depth through the swap so particles do not collapse into scatter.
+                    const heldDepth = resolveCoverSwapDepthHold(this.uniforms.uHasDepth.value || 0);
+                    const heldAi = hasActiveCover
+                        ? Math.max(this.uniforms.uAiBoost.value || 0, 0.35)
+                        : 0.20;
+                    this.setCoverDepthState(heldDepth, heldAi, hasActiveCover ? 180 : 120);
                     try {
                         this.applyCoverEdgeFromImage(coverCanvas);
                     } catch {
-                        this.setCoverDepthState(0, 0, 1);
+                        if (!shouldHoldCoverThroughLoadFailure(hasActiveCover)) {
+                            this.setCoverDepthState(0, 0, 1);
+                        }
                     }
+                    this.ensureParticleAlphaVisible();
                     this.hideLoading();
                     this.renderFrame();
                 },
                 undefined,
                 () => {
                     if (loadToken !== this.coverLoadToken) return;
-                    this.loadedCoverUrl = null;
-                    this.uniforms.uHasCover.value = 0;
-                    this.setCoverDepthState(0, 0, 1);
                     this.container?.setAttribute('data-cover-load-error', 'texture-load-failed');
+                    if (!shouldHoldCoverThroughLoadFailure(hasActiveCover)) {
+                        this.loadedCoverUrl = null;
+                        this.uniforms.uHasCover.value = 0;
+                        this.setCoverDepthState(0, 0, 1);
+                    }
                     this.hideLoading();
                 },
             );
         }).catch(() => {
             if (loadToken !== this.coverLoadToken) return;
-            this.loadedCoverUrl = null;
-            this.uniforms.uHasCover.value = 0;
-            this.setCoverDepthState(0, 0, 1);
             this.container?.setAttribute('data-cover-load-error', 'proxy-fetch-failed');
+            if (!shouldHoldCoverThroughLoadFailure(hasActiveCover)) {
+                this.loadedCoverUrl = null;
+                this.uniforms.uHasCover.value = 0;
+                this.setCoverDepthState(0, 0, 1);
+            }
             this.hideLoading();
         });
     }

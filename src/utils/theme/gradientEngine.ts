@@ -186,68 +186,50 @@ export const applyAudioReactiveGradient = (
 };
 
 /**
- * 为流行歌词色预设创建增强渐变配置
+ * 汽水中性 + 舞台撞色歌词的轻量渐变配置
  */
 export const ENHANCED_LYRIC_GRADIENTS: Record<string, AudioReactiveGradientConfig> = {
-    'midnight-default': {
+    'soda-gray': {
         type: 'linear',
-        colors: ['#fafafa', '#ffffff', '#b8b8c2'],
+        colors: ['#a1a1aa', '#d4d4d8', '#71717a'],
         angle: 90,
         animated: false,
         audioReactive: false,
     },
-
-    'douyin-neon': {
+    'soda-white': {
         type: 'linear',
-        colors: ['#fe2c55', '#00f5ff', '#fe2c55'],
-        angle: 45,
-        animated: true,
-        animationDuration: 3000,
-        animationEasing: 'ease-in-out',
-        audioReactive: true,
-        hueShiftRange: 60,
-        saturationBoost: 0.3,
-        brightnessBoost: 0.4,
+        colors: ['#f4f4f5', '#ffffff', '#a1a1aa'],
+        angle: 90,
+        animated: false,
+        audioReactive: false,
     },
-
-    'douyin-purple': {
-        type: 'conic',
-        colors: ['#9333ea', '#e879f9', '#6366f1', '#c084fc', '#9333ea'],
-        angle: 0,
-        centerX: 0.5,
-        centerY: 0.5,
-        animated: true,
-        animationDuration: 5000,
-        animationEasing: 'linear',
-        audioReactive: true,
-        hueShiftRange: 45,
-        saturationBoost: 0.25,
-    },
-
-    'xhs-morandi': {
-        type: 'radial',
-        colors: ['#d4738f', '#9a6b7a', '#f48fb1', '#ce93d8'],
-        centerX: 0.5,
-        centerY: 0.3,
-        animated: true,
-        animationDuration: 4000,
-        animationEasing: 'ease-in-out',
-        audioReactive: true,
-        hueShiftRange: 30,
-        saturationBoost: 0.15,
-    },
-
-    'dazibao-red': {
+    'douyin-yellow': {
         type: 'linear',
-        colors: ['#de2910', '#ff3b30', '#ff8c85', '#ff3b30', '#de2910'],
+        colors: ['#ffd84d', '#ffcc00', '#f59e0b'],
         angle: 90,
         animated: true,
-        animationDuration: 3500,
-        animationEasing: 'elastic',
-        audioReactive: true,
-        hueShiftRange: 25,
-        saturationBoost: 0.4,
-        brightnessBoost: 0.3,
+        audioReactive: false,
+    },
+    'foil-gold': {
+        type: 'linear',
+        colors: ['#f2d06b', '#d4af37', '#a67c00'],
+        angle: 90,
+        animated: false,
+        audioReactive: false,
+    },
+    'xhs-hot-pink': {
+        type: 'linear',
+        colors: ['#ff6b9d', '#ff3d7a', '#be123c'],
+        angle: 90,
+        animated: true,
+        audioReactive: false,
+    },
+    'dazibao-red': {
+        type: 'linear',
+        colors: ['#ff5a45', '#ef4444', '#b91c1c'],
+        angle: 90,
+        animated: true,
+        audioReactive: false,
     },
 };
 

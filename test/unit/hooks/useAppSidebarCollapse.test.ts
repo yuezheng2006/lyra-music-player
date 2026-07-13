@@ -4,7 +4,7 @@ import { APP_SIDEBAR_COLLAPSED_STORAGE_KEY } from '@/hooks/useAppSidebarCollapse
 // test/unit/hooks/useAppSidebarCollapse.test.ts
 
 describe('app sidebar collapse storage', () => {
-    it('uses a stable localStorage key for chrome layout preference', () => {
+    it('uses a stable localStorage key for the user collapse preference only', () => {
         expect(APP_SIDEBAR_COLLAPSED_STORAGE_KEY).toBe('folia_app_sidebar_collapsed_v1');
     });
 });

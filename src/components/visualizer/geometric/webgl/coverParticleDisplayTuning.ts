@@ -9,7 +9,28 @@ export const resolveCoverParticlePointScale = (presetPointScale: number): number
 );
 
 /**
- * Loading mist morphs the particle field into a teal/lavender cloud that reads as a
- * different 3D preset. Only show it before the first cover texture is on screen.
+ * Loading mist is a teal/lavender unordered cloud. Only use it for a true empty
+ * cold start (no live cover AND no cover URL currently being loaded).
+ * Track changes always have a pending URL or an active cover — never mist.
  */
-export const shouldShowCoverLoadMist = (hasActiveCover: boolean): boolean => !hasActiveCover;
+export const shouldShowCoverLoadMist = (
+    hasActiveCover: boolean,
+    hasPendingCoverUrl = false,
+): boolean => !hasActiveCover && !hasPendingCoverUrl;
+
+/**
+ * Transient null coverUrl on track change must not tear down the live particle field.
+ */
+export const shouldHoldCoverThroughNullUrl = (hasActiveCover: boolean): boolean => hasActiveCover;
+
+/**
+ * Failed next-cover fetch should keep the previous cover mounted.
+ */
+export const shouldHoldCoverThroughLoadFailure = (hasActiveCover: boolean): boolean => hasActiveCover;
+
+/**
+ * While swapping covers, keep depth elevated so the field does not flatten into scatter.
+ */
+export const resolveCoverSwapDepthHold = (currentDepth: number): number => (
+    currentDepth > 0.5 ? Math.max(currentDepth, 0.85) : Math.max(currentDepth, 0.2)
+);

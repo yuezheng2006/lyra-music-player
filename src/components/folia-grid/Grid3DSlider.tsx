@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Disc } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import { OnlineProviderBadge } from '../shared/OnlineProviderBadge';
+import LazyCoverImage from '../shared/LazyCoverImage';
 import type { OnlineMusicProviderId } from '../../types';
 
 // src/components/folia-grid/Grid3DSlider.tsx
@@ -538,13 +538,14 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
                                             }`}
                                             style={{ width: coverSize, height: coverSize }}
                                         >
-                                            {item.coverUrl && loadedIndices.has(index) ? (
-                                                <img src={item.coverUrl} alt={typeof item.name === 'string' ? item.name : ''} className="w-full h-full object-cover pointer-events-none select-none" />
-                                            ) : (
-                                                <div className="w-full h-full bg-zinc-800/20 flex items-center justify-center">
-                                                    <Disc size={48} className="opacity-20" />
-                                                </div>
-                                            )}
+                                            <LazyCoverImage
+                                                src={loadedIndices.has(index) ? item.coverUrl : null}
+                                                alt={typeof item.name === 'string' ? item.name : ''}
+                                                placeholderLabel={typeof item.name === 'string' ? item.name : ''}
+                                                placeholderVariant="playlist"
+                                                sizePx={Math.round(coverSize)}
+                                                className="w-full h-full object-cover pointer-events-none select-none"
+                                            />
                                             {item.musicProvider && (
                                                 <OnlineProviderBadge
                                                     provider={item.musicProvider}
@@ -559,11 +560,14 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
                                             style={{ width: coverSize }}
                                         >
                                             <div className="w-full aspect-square rounded-lg overflow-hidden bg-zinc-800/20 relative shadow-inner mb-2.5 flex items-center justify-center">
-                                                {item.coverUrl && loadedIndices.has(index) ? (
-                                                    <img src={item.coverUrl} alt={typeof item.name === 'string' ? item.name : ''} className="w-full h-full object-cover pointer-events-none select-none" />
-                                                ) : (
-                                                    <Disc size={48} className="opacity-20" />
-                                                )}
+                                                <LazyCoverImage
+                                                    src={loadedIndices.has(index) ? item.coverUrl : null}
+                                                    alt={typeof item.name === 'string' ? item.name : ''}
+                                                    placeholderLabel={typeof item.name === 'string' ? item.name : ''}
+                                                    placeholderVariant="playlist"
+                                                    sizePx={Math.round(coverSize)}
+                                                    className="w-full h-full object-cover pointer-events-none select-none"
+                                                />
                                                 {item.musicProvider && (
                                                     <OnlineProviderBadge
                                                         provider={item.musicProvider}

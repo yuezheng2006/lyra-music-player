@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Play, ChevronLeft, Disc, Loader2, Pencil, X, ListPlus, Plus } from 'lucide-react';
+import { Play, ChevronLeft, Loader2, Pencil, X, ListPlus, Plus } from 'lucide-react';
 import { NeteasePlaylist, SongResult } from '../types';
 import { getSongUnavailableTagText, isSongMarkedUnavailable, neteaseApi } from '../services/netease';
 import { fetchQQPlaylistTracks } from '../services/musicProviders/qqMusicLibrary';
@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { formatSongName } from '../utils/songNameFormatter';
 import { APP_CONTENT_TOP_OFFSET_CLASS } from './app/home/homeSurfaceStyles';
+import LazyCoverImage from './shared/LazyCoverImage';
 
 interface PlaylistViewProps {
   playlist: NeteasePlaylist;
@@ -344,14 +345,28 @@ const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBack, onPlaySon
           <div
             className="w-48 h-48 md:w-64 md:h-64 rounded-2xl shadow-2xl overflow-hidden mb-6 relative mt-12 md:mt-0 mx-auto md:mx-0 bg-zinc-800"
           >
-            <img src={playlist.coverImgUrl?.replace('http:', 'https:')} alt={playlist.name} className="w-full h-full object-cover" />
+            <LazyCoverImage
+              src={playlist.coverImgUrl?.replace('http:', 'https:')}
+              alt={playlist.name}
+              placeholderLabel={playlist.name}
+              placeholderVariant="playlist"
+              sizePx={320}
+              className="w-full h-full object-cover"
+            />
           </div>
 
           <div className="text-center md:text-left space-y-2 w-full mb-6">
             <h1 className="text-2xl md:text-3xl font-bold line-clamp-2" style={{ color: 'var(--text-primary)' }}>{playlist.name}</h1>
             <div className="flex items-center justify-center md:justify-start gap-2 text-sm opacity-50" style={{ color: 'var(--text-secondary)' }}>
               <div className="w-5 h-5 rounded-full overflow-hidden">
-                <img src={playlist.creator.avatarUrl?.replace('http:', 'https:')} alt="avatar" className="w-full h-full" />
+                <LazyCoverImage
+                  src={playlist.creator.avatarUrl?.replace('http:', 'https:')}
+                  alt="avatar"
+                  placeholderLabel={playlist.creator.nickname}
+                  placeholderVariant="artist"
+                  sizePx={40}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <span>{playlist.creator.nickname}</span>
             </div>

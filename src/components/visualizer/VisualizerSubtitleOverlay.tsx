@@ -57,6 +57,13 @@ export const resolveVisualizerSubtitleOverlayContent = ({
     };
 };
 
+/** Floats the translation caption under the main lyric zone instead of pinning it to the dock. */
+const resolveTranslationCaptionBottom = (isPlayerChromeHidden: boolean): string => (
+    isPlayerChromeHidden
+        ? 'max(20vh, 120px)'
+        : `max(22vh, calc(var(--app-player-bar-height, 72px) + 108px + env(safe-area-inset-bottom, 0px)))`
+);
+
 const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
     showText,
     activeLine,
@@ -89,6 +96,7 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
     const translationPresentation = resolveVisualizerBottomSubtitlePresentation(theme, resolvedOpacity);
     const showUpcomingLines = upcomingLines.length > 0;
     const bottomPadding = resolveVisualizerSubtitleBottom(isPlayerChromeHidden);
+    const translationCaptionBottom = resolveTranslationCaptionBottom(isPlayerChromeHidden);
 
     // Mount into the app-level host so rhythm scale / overflow-hidden cannot clip upcoming lines.
     useLayoutEffect(() => {
@@ -99,58 +107,71 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
         <AnimatePresence>
             {shouldRenderOverlay && (
                 <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{
-                        opacity: translationText ? resolvedOpacity : 1,
-                        y: 0,
-                    }}
-                    exit={{ opacity: 0, y: 12 }}
-                    transition={{
-                        opacity: { duration: 0.24, ease: 'easeOut' },
-                        y: { duration: 0.24, ease: 'easeOut' },
-                    }}
-                    className="pointer-events-none absolute inset-x-0 bottom-0 px-4 text-center"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ opacity: { duration: 0.24, ease: 'easeOut' } }}
+                    className="pointer-events-none absolute inset-0"
                     data-testid="visualizer-subtitle-overlay"
-                    style={{ paddingBottom: bottomPadding }}
                 >
-                    <div className="mx-auto flex w-full max-w-2xl flex-col justify-end gap-2">
-                        {translationText ? (
-                            <motion.div
-                                key={`trans-${activeLine?.startTime || recentCompletedLine?.startTime}`}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                data-font-debug-target="visualizer-translation"
-                                className="font-medium leading-snug"
-                                style={{
-                                    color: translationPresentation.color,
-                                    fontSize: translationFontSize,
-                                    fontFamily: resolveThemeTranslationFontStack(theme),
-                                    textShadow: translationPresentation.textShadow,
-                                    opacity: translationPresentation.opacity,
-                                }}
-                            >
-                                {translationText}
-                            </motion.div>
-                        ) : null}
-                        {showUpcomingLines ? (
-                            upcomingLines.map((line, index) => (
-                                <p
-                                    key={`${line.startTime}-${index}`}
-                                    data-testid={`visualizer-upcoming-line-${index}`}
-                                    className="font-medium leading-snug transition-all duration-500"
+                    {translationText ? (
+                        <motion.div
+                            key={`trans-${activeLine?.startTime || recentCompletedLine?.startTime}`}
+                            initial={{ opacity: 0, y: 14 }}
+                            animate={{ opacity: translationPresentation.opacity, y: 0 }}
+                            exit={{ opacity: 0, y: 8 }}
+                            transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                            className="absolute inset-x-0 px-5 text-center"
+                            style={{ bottom: translationCaptionBottom }}
+                        >
+                            <div className="mx-auto inline-flex max-w-3xl flex-col items-center gap-2.5">
+                                <span
+                                    aria-hidden="true"
+                                    className="h-px w-11 shrink-0 rounded-full"
+                                    style={{ backgroundColor: translationPresentation.accentRuleColor }}
+                                />
+                                <div
+                                    data-font-debug-target="visualizer-translation"
+                                    className="leading-snug"
                                     style={{
-                                        color: upcomingPresentation.color,
-                                        fontSize: upcomingFontSize,
-                                        opacity: upcomingPresentation.lineOpacity * (index === 0 ? 1 : 0.82),
-                                        textShadow: upcomingPresentation.textShadow,
+                                        color: translationPresentation.color,
+                                        fontSize: translationFontSize,
+                                        fontFamily: resolveThemeTranslationFontStack(theme),
+                                        fontWeight: translationPresentation.fontWeight,
+                                        letterSpacing: translationPresentation.letterSpacing,
+                                        textShadow: translationPresentation.textShadow,
                                     }}
                                 >
-                                    {line.fullText}
-                                </p>
-                            ))
-                        ) : null}
-                    </div>
+                                    {translationText}
+                                </div>
+                            </div>
+                        </motion.div>
+                    ) : null}
+
+                    {showUpcomingLines ? (
+                        <div
+                            className="absolute inset-x-0 bottom-0 px-4 text-center"
+                            style={{ paddingBottom: bottomPadding }}
+                        >
+                            <div className="mx-auto flex w-full max-w-2xl flex-col justify-end gap-2">
+                                {upcomingLines.map((line, index) => (
+                                    <p
+                                        key={`${line.startTime}-${index}`}
+                                        data-testid={`visualizer-upcoming-line-${index}`}
+                                        className="font-medium leading-snug transition-all duration-500"
+                                        style={{
+                                            color: upcomingPresentation.color,
+                                            fontSize: upcomingFontSize,
+                                            opacity: upcomingPresentation.lineOpacity * (index === 0 ? 1 : 0.82),
+                                            textShadow: upcomingPresentation.textShadow,
+                                        }}
+                                    >
+                                        {line.fullText}
+                                    </p>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
                 </motion.div>
             )}
         </AnimatePresence>

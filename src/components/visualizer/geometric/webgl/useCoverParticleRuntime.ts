@@ -80,10 +80,12 @@ export const useCoverParticleRuntime = ({
             runtimeRef.current = null;
         };
     // Intentionally omit coverUrl: remounting flashes the load mist on track change.
+    // Stabilize on tier — qualityProfile object identity changes with sceneTuning.
     }, [
         mountedContainer,
         enabled,
-        qualityProfile,
+        qualityProfile.tier,
+        qualityProfile.devicePixelRatioCap,
         sceneTuning?.visualPreset,
         sceneTuning?.enableCoverParticles,
         containerRef,
@@ -93,12 +95,15 @@ export const useCoverParticleRuntime = ({
         runtimeRef.current?.configure(coverUrl ?? null, sceneTuning, qualityProfile);
     }, [
         coverUrl,
-        qualityProfile,
+        qualityProfile.tier,
+        qualityProfile.devicePixelRatioCap,
         sceneTuning?.visualPreset,
         sceneTuning?.enableCoverParticles,
         sceneTuning?.rhythmIntensity,
         sceneTuning?.bloomStrength,
         sceneTuning?.enableBassRipples,
+        sceneTuning,
+        qualityProfile,
     ]);
 
 };

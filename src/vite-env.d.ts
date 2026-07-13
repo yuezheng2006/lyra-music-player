@@ -590,6 +590,46 @@ declare global {
       onDesktopLyricsEnabledStateChanged: (
         callback: (state: import('./types/desktopLyrics').DesktopLyricsEnabledState) => void,
       ) => () => void;
+      ytmusicSearch: (payload: {
+        query: string;
+        limit?: number;
+      }) => Promise<{
+        ok: boolean;
+        tracks: import('./types/ytmusic').YtmSearchTrack[];
+        error?: string;
+      }>;
+      ytmusicResolveStream: (payload: {
+        videoId: string;
+      }) => Promise<{
+        ok: boolean;
+        stream: (import('./types/ytmusic').YtmStreamInfo & { playbackUrl?: string }) | null;
+        error?: string;
+      }>;
+      ytmusicGetHomeShelves: (payload?: {
+        forceRefresh?: boolean;
+      }) => Promise<{
+        ok: boolean;
+        shelves: import('./types/ytmusic').YtmHomePlaylist[];
+        error?: string;
+      }>;
+      ytmusicGetPlaylist: (payload: {
+        playlistId: string;
+        title?: string;
+        coverUrl?: string | null;
+        limit?: number;
+        forceRefresh?: boolean;
+      }) => Promise<{
+        ok: boolean;
+        section: import('./types/ytmusic').YtmHomeSection | null;
+        error?: string;
+      }>;
+      ytmusicGetHome: (payload?: {
+        forceRefresh?: boolean;
+      }) => Promise<{
+        ok: boolean;
+        sections: import('./types/ytmusic').YtmHomeSection[];
+        error?: string;
+      }>;
     };
   }
 }

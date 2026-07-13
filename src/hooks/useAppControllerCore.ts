@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useMotionValue } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { USER_GUIDE_AUTO_OPEN_VERSION } from '@/components/modal/userGuideContent';
+import { resolveStartupOverlay } from '@/utils/startupOverlayGate';
+import { loadVisualizerRegistryEntry } from '@/components/visualizer/registry';
 import { createCoverUrlResolver } from '@/components/app/playback/createCoverUrlResolver';
 import { createLyricsSetter } from '@/components/app/playback/createLyricsSetter';
 import { createOnlineRecoveryController } from '@/components/app/playback/createOnlineRecoveryController';
@@ -15,6 +16,7 @@ import {
 } from '@/components/app/root/appConstants';
 import { PlayerState, ReplayGainMode, StatusMessage, PlaybackContext, StageLoopMode, type AudioBands, type SongResult, type LyricData } from '@/types';
 import { isNavidromeEnabled } from '@/services/navidromeService';
+import { isNavidromeUiEnabled } from '@/utils/featureFlags';
 import { useAppPreferences } from '@/hooks/useAppPreferences';
 import { useElectronNeteaseApiStatus } from '@/hooks/useElectronNeteaseApiStatus';
 import { useAppControllerCoreIntegrations } from '@/hooks/useAppControllerCoreIntegrations';
@@ -70,7 +72,8 @@ export function useAppControllerCore() {
     const [isFloatingDockRevealed, setIsFloatingDockRevealed] = useState(false);
     const [isFloatingDockPopoverOpen, setIsFloatingDockPopoverOpen] = useState(false);
     const [isDevDebugOverlayVisible, setIsDevDebugOverlayVisible] = useState(false);
-    const [navidromeEnabled, setNavidromeEnabledState] = useState(() => isNavidromeEnabled());
+    const [navidromeEnabledStored, setNavidromeEnabledState] = useState(() => isNavidromeEnabled());
+    const navidromeEnabled = isNavidromeUiEnabled() && navidromeEnabledStored;
     const [starredNavidromeSongIds, setStarredNavidromeSongIds] = useState<Set<string>>(new Set());
     const {
         closeSettings,
@@ -84,6 +87,10 @@ export function useAppControllerCore() {
         lastSeenGuideVersion,
         setLastSeenGuideVersion,
         setIsUserGuideModalOpen,
+        setIsShortcutsCheatSheetOpen,
+        onboardingCompleted,
+        setIsOnboardingOpen,
+        setIsWhatsNewOpen,
         playerLyricsVisible,
         handleTogglePlayerLyricsVisible,
     } = useSettingsUiStore(useShallow(state => ({
@@ -98,6 +105,10 @@ export function useAppControllerCore() {
         lastSeenGuideVersion: state.lastSeenGuideVersion,
         setLastSeenGuideVersion: state.setLastSeenGuideVersion,
         setIsUserGuideModalOpen: state.setIsUserGuideModalOpen,
+        setIsShortcutsCheatSheetOpen: state.setIsShortcutsCheatSheetOpen,
+        onboardingCompleted: state.onboardingCompleted,
+        setIsOnboardingOpen: state.setIsOnboardingOpen,
+        setIsWhatsNewOpen: state.setIsWhatsNewOpen,
         playerLyricsVisible: state.playerLyricsVisible,
         handleTogglePlayerLyricsVisible: state.handleTogglePlayerLyricsVisible,
     })));
@@ -106,15 +117,25 @@ export function useAppControllerCore() {
     const canOpenThemeQuickEditor = useThemeQuickEditorStore(state => state.canOpenEditor);
 
     useEffect(() => {
-        if (
-            typeof __APP_VERSION__ !== 'undefined' &&
-            USER_GUIDE_AUTO_OPEN_VERSION === __APP_VERSION__ &&
-            lastSeenGuideVersion !== __APP_VERSION__
-        ) {
-            setIsUserGuideModalOpen(true);
-            setLastSeenGuideVersion(__APP_VERSION__);
+        const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+        const overlay = resolveStartupOverlay({
+            onboardingCompleted,
+            lastSeenGuideVersion,
+            appVersion,
+        });
+        if (overlay === 'onboarding') {
+            setIsOnboardingOpen(true);
+            return;
         }
-    }, [lastSeenGuideVersion, setLastSeenGuideVersion, setIsUserGuideModalOpen]);
+        if (overlay === 'whats-new') {
+            setIsWhatsNewOpen(true);
+        }
+    }, [
+        lastSeenGuideVersion,
+        onboardingCompleted,
+        setIsOnboardingOpen,
+        setIsWhatsNewOpen,
+    ]);
 
     const loadNavidromeFavorites = useCallback(async () => {
         if (!navidromeEnabled) {
@@ -236,7 +257,6 @@ export function useAppControllerCore() {
         useCoverColorBg,
         staticMode,
         disableHomeDynamicBackground,
-        hidePlayerProgressBar,
         hidePlayerTranslationSubtitle,
         showSubtitleTranslation,
         hidePlayerRightPanelButton,
@@ -287,7 +307,6 @@ export function useAppControllerCore() {
         handleToggleCoverColorBg,
         handleToggleStaticMode,
         handleToggleDisableHomeDynamicBackground,
-        handleToggleHidePlayerProgressBar,
         handleToggleHidePlayerTranslationSubtitle,
         handleToggleShowSubtitleTranslation,
         handleToggleHidePlayerRightPanelButton,
@@ -335,6 +354,12 @@ export function useAppControllerCore() {
         handleToggleMute,
         handleToggleLoopMode,
     } = appPreferences;
+
+    useEffect(() => {
+        void loadVisualizerRegistryEntry(visualizerMode).catch(error => {
+            console.warn('[Boot] Failed to preload visualizer entry', visualizerMode, error);
+        });
+    }, [visualizerMode]);
 
     const setLyrics = useMemo(
         () => createLyricsSetter(setLyricsState, lyricFilterPattern, currentSongFullRef),
@@ -623,7 +648,6 @@ export function useAppControllerCore() {
         handleTogglePlayerLyricsVisible,
         handleToggleShowSubtitleTranslation,
         hasCustomTheme,
-        hidePlayerProgressBar,
         hidePlayerRightPanelButton,
         hidePlayerTranslationSubtitle,
         homeLayoutStyle,
@@ -710,6 +734,7 @@ export function useAppControllerCore() {
         setIsFloatingDockPopoverOpen,
         setIsTitlebarRevealed,
         setIsUserGuideModalOpen,
+        setIsShortcutsCheatSheetOpen,
         setLyrics,
         setLyricTimelineOffsetMs,
         setPanelTab,

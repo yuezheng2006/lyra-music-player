@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 // src/hooks/useAppSidebarCollapse.ts
-// Persists sidebar collapse; player chrome-hide can force an immersive collapsed rail.
+// Persists the user's sidebar collapse preference only — immersive hide is separate.
 
 export const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = 'folia_app_sidebar_collapsed_v1';
 
@@ -12,10 +12,7 @@ const readCollapsed = (): boolean => {
     return localStorage.getItem(APP_SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
 };
 
-export const useAppSidebarCollapse = (options?: {
-    forceCollapsed?: boolean;
-}) => {
-    const forceCollapsed = Boolean(options?.forceCollapsed);
+export const useAppSidebarCollapse = () => {
     const [userCollapsed, setUserCollapsed] = useState(readCollapsed);
 
     useEffect(() => {
@@ -30,10 +27,8 @@ export const useAppSidebarCollapse = (options?: {
         setUserCollapsed(collapsed);
     }, []);
 
-    const collapsed = forceCollapsed || userCollapsed;
-
     return {
-        collapsed,
+        collapsed: userCollapsed,
         userCollapsed,
         toggleCollapsed,
         setCollapsed,

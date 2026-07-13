@@ -7,14 +7,24 @@ import { useSongThemeAutoGeneration } from '@/hooks/useSongThemeAutoGeneration';
 import { useWindowFullscreenState } from '@/hooks/useWindowFullscreenState';
 import { FALLBACK_AI_DUAL_THEME } from '@/services/themeSanitizer';
 import {
+    applyLyricBodyColorToDualTheme,
     applyLyricColorPresetToDualTheme,
     getLyricColorPresetById,
+    saveStoredLyricBodyColor,
     saveStoredLyricColorPresetId,
     type LyricColorPresetId,
 } from '@/utils/theme/lyricColorPresets';
 import { isFullscreenPlayActive, isFullscreenPlayEngaged } from '@/utils/windowFullscreen';
+import {
+    hasFoliaKeyboardWindow,
+    isModKeyChord,
+    isTextEntryTarget,
+    shouldExitFullscreenOnEscape,
+    shouldOpenShortcutsCheatSheet,
+} from '@/components/shortcuts/shortcutKeyboardGuards';
 import { PlayerState } from '@/types';
 import { isLocalPlaybackSong, isNavidromePlaybackSong } from '@/utils/appPlaybackGuards';
+import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
 import type {
     AppControllerCoreResult,
     AppControllerLibraryResult,
@@ -28,6 +38,8 @@ export function useAppControllerCommandLayer(
         & AppControllerPlaybackBridgesResult
         & AppControllerPresentationShellResult,
 ) {
+    const setIsOnboardingOpen = useSettingsUiStore(state => state.setIsOnboardingOpen);
+    const setIsWhatsNewOpen = useSettingsUiStore(state => state.setIsWhatsNewOpen);
     const {
         activePlaybackContext,
         aiTheme,
@@ -107,6 +119,7 @@ export function useAppControllerCommandLayer(
         setIsPlayerChromeHidden,
         setIsFloatingDockRevealed,
         setIsUserGuideModalOpen,
+        setIsShortcutsCheatSheetOpen,
         setPanelTab,
         setPlayerState,
         showLyricMatchModal,
@@ -222,29 +235,69 @@ export function useAppControllerCommandLayer(
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (
-                event.target instanceof HTMLInputElement
-                || event.target instanceof HTMLTextAreaElement
-                || (event.target instanceof HTMLElement && event.target.isContentEditable)
-            ) {
+            // Capture-phase help shortcut: works from home/player, including Cmd+?.
+            if (shouldOpenShortcutsCheatSheet({
+                code: event.code,
+                key: event.key,
+                metaKey: event.metaKey,
+                ctrlKey: event.ctrlKey,
+                altKey: event.altKey,
+                shiftKey: event.shiftKey,
+                hasBlockingWindow: hasFoliaKeyboardWindow(),
+            })) {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsShortcutsCheatSheetOpen(true);
                 return;
             }
-            if (document.querySelector('[data-folia-keyboard-window="true"]')) {
+
+            if (isTextEntryTarget(event.target)) {
                 return;
             }
-            if (event.code !== 'KeyF') {
+            if (hasFoliaKeyboardWindow()) {
                 return;
             }
-            if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+
+            if (event.key === 'Escape') {
+                if (!shouldExitFullscreenOnEscape({
+                    isTextEntryTarget: false,
+                    hasBlockingWindow: false,
+                    isFullscreenPlayEngaged: isFullscreenPlayEngaged({
+                        currentView,
+                        isPlayerChromeHidden,
+                        isWindowFullscreen,
+                    }),
+                })) {
+                    return;
+                }
+                event.preventDefault();
+                toggleImmersiveFullscreen();
+                return;
+            }
+
+            if (!isModKeyChord({
+                code: event.code,
+                expectedCode: 'KeyF',
+                metaKey: event.metaKey,
+                ctrlKey: event.ctrlKey,
+                altKey: event.altKey,
+                shiftKey: event.shiftKey,
+            })) {
                 return;
             }
             event.preventDefault();
             toggleImmersiveFullscreen();
         };
 
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [toggleImmersiveFullscreen]);
+        window.addEventListener('keydown', handleKeyDown, true);
+        return () => window.removeEventListener('keydown', handleKeyDown, true);
+    }, [
+        currentView,
+        isPlayerChromeHidden,
+        isWindowFullscreen,
+        setIsShortcutsCheatSheetOpen,
+        toggleImmersiveFullscreen,
+    ]);
 
     const commandPaletteContext = useMemo(() => ({
         currentSearchSourceTab: currentSearchSourceTabInPalette,
@@ -300,6 +353,9 @@ export function useAppControllerCommandLayer(
         enableAlternativeLyricSources,
         runAutoMatchBestLyric: handleAutoMatchBestLyricForCurrentSong,
         setIsUserGuideModalOpen,
+        setIsShortcutsCheatSheetOpen,
+        setIsOnboardingOpen,
+        setIsWhatsNewOpen,
         openThemeQuickEditor,
         canOpenThemeQuickEditor,
         toggleDesktopLyrics: () => toggleDesktopLyrics(),
@@ -345,6 +401,9 @@ export function useAppControllerCommandLayer(
         setIsPlayerChromeHidden,
         setIsFloatingDockRevealed,
         setIsUserGuideModalOpen,
+        setIsShortcutsCheatSheetOpen,
+        setIsOnboardingOpen,
+        setIsWhatsNewOpen,
         setPanelTab,
         showSubtitleTranslation,
         shuffleQueue,
@@ -454,15 +513,20 @@ export function useAppControllerCommandLayer(
             return;
         }
         // Color stays independent from the font picker; still apply glow/rhythm emphasis.
+        // No toast — same silent UX as font preset / lyric intensity.
         const nextDualTheme = applyLyricColorPresetToDualTheme(activeDualTheme, preset, { includeEmphasis: true });
         saveStoredLyricColorPresetId(presetId);
-        const label = t(preset.labelKey, preset.labelFallback);
-        saveLyricColorDualTheme(
-            nextDualTheme,
-            currentSong?.id ?? null,
-            t('status.lyricColorPresetApplied', { name: label }),
-        );
-    }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme, t]);
+        saveLyricColorDualTheme(nextDualTheme, currentSong?.id ?? null);
+    }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme]);
+
+    const handleApplyLyricBodyColor = useCallback((color: string) => {
+        const nextDualTheme = applyLyricBodyColorToDualTheme(activeDualTheme, color);
+        if (!nextDualTheme) {
+            return;
+        }
+        saveStoredLyricBodyColor(color);
+        saveLyricColorDualTheme(nextDualTheme, currentSong?.id ?? null);
+    }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme]);
 
     useSongThemeAutoGeneration({
         enabled: songThemeAutoSwitchEnabled && songThemeAutoGenerateEnabled,
@@ -543,6 +607,7 @@ export function useAppControllerCommandLayer(
         handleUnifiedAlbumSelect,
         handleUnifiedArtistSelect,
         onApplyLyricColorPreset: handleApplyLyricColorPreset,
+        onApplyLyricBodyColor: handleApplyLyricBodyColor,
         nowPlayingDebugSnapshot,
         seekMainAudio,
         themeParkSeedTheme,

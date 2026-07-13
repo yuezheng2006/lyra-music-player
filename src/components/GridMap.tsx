@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, useDeferredValue } from 'react';
 import { motion, useMotionValue, animate, AnimatePresence, useDragControls } from 'framer-motion';
-import { ChevronLeft, Disc, Search, X, List } from 'lucide-react';
+import { ChevronLeft, Search, X, List } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Theme } from '../types';
 import { useFoliaHexViewport } from './folia-grid/useFoliaHexViewport';
 import { SidePanelList, CollectionListItem } from './shared/SidePanelList';
+import LazyCoverImage from './shared/LazyCoverImage';
 import { resolveShellSurfaceBackgroundStyle } from './app/home/homeSurfaceStyles';
 
 // src/components/GridMap.tsx
@@ -63,45 +64,14 @@ const MapCard = React.memo<{
             >
                 {/* Square Polaroid Photo Area */}
                 <div className="w-full aspect-square rounded-lg overflow-hidden bg-zinc-200/60 dark:bg-zinc-800/60 relative shadow-inner flex items-center justify-center shrink-0">
-                    {item.coverUrl ? (
-                        <>
-                            <img
-                                src={item.coverUrl}
-                                alt={item.name}
-                                loading="lazy"
-                                decoding="async"
-                                ref={(el) => {
-                                    if (el && el.complete) {
-                                        el.style.opacity = '1';
-                                        const placeholder = el.nextElementSibling as HTMLElement;
-                                        if (placeholder) {
-                                            placeholder.style.opacity = '0';
-                                            placeholder.style.display = 'none';
-                                        }
-                                    }
-                                }}
-                                onLoad={(e) => {
-                                    const img = e.currentTarget;
-                                    img.style.opacity = '1';
-                                    const placeholder = img.nextElementSibling as HTMLElement;
-                                    if (placeholder) {
-                                        placeholder.style.opacity = '0';
-                                        setTimeout(() => {
-                                            placeholder.style.display = 'none';
-                                        }, 350);
-                                    }
-                                }}
-                                className="w-full h-full object-cover transition-opacity duration-350 pointer-events-none select-none opacity-0"
-                            />
-                            <div className="absolute inset-0 bg-zinc-300/40 dark:bg-zinc-700/40 transition-opacity duration-350 flex items-center justify-center">
-                                <Disc size={48} className="opacity-20 animate-spin" style={{ animationDuration: '3s', color: 'var(--text-primary)' }} />
-                            </div>
-                        </>
-                    ) : (
-                        <div className="absolute inset-0 bg-zinc-300/40 dark:bg-zinc-700/40 flex items-center justify-center">
-                            <Disc size={48} className="opacity-20" style={{ color: 'var(--text-primary)' }} />
-                        </div>
-                    )}
+                    <LazyCoverImage
+                        src={item.coverUrl}
+                        alt={item.name}
+                        placeholderLabel={item.name}
+                        placeholderVariant="playlist"
+                        sizePx={320}
+                        className="w-full h-full object-cover pointer-events-none select-none"
+                    />
                 </div>
 
                 {/* Bottom Polaroid Frame Label Details */}

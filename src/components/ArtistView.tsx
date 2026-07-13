@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { ChevronLeft, Disc, Loader2, Plus, User } from 'lucide-react';
+import { ChevronLeft, Loader2, Plus } from 'lucide-react';
 import { SongResult } from '../types';
 import { getSongUnavailableTagText, isSongMarkedUnavailable, neteaseApi } from '../services/netease';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { formatSongName } from '../utils/songNameFormatter';
 import { APP_CONTENT_TOP_PADDING_CLASS } from './app/home/homeSurfaceStyles';
+import LazyCoverImage from './shared/LazyCoverImage';
 
 interface ArtistViewProps {
     artistId: number;
@@ -132,13 +133,14 @@ const ArtistView: React.FC<ArtistViewProps> = ({ artistId, onBack, onPlaySong, o
                             {/* Left: Artist Info */}
                             <div className="w-full md:w-1/3 flex flex-col items-start pt-12 md:pt-0">
                                 <div className={`w-48 h-48 md:w-64 md:h-64 rounded-full shadow-2xl overflow-hidden mb-6 relative ${placeholderBg} shrink-0 border-4 border-white/5`}>
-                                    {artistInfo?.cover ? (
-                                        <img src={artistInfo.cover} alt={artistInfo.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-white/5">
-                                            <User size={40} className="opacity-20" />
-                                        </div>
-                                    )}
+                                    <LazyCoverImage
+                                        src={artistInfo?.cover}
+                                        alt={artistInfo?.name}
+                                        placeholderLabel={artistInfo?.name}
+                                        placeholderVariant="artist"
+                                        sizePx={320}
+                                        className="w-full h-full object-cover"
+                                    />
                                 </div>
 
                                 <h1 className="text-3xl font-bold mb-2 text-left">{artistInfo?.name}</h1>
@@ -176,7 +178,13 @@ const ArtistView: React.FC<ArtistViewProps> = ({ artistId, onBack, onPlaySong, o
                                             </div>
 
                                             <div className={`w-10 h-10 rounded-md overflow-hidden mr-4 ${itemCardBg} shrink-0 ml-2`}>
-                                                {track.al?.picUrl && <img src={track.al.picUrl} alt="" className="w-full h-full object-cover" />}
+                                                <LazyCoverImage
+                                                    src={track.al?.picUrl}
+                                                    placeholderLabel={track.name}
+                                                    placeholderArtist={(track.ar || []).map(a => a.name).join(', ')}
+                                                    sizePx={80}
+                                                    className="w-full h-full object-cover"
+                                                />
                                             </div>
 
                                             <div className="flex-1 min-w-0 mr-4">
@@ -228,20 +236,14 @@ const ArtistView: React.FC<ArtistViewProps> = ({ artistId, onBack, onPlaySong, o
                                         className="group cursor-pointer flex flex-col"
                                     >
                                         <div className={`w-full aspect-square rounded-xl overflow-hidden ${itemCardBg} shadow-lg relative mb-3`}>
-                                            {album.picUrl ? (
-                                                <img
-                                                    src={album.picUrl}
-                                                    alt={album.name}
-                                                    className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:brightness-110"
-                                                    loading="lazy"
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <Disc className="opacity-20" size={32} />
-                                                </div>
-                                            )}
-
-
+                                            <LazyCoverImage
+                                                src={album.picUrl}
+                                                alt={album.name}
+                                                placeholderLabel={album.name}
+                                                placeholderVariant="playlist"
+                                                sizePx={240}
+                                                className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:brightness-110"
+                                            />
                                         </div>
 
                                         <div className="text-sm font-bold truncate opacity-90 group-hover:opacity-100">

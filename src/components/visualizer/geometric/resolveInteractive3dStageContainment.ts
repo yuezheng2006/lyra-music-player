@@ -7,7 +7,7 @@ import type { VisualizerMode } from '../../../types';
 /** Modes whose lyric chrome sits on the left and must not be covered by the 3D stage. */
 const LEFT_LYRIC_COLUMN_MODES: ReadonlySet<VisualizerMode> = new Set(['monet']);
 
-const DEFAULT_LYRIC_COLUMN_END_RATIO = 0.48;
+export const DEFAULT_LYRIC_COLUMN_END_RATIO = 0.48;
 
 const clampRatio = (value: number, min: number, max: number) => (
     Math.min(max, Math.max(min, value))
@@ -70,4 +70,34 @@ export const measureLyricColumnEndRatio = (
     const end = (columnRect.right - stageRect.left) / stageRect.width;
     if (!Number.isFinite(end)) return undefined;
     return clampRatio(end, 0.2, 0.85);
+};
+
+/** Visible right-pane center as a 0–1 fraction of stage width. */
+export const resolveVisiblePaneCenterRatio = (
+    lyricColumnEndRatio = DEFAULT_LYRIC_COLUMN_END_RATIO,
+): number => {
+    const end = clampRatio(lyricColumnEndRatio, 0.28, 0.72);
+    return (end + 1) / 2;
+};
+
+/** NDC X (-1…1) for the visible right-pane center. */
+export const resolveVisiblePaneCenterNdc = (
+    lyricColumnEndRatio = DEFAULT_LYRIC_COLUMN_END_RATIO,
+): number => resolveVisiblePaneCenterRatio(lyricColumnEndRatio) * 2 - 1;
+
+/**
+ * Cover particles are authored for full-bleed framing; Monet protects lyrics with a
+ * CSS mask. Re-centering the camera into the visible pane over-shifts the stage, so
+ * lookAt bias stays at 0. Kept as a tunable for experiments / future presets.
+ */
+export const VISIBLE_PANE_LOOKAT_BIAS = 0;
+
+export const resolveVisiblePaneLookAtX = (
+    lyricColumnEndRatio: number | undefined,
+    halfWidthAtFocus: number,
+    bias = VISIBLE_PANE_LOOKAT_BIAS,
+): number => {
+    if (lyricColumnEndRatio === undefined || !(halfWidthAtFocus > 0) || bias <= 0) return 0;
+    const ndc = resolveVisiblePaneCenterNdc(lyricColumnEndRatio);
+    return -ndc * halfWidthAtFocus * Math.min(1, Math.max(0, bias));
 };

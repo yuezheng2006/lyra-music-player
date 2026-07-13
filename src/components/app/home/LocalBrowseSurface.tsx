@@ -97,7 +97,7 @@ const LocalBrowseSurface: React.FC<LocalBrowseSurfaceProps> = ({ model, isDaylig
         return (
             <div
                 className={`relative z-20 flex h-full w-full flex-col overflow-hidden ${HOME_HEADER_TOP_PADDING_CLASS} pointer-events-auto ${solidBg}`}
-                style={{ color: 'var(--text-primary)' }}
+                style={{ color: 'var(--content-text)' }}
             >
                 <GridViewOverlayHost legacyProps={props}>
                     {(openGridView) => (
@@ -134,7 +134,7 @@ const LocalBrowseSurface: React.FC<LocalBrowseSurfaceProps> = ({ model, isDaylig
     return (
         <div
             className={`relative z-20 flex h-full w-full flex-col overflow-hidden ${HOME_HEADER_TOP_PADDING_CLASS} pointer-events-auto ${solidBg}`}
-            style={{ color: 'var(--text-primary)' }}
+            style={{ color: 'var(--content-text)' }}
         >
             <LocalMusicView
                 localSongs={localSongs}

@@ -6,27 +6,37 @@ import {
     FolderOpen,
     Home as HomeIcon,
     Podcast,
+    Radio,
     Settings,
     Sparkles,
+    Music2,
+    Clock,
 } from 'lucide-react';
 import { useDailyRecommendStore } from '../../../stores/useDailyRecommendStore';
 import type { Theme } from '../../../types';
+import { isNavidromeUiEnabled, isYtmusicUiEnabled } from '../../../utils/featureFlags';
 
 // src/components/app/chrome/AppSidebar.tsx
 // Expanded: full Qishui rail. Collapsed: zero-width, only a translucent expand toggle.
 
-export type AppSidebarActive = 'home' | 'daily' | 'podcast' | 'local';
+export type AppSidebarActive = 'home' | 'daily' | 'podcast' | 'local' | 'navidrome' | 'ytmusic' | 'history';
 
 type AppSidebarProps = {
     active: AppSidebarActive;
     isDaylight: boolean;
     theme?: Theme;
     collapsed: boolean;
+    /** Immersive fullscreen: hide the rail entirely without changing collapse preference. */
+    forceHidden?: boolean;
+    navidromeEnabled?: boolean;
     onToggleCollapsed: () => void;
     onOpenHome: () => void;
     onOpenDaily: () => void;
     onOpenPodcast: () => void;
     onOpenLocal: () => void;
+    onOpenNavidrome?: () => void;
+    onOpenYtmusic?: () => void;
+    onOpenHistory?: () => void;
     onOpenSettings?: () => void;
 };
 
@@ -41,11 +51,16 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
     active,
     isDaylight,
     collapsed,
+    forceHidden = false,
+    navidromeEnabled = false,
     onToggleCollapsed,
     onOpenHome,
     onOpenDaily,
     onOpenPodcast,
     onOpenLocal,
+    onOpenNavidrome,
+    onOpenYtmusic,
+    onOpenHistory,
     onOpenSettings,
 }) => {
     const { t } = useTranslation();
@@ -81,6 +96,11 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
             unsubscribe?.();
         };
     }, []);
+
+    // Immersive fullscreen owns temporary hide; user collapse preference stays untouched.
+    if (forceHidden) {
+        return null;
+    }
 
     // Fully collapsed: reclaim canvas width; only a translucent expand control remains.
     if (collapsed) {
@@ -202,6 +222,48 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                     <FolderOpen size={18} strokeWidth={2} />
                     <span>{t('app.sidebarLocal')}</span>
                 </button>
+
+                {isNavidromeUiEnabled() && navidromeEnabled ? (
+                    <button
+                        type="button"
+                        onClick={onOpenNavidrome}
+                        className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'navidrome')}`}
+                        aria-current={active === 'navidrome' ? 'page' : undefined}
+                        title={t('app.sidebarNavidrome')}
+                        aria-label={t('app.sidebarNavidrome')}
+                    >
+                        <Radio size={18} strokeWidth={2} />
+                        <span>{t('app.sidebarNavidrome')}</span>
+                    </button>
+                ) : null}
+
+                {isYtmusicUiEnabled() && onOpenYtmusic && typeof window !== 'undefined' && window.electron ? (
+                    <button
+                        type="button"
+                        onClick={onOpenYtmusic}
+                        className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'ytmusic')}`}
+                        aria-current={active === 'ytmusic' ? 'page' : undefined}
+                        title={t('app.sidebarYtmusic')}
+                        aria-label={t('app.sidebarYtmusic')}
+                    >
+                        <Music2 size={18} strokeWidth={2} />
+                        <span>{t('app.sidebarYtmusic')}</span>
+                    </button>
+                ) : null}
+
+                {onOpenHistory ? (
+                    <button
+                        type="button"
+                        onClick={onOpenHistory}
+                        className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'history')}`}
+                        aria-current={active === 'history' ? 'page' : undefined}
+                        title={t('app.sidebarHistory') || '播放历史'}
+                        aria-label={t('app.sidebarHistory') || '播放历史'}
+                    >
+                        <Clock size={18} strokeWidth={2} />
+                        <span>{t('app.sidebarHistory') || '播放历史'}</span>
+                    </button>
+                ) : null}
             </nav>
 
             {/* Dock sits in the content column only — pin settings to the sidebar foot. */}

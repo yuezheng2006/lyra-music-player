@@ -14,6 +14,7 @@ import {
     buildTaskbarControlsFromPlaybackSyncBridge,
 } from '../utils/playbackSyncBridge';
 import { resolveStagePlayerPositionSec } from '../utils/stagePlayerSnapshot';
+import { isDiscordPresenceUiEnabled } from '../utils/featureFlags';
 
 // Bridges Electron-specific shell features without coupling to UI components.
 const DISCORD_PRESENCE_SNAPSHOT_INTERVAL_MS = 1000;
@@ -376,7 +377,11 @@ export const useElectronPlaybackBridge = ({
     }, [cachedCoverUrl, coverUrl, currentSong, duration, effectiveLoopMode, exportState, isDaylight, isFmMode, isNowPlayingStageActive, isPlayerChromeHidden, lyrics, lyricTimelineOffsetMs, mainWindowClickThroughEnabled, playbackSyncBridgeStatus, playQueue, playerState, showTransparentWindowBorder, transparentPlayerBackground, isLiked]);
 
     useEffect(() => {
-        if (!playbackSyncBridgeStatus.discordPresenceEnabled || !window.electron?.publishDiscordPresenceSnapshot) {
+        if (
+            !isDiscordPresenceUiEnabled()
+            || !playbackSyncBridgeStatus.discordPresenceEnabled
+            || !window.electron?.publishDiscordPresenceSnapshot
+        ) {
             return;
         }
 

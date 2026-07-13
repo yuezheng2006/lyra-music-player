@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (tsc)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v6
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run lint
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v6
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+  build:
+    name: Electron web build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v6
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Match packaging path (ELECTRON=true). Skip Playwright UI / mac packaged
+      # smoke here — those need darwin baselines or local L1/L2 gates.
+      - name: Production build for Electron
+        env:
+          ELECTRON: 'true'
+          ELECTRON_DEV: 'false'
+        run: npm run build
+
+  # Single required-check target for branch protection ("always green").
+  ci-green:
+    name: CI Green
+    needs: [lint, unit, build]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Require all CI jobs to succeed
+        shell: bash
+        run: |
+          set -euo pipefail
+          declare -a results=(
+            "lint=${{ needs.lint.result }}"
+            "unit=${{ needs.unit.result }}"
+            "build=${{ needs.build.result }}"
+          )
+          failed=0
+          for entry in "${results[@]}"; do
+            name="${entry%%=*}"
+            result="${entry#*=}"
+            echo "${name}: ${result}"
+            if [ "${result}" != "success" ]; then
+              failed=1
+            fi
+          done
+          if [ "${failed}" -ne 0 ]; then
+            echo "::error::CI Green failed — fix lint/unit/build before merge."
+            exit 1
+          fi
+          echo "CI Green"

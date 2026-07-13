@@ -3,12 +3,13 @@ import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
     LYRIC_COLOR_PRESETS,
+    resolveLyricColorPresetSwatches,
     type LyricColorPreset,
     type LyricColorPresetId,
 } from '../../utils/theme/lyricColorPresets';
 
 // src/components/shared/LyricColorPresetGrid.tsx
-// Compact style chips pairing lyric colors with built-in typography.
+// Compact chips: current-mode body hue + dimmed twin (matches on-stage opacity model).
 
 interface LyricColorPresetGridProps {
     onSelect: (presetId: LyricColorPresetId) => void;
@@ -38,6 +39,7 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
     emphasis = false,
 }) => {
     const { t } = useTranslation();
+    const mode = isDaylight ? 'light' : 'dark';
     const defaultInactiveClass = isDaylight
         ? 'text-stone-900 hover:bg-black/[0.06]'
         : 'text-white/95 hover:bg-white/[0.1]';
@@ -62,7 +64,7 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
 
     return (
         <div
-            className={`grid gap-1.5 ${compact && !emphasis ? 'grid-cols-1' : 'grid-cols-2'} ${className}`.trim()}
+            className={`grid gap-1.5 ${compact && !emphasis ? 'grid-cols-1' : presets.length <= 3 ? 'grid-cols-1' : 'grid-cols-2'} ${className}`.trim()}
             data-testid="lyric-color-preset-grid"
         >
             {presets.map((preset) => {
@@ -70,6 +72,7 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
                 const label = t(preset.labelKey) || preset.labelFallback;
                 const resolvedInactive = inactiveButtonClassName || defaultInactiveClass;
                 const resolvedActive = activeButtonClassName || defaultActiveClass;
+                const swatches = resolveLyricColorPresetSwatches(preset, mode);
 
                 return (
                     <button
@@ -85,13 +88,13 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
                         {compact && !emphasis ? (
                             <span className="flex min-w-0 items-center gap-1.5">
                                 <span className="flex shrink-0 gap-0.5" aria-hidden>
-                                    {[preset.light.primaryColor, preset.light.accentColor, preset.dark.accentColor].map(color => (
+                                    {swatches.map((color, index) => (
                                         <span
-                                            key={color}
+                                            key={`${preset.id}-${index}`}
                                             className={swatchClass}
                                             style={{
                                                 backgroundColor: color,
-                                                boxShadow: isActive ? `0 0 8px ${color}` : undefined,
+                                                boxShadow: isActive ? `0 0 8px ${swatches[0]}` : undefined,
                                             }}
                                         />
                                     ))}
@@ -107,13 +110,13 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
                             <>
                                 <span className="mb-1.5 flex items-center justify-between gap-1" aria-hidden>
                                     <span className="flex gap-1.5">
-                                        {[preset.light.primaryColor, preset.light.accentColor, preset.dark.accentColor].map(color => (
+                                        {swatches.map((color, index) => (
                                             <span
-                                                key={color}
+                                                key={`${preset.id}-${index}`}
                                                 className={swatchClass}
                                                 style={{
                                                     backgroundColor: color,
-                                                    boxShadow: isActive ? `0 0 10px ${color}` : undefined,
+                                                    boxShadow: isActive ? `0 0 10px ${swatches[0]}` : undefined,
                                                 }}
                                             />
                                         ))}

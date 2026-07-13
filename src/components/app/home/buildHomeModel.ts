@@ -1,5 +1,6 @@
 import type React from 'react';
 import { PlayerState, type SearchSourceId, type SongResult } from '../../../types';
+import type { YtmSearchTrack } from '../../../types/ytmusic';
 import type LegacyHome from '../../Home';
 
 // src/components/app/home/buildHomeModel.ts
@@ -8,6 +9,7 @@ type LegacyHomeProps = React.ComponentProps<typeof LegacyHome>;
 
 export type HomeViewModel = {
     legacyProps: LegacyHomeProps;
+    onPlayYtmTrack?: (track: YtmSearchTrack, queue: YtmSearchTrack[]) => void;
 };
 
 type BuildHomeModelParams = {
@@ -61,6 +63,7 @@ type BuildHomeModelParams = {
     loadStageSessionIntoPlayback: (session: any) => Promise<void>;
     theme: LegacyHomeProps['theme'];
     navidromeEnabled: LegacyHomeProps['navidromeEnabled'];
+    onPlayYtmTrack?: (track: YtmSearchTrack, queue: YtmSearchTrack[]) => void;
     playAll: (
         songs: SongResult[],
         options?: { shouldNavigateToPlayer?: boolean },
@@ -121,11 +124,13 @@ export const buildHomeModel = ({
     loadStageSessionIntoPlayback,
     theme,
     navidromeEnabled,
+    onPlayYtmTrack,
     playAll,
     addAllToQueue,
     addSongToQueue,
 }: BuildHomeModelParams): HomeViewModel => {
     return {
+        onPlayYtmTrack,
         legacyProps: {
             onPlaySong: playSong,
             onBackToPlayer: navigateToPlayer,

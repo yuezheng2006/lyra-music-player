@@ -1,8 +1,9 @@
 import React from 'react';
-import { ChevronLeft, Play, User } from 'lucide-react';
+import { ChevronLeft, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { LocalSong } from '../../types';
+import LazyCoverImage from '../shared/LazyCoverImage';
 
 interface LocalArtistViewProps {
     artistName: string;
@@ -57,11 +58,14 @@ const LocalArtistView: React.FC<LocalArtistViewProps> = ({
 
                 <div className="w-full md:w-[400px] p-8 md:p-12 flex flex-col items-center md:items-start relative shrink-0 md:h-full md:overflow-y-auto custom-scrollbar">
                     <div className="w-48 h-48 md:w-64 md:h-64 rounded-full shadow-2xl overflow-hidden mb-6 relative mt-12 md:mt-0 mx-auto md:mx-0 bg-zinc-800 flex items-center justify-center">
-                        {coverUrl ? (
-                            <img src={coverUrl} alt={artistName} className="w-full h-full object-cover" />
-                        ) : (
-                            <User size={72} className="opacity-20" />
-                        )}
+                        <LazyCoverImage
+                            src={coverUrl}
+                            alt={artistName}
+                            placeholderLabel={artistName}
+                            placeholderVariant="artist"
+                            sizePx={320}
+                            className="w-full h-full object-cover"
+                        />
                     </div>
 
                     <div className="text-center md:text-left space-y-2 w-full mb-6">

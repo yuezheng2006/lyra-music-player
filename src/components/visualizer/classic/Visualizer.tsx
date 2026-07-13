@@ -10,16 +10,20 @@ import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { buildPostLyricLayoutUnits, buildDisplayWordsFromLayoutUnits } from '../../../utils/lyrics/cjkSemanticLayout';
 import { buildWordGraphemeTimings } from '../../../utils/lyrics/graphemeTiming';
 import { resolveThemeFontStack } from '../../../utils/fontStacks';
-import { resolveWordColor } from '../wordColoring';
+import { resolveLyricActiveWordColor, resolveLyricInkFills } from '../lyricInk';
 import {
     clampLyricWordOffsetX,
+    clampLyricWordOffsetY,
     resolveLyricContainerFit,
     resolveLyricLineFitScale,
     resolveLyricRhythmScaleHeadroom,
+    resolveLyricVerticalSafeArea,
 } from '../resolveLyricContainerFit';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { resolveWaitingWordPresentation, resolveLyricWordAnimateKey } from '../../../utils/lyrics/lyricWordMode';
-import { buildLyricStageStroke } from '../../../utils/lyricVisualEffects';
+import { LYRIC_MOTION_BLUR_PX, lyricBlurFilter } from '../../../utils/lyrics/lyricMotionClarity';
+import { buildLyricKaraokeOutlineLayers } from '../../../utils/lyricVisualEffects';
+import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
 
 // This mode is the most straightforward lyric pipeline in the folder.
 // First we ask runtime which line is active right now, then read renderHints from that line,
@@ -117,35 +121,45 @@ const getClassicWordDisplayDuration = (word: WordType, renderProfile: ClassicLin
 const getClassicLineContainerMotion = (renderProfile: ClassicLineRenderProfile | null) => {
     if (renderProfile?.lineTransitionMode === 'none') {
         return {
-            initial: { opacity: 1, scale: 1, filter: 'blur(0px)' },
-            animate: { opacity: 1, scale: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' } },
-            exit: { opacity: 0, scale: 1.02, filter: 'blur(6px)', transition: { duration: 0.12, ease: 'easeOut' as const } },
+            initial: { opacity: 1, scale: 1, filter: lyricBlurFilter(0) },
+            animate: { opacity: 1, scale: 1, filter: lyricBlurFilter(0), transitionEnd: { filter: 'none' } },
+            exit: {
+                opacity: 0,
+                scale: 1.02,
+                filter: lyricBlurFilter(LYRIC_MOTION_BLUR_PX.exitNone),
+                transition: { duration: 0.12, ease: 'easeOut' as const },
+            },
         };
     }
 
     if (renderProfile?.lineTransitionMode === 'fast') {
         return {
-            initial: { opacity: 0.35, scale: 0.96, filter: 'blur(4px)' },
+            initial: { opacity: 0.35, scale: 0.96, filter: lyricBlurFilter(LYRIC_MOTION_BLUR_PX.enter) },
             animate: {
                 opacity: 1,
                 scale: 1,
-                filter: 'blur(0px)',
+                filter: lyricBlurFilter(0),
                 transition: { duration: 0.16, ease: 'easeOut' as const },
                 transitionEnd: { filter: 'none' },
             },
             exit: {
                 opacity: 0,
                 scale: 1.04,
-                filter: 'blur(10px)',
+                filter: lyricBlurFilter(LYRIC_MOTION_BLUR_PX.exitFast),
                 transition: { duration: 0.16, ease: 'easeInOut' as const },
             },
         };
     }
 
     return {
-        initial: { opacity: 0, scale: 0.9, filter: 'blur(10px)' },
-        animate: { opacity: 1, scale: 1, filter: 'blur(0px)', transitionEnd: { filter: 'none' } },
-        exit: { opacity: 0, scale: 1.1, filter: 'blur(20px)', transition: { duration: 0.3 } },
+        initial: { opacity: 0, scale: 0.96, filter: lyricBlurFilter(LYRIC_MOTION_BLUR_PX.enter) },
+        animate: { opacity: 1, scale: 1, filter: lyricBlurFilter(0), transitionEnd: { filter: 'none' } },
+        exit: {
+            opacity: 0,
+            scale: 1.04,
+            filter: lyricBlurFilter(LYRIC_MOTION_BLUR_PX.exit),
+            transition: { duration: 0.24 },
+        },
     };
 };
 
@@ -190,8 +204,10 @@ const Word: React.FC<{
     const duration = getClassicWordDisplayDuration(word, renderProfile);
     const activeEndTime = getClassicWordActiveEndTime(word, renderProfile);
     const graphemeTimings = useMemo(() => buildWordGraphemeTimings(word), [word]);
-    const visualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
-    const stageStroke = buildLyricStageStroke(visualEffectIntensity);
+    const outlineLayers = useMemo(() => {
+        const fontPx = Number.parseFloat(String(fontSize)) || 48;
+        return buildLyricKaraokeOutlineLayers(activeColor, fontPx, 'strong');
+    }, [activeColor, fontSize]);
     const animateKey = resolveLyricWordAnimateKey(status, lyricWordMode);
 
     useMotionValueEvent(currentTime, "change", (latest: number) => {
@@ -268,21 +284,36 @@ const Word: React.FC<{
                 )}
             </span>
 
-            {/* Body Layer — color + stroke; no soft glow soup */}
-            <motion.span
-                variants={bodyVariants}
-                custom={{
-                    config,
-                    activeColor,
-                    baseColor,
-                    duration,
-                    wordRevealMode: renderProfile.wordRevealMode,
-                }}
-                className="relative z-10 block"
-                style={stageStroke}
-            >
-                {word.text}
-            </motion.span>
+            {/* Body Layer — karaoke 色字白边: scaled solid rim (Classic body filter:none kills drop-shadow) */}
+            <span className="relative z-10 block">
+                {status === 'active' ? (
+                    <span
+                        aria-hidden
+                        className="lyric-karaoke-rim pointer-events-none absolute inset-0 select-none block"
+                        style={{
+                            color: outlineLayers.rimColor,
+                            transform: `scale(${outlineLayers.rimScale})`,
+                            transformOrigin: 'center center',
+                            textShadow: outlineLayers.rimTextShadow,
+                        }}
+                    >
+                        {word.text}
+                    </span>
+                ) : null}
+                <motion.span
+                    variants={bodyVariants}
+                    custom={{
+                        config,
+                        activeColor,
+                        baseColor,
+                        duration,
+                        wordRevealMode: renderProfile.wordRevealMode,
+                    }}
+                    className="relative block"
+                >
+                    {word.text}
+                </motion.span>
+            </span>
 
             {/* Chorus Ripple Effect */}
             <AnimatePresence>
@@ -342,22 +373,27 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
     const [stageWidth, setStageWidth] = useState(() => (
         typeof window === 'undefined' ? 960 : Math.max(320, window.innerWidth - 220)
     ));
+    const [shellHeight, setShellHeight] = useState(() => (
+        typeof window === 'undefined' ? 720 : Math.max(420, window.innerHeight)
+    ));
 
-    // Measure layout width (offsetWidth), not transformed getBoundingClientRect — rhythm scale must not inflate fit.
+    // Measure layout size (offset*), not transformed getBoundingClientRect — rhythm scale must not inflate fit.
     useLayoutEffect(() => {
         const node = stageRef.current;
         if (!node || typeof ResizeObserver === 'undefined') return undefined;
-        const apply = (width: number) => {
-            const next = Math.max(240, Math.round(width));
-            setStageWidth(prev => (prev === next ? prev : next));
+        const shell = (node.closest('[data-visualizer-shell="true"]') as HTMLElement | null) ?? node.parentElement;
+        const apply = () => {
+            const nextWidth = Math.max(240, Math.round(node.offsetWidth || node.getBoundingClientRect().width));
+            setStageWidth(prev => (prev === nextWidth ? prev : nextWidth));
+            if (shell) {
+                const nextHeight = Math.max(280, Math.round(shell.clientHeight || shell.offsetHeight));
+                setShellHeight(prev => (prev === nextHeight ? prev : nextHeight));
+            }
         };
-        apply(node.offsetWidth || node.getBoundingClientRect().width);
-        const observer = new ResizeObserver((entries) => {
-            const entry = entries[0];
-            if (!entry) return;
-            apply(entry.contentRect.width);
-        });
+        apply();
+        const observer = new ResizeObserver(() => apply());
         observer.observe(node);
+        if (shell) observer.observe(shell);
         return () => observer.disconnect();
     }, []);
 
@@ -370,6 +406,8 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         return buildDisplayWordsFromLayoutUnits(layoutUnits);
     }, [activeLine, resolvedClassicTuning.useLegacyLayout]);
 
+    const rhythmHeadroom = resolveLyricRhythmScaleHeadroom(theme.lyricRhythmScaleMultiplier ?? 1);
+    const glowInsetPx = theme.lyricGlowUsesAccent ? 36 : 20;
     const lyricFit = useMemo(
         () => resolveLyricContainerFit({
             containerWidth: stageWidth,
@@ -379,14 +417,25 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
             preferredWidthRatio: 0.068,
             minFontPx: 22,
             maxFontPx: 52,
-            scaleHeadroom: resolveLyricRhythmScaleHeadroom(theme.lyricRhythmScaleMultiplier ?? 1),
-            glowInsetPx: theme.lyricGlowUsesAccent ? 36 : 20,
+            scaleHeadroom: rhythmHeadroom,
+            glowInsetPx,
         }),
-        [stageWidth, lyricsFontScale, theme.lyricGlowUsesAccent, theme.lyricRhythmScaleMultiplier],
+        [stageWidth, lyricsFontScale, glowInsetPx, rhythmHeadroom],
+    );
+    const lyricVertical = useMemo(
+        () => resolveLyricVerticalSafeArea({
+            containerHeight: shellHeight,
+            scaleHeadroom: rhythmHeadroom,
+            glowInsetPx,
+            fontPx: lyricFit.fontPx,
+            minPaddingPx: 52,
+            preferredMaxHeightRatio: 0.7,
+        }),
+        [shellHeight, rhythmHeadroom, glowInsetPx, lyricFit.fontPx],
     );
     const mainFontSize = lyricFit.fontSizeCss;
     const emptyFontSize = `${Math.max(16, lyricFit.fontPx * 0.55).toFixed(2)}px`;
-    const translationFontSize = `${Math.max(14, lyricFit.fontPx * 0.42).toFixed(2)}px`;
+    const translationFontSize = `${Math.max(18, lyricFit.fontPx * 0.58).toFixed(2)}px`;
     const upcomingFontSize = `${Math.max(12, lyricFit.fontPx * 0.34).toFixed(2)}px`;
 
     // Generate a stable random layout configuration for the current line.
@@ -409,11 +458,10 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         const isChaotic = !karaokeLineRest && intensity === 'chaotic';
         const isCalm = karaokeLineRest || intensity === 'calm';
 
-        // Keep lines centered in the measured stage so left/right chrome never clips text.
+        // Keep lines centered — items-start/end packs glyphs into the unsafe top/bottom band
+        // after LyricRhythmStage scale, especially with neon bloom.
         const justifyOptions = ['justify-center'];
-        const alignOptions = isCalm
-            ? ['items-center']
-            : ['items-start', 'items-center', 'items-end'];
+        const alignOptions = ['items-center'];
 
         const isInterlude = activeLine.fullText === "......";
 
@@ -462,7 +510,12 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
                 lyricFit.usableWidth,
                 wordConfigScale * 1.35,
             );
-            const yVal = (random(2) - 0.5) * baseSpread * 2;
+            const yVal = clampLyricWordOffsetY(
+                (random(2) - 0.5) * baseSpread * 2,
+                pxFontSize,
+                lyricVertical.usableHeight,
+                wordConfigScale * 1.35,
+            );
 
             let marginRight = isChaotic ? `${random(5) * 1.5}rem` : '0.8rem';
 
@@ -525,7 +578,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         const lineFitScale = resolveLyricLineFitScale(contentWidth, lyricFit.usableWidth);
 
         return { wordConfigs, lineConfig, lineFitScale };
-    }, [activeLine, displayWords, resolvedClassicTuning.enableWordRotation, resolvedClassicTuning.useLegacyLayout, resolvedClassicTuning.wordSpacing, theme, lyricFit, waitingWordPresentation.parkAtRest]);
+    }, [activeLine, displayWords, resolvedClassicTuning.enableWordRotation, resolvedClassicTuning.useLegacyLayout, resolvedClassicTuning.wordSpacing, theme, lyricFit, lyricVertical.usableHeight, waitingWordPresentation.parkAtRest]);
 
     // Container motion is the "body" of each word.
     // waiting/active/passed all reuse the same layout config but interpret it differently.
@@ -560,8 +613,8 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
                 opacity: { duration: 0.1 }
             }
         }),
-        passed: ({ config, baseColor }: any) => ({
-            opacity: theme.animationIntensity === 'chaotic' ? 0.9 : 0.82,
+        passed: ({ config }: any) => ({
+            opacity: LYRIC_LINE_OPACITY.passedNear,
             scale: config.scale || 1,
             x: config.x,
             y: config.y,
@@ -576,41 +629,40 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         })
     };
 
-    // Body layer is where color transition and blur cleanup happen.
-    // Glow is separated so we can overdrive highlight without making the actual glyph unreadable.
     const bodyVariants: Variants = {
         'waiting-default': ({ baseColor }: any) => ({
             color: baseColor,
-            filter: 'blur(10px)',
-            transition: { duration: 0.4 }
+            // Keep waiting glyphs sharp — dim via layout opacity, not blur.
+            filter: lyricBlurFilter(LYRIC_MOTION_BLUR_PX.waiting),
+            transition: { duration: 0.28 },
         }),
         'waiting-karaoke': ({ baseColor }: any) => ({
             color: baseColor,
             filter: 'none',
-            transition: { duration: 0.25 }
+            transition: { duration: 0.25 },
         }),
         active: ({ activeColor, duration, wordRevealMode }: any) => ({
             color: activeColor,
-            filter: "none",
+            filter: 'none',
             transition: {
-                color: { duration: duration || 0.2, ease: "linear" },
-                filter: { type: "tween", duration: wordRevealMode === 'instant' ? 0.08 : wordRevealMode === 'fast' ? 0.12 : 0.2 }
+                color: { duration: duration || 0.2, ease: 'linear' },
+                filter: { type: 'tween', duration: wordRevealMode === 'instant' ? 0.08 : wordRevealMode === 'fast' ? 0.12 : 0.2 },
             },
             transitionEnd: {
-                filter: "none"
-            }
+                filter: 'none',
+            },
         }),
         passed: ({ baseColor, wordRevealMode }: any) => ({
             color: baseColor,
-            filter: "blur(0px)",
+            filter: 'none',
             transition: {
-                color: { duration: wordRevealMode === 'instant' ? 0.12 : wordRevealMode === 'fast' ? 0.24 : 0.8, ease: "easeInOut" },
-                filter: { duration: wordRevealMode === 'instant' ? 0.12 : wordRevealMode === 'fast' ? 0.2 : 0.5 }
+                color: { duration: wordRevealMode === 'instant' ? 0.12 : wordRevealMode === 'fast' ? 0.24 : 0.8, ease: 'easeInOut' },
+                filter: { duration: wordRevealMode === 'instant' ? 0.08 : wordRevealMode === 'fast' ? 0.12 : 0.2 },
             },
             transitionEnd: {
-                filter: "none"
-            }
-        })
+                filter: 'none',
+            },
+        }),
     };
 
     // Soft multi-layer glow muddy against particle stages — keep glow layer inert.
@@ -661,6 +713,8 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         };
     }, [resolvedClassicTuning.breathingFloatMultiplier, theme.animationIntensity]);
 
+    const lyricInk = useMemo(() => resolveLyricInkFills(theme), [theme]);
+
     return (
         <VisualizerShell
             theme={theme}
@@ -668,15 +722,21 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
             audioBands={audioBands}
             sharedProps={props}
         >
-            {/* Main Container */}
+            {/* Center the capped stage in the shell — a short relative block would otherwise stick to the top. */}
+            <div
+                className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
+                style={{ paddingTop: lyricVertical.opticalTopBiasPx }}
+            >
             <motion.div
                 ref={stageRef}
-                className="relative z-10 w-full h-[70vh] flex items-center justify-center pointer-events-none will-change-transform overflow-hidden"
+                className="relative w-full flex items-center justify-center will-change-transform overflow-hidden"
                 style={{
+                    height: `${(lyricVertical.maxHeightRatio * 100).toFixed(2)}%`,
+                    maxHeight: `${(lyricVertical.maxHeightRatio * 100).toFixed(2)}%`,
                     paddingLeft: lyricFit.sidePaddingPx,
                     paddingRight: lyricFit.sidePaddingPx,
-                    paddingTop: 32,
-                    paddingBottom: 32,
+                    paddingTop: lyricVertical.topPaddingPx,
+                    paddingBottom: lyricVertical.bottomPaddingPx,
                 }}
                 animate={lyricContainerFloat?.animate}
                 transition={lyricContainerFloat?.transition}
@@ -691,7 +751,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
                             className="flex w-full items-center justify-center"
                             style={{
                                 perspective: `${lineConfig.perspective}px`,
-                                minHeight: '300px',
+                                minHeight: Math.min(220, Math.max(120, Math.round(lyricVertical.usableHeight * 0.55))),
                                 maxWidth: lyricFit.usableWidth,
                                 width: '100%',
                             }}
@@ -707,7 +767,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
                             {displayWords.map((word, idx) => {
                                 const config = wordConfigs[idx] || { id: `fallback-${idx}`, x: 0, y: 0, rotate: 0, scale: 1, marginRight: '0.5rem', alignSelf: 'auto', passedRotate: 0 };
 
-                                const activeColor = resolveWordColor(word.text, theme.wordColors, theme.accentColor);
+                                const activeColor = resolveLyricActiveWordColor(word.text, theme);
 
                                 return (
                                     <Word
@@ -720,7 +780,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
                                         layoutVariants={layoutVariants}
                                         bodyVariants={bodyVariants}
                                         glowVariants={glowVariants}
-                                        baseColor={theme.primaryColor}
+                                        baseColor={lyricInk.body}
                                         activeColor={activeColor}
                                         renderProfile={activeWordRenderProfile!}
                                         isChorus={activeLine.isChorus}
@@ -750,6 +810,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
                     )}
                 </AnimatePresence>
             </motion.div>
+            </div>
 
             <VisualizerSubtitleOverlay
                 showText={showText}

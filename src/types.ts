@@ -110,7 +110,7 @@ export type VisualizerMode = BuiltinVisualizerMode | (string & {});
 export type LyricWordMode = 'default' | 'karaoke';
 export type VisualizerFrameRate = 'off' | 120 | 90 | 60;
 
-export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'radio' | 'daily' | 'podcast';
+export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'ytmusic' | 'radio' | 'daily' | 'podcast' | 'history';
 export type OnlineMusicProviderId = 'netease' | 'qq' | 'qishui' | 'coco';
 export type SearchSourceId = HomeViewTab | OnlineMusicProviderId;
 
@@ -764,7 +764,7 @@ export interface NoCopyrightRecommendation {
   expInfo?: unknown | null;
 }
 
-export type LyricProviderSource = 'netease' | 'qq' | 'kugou' | 'amll';
+export type LyricProviderSource = 'netease' | 'qq' | 'kugou' | 'amll' | 'lrclib';
 export type AmllDbPlatform = 'ncm' | 'qq';
 
 export interface SongResult {
@@ -940,12 +940,14 @@ export interface LocalLibraryGroup {
   playlistId?: string;
 }
 
-// Extend SongResult to support local files and Navidrome files
+// Extend SongResult to support local files, Navidrome, and YouTube Music carriers
 export interface UnifiedSong extends SongResult {
   isLocal?: boolean;
   localData?: LocalSong;
   isNavidrome?: boolean;
   navidromeData?: any;
+  isYtm?: boolean;
+  ytmData?: import('./types/ytmusic').YtmTrackData;
 }
 
 export type ReplayGainMode = 'off' | 'track' | 'album';

@@ -20,11 +20,12 @@ type AudioEffectData = {
 };
 
 const PRESET_GLOW: Record<LyricEffectPreset, string[]> = {
-    'midnight-default': ['#fafafa', '#b8b8c2'],
-    'douyin-neon': ['#00f5ff', '#fe2c55'],
-    'douyin-purple': ['#9333ea', '#e879f9'],
-    'xhs-morandi': ['#d4738f', '#9a6b7a'],
-    'dazibao-red': ['#de2910', '#ff3b30'],
+    'soda-gray': ['#a1a1aa', '#d4d4d8'],
+    'soda-white': ['#ffffff', '#e4e4e7'],
+    'douyin-yellow': ['#ffd84d', '#ffcc00'],
+    'foil-gold': ['#f2d06b', '#d4af37'],
+    'xhs-hot-pink': ['#ff6b9d', '#ff3d7a'],
+    'dazibao-red': ['#ff5a45', '#ef4444'],
 };
 
 const resolveGlowShadow = (preset: LyricEffectPreset, level = 0.5) => {
@@ -56,25 +57,30 @@ const animateBreathingGlow = (
     },
 );
 
-export const applyDouyinNeonEffect = (element: HTMLElement, audioLevel = 0.5) => (
-    animateBreathingGlow(element, 'douyin-neon', audioLevel, 1180)
+export const applySodaGrayEffect = (element: HTMLElement, audioLevel = 0.5) => (
+    animateBreathingGlow(element, 'soda-gray', audioLevel, 1400)
 );
 
-export const applyDouyinPurpleEffect = (element: HTMLElement, audioLevel = 0.5) => {
-    const glow = animateBreathingGlow(element, 'douyin-purple', audioLevel, 1500);
-    const hue = element.animate(
-        [
-            { filter: 'hue-rotate(0deg) saturate(1.05)' },
-            { filter: 'hue-rotate(54deg) saturate(1.25)' },
-            { filter: 'hue-rotate(0deg) saturate(1.05)' },
-        ],
-        { duration: 3600, easing: 'linear', iterations: Infinity },
-    );
-    return [glow, hue];
-};
+export const applySodaWhiteEffect = (element: HTMLElement, audioLevel = 0.5) => (
+    animateBreathingGlow(element, 'soda-white', audioLevel, 1400)
+);
 
-export const applyXhsMorandiEffect = (element: HTMLElement) => (
-    animateBreathingGlow(element, 'xhs-morandi', 0.36, 3200)
+/** @deprecated Prefer applySodaGrayEffect — soda-black preset removed. */
+export const applySodaBlackEffect = (element: HTMLElement, audioLevel = 0.5) => (
+    applySodaGrayEffect(element, audioLevel)
+);
+
+/** @deprecated Prefer applyDouyinYellowEffect — kept for older playground callers. */
+export const applyDouyinYellowEffect = (element: HTMLElement, audioLevel = 0.5) => (
+    animateBreathingGlow(element, 'douyin-yellow', audioLevel, 1200)
+);
+
+export const applyFoilGoldEffect = (element: HTMLElement, audioLevel = 0.5) => (
+    animateBreathingGlow(element, 'foil-gold', audioLevel, 1300)
+);
+
+export const applyXhsHotPinkEffect = (element: HTMLElement) => (
+    animateBreathingGlow(element, 'xhs-hot-pink', 0.42, 1100)
 );
 
 export const applyXhsNoteRedEffect = (element: HTMLElement, text: string) => {
@@ -88,18 +94,23 @@ export const applyXhsNoteRedEffect = (element: HTMLElement, text: string) => {
     );
 };
 
-export const applyDazibaoRedEffect = (element: HTMLElement, beatDetected = false) => (
+export const applySodaPulseEffect = (element: HTMLElement, beatDetected = false) => (
     element.animate(
         [
-            { textShadow: resolveGlowShadow('dazibao-red', 0.45), transform: 'scale(1) rotate(0deg)' },
+            { textShadow: resolveGlowShadow('soda-white', 0.45), transform: 'scale(1) rotate(0deg)' },
             {
-                textShadow: resolveGlowShadow('dazibao-red', beatDetected ? 1 : 0.72),
-                transform: `scale(${beatDetected ? 1.16 : 1.08}) rotate(${beatDetected ? 1.8 : 0}deg)`,
+                textShadow: resolveGlowShadow('soda-white', beatDetected ? 1 : 0.72),
+                transform: `scale(${beatDetected ? 1.08 : 1.04}) rotate(0deg)`,
             },
-            { textShadow: resolveGlowShadow('dazibao-red', 0.38), transform: 'scale(1) rotate(0deg)' },
+            { textShadow: resolveGlowShadow('soda-white', 0.38), transform: 'scale(1) rotate(0deg)' },
         ],
         { duration: beatDetected ? 420 : 900, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' },
     )
+);
+
+/** @deprecated Prefer applySodaPulseEffect */
+export const applyDazibaoRedEffect = (element: HTMLElement, beatDetected = false) => (
+    applySodaPulseEffect(element, beatDetected)
 );
 
 export const applyStaggerAnimation = (
@@ -133,7 +144,7 @@ export const syncAnimationWithAudio = (
     element.style.textShadow = resolveGlowShadow(preset, bassLevel * 0.75 + volumeLevel * 0.25);
 
     if (beatDetected) {
-        applyDazibaoRedEffect(element, preset === 'dazibao-red');
+        applySodaPulseEffect(element, true);
     }
 };
 

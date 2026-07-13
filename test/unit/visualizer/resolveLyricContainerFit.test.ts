@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   clampLyricWordOffsetX,
+  clampLyricWordOffsetY,
   resolveLyricContainerFit,
   resolveLyricLineFitScale,
   resolveLyricRhythmScaleHeadroom,
+  resolveLyricVerticalSafeArea,
 } from '@/components/visualizer/resolveLyricContainerFit';
 
 // test/unit/visualizer/resolveLyricContainerFit.test.ts
@@ -68,5 +70,39 @@ describe('resolveLyricLineFitScale', () => {
   it('shrinks only when content exceeds the usable width', () => {
     expect(resolveLyricLineFitScale(900, 720)).toBeCloseTo(720 / 900, 5);
     expect(resolveLyricLineFitScale(400, 720)).toBe(1);
+  });
+});
+
+describe('resolveLyricVerticalSafeArea', () => {
+  it('caps stage height so rhythm scale cannot push lyrics past the top edge', () => {
+    const neon = resolveLyricVerticalSafeArea({
+      containerHeight: 900,
+      scaleHeadroom: resolveLyricRhythmScaleHeadroom(1.6),
+      glowInsetPx: 36,
+      fontPx: 48,
+    });
+    expect(neon.maxHeightRatio).toBeLessThan(0.7);
+    expect(neon.maxHeightRatio * resolveLyricRhythmScaleHeadroom(1.6)).toBeLessThanOrEqual(1);
+    expect(neon.topPaddingPx).toBeGreaterThanOrEqual(36);
+    expect(neon.topPaddingPx).toBe(neon.bottomPaddingPx);
+    expect(neon.opticalTopBiasPx).toBeGreaterThanOrEqual(28);
+  });
+
+  it('keeps a generous preferred height when rhythm scale is neutral', () => {
+    const plain = resolveLyricVerticalSafeArea({
+      containerHeight: 900,
+      scaleHeadroom: 1,
+      glowInsetPx: 20,
+      preferredMaxHeightRatio: 0.7,
+    });
+    expect(plain.maxHeightRatio).toBeCloseTo(0.7, 2);
+  });
+});
+
+describe('clampLyricWordOffsetY', () => {
+  it('clamps vertical scatter inside the usable stage height', () => {
+    expect(clampLyricWordOffsetY(200, 48, 240, 1.4)).toBeLessThan(120);
+    expect(clampLyricWordOffsetY(-200, 48, 240, 1.4)).toBeGreaterThan(-120);
+    expect(clampLyricWordOffsetY(0, 40, 400, 1)).toBe(0);
   });
 });

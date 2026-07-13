@@ -5,6 +5,7 @@ import type { AmllDbPlatform, LyricProviderSource } from '../../types';
 export const getBaseLyricProviderLabel = (source: Exclude<LyricProviderSource, 'amll'>): string => {
     if (source === 'qq') return 'QQ 音乐';
     if (source === 'kugou') return '酷狗音乐';
+    if (source === 'lrclib') return 'LRCLib';
     return '网易云音乐';
 };
 

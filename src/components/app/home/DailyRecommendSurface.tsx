@@ -13,9 +13,9 @@ import {
     serializeDailyRecommendProviderKey,
     useDailyRecommendStore,
 } from '../../../stores/useDailyRecommendStore';
-import OnlineProviderBadge from '../../shared/OnlineProviderBadge';
-import { createSongCoverPlaceholder } from '../../../utils/coverPlaceholders';
-import { resolveHomeContentBottomPaddingClass } from './homeSurfaceStyles';
+import { ProviderIconBadge } from './ProviderIconBadge';
+import LazyCoverImage from '../../shared/LazyCoverImage';
+import { resolveBrowseListRowClass, resolveHomeContentBottomPaddingClass } from './homeSurfaceStyles';
 
 // src/components/app/home/DailyRecommendSurface.tsx
 // Multi-source daily recommend — reads app-level preloaded cache.
@@ -35,36 +35,6 @@ const formatDuration = (durationMs?: number) => {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-};
-
-/** List thumbnail with generated SVG fallback when remote cover is missing/broken. */
-const DailyRecommendCover: React.FC<{
-    song: SongResult;
-    artist: string;
-    isDaylight: boolean;
-}> = ({ song, artist, isDaylight }) => {
-    const remote = song.album?.picUrl || song.al?.picUrl || '';
-    const [failed, setFailed] = useState(false);
-
-    useEffect(() => {
-        setFailed(false);
-    }, [remote, song.id, song.musicProvider]);
-
-    const src = !remote || failed
-        ? createSongCoverPlaceholder(song.name, artist)
-        : remote;
-
-    return (
-        <img
-            src={src}
-            alt=""
-            className={`h-11 w-11 shrink-0 rounded-lg object-cover ${isDaylight ? 'bg-black/5' : 'bg-white/8'}`}
-            loading="lazy"
-            onError={() => {
-                if (!failed) setFailed(true);
-            }}
-        />
-    );
 };
 
 const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
@@ -125,7 +95,7 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
     );
 
     const muted = isDaylight ? 'text-black/45' : 'text-white/45';
-    const rowHover = isDaylight ? 'hover:bg-black/[0.06]' : 'hover:bg-white/[0.07]';
+    const rowClass = resolveBrowseListRowClass(isDaylight);
     const chipIdle = isDaylight
         ? 'bg-black/[0.04] text-black/60 hover:bg-black/[0.08]'
         : 'bg-white/[0.08] text-white/75 hover:bg-white/14';
@@ -226,7 +196,7 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
                                     sourceFilter === id ? chipActive : chipIdle
                                 }`}
                             >
-                                <OnlineProviderBadge provider={id} size="sm" variant="solid" />
+                                <ProviderIconBadge provider={id} size="sm" isDaylight={isDaylight} />
                                 <span>{count}</span>
                             </button>
                         );
@@ -265,25 +235,25 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
                                 <button
                                     type="button"
                                     onClick={() => onPlaySong(song, playQueue)}
-                                    className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors ${rowHover}`}
+                                    className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left ${rowClass}`}
                                 >
                                     <span className={`w-5 shrink-0 text-center text-[11px] tabular-nums ${muted}`}>
                                         {index + 1}
                                     </span>
-                                    <DailyRecommendCover
-                                        song={song}
-                                        artist={artist}
-                                        isDaylight={isDaylight}
+                                    <LazyCoverImage
+                                        src={song.album?.picUrl || song.al?.picUrl}
+                                        placeholderLabel={song.name}
+                                        placeholderArtist={artist}
+                                        sizePx={88}
+                                        className={`h-11 w-11 shrink-0 rounded-lg object-cover ${isDaylight ? 'bg-black/5' : 'bg-white/8'}`}
                                     />
                                     <div className="min-w-0 flex-1">
                                         <div className="flex min-w-0 items-center gap-1.5">
                                             <div className="truncate text-sm font-medium">{song.name}</div>
-                                            <OnlineProviderBadge
+                                            <ProviderIconBadge
                                                 provider={song.musicProvider || 'netease'}
                                                 size="sm"
-                                                variant="glass"
                                                 isDaylight={isDaylight}
-                                                className="shrink-0"
                                             />
                                         </div>
                                         <div className={`mt-0.5 truncate text-[11px] ${muted}`}>

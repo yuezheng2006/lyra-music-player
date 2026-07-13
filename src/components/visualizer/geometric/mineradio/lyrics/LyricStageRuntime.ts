@@ -48,8 +48,8 @@ export type LyricStageCameraSnapshot = {
 const buildPaletteFromTheme = (theme: Theme): LyricPalette => ({
     primary: theme.primaryColor,
     secondary: theme.secondaryColor,
-    highlight: theme.accentColor,
-    glow: theme.accentColor,
+    highlight: theme.primaryColor,
+    glow: theme.primaryColor,
 });
 
 const resolveLineText = (line: Line | undefined): string => {

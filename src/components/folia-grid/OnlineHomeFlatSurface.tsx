@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
-import { Disc } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { NeteasePlaylist, OnlineMusicProviderId } from '../../types';
 import { OnlineProviderBadge } from '../shared/OnlineProviderBadge';
 import { FreeSourceNotice } from '../shared/FreeSourceNotice';
+import LazyCoverImage from '../shared/LazyCoverImage';
 import { isProviderDefaultPlaylist } from '../../utils/onlineDefaultPlaylists';
 import { resolveOnlineProviderIconUrl } from '../../utils/onlineProviderAssets';
 import { resolveHomeContentBottomPaddingClass } from '../app/home/homeSurfaceStyles';
@@ -55,18 +55,14 @@ const PeerSourceCard: React.FC<{
             className={`group flex min-w-[200px] max-w-[280px] flex-1 items-center gap-3 rounded-2xl border px-3 py-2.5 text-left backdrop-blur-xl transition-all duration-300 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.985] ${shell}`}
         >
             <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-black">
-                {iconUrl ? (
-                    <img
-                        src={iconUrl}
-                        alt={item.name}
-                        className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
-                        loading="lazy"
-                    />
-                ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-white/[0.04]">
-                        <Disc size={18} className="opacity-25" />
-                    </div>
-                )}
+                <LazyCoverImage
+                    src={iconUrl}
+                    alt={item.name}
+                    placeholderLabel={item.name}
+                    placeholderVariant="playlist"
+                    sizePx={88}
+                    className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                />
             </div>
 
             <div className="min-w-0 flex-1">
@@ -104,18 +100,14 @@ const PlaylistCard: React.FC<{
             className={`group relative text-left overflow-hidden rounded-[18px] border backdrop-blur-xl transition-all duration-300 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.985] ${shell}`}
         >
             <div className="relative aspect-square overflow-hidden">
-                {item.coverUrl ? (
-                    <img
-                        src={item.coverUrl}
-                        alt={item.name}
-                        className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.045]"
-                        loading="lazy"
-                    />
-                ) : (
-                    <div className={`flex h-full w-full items-center justify-center ${isDaylight ? 'bg-black/[0.04]' : 'bg-white/[0.04]'}`}>
-                        <Disc size={28} className="opacity-25" />
-                    </div>
-                )}
+                <LazyCoverImage
+                    src={item.coverUrl}
+                    alt={item.name}
+                    placeholderLabel={item.name}
+                    placeholderVariant="playlist"
+                    sizePx={320}
+                    className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.045]"
+                />
                 <div className={`pointer-events-none absolute inset-0 bg-gradient-to-b ${coverWash}`} />
                 {item.musicProvider ? (
                     <OnlineProviderBadge

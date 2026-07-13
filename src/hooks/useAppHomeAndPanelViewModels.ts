@@ -43,6 +43,7 @@ export function useAppHomeAndPanelViewModels(core: AppViewModelContext) {
         setLocalMusicState,
         handleHomeMatchSong,
         onPlayNavidromeSong,
+        onPlayYtmSong,
         addNavidromeSongsToQueue,
         onMatchNavidromeSong,
         navidromeFocusedAlbumIndex,
@@ -155,6 +156,7 @@ export function useAppHomeAndPanelViewModels(core: AppViewModelContext) {
         homeLayoutStyle,
         setActiveGridViewCollection,
         navigateDirectHome,
+        onApplyLyricBodyColor,
         onApplyLyricColorPreset,
     } = core;
 
@@ -209,6 +211,7 @@ export function useAppHomeAndPanelViewModels(core: AppViewModelContext) {
         loadStageSessionIntoPlayback,
         theme,
         navidromeEnabled,
+        onPlayYtmTrack: onPlayYtmSong,
         playAll: playOnlineQueueFromStart,
         addAllToQueue: addNeteaseSongsToQueue,
         addSongToQueue: addNeteaseSongToQueue,
@@ -244,6 +247,7 @@ export function useAppHomeAndPanelViewModels(core: AppViewModelContext) {
         onMatchNavidromeSong,
         onPlayLocalSong,
         onPlayNavidromeSong,
+        onPlayYtmSong,
         onRefreshLocalSongs,
         openLocalAlbumByName,
         openLocalArtistByName,
@@ -386,6 +390,7 @@ export function useAppHomeAndPanelViewModels(core: AppViewModelContext) {
         handleToggleEnableSmartAtmosphere,
         handleToggleDisableVisualizerVignette,
         openAdvancedBackgroundSettings: () => openSettings('options', 'visualizer'),
+        onApplyLyricBodyColor,
         onApplyLyricColorPreset,
     }), [
         activePlaybackContext,
@@ -488,6 +493,8 @@ export function useAppHomeAndPanelViewModels(core: AppViewModelContext) {
         disableVisualizerVignette,
         visualizerMode,
         volume,
+        onApplyLyricBodyColor,
+        onApplyLyricColorPreset,
     ]);
 
     return {

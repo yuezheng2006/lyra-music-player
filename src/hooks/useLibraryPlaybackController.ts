@@ -6,11 +6,12 @@ import { getFromCacheWithMigration, getLocalSongs, removeFromCache, saveLocalSon
 import { getCachedCoverUrl, loadCachedOrFetchCover } from '../services/coverCache';
 import { ensureLocalSongEmbeddedCover, getAudioFromLocalSong } from '../services/localMusicService';
 import { addSongsToLocalPlaylist, createLocalPlaylist, getLocalPlaylists, setLocalSongFavorite } from '../services/localPlaylistService';
-import { buildLocalQueue, buildNavidromeQueue, buildUnifiedLocalSong, buildUnifiedNavidromeSong } from '../services/playbackAdapters';
+import { buildLocalQueue, buildNavidromeQueue, buildUnifiedLocalSong, buildUnifiedNavidromeSong, buildUnifiedYtmSong, buildYtmQueue } from '../services/playbackAdapters';
 import { getPrefetchedData } from '../services/prefetchService';
 import type { ThemeCacheSongKey } from '../services/themeCache';
-import { extractCloudLyricText, hasRenderableLyrics } from '../utils/appPlaybackHelpers';
-import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong, resolveNavidromePlaybackCarrier } from '../utils/appPlaybackGuards';
+import { extractCloudLyricText, hasRenderableLyrics, resolveSongDurationSec } from '../utils/appPlaybackHelpers';
+import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong, isYtmPlaybackSong, resolveNavidromePlaybackCarrier } from '../utils/appPlaybackGuards';
+import { flushSync } from 'react-dom';
 import { hydrateNavidromeLyricPayload, resolvePreferredNavidromeLyrics } from '../utils/appNavidromeLyrics';
 import { isPureMusicLyricText } from '../utils/lyrics/pureMusic';
 import { migrateLyricDataRenderHints } from '../utils/lyrics/renderHints';
@@ -18,17 +19,21 @@ import { migrateMatchedLyricsCarrierRenderHints } from '../utils/lyrics/storageM
 import { processNeteaseLyrics } from '../utils/lyrics/neteaseProcessing';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
+import { loadYtmSongLyrics } from '../utils/lyrics/loadYtmSongLyrics';
 import { resolveExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
 import { getOnlineSongCacheKey, isCloudSong, neteaseApi } from '../services/netease';
 import { getNavidromeConfig, navidromeApi } from '../services/navidromeService';
+import { resolveYtmusicStream, isYtmusicPlaybackUrl } from '../services/ytmusicService';
 import { PlayerState } from '../types';
 import type { LyricData, LocalPlaylist, LocalSong, OnlineLyricsState, QueueAddBehavior, SongResult, StatusMessage } from '../types';
 import type { PlaybackSnapshot, PlaybackNavigationOptions } from '../types/appPlayback';
 import type { NavidromeSong } from '../types/navidrome';
+import type { YtmSearchTrack, YtmSong } from '../types/ytmusic';
 import type { NavidromeMatchData } from '../components/modal/NaviLyricMatchModal';
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
 import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState, getOnlineLyricsStateCacheKey } from '../utils/onlineLyricsState';
 import { getBlobObjectUrlSignature, isBlob } from '../utils/blobGuards';
+import { armAutoPlayIntent, unlockHtmlAudioForAutoplay } from '../utils/audioAutoPlayGuard';
 
 // src/hooks/useLibraryPlaybackController.ts
 
@@ -87,6 +92,7 @@ type UseLibraryPlaybackControllerParams = {
         preserveCurrentOnMiss?: boolean;
     }) => Promise<unknown>;
     interruptStagePlaybackForMainTransition: () => PlaybackSnapshot | null;
+    audioRef: MutableRefObject<HTMLAudioElement | null>;
     blobUrlRef: MutableRefObject<string | null>;
     shouldAutoPlayRef: MutableRefObject<boolean>;
     currentSongRef: MutableRefObject<number | null>;
@@ -122,6 +128,7 @@ export function useLibraryPlaybackController({
     persistLastPlaybackCache,
     restoreCachedThemeForSong,
     interruptStagePlaybackForMainTransition,
+    audioRef,
     blobUrlRef,
     shouldAutoPlayRef,
     currentSongRef,
@@ -594,6 +601,8 @@ export function useLibraryPlaybackController({
         options: PlaybackNavigationOptions = {},
     ) => {
         interruptStagePlaybackForMainTransition();
+        armAutoPlayIntent(shouldAutoPlayRef);
+        unlockHtmlAudioForAutoplay({ audioRef });
 
         const blobUrl = await getAudioFromLocalSong(localSong);
         if (!blobUrl) {
@@ -613,7 +622,13 @@ export function useLibraryPlaybackController({
         setCurrentLineIndex(-1);
         currentTime.set(0);
         setCurrentSong(initialMeta.unifiedSong);
-        setAudioSrc(blobUrl);
+        flushSync(() => {
+            setAudioSrc(blobUrl);
+        });
+        const audioElement = audioRef.current;
+        if (audioElement) {
+            void audioElement.play().catch(() => undefined);
+        }
 
         if (initialMeta.coverUrl) {
             loadCachedOrFetchCover(`cover_local_${preparedLocalSong.id}`, initialMeta.coverUrl).then((resolvedCoverUrl) => {
@@ -683,6 +698,7 @@ export function useLibraryPlaybackController({
             }
         })();
     }, [
+        audioRef,
         blobUrlRef,
         currentSongRef,
         currentTime,
@@ -711,6 +727,8 @@ export function useLibraryPlaybackController({
         options: PlaybackNavigationOptions = {},
     ) => {
         interruptStagePlaybackForMainTransition();
+        armAutoPlayIntent(shouldAutoPlayRef);
+        unlockHtmlAudioForAutoplay({ audioRef });
 
         const shouldNavigateToPlayer = options.shouldNavigateToPlayer ?? true;
         const config = getNavidromeConfig();
@@ -719,208 +737,250 @@ export function useLibraryPlaybackController({
             return;
         }
 
+        const navidromeId = navidromeSong.navidromeData.id;
+        const streamUrl = navidromeApi.getStreamUrl(config, navidromeId);
+        const matchData = await getFromCacheWithMigration<NavidromeMatchData>(
+            `navidrome_match_${navidromeId}`,
+            migrateMatchedLyricsCarrierRenderHints,
+        );
+
+        let coverUrl: string | undefined;
+        let cachedLyrics: LyricData | null = null;
+        if (matchData?.lyricsSource === 'online' && matchData.matchedLyrics) {
+            cachedLyrics = matchData.matchedLyrics;
+        }
+        if (matchData?.useOnlineCover && matchData.matchedCoverUrl) {
+            coverUrl = matchData.matchedCoverUrl;
+        }
+        if (!coverUrl) {
+            coverUrl = navidromeSong.album?.picUrl || navidromeSong.al?.picUrl || navidromeApi.getCoverArtUrl(config, navidromeId);
+        }
+
+        const seedSong = navidromeSong as NavidromeSong & {
+            matchedLyrics?: LyricData | null;
+            matchedIsPureMusic?: boolean;
+            useOnlineLyrics?: boolean;
+            lyricsSource?: string;
+            matchedLyricsSource?: SongResult['matchedLyricsSource'];
+            matchedLyricsProviderPlatform?: SongResult['matchedLyricsProviderPlatform'];
+        };
+        seedSong.matchedLyrics = matchData?.matchedLyrics ?? null;
+        seedSong.matchedIsPureMusic = matchData?.matchedIsPureMusic;
+        seedSong.useOnlineLyrics = matchData?.useOnlineLyrics;
+        seedSong.lyricsSource = matchData?.lyricsSource === 'online' ? 'online' : matchData?.lyricsSource;
+        seedSong.matchedLyricsSource = matchData?.matchedLyricsSource;
+        seedSong.matchedLyricsProviderPlatform = matchData?.matchedLyricsProviderPlatform;
+
+        const unifiedSong = buildUnifiedNavidromeSong(seedSong, {
+            coverUrl,
+            useOnlineMetadata: matchData?.useOnlineMetadata,
+            matchedArtists: matchData?.matchedArtists,
+            matchedAlbumName: matchData?.matchedAlbumName,
+            matchedLyricsSource: seedSong.matchedLyricsSource || matchData?.matchedLyricsSource,
+            matchedLyricsProviderPlatform: seedSong.matchedLyricsProviderPlatform || matchData?.matchedLyricsProviderPlatform,
+        });
+
+        // Play audio first — lyrics resolve asynchronously (same contract as online playSong).
+        shouldAutoPlayRef.current = true;
+        currentSongRef.current = unifiedSong.id;
+        setLyrics(cachedLyrics);
+        setCurrentLineIndex(-1);
+        currentTime.set(0);
+        setDuration(resolveSongDurationSec(unifiedSong));
+        setCurrentSong(unifiedSong);
+        setManagedCachedCoverUrl(coverUrl ?? null);
         setIsLyricsLoading(true);
+        flushSync(() => {
+            setAudioSrc(streamUrl);
+        });
+        const audioElement = audioRef.current;
+        if (audioElement) {
+            void audioElement.play().catch(() => undefined);
+        }
 
-        try {
-            const navidromeId = navidromeSong.navidromeData.id;
-            const streamUrl = navidromeApi.getStreamUrl(config, navidromeId);
-            const matchData = await getFromCacheWithMigration<NavidromeMatchData>(
-                `navidrome_match_${navidromeId}`,
-                migrateMatchedLyricsCarrierRenderHints,
-            );
+        if (queue.length > 0) {
+            const finalQueue = buildNavidromeQueue(queue, unifiedSong);
+            setPlayQueue(finalQueue);
+            void persistLastPlaybackCache(unifiedSong, finalQueue);
+        } else {
+            setPlayQueue([unifiedSong]);
+            void persistLastPlaybackCache(unifiedSong, [unifiedSong]);
+        }
 
-            let nextLyrics: LyricData | null = null;
-            let coverUrl: string | undefined;
-            let showedLoadingToast = false;
-            if (matchData) {
-                if (matchData.lyricsSource === 'online' && matchData.matchedLyrics) {
-                    nextLyrics = matchData.matchedLyrics;
+        if (shouldNavigateToPlayer) {
+            navigateToPlayer();
+        }
+        setPlayerState(PlayerState.IDLE);
+        setStatusMsg(prev => (prev?.persistent ? prev : { type: 'info', text: t('status.loadingSong') || '加载歌曲中...' }));
+        void restoreCachedThemeForSong(unifiedSong.id).catch((error) => {
+            console.warn('Theme load error', error);
+        });
+
+        void (async () => {
+            try {
+                let nextLyrics = cachedLyrics;
+                if (!nextLyrics) {
+                    nextLyrics = await resolvePreferredNavidromeLyrics(navidromeSong);
                 }
-                if (matchData.useOnlineCover && matchData.matchedCoverUrl) {
-                    coverUrl = matchData.matchedCoverUrl;
+                if (!nextLyrics) {
+                    await hydrateNavidromeLyricPayload(config, navidromeSong);
+                    nextLyrics = await resolvePreferredNavidromeLyrics(navidromeSong);
                 }
-            }
 
-            if (!nextLyrics) {
-                nextLyrics = await resolvePreferredNavidromeLyrics(navidromeSong);
-            }
+                let isAutoMatched = false;
+                let autoMatchedLyrics: LyricData | null = null;
+                let matchedLyricsSource: SongResult['matchedLyricsSource'] | undefined;
+                let matchedLyricsProviderPlatform: SongResult['matchedLyricsProviderPlatform'] | undefined;
 
-            if (!nextLyrics) {
-                if (!showedLoadingToast) {
-                    setStatusMsg({ type: 'info', text: t('status.loadingSong') || '加载歌曲中...' });
-                    showedLoadingToast = true;
-                }
-                await hydrateNavidromeLyricPayload(config, navidromeSong);
-                nextLyrics = await resolvePreferredNavidromeLyrics(navidromeSong);
-            }
+                if (!nextLyrics && !matchData?.noAutoMatch && !matchData?.matchedIsPureMusic) {
+                    try {
+                        const artistName = navidromeSong.artists?.map(artist => artist.name).filter(Boolean).join(', ')
+                            || navidromeSong.ar?.map(artist => artist.name).filter(Boolean).join(', ')
+                            || '';
+                        const albumName = navidromeSong.album?.name || navidromeSong.al?.name || '';
+                        const settings = useSettingsUiStore.getState();
 
-            let isAutoMatched = false;
-            let autoMatchedLyrics: LyricData | null = null;
-            let matchedLyricsSource: SongResult['matchedLyricsSource'] | undefined;
-            let matchedLyricsProviderPlatform: SongResult['matchedLyricsProviderPlatform'] | undefined;
-
-            if (!nextLyrics && !matchData?.noAutoMatch && !matchData?.matchedIsPureMusic) {
-                try {
-                    if (!showedLoadingToast) {
-                        setStatusMsg({ type: 'info', text: t('status.loadingSong') || '加载歌曲中...' });
-                        showedLoadingToast = true;
-                    }
-                    const artistName = navidromeSong.artists?.map(artist => artist.name).filter(Boolean).join(', ')
-                        || navidromeSong.ar?.map(artist => artist.name).filter(Boolean).join(', ')
-                        || '';
-                    const albumName = navidromeSong.album?.name || navidromeSong.al?.name || '';
-                    const settings = useSettingsUiStore.getState();
-
-                    if (settings.enableAlternativeLyricSources && settings.autoUseBestLyric) {
-                        const bestMatch = await autoMatchBestLyric(navidromeSong.name, artistName, navidromeSong.duration || navidromeSong.dt || 0, {
-                            album: albumName,
-                            preferredSource: settings.preferredAlternativeLyricSource,
-                        });
-                        if (bestMatch?.isPureMusic) {
-                            isAutoMatched = true;
-                            autoMatchedLyrics = null;
-                            (navidromeSong as NavidromeSong & { matchedIsPureMusic?: boolean; }).matchedIsPureMusic = true;
-                        } else if (bestMatch && 'lyrics' in bestMatch) {
-                            nextLyrics = bestMatch.lyrics;
-                            autoMatchedLyrics = bestMatch.lyrics;
-                            isAutoMatched = true;
-                            matchedLyricsSource = bestMatch.source;
-                            matchedLyricsProviderPlatform = bestMatch.matchedLyricsProviderPlatform;
-
-                            const newMatchData: NavidromeMatchData = {
-                                matchedLyrics: bestMatch.lyrics,
-                                matchedLyricsSource: bestMatch.source,
-                                matchedLyricsProviderPlatform: bestMatch.matchedLyricsProviderPlatform,
-                                lyricsSource: 'online',
-                                useOnlineLyrics: true,
-                            };
-
-                            if (bestMatch.source === 'netease' || (bestMatch.source === 'amll' && bestMatch.matchedLyricsProviderPlatform === 'ncm')) {
-                                newMatchData.matchedSongId = bestMatch.id as number;
-                                try {
-                                    const detailRes = await neteaseApi.getSongDetail(bestMatch.id as number);
-                                    const nSong = detailRes.songs?.[0];
-                                    if (nSong) {
-                                        newMatchData.matchedArtists = nSong.ar?.map((a: any) => a.name).join(', ');
-                                        newMatchData.matchedAlbumName = nSong.al?.name || nSong.album?.name;
-                                        const coverUrl = nSong.al?.picUrl || nSong.album?.picUrl;
-                                        if (coverUrl) {
-                                            newMatchData.matchedCoverUrl = coverUrl.replace('http:', 'https:');
-                                            newMatchData.useOnlineCover = true;
-                                        }
-                                    }
-                                } catch (err) {
-                                    console.error('[NaviPlay] Failed to fetch NetEase song detail for metadata:', err);
-                                }
-                            }
-
-                            await saveToCache(`navidrome_match_${navidromeId}`, newMatchData);
-                        }
-                    }
-
-                    if (!isAutoMatched) {
-                        const searchQuery = `${navidromeSong.name} ${artistName}`.trim();
-                        const searchRes = await neteaseApi.cloudSearch(searchQuery, 1);
-
-                        if (searchRes.result?.songs?.length) {
-                            const matchedSong = searchRes.result.songs[0];
-                            const lyricRes = await neteaseApi.getLyric(matchedSong.id);
-                            const processed = await processNeteaseLyrics({ type: 'netease', ...lyricRes }, { songId: matchedSong.id });
-                            nextLyrics = processed.lyrics;
-                            (navidromeSong as NavidromeSong & { matchedIsPureMusic?: boolean; }).matchedIsPureMusic = processed.isPureMusic;
-                            if (nextLyrics || processed.isPureMusic) {
-                                autoMatchedLyrics = nextLyrics;
+                        if (settings.enableAlternativeLyricSources && settings.autoUseBestLyric) {
+                            const bestMatch = await autoMatchBestLyric(navidromeSong.name, artistName, navidromeSong.duration || navidromeSong.dt || 0, {
+                                album: albumName,
+                                preferredSource: settings.preferredAlternativeLyricSource,
+                            });
+                            if (bestMatch?.isPureMusic) {
                                 isAutoMatched = true;
-                                matchedLyricsSource = 'netease';
+                                autoMatchedLyrics = null;
+                                (navidromeSong as NavidromeSong & { matchedIsPureMusic?: boolean; }).matchedIsPureMusic = true;
+                            } else if (bestMatch && 'lyrics' in bestMatch) {
+                                nextLyrics = bestMatch.lyrics;
+                                autoMatchedLyrics = bestMatch.lyrics;
+                                isAutoMatched = true;
+                                matchedLyricsSource = bestMatch.source;
+                                matchedLyricsProviderPlatform = bestMatch.matchedLyricsProviderPlatform;
 
-                            const newMatchData: NavidromeMatchData = {
-                                matchedSongId: matchedSong.id,
-                                matchedLyrics: nextLyrics || undefined,
-                                matchedIsPureMusic: processed.isPureMusic,
-                                matchedLyricsSource: 'netease',
+                                const newMatchData: NavidromeMatchData = {
+                                    matchedLyrics: bestMatch.lyrics,
+                                    matchedLyricsSource: bestMatch.source,
+                                    matchedLyricsProviderPlatform: bestMatch.matchedLyricsProviderPlatform,
                                     lyricsSource: 'online',
                                     useOnlineLyrics: true,
                                 };
+
+                                if (bestMatch.source === 'netease' || (bestMatch.source === 'amll' && bestMatch.matchedLyricsProviderPlatform === 'ncm')) {
+                                    newMatchData.matchedSongId = bestMatch.id as number;
+                                    try {
+                                        const detailRes = await neteaseApi.getSongDetail(bestMatch.id as number);
+                                        const nSong = detailRes.songs?.[0];
+                                        if (nSong) {
+                                            newMatchData.matchedArtists = nSong.ar?.map((a: any) => a.name).join(', ');
+                                            newMatchData.matchedAlbumName = nSong.al?.name || nSong.album?.name;
+                                            const matchedCoverUrl = nSong.al?.picUrl || nSong.album?.picUrl;
+                                            if (matchedCoverUrl) {
+                                                newMatchData.matchedCoverUrl = matchedCoverUrl.replace('http:', 'https:');
+                                                newMatchData.useOnlineCover = true;
+                                            }
+                                        }
+                                    } catch (err) {
+                                        console.error('[NaviPlay] Failed to fetch NetEase song detail for metadata:', err);
+                                    }
+                                }
+
                                 await saveToCache(`navidrome_match_${navidromeId}`, newMatchData);
                             }
                         }
+
+                        if (!isAutoMatched) {
+                            const searchQuery = `${navidromeSong.name} ${artistName}`.trim();
+                            const searchRes = await neteaseApi.cloudSearch(searchQuery, 1);
+
+                            if (searchRes.result?.songs?.length) {
+                                const matchedSong = searchRes.result.songs[0];
+                                const lyricRes = await neteaseApi.getLyric(matchedSong.id);
+                                const processed = await processNeteaseLyrics({ type: 'netease', ...lyricRes }, { songId: matchedSong.id });
+                                nextLyrics = processed.lyrics;
+                                (navidromeSong as NavidromeSong & { matchedIsPureMusic?: boolean; }).matchedIsPureMusic = processed.isPureMusic;
+                                if (nextLyrics || processed.isPureMusic) {
+                                    autoMatchedLyrics = nextLyrics;
+                                    isAutoMatched = true;
+                                    matchedLyricsSource = 'netease';
+
+                                    const newMatchData: NavidromeMatchData = {
+                                        matchedSongId: matchedSong.id,
+                                        matchedLyrics: nextLyrics || undefined,
+                                        matchedIsPureMusic: processed.isPureMusic,
+                                        matchedLyricsSource: 'netease',
+                                        lyricsSource: 'online',
+                                        useOnlineLyrics: true,
+                                    };
+                                    await saveToCache(`navidrome_match_${navidromeId}`, newMatchData);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('[App] Failed to fetch Netease lyrics for Navidrome song:', error);
                     }
-                } catch (error) {
-                    console.warn('[App] Failed to fetch Netease lyrics for Navidrome song:', error);
+                }
+
+                if (currentSongRef.current !== unifiedSong.id) {
+                    return;
+                }
+
+                const mutableSong = navidromeSong as NavidromeSong & {
+                    matchedLyrics?: LyricData | null;
+                    matchedIsPureMusic?: boolean;
+                    useOnlineLyrics?: boolean;
+                    lyricsSource?: string;
+                    matchedLyricsSource?: SongResult['matchedLyricsSource'];
+                    matchedLyricsProviderPlatform?: SongResult['matchedLyricsProviderPlatform'];
+                };
+                if (isAutoMatched) {
+                    mutableSong.matchedLyrics = autoMatchedLyrics;
+                    mutableSong.useOnlineLyrics = true;
+                    mutableSong.lyricsSource = 'online';
+                    mutableSong.matchedLyricsSource = matchedLyricsSource;
+                    mutableSong.matchedLyricsProviderPlatform = matchedLyricsProviderPlatform;
+                } else {
+                    mutableSong.matchedLyrics = matchData?.matchedLyrics ?? null;
+                    mutableSong.matchedIsPureMusic = matchData?.matchedIsPureMusic;
+                    mutableSong.useOnlineLyrics = matchData?.useOnlineLyrics;
+                    mutableSong.lyricsSource = matchData?.lyricsSource === 'online'
+                        ? 'online'
+                        : (hasRenderableLyrics(nextLyrics) ? 'navi' : matchData?.lyricsSource);
+                    mutableSong.matchedLyricsSource = matchData?.matchedLyricsSource;
+                    mutableSong.matchedLyricsProviderPlatform = matchData?.matchedLyricsProviderPlatform;
+                }
+
+                setLyrics(nextLyrics);
+                setCurrentSong(prev => {
+                    if (!prev || prev.id !== unifiedSong.id) {
+                        return prev;
+                    }
+                    return buildUnifiedNavidromeSong(mutableSong, {
+                        coverUrl,
+                        useOnlineMetadata: matchData?.useOnlineMetadata,
+                        matchedArtists: matchData?.matchedArtists,
+                        matchedAlbumName: matchData?.matchedAlbumName,
+                        matchedLyricsSource: mutableSong.matchedLyricsSource || matchData?.matchedLyricsSource,
+                        matchedLyricsProviderPlatform: mutableSong.matchedLyricsProviderPlatform || matchData?.matchedLyricsProviderPlatform,
+                    });
+                });
+            } catch (error) {
+                console.warn('[App] Navidrome lyric resolve failed', error);
+            } finally {
+                if (currentSongRef.current === unifiedSong.id) {
+                    setIsLyricsLoading(false);
+                    setStatusMsg(prev => {
+                        if (!prev || prev.persistent || prev.type !== 'info') {
+                            return prev;
+                        }
+                        if (prev.text === (t('status.loadingSong') || '加载歌曲中...')) {
+                            return null;
+                        }
+                        return prev;
+                    });
                 }
             }
-
-            const mutableSong = navidromeSong as NavidromeSong & {
-                matchedLyrics?: LyricData | null;
-                matchedIsPureMusic?: boolean;
-                useOnlineLyrics?: boolean;
-                lyricsSource?: string;
-                matchedLyricsSource?: SongResult['matchedLyricsSource'];
-                matchedLyricsProviderPlatform?: SongResult['matchedLyricsProviderPlatform'];
-            };
-            if (isAutoMatched) {
-                mutableSong.matchedLyrics = autoMatchedLyrics;
-                mutableSong.useOnlineLyrics = true;
-                mutableSong.lyricsSource = 'online';
-                mutableSong.matchedLyricsSource = matchedLyricsSource;
-                mutableSong.matchedLyricsProviderPlatform = matchedLyricsProviderPlatform;
-            } else {
-                mutableSong.matchedLyrics = matchData?.matchedLyrics ?? null;
-                mutableSong.matchedIsPureMusic = matchData?.matchedIsPureMusic;
-                mutableSong.useOnlineLyrics = matchData?.useOnlineLyrics;
-                mutableSong.lyricsSource = matchData?.lyricsSource === 'online'
-                    ? 'online'
-                    : (hasRenderableLyrics(nextLyrics) ? 'navi' : matchData?.lyricsSource);
-                mutableSong.matchedLyricsSource = matchData?.matchedLyricsSource;
-                mutableSong.matchedLyricsProviderPlatform = matchData?.matchedLyricsProviderPlatform;
-            }
-
-            if (!coverUrl) {
-                coverUrl = navidromeSong.album?.picUrl || navidromeSong.al?.picUrl || navidromeApi.getCoverArtUrl(config, navidromeId);
-            }
-
-            const unifiedSong = buildUnifiedNavidromeSong(navidromeSong, {
-                coverUrl,
-                useOnlineMetadata: matchData?.useOnlineMetadata,
-                matchedArtists: matchData?.matchedArtists,
-                matchedAlbumName: matchData?.matchedAlbumName,
-                matchedLyricsSource: mutableSong.matchedLyricsSource || matchData?.matchedLyricsSource,
-                matchedLyricsProviderPlatform: mutableSong.matchedLyricsProviderPlatform || matchData?.matchedLyricsProviderPlatform,
-            });
-
-            shouldAutoPlayRef.current = true;
-            currentSongRef.current = unifiedSong.id;
-            setLyrics(nextLyrics);
-            setCurrentLineIndex(-1);
-            currentTime.set(0);
-            setCurrentSong(unifiedSong);
-            setManagedCachedCoverUrl(coverUrl ?? null);
-            setAudioSrc(streamUrl);
-            setIsLyricsLoading(false);
-
-            if (queue.length > 0) {
-                const finalQueue = buildNavidromeQueue(queue, unifiedSong);
-                setPlayQueue(finalQueue);
-                void persistLastPlaybackCache(unifiedSong, finalQueue);
-            } else {
-                setPlayQueue([unifiedSong]);
-                void persistLastPlaybackCache(unifiedSong, [unifiedSong]);
-            }
-
-            if (shouldNavigateToPlayer) {
-                navigateToPlayer();
-            }
-            setPlayerState(PlayerState.IDLE);
-            setStatusMsg({ type: 'success', text: 'Navidrome 歌曲已加载' });
-            void restoreCachedThemeForSong(unifiedSong.id).catch((error) => {
-                console.warn('Theme load error', error);
-            });
-        } catch (error) {
-            console.error('[App] Failed to play Navidrome song:', error);
-            setStatusMsg({ type: 'error', text: '播放失败' });
-            setIsLyricsLoading(false);
-        }
+        })();
     }, [
+        audioRef,
         currentSongRef,
         currentTime,
         interruptStagePlaybackForMainTransition,
@@ -928,6 +988,158 @@ export function useLibraryPlaybackController({
         persistLastPlaybackCache,
         restoreCachedThemeForSong,
         setAudioSrc,
+        setDuration,
+        setManagedCachedCoverUrl,
+        setCurrentLineIndex,
+        setCurrentSong,
+        setIsLyricsLoading,
+        setLyrics,
+        setPlayQueue,
+        setPlayerState,
+        setStatusMsg,
+        shouldAutoPlayRef,
+        t,
+    ]);
+
+    const onPlayYtmSong = useCallback(async (
+        track: YtmSearchTrack | YtmSong,
+        queue: Array<YtmSearchTrack | YtmSong> = [],
+        options: PlaybackNavigationOptions = {},
+    ) => {
+        interruptStagePlaybackForMainTransition();
+        armAutoPlayIntent(shouldAutoPlayRef);
+        unlockHtmlAudioForAutoplay({ audioRef });
+
+        const shouldNavigateToPlayer = options.shouldNavigateToPlayer ?? true;
+        const baseTrack: YtmSearchTrack = (track as YtmSong).isYtm && (track as YtmSong).ytmData
+            ? {
+                videoId: (track as YtmSong).ytmData.videoId,
+                title: (track as YtmSong).ytmData.title,
+                artist: (track as YtmSong).ytmData.artist,
+                album: (track as YtmSong).ytmData.album,
+                durationMs: (track as YtmSong).ytmData.durationMs,
+                coverUrl: (track as YtmSong).ytmData.coverUrl,
+            }
+            : track as YtmSearchTrack;
+
+        if (!baseTrack.videoId) {
+            setStatusMsg({ type: 'error', text: t('ytmusic.playFailed') || 'Unable to play YouTube Music track' });
+            return;
+        }
+
+        let streamUrl = (track as YtmSong).ytmData?.streamUrl || null;
+        let streamExpireAt = (track as YtmSong).ytmData?.streamExpireAt ?? null;
+        // Always play through localhost YTM proxy — googlevideo has no CORS for <audio crossOrigin>.
+        if (!isYtmusicPlaybackUrl(streamUrl)) {
+            try {
+                const stream = await resolveYtmusicStream(baseTrack.videoId);
+                streamUrl = stream.playbackUrl;
+                streamExpireAt = stream.expireAt ?? null;
+            } catch (error) {
+                console.warn('[ytmusic] resolveStream failed', error);
+                setStatusMsg({
+                    type: 'error',
+                    text: error instanceof Error ? error.message : (t('ytmusic.playFailed') || 'Unable to play YouTube Music track'),
+                });
+                return;
+            }
+        }
+
+        const coverUrl = baseTrack.coverUrl || null;
+        const unifiedSong = buildUnifiedYtmSong(baseTrack, {
+            streamUrl,
+            streamExpireAt,
+            coverUrl,
+        });
+
+        shouldAutoPlayRef.current = true;
+        currentSongRef.current = unifiedSong.id;
+        setLyrics(null);
+        setCurrentLineIndex(-1);
+        currentTime.set(0);
+        setDuration(resolveSongDurationSec(unifiedSong));
+        setCurrentSong(unifiedSong);
+        setManagedCachedCoverUrl(coverUrl);
+        flushSync(() => {
+            setAudioSrc(streamUrl);
+        });
+        const audioElement = audioRef.current;
+        if (audioElement) {
+            void audioElement.play().catch(() => undefined);
+        }
+
+        const finalQueue = queue.length > 0
+            ? buildYtmQueue(queue, unifiedSong)
+            : [unifiedSong];
+        setPlayQueue(finalQueue);
+        void persistLastPlaybackCache(unifiedSong, finalQueue);
+
+        if (shouldNavigateToPlayer) {
+            navigateToPlayer();
+        }
+        // Audio URL ready == playable. Lyrics are optional and must not own this status.
+        setPlayerState(PlayerState.IDLE);
+        setStatusMsg(prev => (prev?.persistent ? prev : null));
+        void restoreCachedThemeForSong(unifiedSong.id).catch((error) => {
+            console.warn('Theme load error', error);
+        });
+
+        const settings = useSettingsUiStore.getState();
+        const shouldAutoLoadLyrics = settings.autoUseBestLyric === true;
+        if (!shouldAutoLoadLyrics) {
+            setIsLyricsLoading(false);
+            return;
+        }
+
+        setIsLyricsLoading(true);
+        void (async () => {
+            try {
+                const lyricResult = await loadYtmSongLyrics({
+                    title: baseTrack.title,
+                    artist: baseTrack.artist,
+                    album: baseTrack.album,
+                    durationMs: baseTrack.durationMs,
+                    enableAutoMatch: settings.enableAlternativeLyricSources === true,
+                });
+                if (currentSongRef.current !== unifiedSong.id) {
+                    return;
+                }
+                if (lyricResult.isPureMusic) {
+                    setLyrics(null);
+                    setCurrentSong(prev => (
+                        prev && prev.id === unifiedSong.id
+                            ? { ...prev, isPureMusic: true, matchedLyricsSource: lyricResult.matchedLyricsSource }
+                            : prev
+                    ));
+                    return;
+                }
+                if (lyricResult.lyrics && hasRenderableLyrics(lyricResult.lyrics)) {
+                    setLyrics(lyricResult.lyrics);
+                    setCurrentSong(prev => (
+                        prev && prev.id === unifiedSong.id
+                            ? { ...prev, matchedLyricsSource: lyricResult.matchedLyricsSource }
+                            : prev
+                    ));
+                }
+            } catch (error) {
+                // Lyrics are optional — never escalate to playback error / skip.
+                console.warn('[ytmusic] lyric resolve failed', error);
+            } finally {
+                if (currentSongRef.current === unifiedSong.id) {
+                    setIsLyricsLoading(false);
+                }
+            }
+        })();
+    }, [
+        audioRef,
+        currentSongRef,
+        currentTime,
+        interruptStagePlaybackForMainTransition,
+        navigateToPlayer,
+        persistLastPlaybackCache,
+        restoreCachedThemeForSong,
+        setAudioSrc,
+        setDuration,
         setManagedCachedCoverUrl,
         setCurrentLineIndex,
         setCurrentSong,
@@ -1494,6 +1706,7 @@ export function useLibraryPlaybackController({
         handleLocalQueueAdd,
         onPlayLocalSong,
         onPlayNavidromeSong,
+        onPlayYtmSong,
         onMatchNavidromeSong,
         handleUpdateLocalLyrics,
         handleChangeLyricsSource,

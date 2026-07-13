@@ -11,13 +11,17 @@ import type { LyricData, LocalSong, SongResult, StatusMessage } from '../../../t
 import type { NavidromeSong } from '../../../types/navidrome';
 import { hydrateNavidromeLyricPayload, resolvePreferredNavidromeLyrics } from '../../../utils/appNavidromeLyrics';
 import { hasRenderableLyrics } from '../../../utils/appPlaybackHelpers';
-import { isLocalPlaybackSong, isNavidromePlaybackSong } from '../../../utils/appPlaybackGuards';
+import { isLocalPlaybackSong, isNavidromePlaybackSong, isYtmPlaybackSong } from '../../../utils/appPlaybackGuards';
 import { isBlob } from '../../../utils/blobGuards';
 import { LyricParserFactory } from '../../../utils/lyrics/LyricParserFactory';
 import { processNeteaseLyrics } from '../../../utils/lyrics/neteaseProcessing';
 import { isPureMusicLyricText } from '../../../utils/lyrics/pureMusic';
 import { migrateLyricDataRenderHints } from '../../../utils/lyrics/renderHints';
 import { loadOnlineLyricsState, resolveOnlineLyrics } from '../../../utils/onlineLyricsState';
+import { loadYtmSongLyrics } from '../../../utils/lyrics/loadYtmSongLyrics';
+import { resolveYtmusicStream } from '../../../services/ytmusicService';
+import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+import type { YtmSong } from '../../../types/ytmusic';
 
 // src/components/app/playback/restorePlaybackSource.ts
 // Rehydrates playable audio and lyrics for a remembered song without reusing stale blob URLs.
@@ -75,6 +79,53 @@ export const restorePlaybackSourceForSong = async (
     });
 
     setCachedCoverUrl(await getCachedCoverUrl(getProviderSongCacheKey('cover', song)));
+
+    if (isYtmPlaybackSong(song)) {
+        const ytmSong = song as YtmSong;
+        const videoId = ytmSong.ytmData?.videoId;
+        if (!videoId) {
+            console.warn('[restorePlaybackSourceForSong] YTM song missing videoId');
+            return false;
+        }
+
+        try {
+            const stream = await resolveYtmusicStream(videoId);
+            currentOnlineAudioUrlFetchedAtRef.current = Date.now();
+            const playbackUrl = stream.playbackUrl;
+            setAudioSrc(playbackUrl);
+            setCurrentSong({
+                ...ytmSong,
+                ytmData: {
+                    ...ytmSong.ytmData,
+                    streamUrl: playbackUrl,
+                    streamExpireAt: stream.expireAt ?? null,
+                },
+            } as SongResult);
+            if (ytmSong.ytmData.coverUrl || ytmSong.al?.picUrl) {
+                setCachedCoverUrl(ytmSong.ytmData.coverUrl || ytmSong.al?.picUrl || null);
+            }
+            // Lyrics are optional; restore audio first and only match when auto-lyric is on.
+            const settings = useSettingsUiStore.getState();
+            if (settings.autoUseBestLyric) {
+                const lyricResult = await loadYtmSongLyrics({
+                    title: ytmSong.ytmData.title || ytmSong.name,
+                    artist: ytmSong.ytmData.artist || ytmSong.ar?.[0]?.name || '',
+                    album: ytmSong.ytmData.album,
+                    durationMs: ytmSong.ytmData.durationMs || ytmSong.dt || ytmSong.duration,
+                    enableAutoMatch: settings.enableAlternativeLyricSources === true,
+                });
+                if (lyricResult.lyrics && hasRenderableLyrics(lyricResult.lyrics)) {
+                    setLyrics(lyricResult.lyrics);
+                }
+            }
+            await persistLastPlaybackCache?.(ytmSong, queue || [ytmSong]);
+            return true;
+        } catch (error) {
+            console.warn('[restorePlaybackSourceForSong] YTM restore failed', error);
+            setStatusMsg({ type: 'error', text: '无法恢复 YouTube Music 播放' });
+            return false;
+        }
+    }
 
     if (isNavidromePlaybackSong(song)) {
         const navidromeSongToRestore = (song as unknown as SongResult & { navidromeData?: NavidromeSong }).navidromeData;

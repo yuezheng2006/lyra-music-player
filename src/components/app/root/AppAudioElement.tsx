@@ -2,7 +2,7 @@ import type { MotionValue } from 'framer-motion';
 import type { MutableRefObject, RefObject } from 'react';
 import { PlayerState, type SongResult, type StageLoopMode } from '@/types';
 import { LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC } from '@/components/app/root/appConstants';
-import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong } from '@/utils/appPlaybackGuards';
+import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong, isYtmPlaybackSong } from '@/utils/appPlaybackGuards';
 import { shouldPreserveAutoPlayOnPause } from '@/utils/audioAutoPlayGuard';
 import { resolvePlaybackDurationSec, resolveSongDurationSec } from '@/utils/appPlaybackHelpers';
 
@@ -70,10 +70,9 @@ export function AppAudioElement(props: AppAudioElementProps) {
                 const audioElement = e.currentTarget;
                 // Src swaps fire pause with the old currentSrc still attached.
                 // Never wipe armed autoplay here — pausePlayback clears it first.
+                // Also skip flipping UI to PAUSED while autoplay is still pending,
+                // or the dock shows a play button before canplay retries.
                 if (shouldPreserveAutoPlayOnPause(shouldAutoPlay.current)) {
-                    if (!audioElement.ended) {
-                        setPlayerState(PlayerState.PAUSED);
-                    }
                     return;
                 }
                 shouldAutoPlay.current = false;
@@ -207,6 +206,7 @@ export function AppAudioElement(props: AppAudioElementProps) {
                     currentSong &&
                     !isLocalPlaybackSong(currentSong) &&
                     !isNavidromePlaybackSong(currentSong) &&
+                    !isYtmPlaybackSong(currentSong) &&
                     !isStagePlaybackSong(currentSong) &&
                     failedSrc &&
                     !failedSrc.startsWith('blob:')

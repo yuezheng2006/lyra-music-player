@@ -1,22 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getCommandPaletteMatches, getQueueSongMatches, COMMAND_PALETTE_COMMANDS } from './commandRegistry';
 import { isRecordableRecentCommand, readRecentCommandIds, recordRecentCommandId } from './recentCommands';
+import { isModKeyChord, isTextEntryTarget } from '@/components/shortcuts/shortcutKeyboardGuards';
 import type { CommandPaletteContext, CommandPaletteCommand, CommandPaletteMatch } from './types';
 
 // src/components/command-palette/useCommandPalette.ts
 // Manages palette state, keyboard opening, and selected autocomplete item.
-
-const isTextEntryTarget = (target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement)) {
-        return false;
-    }
-
-    const tagName = target.tagName.toLowerCase();
-    return tagName === 'input'
-        || tagName === 'textarea'
-        || tagName === 'select'
-        || target.isContentEditable;
-};
 
 type UseCommandPaletteParams = {
     currentView: 'home' | 'player';
@@ -189,10 +178,14 @@ export const useCommandPalette = ({
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.code !== 'KeyS') {
-                return;
-            }
-            if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+            if (!isModKeyChord({
+                code: event.code,
+                expectedCode: 'KeyS',
+                metaKey: event.metaKey,
+                ctrlKey: event.ctrlKey,
+                altKey: event.altKey,
+                shiftKey: event.shiftKey,
+            })) {
                 return;
             }
             if (isTextEntryTarget(event.target)) {

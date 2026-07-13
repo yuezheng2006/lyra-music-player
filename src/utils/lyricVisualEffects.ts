@@ -132,35 +132,35 @@ export const generateIntenseGlow = (
     switch (intensity) {
         case 'extreme': {
             for (let i = 0; i < layerCount; i++) {
-                const radius = baseRadius * (i + 1) * 1.75;
-                const alpha = 0.95 - i * 0.12;
+                const radius = baseRadius * (i + 1) * 0.85;
+                const alpha = 0.55 - i * 0.1;
                 glows.push(`0 0 ${radius}px ${withAlpha(color, alpha)}`);
             }
-            glows.push(`0 0 ${baseRadius * layerCount * 2.4}px ${withAlpha(color, 0.5)}`);
+            glows.push(`0 0 ${baseRadius * layerCount * 1.2}px ${withAlpha(color, 0.28)}`);
             break;
         }
         case 'strong': {
             for (let i = 0; i < layerCount; i++) {
-                const radius = baseRadius * (i + 1) * 1.4;
-                const alpha = 0.88 - i * 0.15;
+                const radius = baseRadius * (i + 1) * 0.7;
+                const alpha = 0.48 - i * 0.1;
                 glows.push(`0 0 ${radius}px ${withAlpha(color, alpha)}`);
             }
-            glows.push(`0 0 ${baseRadius * layerCount * 1.9}px ${withAlpha(color, 0.42)}`);
+            glows.push(`0 0 ${baseRadius * layerCount * 1.05}px ${withAlpha(color, 0.22)}`);
             break;
         }
         case 'normal': {
             for (let i = 0; i < Math.max(layerCount - 1, 2); i++) {
-                const radius = baseRadius * (i + 1);
-                const alpha = 0.7 - i * 0.2;
+                const radius = baseRadius * (i + 1) * 0.55;
+                const alpha = 0.38 - i * 0.12;
                 glows.push(`0 0 ${radius}px ${withAlpha(color, alpha)}`);
             }
-            glows.push(`0 0 ${baseRadius * layerCount * 1.3}px ${withAlpha(color, 0.3)}`);
+            glows.push(`0 0 ${baseRadius * layerCount * 0.75}px ${withAlpha(color, 0.16)}`);
             break;
         }
         case 'subtle': {
-            const radius = baseRadius * 0.7;
-            glows.push(`0 0 ${radius}px ${withAlpha(color, 0.6)}`);
-            glows.push(`0 0 ${radius * 2}px ${withAlpha(color, 0.3)}`);
+            const radius = baseRadius * 0.4;
+            glows.push(`0 0 ${radius}px ${withAlpha(color, 0.32)}`);
+            glows.push(`0 0 ${radius * 1.6}px ${withAlpha(color, 0.14)}`);
             break;
         }
     }
@@ -227,31 +227,257 @@ export const getStrokeStyle = (
     };
 };
 
-/** 舞台歌词描边色：白描边 + 彩色字，在粒子/暗底上更突出。 */
-export const LYRIC_STAGE_STROKE_COLOR = 'rgba(255, 255, 255, 0.96)';
+/** 舞台歌词描边色：浅色细描边，在暗底 / 粒子网上抬边缘，不糊字。 */
+export const LYRIC_STAGE_STROKE_COLOR = 'rgba(255, 255, 255, 0.78)';
 
-/** em 相对描边，随字号缩放。 */
-export const buildLyricStageStroke = (
-    intensity: LyricVisualEffectIntensity = 'strong',
-    strokeColor: string = LYRIC_STAGE_STROKE_COLOR,
-): { WebkitTextStroke: string; paintOrder: 'stroke fill' } => {
-    // 白描边略加粗，避免被红字吃掉边缘。
-    const widthEm = intensity === 'extreme'
-        ? 0.1
-        : intensity === 'strong'
-            ? 0.082
-            : intensity === 'normal'
-                ? 0.068
-                : 0.05;
+export type LyricStrokeStyle = {
+    WebkitTextStroke: string;
+    paintOrder: 'stroke fill' | 'normal';
+    textShadow?: string;
+};
+
+const NO_LYRIC_STROKE: LyricStrokeStyle = {
+    WebkitTextStroke: '0',
+    paintOrder: 'normal',
+    textShadow: 'none',
+};
+
+const parseCssRgbChannels = (color: string): { r: number; g: number; b: number } | null => {
+    const trimmed = typeof color === 'string' ? color.trim() : '';
+    if (!trimmed) return null;
+
+    if (trimmed.startsWith('#')) {
+        const hex = trimmed.slice(1);
+        const parse = (value: string) => Number.parseInt(value, 16);
+        if (/^[0-9a-fA-F]{3}$/.test(hex)) {
+            return { r: parse(hex[0] + hex[0]), g: parse(hex[1] + hex[1]), b: parse(hex[2] + hex[2]) };
+        }
+        if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+            return {
+                r: parse(hex.slice(0, 2)),
+                g: parse(hex.slice(2, 4)),
+                b: parse(hex.slice(4, 6)),
+            };
+        }
+        return null;
+    }
+
+    const rgbMatch = trimmed.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*[\d.]+)?\s*\)$/i);
+    if (!rgbMatch) return null;
     return {
-        WebkitTextStroke: `${widthEm}em ${strokeColor}`,
-        paintOrder: 'stroke fill',
+        r: Number(rgbMatch[1]),
+        g: Number(rgbMatch[2]),
+        b: Number(rgbMatch[3]),
     };
 };
 
 /**
+ * Karaoke outline color — 红字白边 / 黄字白边 style.
+ * White rim for chromatic fills; dark rim only for near-white / pale-gray fills.
+ */
+export const resolveLyricContrastStrokeColor = (fillColor: string): string => {
+    const rgb = parseCssRgbChannels(fillColor);
+    if (!rgb) return '#ffffff';
+    const r = rgb.r / 255;
+    const g = rgb.g / 255;
+    const b = rgb.b / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const saturation = max <= 0 ? 0 : (max - min) / max;
+    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    // Pale neutrals cannot use a white rim — fall back to ink outline.
+    if (luminance >= 0.78 && saturation < 0.2) {
+        return 'rgba(24, 18, 12, 0.92)';
+    }
+    return '#ffffff';
+};
+
+/** 8-direction outline via text-shadow — reinforces rim on CJK calligraphy. */
+export const buildLyricOutlineShadow = (strokeColor: string, spreadEm: number): string => {
+    const s = Math.max(0.028, spreadEm);
+    const offsets: Array<[number, number]> = [
+        [-1, 0], [1, 0], [0, -1], [0, 1],
+        [-1, -1], [1, -1], [-1, 1], [1, 1],
+        [-2, 0], [2, 0], [0, -2], [0, 2],
+        [-2, -1], [2, -1], [-2, 1], [2, 1],
+        [-1, -2], [1, -2], [-1, 2], [1, 2],
+    ];
+    return offsets
+        .map(([x, y]) => `${x * s * 0.5}em ${y * s * 0.5}em 0 ${strokeColor}`)
+        .join(', ');
+};
+
+/** Pixel outline width from font size — used by drop-shadow rings. */
+export const resolveLyricOutlineWidthPx = (
+    fontPx: number,
+    intensity: LyricVisualEffectIntensity = 'strong',
+): number => {
+    const scale = intensity === 'extreme'
+        ? 0.1
+        : intensity === 'strong'
+            ? 0.085
+            : intensity === 'normal'
+                ? 0.07
+                : 0.055;
+    return Math.min(16, Math.max(4, Math.round(fontPx * scale)));
+};
+
+/**
+ * Scale factor for a solid rim glyph behind the fill.
+ * Calligraphy often ignores -webkit-text-stroke; a larger solid twin stays visible.
+ */
+export const resolveLyricRimScale = (
+    intensity: LyricVisualEffectIntensity = 'strong',
+): number => (
+    intensity === 'extreme'
+        ? 1.16
+        : intensity === 'strong'
+            ? 1.13
+            : intensity === 'normal'
+                ? 1.1
+                : 1.08
+);
+
+/** em 相对描边，随字号缩放。统一走细描边，抬可读性但不糊边。 */
+export const buildLyricStageStroke = (
+    intensity: LyricVisualEffectIntensity = 'strong',
+    strokeColor: string = LYRIC_STAGE_STROKE_COLOR,
+): LyricStrokeStyle => {
+    const widthEm = intensity === 'extreme'
+        ? 0.048
+        : intensity === 'strong'
+            ? 0.038
+            : intensity === 'normal'
+                ? 0.032
+                : 0.024;
+    return {
+        WebkitTextStroke: `${widthEm}em ${strokeColor}`,
+        paintOrder: 'stroke fill',
+        textShadow: buildLyricOutlineShadow(strokeColor, widthEm * 0.7),
+    };
+};
+
+/** Width ladder for karaoke 色字白边 outline (legacy em stroke helpers). */
+export const resolveLyricHighlightStrokeWidthEm = (
+    intensity: LyricVisualEffectIntensity = 'strong',
+): number => (
+    intensity === 'extreme'
+        ? 0.14
+        : intensity === 'strong'
+            ? 0.11
+            : intensity === 'normal'
+                ? 0.09
+                : 0.07
+);
+
+/**
+ * drop-shadow outline — follows glyph alpha, works on calligraphy where WebkitTextStroke vanishes.
+ * Prefer this on Monet wipe fill (no Framer filter: none conflict). Avoid on Classic/Partita body
+ * layers that animate filter to 'none'.
+ */
+export const buildLyricOutlineDropShadowFilter = (
+    outlineColor: string,
+    widthPx: number,
+): string => {
+    const w = Math.max(3, widthPx);
+    const ring: Array<[number, number]> = [
+        [-w, 0], [w, 0], [0, -w], [0, w],
+        [-w, -w], [w, -w], [-w, w], [w, w],
+        [-w * 1.35, 0], [w * 1.35, 0], [0, -w * 1.35], [0, w * 1.35],
+    ];
+    const inner = w * 0.5;
+    const innerRing: Array<[number, number]> = [
+        [-inner, 0], [inner, 0], [0, -inner], [0, inner],
+        [-inner, -inner], [inner, -inner], [-inner, inner], [inner, inner],
+    ];
+    return [...ring, ...innerRing]
+        .map(([x, y]) => `drop-shadow(${x}px ${y}px 0 ${outlineColor})`)
+        .join(' ');
+};
+
+export type LyricKaraokeOutlineLayers = {
+    rimColor: string;
+    rimScale: number;
+    /** text-shadow on the rim twin — thickens without -webkit-text-stroke */
+    rimTextShadow: string;
+    /** drop-shadow filter for fill faces that do not fight Framer filter animation */
+    fillFilter: string;
+};
+
+/**
+ * Karaoke 色字白边 layers: solid scaled rim + optional fill drop-shadow.
+ * Primary technique is the rim twin (font-agnostic). Drop-shadow is Monet-friendly reinforcement.
+ */
+export const buildLyricKaraokeOutlineLayers = (
+    fillColor: string,
+    fontPx: number,
+    intensity: LyricVisualEffectIntensity = 'strong',
+): LyricKaraokeOutlineLayers => {
+    const rimColor = resolveLyricContrastStrokeColor(fillColor);
+    const widthPx = resolveLyricOutlineWidthPx(fontPx, intensity);
+    const widthEm = widthPx / Math.max(fontPx, 1);
+    return {
+        rimColor,
+        rimScale: resolveLyricRimScale(intensity),
+        rimTextShadow: buildLyricOutlineShadow(rimColor, Math.max(0.04, widthEm * 0.85)),
+        fillFilter: buildLyricOutlineDropShadowFilter(rimColor, widthPx),
+    };
+};
+
+/**
+ * Active sung-glyph outline styles for dual-layer karaoke text:
+ * outline layer (white/dark rim) sits under the colored fill layer.
+ * Prefer buildLyricKaraokeOutlineLayers + scaled DOM rim for calligraphy fonts.
+ */
+export const buildLyricKaraokeOutlinePair = (
+    intensity: LyricVisualEffectIntensity = 'strong',
+    fillColor: string = '#ff3b30',
+): { outline: LyricStrokeStyle & { color: string }; fill: LyricStrokeStyle & { color: string } } => {
+    const widthEm = resolveLyricHighlightStrokeWidthEm(intensity);
+    const outlineColor = resolveLyricContrastStrokeColor(fillColor);
+    return {
+        outline: {
+            color: outlineColor,
+            WebkitTextStroke: `${widthEm}em ${outlineColor}`,
+            paintOrder: 'stroke fill',
+            textShadow: buildLyricOutlineShadow(outlineColor, widthEm),
+        },
+        fill: {
+            color: fillColor,
+            WebkitTextStroke: '0',
+            paintOrder: 'normal',
+            textShadow: 'none',
+        },
+    };
+};
+
+/**
+ * Active sung-glyph outline: Webkit stroke + shadow ring (single-layer fallback).
+ * Prefer buildLyricKaraokeOutlinePair + dual DOM layers for calligraphy fonts.
+ */
+export const buildLyricHighlightStroke = (
+    intensity: LyricVisualEffectIntensity = 'strong',
+    fillColor: string = '#ffffff',
+): LyricStrokeStyle => {
+    const { outline } = buildLyricKaraokeOutlinePair(intensity, fillColor);
+    return {
+        WebkitTextStroke: outline.WebkitTextStroke,
+        paintOrder: 'stroke fill',
+        textShadow: outline.textShadow,
+    };
+};
+
+export const buildLyricActiveStrokeOrNone = (
+    isActive: boolean,
+    intensity: LyricVisualEffectIntensity = 'strong',
+    fillColor: string = '#ffffff',
+): LyricStrokeStyle => (
+    isActive ? buildLyricHighlightStroke(intensity, fillColor) : NO_LYRIC_STROKE
+);
+
+/**
  * 根据模式获取推荐的视觉效果配置。
- * 突出策略：描边优先；软发光 / 多层 3D 阴影默认关闭，避免糊边。
+ * 突出策略：细描边始终开启；软发光 / 多层 3D 阴影默认关闭，避免糊边。
  */
 export const getRecommendedEffectConfig = (
     immersive: boolean,
@@ -265,7 +491,7 @@ export const getRecommendedEffectConfig = (
             enable3D: false,
             enableIntenseGlow: intensity === 'extreme',
             enableGradient: isDramaticFont && wantPunch,
-            enableStroke: wantPunch,
+            enableStroke: true,
             immersive: true,
         };
     }
@@ -275,7 +501,7 @@ export const getRecommendedEffectConfig = (
         enable3D: false,
         enableIntenseGlow: false,
         enableGradient: false,
-        enableStroke: wantPunch,
+        enableStroke: true,
         immersive: false,
     };
 };

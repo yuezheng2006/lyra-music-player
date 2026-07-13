@@ -8,9 +8,10 @@ import {
     searchPodcasts,
     type NeteasePodcastRadio,
 } from '../../../services/neteasePodcast';
-import OnlineProviderBadge from '../../shared/OnlineProviderBadge';
+import { ProviderIconBadge } from './ProviderIconBadge';
 import { SearchClearButton } from '../../shared/SearchClearButton';
-import { resolveHomeContentBottomPaddingClass } from './homeSurfaceStyles';
+import LazyCoverImage from '../../shared/LazyCoverImage';
+import { resolveBrowseListRowClass, resolveHomeContentBottomPaddingClass } from './homeSurfaceStyles';
 
 // src/components/app/home/PodcastBrowseSurface.tsx
 // Sidebar podcast surface: hot/search radios → episode list → play.
@@ -64,7 +65,7 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
 
     const muted = isDaylight ? 'text-black/45' : 'text-white/45';
     const inputBg = isDaylight ? 'bg-black/5 focus:bg-black/10' : 'bg-white/5 focus:bg-white/10';
-    const rowHover = isDaylight ? 'hover:bg-black/[0.05]' : 'hover:bg-white/[0.06]';
+    const rowClass = resolveBrowseListRowClass(isDaylight);
     const coverRing = isDaylight
         ? 'ring-1 ring-black/6 group-hover:ring-black/12'
         : 'ring-1 ring-white/8 group-hover:ring-white/16';
@@ -149,12 +150,10 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
                             <div className="truncate text-lg font-semibold tracking-tight">
                                 {activeRadio ? activeRadio.name : t('home.podcastTitle')}
                             </div>
-                            <OnlineProviderBadge
+                            <ProviderIconBadge
                                 provider="netease"
                                 size="sm"
-                                variant="glass"
                                 isDaylight={isDaylight}
-                                className="shrink-0"
                             />
                         </div>
                         <div className={`mt-0.5 truncate text-xs ${muted}`}>
@@ -180,7 +179,7 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder={t('home.podcastSearchPlaceholder')}
                             className={`w-full rounded-full border border-white/10 py-2 pl-10 pr-9 text-sm focus:outline-none focus:border-white/20 ${inputBg}`}
-                            style={{ color: 'var(--text-primary)' }}
+                            style={{ color: 'var(--content-text)' }}
                         />
                         <SearchClearButton
                             visible={Boolean(query)}
@@ -215,20 +214,29 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => onPlaySong(song, programs)}
-                                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${rowHover}`}
+                                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left ${rowClass}`}
                                     >
                                         <span className={`w-6 shrink-0 text-center text-xs tabular-nums ${muted}`}>
                                             {song.serialNum || index + 1}
                                         </span>
+                                        <LazyCoverImage
+                                            src={song.album?.picUrl || song.al?.picUrl || activeRadio.cover}
+                                            alt=""
+                                            placeholderLabel={song.name}
+                                            placeholderArtist={activeRadio.djName || activeRadio.name}
+                                            placeholderVariant="playlist"
+                                            sizePx={96}
+                                            className={`h-11 w-11 shrink-0 rounded-lg object-cover ${
+                                                isDaylight ? 'bg-black/5' : 'bg-white/8'
+                                            }`}
+                                        />
                                         <div className="min-w-0 flex-1">
                                             <div className="flex min-w-0 items-center gap-2">
                                                 <div className="truncate text-sm font-medium">{song.name}</div>
-                                                <OnlineProviderBadge
+                                                <ProviderIconBadge
                                                     provider={song.musicProvider || 'netease'}
                                                     size="sm"
-                                                    variant="glass"
                                                     isDaylight={isDaylight}
-                                                    className="shrink-0"
                                                 />
                                             </div>
                                             <div className={`truncate text-xs ${muted}`}>
@@ -254,18 +262,19 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
                                         key={radio.id}
                                         type="button"
                                         onClick={() => void openRadio(radio)}
-                                        className="group min-w-0 text-left transition-opacity hover:opacity-95"
+                                        className="group min-w-0 cursor-pointer text-left transition-opacity hover:opacity-95"
                                     >
-                                        {radio.cover ? (
-                                            <img
+                                        <div className={`aspect-square w-full overflow-hidden rounded-xl ${coverRing}`}>
+                                            <LazyCoverImage
                                                 src={radio.cover}
                                                 alt=""
-                                                className={`aspect-square w-full rounded-xl object-cover ${coverRing}`}
-                                                loading="lazy"
+                                                placeholderLabel={radio.name}
+                                                placeholderArtist={radio.djName}
+                                                placeholderVariant="playlist"
+                                                sizePx={320}
+                                                className="h-full w-full object-cover"
                                             />
-                                        ) : (
-                                            <div className={`aspect-square w-full rounded-xl ${isDaylight ? 'bg-black/8' : 'bg-white/10'} ${coverRing}`} />
-                                        )}
+                                        </div>
                                         <div className="mt-1.5 px-0.5">
                                             <div className="line-clamp-2 text-[13px] font-medium leading-snug">
                                                 {radio.name}

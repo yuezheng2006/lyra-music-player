@@ -5,13 +5,14 @@ import type { MigrationResult } from "../utils/lyrics/renderHints";
 import { isBlob } from "../utils/blobGuards";
 
 const DB_NAME = 'KineticPlayerDB';
-const DB_VERSION = 5; // Incremented version to ensure local_music store is created
+const DB_VERSION = 6; // Added play_history store
 const STORE_NAME = 'session';
 const CACHE_STORE = 'api_cache';
 const USER_CACHE_STORE = 'user_cache';
 const MEDIA_CACHE_STORE = 'media_cache';
 const METADATA_CACHE_STORE = 'metadata_cache';
 const LOCAL_MUSIC_STORE = 'local_music';
+const PLAY_HISTORY_STORE = 'play_history';
 
 export interface SessionData {
   audioFile?: File | Blob;
@@ -120,6 +121,16 @@ const openDB = (): Promise<IDBDatabase> => {
       // Always check if it exists, regardless of version, to handle edge cases
       if (!db.objectStoreNames.contains(LOCAL_MUSIC_STORE)) {
         db.createObjectStore(LOCAL_MUSIC_STORE, { keyPath: 'id' });
+      }
+
+      // Create play_history store (version 6+)
+      if (oldVersion < 6 && !db.objectStoreNames.contains(PLAY_HISTORY_STORE)) {
+        const store = db.createObjectStore(PLAY_HISTORY_STORE, {
+          keyPath: 'id',
+          autoIncrement: true
+        });
+        store.createIndex('playedAt', 'playedAt', { unique: false });
+        store.createIndex('date', 'date', { unique: false });
       }
     };
 

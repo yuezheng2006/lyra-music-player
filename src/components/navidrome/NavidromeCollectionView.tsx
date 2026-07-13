@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, Disc, ListPlus, Loader2, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ListPlus, Loader2, Pencil, Play, Plus, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import {
@@ -11,9 +11,9 @@ import {
 } from '../../types/navidrome';
 import { navidromeApi } from '../../services/navidromeService';
 import { Theme } from '../../types';
-import { createCoverPlaceholder } from '../../utils/coverPlaceholders';
 import PlaylistSelectionDialog from '../shared/PlaylistSelectionDialog';
 import TextInputDialog from '../shared/TextInputDialog';
+import LazyCoverImage from '../shared/LazyCoverImage';
 
 interface NavidromeCollectionViewProps {
     title: string;
@@ -71,7 +71,6 @@ const NavidromeCollectionView: React.FC<NavidromeCollectionViewProps> = ({
     const glassBg = isDaylight ? 'bg-white/60 backdrop-blur-md border border-white/20 shadow-xl' : 'bg-black/40 backdrop-blur-md border border-white/10';
     const panelBg = isDaylight ? 'bg-white/40 shadow-xl border border-white/20' : 'bg-black/20';
     const closeBtnBg = isDaylight ? 'bg-black/5 hover:bg-black/10 text-black/60' : 'bg-black/20 hover:bg-white/10 text-white/60';
-    const fallbackCoverUrl = React.useMemo(() => createCoverPlaceholder(title, placeholderVariant), [placeholderVariant, title]);
     const [isPlaylistPickerOpen, setIsPlaylistPickerOpen] = React.useState(false);
     const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = React.useState(false);
     const [songPlaylistPickerIndex, setSongPlaylistPickerIndex] = React.useState<number | null>(null);
@@ -141,12 +140,14 @@ const NavidromeCollectionView: React.FC<NavidromeCollectionViewProps> = ({
 
                     <div className="w-full md:w-[400px] p-8 md:p-12 flex flex-col items-center md:items-start relative shrink-0 md:h-full md:overflow-y-auto custom-scrollbar">
                         <div className="w-48 h-48 md:w-64 md:h-64 rounded-2xl shadow-2xl overflow-hidden mb-6 relative mt-12 md:mt-0 mx-auto md:mx-0 bg-zinc-800 flex items-center justify-center">
-                            <img src={coverUrl || fallbackCoverUrl} alt={title} className="w-full h-full object-cover" />
-                            {!coverUrl && (
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <Disc size={64} className="opacity-10 text-white" />
-                                </div>
-                            )}
+                            <LazyCoverImage
+                                src={coverUrl}
+                                alt={title}
+                                placeholderLabel={title}
+                                placeholderVariant={placeholderVariant}
+                                sizePx={320}
+                                className="w-full h-full object-cover"
+                            />
                         </div>
 
                         <div className="text-center md:text-left space-y-2 w-full mb-6">

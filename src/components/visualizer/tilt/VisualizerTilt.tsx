@@ -11,6 +11,7 @@ import { type VisualizerSharedProps } from '../definition';
 import { useVisualizerRuntime } from '../runtime';
 import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
+import { colorWithAlpha } from '../colorMix';
 
 const CHAR_REF_LENGTH = 20;
 const LOG_OFFSET = 4;
@@ -351,15 +352,15 @@ const TiltLine: React.FC<{
     const tiltFontSize = `clamp(${(3.125 * baseFontScale).toFixed(3)}rem, ${(6.875 * baseFontScale).toFixed(3)}vw, ${(5.625 * baseFontScale).toFixed(3)}rem)`;
 
     const getColors = () => {
+        const body = theme.primaryColor;
+        // One lyric hue — schemes only change which layer is emphasized, not a second fill color.
         switch (colorScheme) {
             case 'swap':
-                return { normal: theme.accentColor || theme.primaryColor, tilt: theme.primaryColor };
+                return { normal: body, tilt: colorWithAlpha(body, 0.42) };
             case 'accentAll':
-                return { normal: theme.accentColor || theme.primaryColor, tilt: theme.accentColor || theme.primaryColor };
             case 'primaryAll':
-                return { normal: theme.primaryColor, tilt: theme.primaryColor };
             default:
-                return { normal: theme.primaryColor, tilt: theme.accentColor || theme.primaryColor };
+                return { normal: body, tilt: body };
         }
     };
 
@@ -615,7 +616,7 @@ const VisualizerTilt: React.FC<VisualizerTiltProps & { staticMode?: boolean; }> 
         return unsubscribe;
     }, [currentTime, segmentTimings, activeLine]);
 
-    const translationFontSize = `clamp(${(1.125 * lyricsFontScale).toFixed(3)}rem, ${(2.6 * lyricsFontScale).toFixed(3)}vw, ${(1.25 * lyricsFontScale).toFixed(3)}rem)`;
+    const translationFontSize = `clamp(${(1.35 * lyricsFontScale).toFixed(3)}rem, ${(3.1 * lyricsFontScale).toFixed(3)}vw, ${(1.55 * lyricsFontScale).toFixed(3)}rem)`;
     const upcomingFontSize = `clamp(${(0.875 * lyricsFontScale).toFixed(3)}rem, ${(2 * lyricsFontScale).toFixed(3)}vw, ${(1 * lyricsFontScale).toFixed(3)}rem)`;
 
     return (

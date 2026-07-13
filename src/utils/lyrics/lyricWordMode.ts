@@ -1,4 +1,5 @@
 import type { Line, LyricWordMode } from '../../types';
+import { LYRIC_LINE_OPACITY } from '../theme/lyricColorPresets';
 
 // src/utils/lyrics/lyricWordMode.ts
 // Lyric-module policy: default hides future text; karaoke previews upcoming words/lines.
@@ -9,7 +10,7 @@ export const LYRIC_WORD_MODE_STORAGE_KEY = 'lyric_word_mode';
 export const DEFAULT_LYRIC_WORD_MODE: LyricWordMode = 'default';
 export const KARAOKE_UPCOMING_LINE_COUNT = 2;
 /** Dim but readable opacity for not-yet-sung words/chars inside the active line. */
-export const KARAOKE_WAITING_WORD_OPACITY = 0.72;
+export const KARAOKE_WAITING_WORD_OPACITY = LYRIC_LINE_OPACITY.karaokeUnsung;
 
 export type WaitingWordPresentation = {
     opacity: number;

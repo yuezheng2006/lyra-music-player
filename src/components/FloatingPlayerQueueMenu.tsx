@@ -4,6 +4,7 @@ import type { SongResult } from '../types';
 import { getSongUnavailableTagText, isSongMarkedUnavailable } from '../services/netease';
 import { FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX } from './floatingPlayerDockLayout';
 import { createCoverUrlResolver } from './app/playback/createCoverUrlResolver';
+import LazyCoverImage from './shared/LazyCoverImage';
 
 // src/components/FloatingPlayerQueueMenu.tsx
 // Compact upward popover for the active playback playlist.
@@ -145,11 +146,12 @@ const FloatingPlayerQueueMenu: React.FC<FloatingPlayerQueueMenuProps> = ({
                                         } ${isUnavailable ? 'opacity-55' : ''}`}
                                         style={{ minHeight: ROW_HEIGHT_PX }}
                                     >
-                                        <img
-                                            src={coverUrl || undefined}
-                                            alt=""
+                                        <LazyCoverImage
+                                            src={coverUrl}
+                                            placeholderLabel={song.name}
+                                            placeholderArtist={song.ar?.map(a => a.name).join(', ')}
+                                            sizePx={56}
                                             className="h-7 w-7 shrink-0 rounded object-cover"
-                                            loading="lazy"
                                         />
                                         <span
                                             className={`h-5 w-1 shrink-0 rounded-full ${

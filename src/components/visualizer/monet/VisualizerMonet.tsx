@@ -46,7 +46,10 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
         onLyricLineSeek,
         seed,
         immersiveLyrics = false,
+        isPlayerChromeHidden = false,
+        beatPulse,
     } = props;
+    const isImmersiveStage = immersiveLyrics || isPlayerChromeHidden;
     const { t } = useTranslation();
     const { titleColor, activeColor, hintColor } = resolveLyricStageInkColors(theme);
     const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
@@ -252,6 +255,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                                 transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1], delay: 0.65 }}
                             >
                                 <MonetLyricsRail
+                                    key="monet-lyrics-stroke-v4"
                                     entries={visibleLineEntries}
                                     lines={lines}
                                     currentLineIndex={currentLineIndex}
@@ -507,8 +511,10 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1], delay: 0.8 }}
-                    className="absolute bottom-0 left-0 z-20 h-10 overflow-hidden pl-[max(1.25rem,3.5rem)] pr-5 sm:pr-8 lg:pr-14"
-                    style={{ width: 'min(450px, 48%)' }}
+                    className={`absolute bottom-0 left-0 z-20 overflow-hidden pl-[max(1.25rem,3.5rem)] pr-5 sm:pr-8 lg:pr-14 ${
+                        isImmersiveStage ? 'h-32 sm:h-40' : 'h-24'
+                    }`}
+                    style={{ width: isImmersiveStage ? 'min(920px, 64%)' : 'min(680px, 56%)' }}
                 >
                     <div className="h-full w-full">
                         <AudioOverlay
@@ -516,6 +522,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                             audioBands={audioBands}
                             theme={theme}
                             mode={monetTuning.audioStyle}
+                            beatPulse={beatPulse}
                             staticMode={staticMode}
                             isPreviewMode={isPreviewMode}
                         />

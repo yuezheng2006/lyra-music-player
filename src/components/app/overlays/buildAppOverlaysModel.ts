@@ -136,6 +136,7 @@ type BuildAppOverlaysModelParams = {
     onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
     visualizerMode?: VisualizerMode;
     onVisualizerModeChange?: (mode: VisualizerMode) => void;
+    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
     backgroundMenuLabel?: string;
     backgroundModeInteractive3dLabel?: string;
@@ -239,6 +240,7 @@ export const buildAppOverlaysModel = ({
     onInteractive3dSceneTuningChange,
     visualizerMode = 'classic',
     onVisualizerModeChange,
+    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
     backgroundMenuLabel,
     backgroundModeInteractive3dLabel,
@@ -413,6 +415,7 @@ export const buildAppOverlaysModel = ({
             onInteractive3dSceneTuningChange,
             visualizerMode,
             onVisualizerModeChange,
+            onApplyLyricBodyColor,
             onApplyLyricColorPreset,
             onDockPopoverOpenChange,
             backgroundMenuLabel,

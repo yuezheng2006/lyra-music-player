@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Music2, Heart, TrendingUp, Plus } from 'lucide-react';
 import type { SongResult } from '../../types';
 import { useDailyRecommendStore } from '../../stores/useDailyRecommendStore';
+import LazyCoverImage from '../shared/LazyCoverImage';
 
 // src/components/panelTab/QueueEmptyState.tsx
 // 播放列表空状态：展示每日推荐或收藏的音乐，用户可以直接添加到播放列表
@@ -121,20 +122,13 @@ const QueueEmptyState: React.FC<QueueEmptyStateProps> = ({
                             <div className={`flex items-center justify-center w-9 h-9 rounded-md overflow-hidden shrink-0 ${
                                 isDaylight ? 'bg-black/5' : 'bg-white/5'
                             }`}>
-                                {song.al?.picUrl ? (
-                                    <img
-                                        src={song.al.picUrl + '?param=80y80'}
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                        loading="lazy"
-                                    />
-                                ) : (
-                                    <span className={`text-[11px] font-medium ${
-                                        isDaylight ? 'text-black/30' : 'text-white/30'
-                                    }`}>
-                                        {index + 1}
-                                    </span>
-                                )}
+                                <LazyCoverImage
+                                    src={song.al?.picUrl || song.album?.picUrl}
+                                    placeholderLabel={song.name}
+                                    placeholderArtist={artists}
+                                    sizePx={80}
+                                    className="w-full h-full object-cover"
+                                />
                             </div>
 
                             {/* 歌曲信息 */}

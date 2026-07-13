@@ -42,6 +42,9 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     enableAlternativeLyricSources: false,
     runAutoMatchBestLyric: vi.fn(async () => true),
     setIsUserGuideModalOpen: vi.fn(),
+    setIsShortcutsCheatSheetOpen: vi.fn(),
+    setIsOnboardingOpen: vi.fn(),
+    setIsWhatsNewOpen: vi.fn(),
     openThemeQuickEditor: vi.fn(),
     canOpenThemeQuickEditor: true,
     playQueue: [],
@@ -83,6 +86,16 @@ describe('command palette registry', () => {
         match.command.execute(match.input, context);
 
         expect(context.openSettings).toHaveBeenCalledWith('options', 'integration');
+    });
+
+    it('opens the shortcuts cheat sheet from the show-shortcuts command', () => {
+        const context = createContext();
+        const [match] = getCommandPaletteMatches('快捷键');
+
+        expect(match.command.id).toBe('show-shortcuts');
+        match.command.execute(match.input, context);
+
+        expect(context.setIsShortcutsCheatSheetOpen).toHaveBeenCalledWith(true);
     });
 
     it('opens general settings and executes direct language switch commands', async () => {
@@ -210,8 +223,9 @@ describe('command palette registry', () => {
     it('returns all search commands when context is not provided', () => {
         const matches = getCommandPaletteMatches('search');
         const searchMatches = matches.filter(m => m.command.group === 'search');
-        // search-current, search-local, search-navidrome, search-netease, search-qq, search-qishui, search-coco
-        expect(searchMatches.length).toBe(7);
+        // search-current, search-local, search-netease, search-qq, search-qishui, search-coco
+        // (search-navidrome is gated behind NAVIDROME_UI_ENABLED)
+        expect(searchMatches.length).toBe(6);
     });
 
     it('matches and executes color/theme-park command', () => {
@@ -332,6 +346,18 @@ describe('command palette registry', () => {
 
     it('limits suggestions to ten commands', () => {
         expect(getCommandPaletteMatches('')).toHaveLength(10);
+    });
+
+    it('hides Discord presence command while UI flag is off', () => {
+        const matches = getCommandPaletteMatches('discord');
+        expect(matches.some(match => match.command.id === 'settings-discord-presence')).toBe(false);
+    });
+
+    it('hides Navidrome commands while UI flag is off', () => {
+        const matches = getCommandPaletteMatches('navidrome');
+        expect(matches.some(match => match.command.id === 'search-navidrome')).toBe(false);
+        expect(matches.some(match => match.command.id === 'home-navidrome')).toBe(false);
+        expect(matches.some(match => match.command.id === 'panel-navi')).toBe(false);
     });
 
     it('matches and executes background and visualizer monet switching commands', () => {

@@ -61,7 +61,7 @@ interface VisPlaygroundSettingsPanelProps {
     isDaylight: boolean;
     theme: Theme;
     visualizerMode: VisualizerMode;
-    visualizerEntry: VisualizerRegistryEntry;
+    visualizerEntry: VisualizerRegistryEntry | null;
     onVisualizerModeChange?: (mode: VisualizerMode) => void;
     onResetVisualizerTuning?: () => void;
     controlCardBg: string;
@@ -617,7 +617,7 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
                                 </div>
                                 <ResetSectionButton
                                     label={t('ui.default') || '默认'}
-                                    onClick={visualizerEntry.resetSettings ? onResetVisualizerTuning : undefined}
+                                    onClick={visualizerEntry?.resetSettings ? onResetVisualizerTuning : undefined}
                                     theme={theme}
                                 />
                             </div>
@@ -632,7 +632,7 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
                             />
                         </div>
 
-                        {visualizerEntry.renderSettingsPanel?.({
+                        {visualizerEntry?.renderSettingsPanel?.({
                             t,
                             isDaylight,
                             theme,

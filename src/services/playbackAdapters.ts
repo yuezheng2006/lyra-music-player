@@ -1,5 +1,7 @@
 import { AmllDbPlatform, LocalSong, LyricProviderSource, SongResult, UnifiedSong } from '../types';
 import { NavidromeSong } from '../types/navidrome';
+import type { YtmSearchTrack, YtmSong, YtmTrackData } from '../types/ytmusic';
+import { getYtmSongId } from '../utils/ytmusicIds';
 
 export const getLocalSongId = (localSong: LocalSong): number => {
     // Generate a reliable 52-bit hash from the string ID to avoid parsing long digits and losing precision or colliding.
@@ -187,4 +189,76 @@ export function buildNavidromeQueue(queue: NavidromeSong[], currentSong?: SongRe
     }
 
     return convertedQueue.map(song => song.id === currentSong.id ? currentSong : song);
+}
+
+/** Build a YTM track carrier from search / metadata. */
+export function buildYtmTrackData(track: YtmSearchTrack): YtmTrackData {
+    return {
+        videoId: track.videoId,
+        title: track.title,
+        artist: track.artist,
+        album: track.album ?? null,
+        durationMs: track.durationMs,
+        coverUrl: track.coverUrl ?? null,
+    };
+}
+
+export function buildUnifiedYtmSong(
+    track: YtmSearchTrack | YtmTrackData,
+    options?: {
+        streamUrl?: string | null;
+        streamExpireAt?: number | null;
+        coverUrl?: string | null;
+        matchedLyricsSource?: LyricProviderSource;
+        matchedLyricsProviderPlatform?: AmllDbPlatform;
+    },
+): YtmSong {
+    const ytmData: YtmTrackData = {
+        videoId: track.videoId,
+        title: track.title,
+        artist: track.artist,
+        album: track.album ?? null,
+        durationMs: track.durationMs,
+        coverUrl: options?.coverUrl ?? track.coverUrl ?? null,
+        streamUrl: options?.streamUrl ?? null,
+        streamExpireAt: options?.streamExpireAt ?? null,
+    };
+    const coverUrl = ytmData.coverUrl || undefined;
+    const artists = ytmData.artist ? [{ id: 0, name: ytmData.artist }] : [];
+    const album = {
+        id: 0,
+        name: ytmData.album || '',
+        picUrl: coverUrl,
+    };
+
+    return {
+        id: getYtmSongId(ytmData.videoId),
+        name: ytmData.title,
+        artists,
+        album,
+        duration: ytmData.durationMs,
+        ar: artists,
+        al: album,
+        dt: ytmData.durationMs,
+        providerSongId: ytmData.videoId,
+        isYtm: true,
+        ytmData,
+        matchedLyricsSource: options?.matchedLyricsSource,
+        matchedLyricsProviderPlatform: options?.matchedLyricsProviderPlatform,
+    };
+}
+
+export function buildYtmQueue(queue: Array<YtmSearchTrack | YtmSong>, currentSong?: SongResult): SongResult[] {
+    const convertedQueue = queue.map((item) => {
+        if ((item as YtmSong).isYtm && (item as YtmSong).ytmData) {
+            return item as YtmSong;
+        }
+        return buildUnifiedYtmSong(item as YtmSearchTrack);
+    });
+
+    if (!currentSong) {
+        return convertedQueue;
+    }
+
+    return convertedQueue.map(song => (song.id === currentSong.id ? currentSong : song));
 }

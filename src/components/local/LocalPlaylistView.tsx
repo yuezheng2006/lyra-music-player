@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { Play, ChevronLeft, Folder, RefreshCw, Trash2, Plus, Pencil, X } from 'lucide-react';
+import { Play, ChevronLeft, RefreshCw, Trash2, Plus, Pencil, X } from 'lucide-react';
 import { LocalSong } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import DeleteFolderConfirmModal from '../modal/DeleteFolderConfirmModal';
 import { removeSongsFromLocalPlaylist } from '../../services/localPlaylistService';
+import LazyCoverImage from '../shared/LazyCoverImage';
 
 interface LocalPlaylistViewProps {
     title: string;
@@ -292,11 +293,14 @@ const LocalPlaylistView: React.FC<LocalPlaylistViewProps> = ({ title, coverUrl, 
                 >
                     {/* Album Art */}
                     <div className="w-48 h-48 md:w-64 md:h-64 rounded-2xl shadow-2xl overflow-hidden mb-6 relative mt-12 md:mt-0 mx-auto md:mx-0 bg-zinc-800 flex items-center justify-center">
-                        {coverUrl ? (
-                            <img src={coverUrl} alt={title} className="w-full h-full object-cover" />
-                        ) : (
-                            <Folder size={64} className="opacity-20" />
-                        )}
+                        <LazyCoverImage
+                            src={coverUrl}
+                            alt={title}
+                            placeholderLabel={title}
+                            placeholderVariant="playlist"
+                            sizePx={320}
+                            className="w-full h-full object-cover"
+                        />
                     </div>
 
                     <div className="text-center md:text-left space-y-2 w-full mb-6">

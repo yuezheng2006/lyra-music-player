@@ -45,11 +45,13 @@ const resolveSongCoverUrl = (song: SongResult | null): string | null => {
     const navidromeSong = resolveNavidromePlaybackCarrier(song);
     const localSong = isLocalPlaybackSong(song) ? song.localData : null;
     const embeddedLocalCover = localSong?.embeddedCover ?? null;
+    const ytmCover = (song as SongResult & { ytmData?: { coverUrl?: string | null } }).ytmData?.coverUrl;
     const candidates = [
         carrier.al?.picUrl,
         carrier.album?.picUrl,
         carrier.matchedCoverUrl,
         carrier.coverUrl,
+        ytmCover,
         carrier.coverImgUrl,
         carrier.picUrl,
         carrier.coverArtUrl,

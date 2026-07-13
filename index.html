@@ -6,6 +6,7 @@
     <meta name="referrer" content="no-referrer" />
     <meta name="description" content="Lyra 声境 —— 多平台打通的沉浸式音乐播放器，支持 3D 舞台与智能氛围" />
     <meta name="theme-color" content="#09090b" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -13,6 +14,329 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/icon.svg" />
     <title>Lyra</title>
+    <style>
+      /* Hallmark · genre: atmospheric · macrostructure: Workbench · theme: Midnight
+       * tone: soft · enrichment: none · brief: calm cold-start preview of Lyra UI
+       * loading: breath lumen · pre-emit critique: P5 H5 E4 S5 R5 V4
+       */
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: #09090b;
+        color: #f4f2ee;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      #boot-splash {
+        --boot-paper: #09090b;
+        --boot-ink: #f4f2ee;
+        --boot-ink-soft: rgba(244, 242, 238, 0.58);
+        --boot-ink-mute: rgba(244, 242, 238, 0.36);
+        --boot-bloom: rgba(120, 98, 78, 0.18);
+        --boot-bloom-2: rgba(72, 84, 110, 0.16);
+        --boot-lumen: rgba(244, 236, 220, 0.9);
+        --boot-surface: rgba(18, 18, 22, 0.72);
+        --boot-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --boot-dur-long: 420ms;
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        overflow: hidden;
+        background:
+          radial-gradient(ellipse 55% 45% at 72% 38%, var(--boot-bloom) 0%, transparent 70%),
+          radial-gradient(ellipse 50% 40% at 28% 62%, var(--boot-bloom-2) 0%, transparent 72%),
+          var(--boot-paper);
+        transition: opacity var(--boot-dur-long) var(--boot-ease-out), visibility var(--boot-dur-long) var(--boot-ease-out);
+        cursor: default;
+        color: var(--boot-ink);
+      }
+      #boot-splash[data-hidden="true"] {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      /* Brand + readiness — quiet center-left. */
+      #boot-splash .boot-core {
+        position: absolute;
+        left: clamp(28px, 8vw, 96px);
+        top: 50%;
+        transform: translateY(-58%);
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+        max-width: min(42vw, 360px);
+      }
+      #boot-splash .boot-mark {
+        font-size: clamp(42px, 6vw, 64px);
+        font-weight: 650;
+        letter-spacing: -0.04em;
+        font-style: normal;
+        line-height: 1;
+        animation: boot-fade-in 720ms var(--boot-ease-out) both;
+      }
+      #boot-splash .boot-tag {
+        margin-top: -6px;
+        font-size: 11px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--boot-ink-mute);
+      }
+      #boot-splash .boot-lumen {
+        position: relative;
+        width: 64px;
+        height: 20px;
+        display: grid;
+        place-items: center;
+        margin-top: 2px;
+      }
+      #boot-splash .boot-lumen::before {
+        content: "";
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(244, 228, 200, 0.22) 0%, transparent 70%);
+        animation: boot-lumen-glow 3.2s var(--boot-ease-out) infinite;
+      }
+      #boot-splash .boot-lumen > i {
+        position: relative;
+        display: block;
+        width: 56px;
+        height: 1.5px;
+        border-radius: 99px;
+        background: linear-gradient(90deg, transparent, var(--boot-lumen), transparent);
+        box-shadow: 0 0 14px rgba(244, 228, 200, 0.35);
+        transform-origin: left center;
+        animation: boot-lumen-breath 3.2s var(--boot-ease-out) infinite;
+      }
+      #boot-splash .boot-status {
+        font-size: 13px;
+        color: var(--boot-ink-soft);
+        letter-spacing: 0.01em;
+        min-height: 1.2em;
+        animation: boot-fade-in 640ms var(--boot-ease-out) 100ms both;
+      }
+
+      /* Lyric stage — product signature, not decoration. */
+      #boot-splash .boot-lyrics {
+        position: absolute;
+        left: clamp(28px, 8vw, 96px);
+        top: calc(50% + 72px);
+        width: min(46vw, 420px);
+        height: 3.2em;
+        overflow: hidden;
+        z-index: 2;
+      }
+      #boot-splash .boot-lyrics span {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: flex-start;
+        font-size: clamp(16px, 2.1vw, 22px);
+        font-weight: 500;
+        line-height: 1.35;
+        letter-spacing: -0.01em;
+        color: rgba(244, 242, 238, 0.78);
+        opacity: 0;
+        animation: boot-lyric-cycle 14s var(--boot-ease-out) infinite;
+      }
+      #boot-splash .boot-lyrics span:nth-child(1) { animation-delay: 0s; }
+      #boot-splash .boot-lyrics span:nth-child(2) { animation-delay: 3.5s; }
+      #boot-splash .boot-lyrics span:nth-child(3) { animation-delay: 7s; }
+      #boot-splash .boot-lyrics span:nth-child(4) { animation-delay: 10.5s; }
+
+      /* One interactive cover — the UI moment. */
+      #boot-splash .boot-stage {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        perspective: 900px;
+      }
+      #boot-splash .boot-cover {
+        position: absolute;
+        right: clamp(36px, 10vw, 120px);
+        top: 50%;
+        width: min(34vw, 280px);
+        aspect-ratio: 1;
+        margin-top: calc(min(34vw, 280px) * -0.55);
+        border: 0;
+        padding: 0;
+        border-radius: 24px;
+        overflow: hidden;
+        cursor: pointer;
+        background: linear-gradient(145deg, #2a1f18 0%, #c48a62 52%, #f3e0cb 100%);
+        box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
+        transform-origin: center;
+        transform-style: preserve-3d;
+        transition: box-shadow 220ms var(--boot-ease-out), filter 160ms var(--boot-ease-out);
+        animation: boot-cover-in 900ms var(--boot-ease-out) both;
+        will-change: transform;
+      }
+      #boot-splash .boot-cover:hover,
+      #boot-splash .boot-cover:focus-visible {
+        box-shadow: 0 34px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.12);
+      }
+      #boot-splash .boot-cover:focus-visible {
+        outline: 2px solid rgba(244, 236, 220, 0.7);
+        outline-offset: 4px;
+      }
+      #boot-splash .boot-cover:active {
+        filter: brightness(0.94);
+      }
+      #boot-splash .boot-cover-shine {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.28), transparent 42%);
+        pointer-events: none;
+      }
+      #boot-splash .boot-cover-meta {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 48px 16px 16px;
+        background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.62));
+        text-align: left;
+      }
+      #boot-splash .boot-cover-meta strong {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #boot-splash .boot-cover-meta em {
+        display: block;
+        margin-top: 2px;
+        font-size: 12px;
+        font-style: normal;
+        color: rgba(255, 255, 255, 0.65);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Floating dock — mirrors product chrome, no EQ chrome. */
+      #boot-splash .boot-dock {
+        position: absolute;
+        left: 50%;
+        bottom: clamp(28px, 5vh, 48px);
+        transform: translateX(-50%);
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: min(78vw, 300px);
+        max-width: 360px;
+        padding: 10px 16px 10px 10px;
+        border-radius: 999px;
+        background: var(--boot-surface);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
+        backdrop-filter: blur(18px);
+        animation: boot-fade-in 700ms var(--boot-ease-out) 160ms both;
+      }
+      #boot-splash .boot-dock-art {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        flex: 0 0 auto;
+        background: linear-gradient(145deg, #2a1f18, #c48a62);
+      }
+      #boot-splash .boot-dock-copy {
+        min-width: 0;
+        flex: 1;
+      }
+      #boot-splash .boot-dock-copy .label {
+        font-size: 9px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--boot-ink-mute);
+      }
+      #boot-splash .boot-dock-copy .title {
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      @keyframes boot-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes boot-cover-in {
+        from { opacity: 0; transform: scale(0.96); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      @keyframes boot-lumen-breath {
+        0%, 100% { opacity: 0.3; transform: scaleX(0.45); }
+        50% { opacity: 1; transform: scaleX(1); }
+      }
+      @keyframes boot-lumen-glow {
+        0%, 100% { opacity: 0.25; transform: scale(0.75); }
+        50% { opacity: 0.7; transform: scale(1); }
+      }
+      @keyframes boot-lyric-cycle {
+        0%, 5% { opacity: 0; }
+        12%, 22% { opacity: 1; }
+        30%, 100% { opacity: 0; }
+      }
+
+      @media (max-width: 720px) {
+        #boot-splash .boot-core {
+          left: 24px;
+          right: 24px;
+          top: 18%;
+          transform: none;
+          max-width: none;
+          align-items: center;
+          text-align: center;
+        }
+        #boot-splash .boot-lumen { align-self: center; }
+        #boot-splash .boot-lumen > i { transform-origin: center; }
+        #boot-splash .boot-lyrics {
+          left: 24px;
+          right: 24px;
+          top: 34%;
+          width: auto;
+          text-align: center;
+        }
+        #boot-splash .boot-lyrics span {
+          justify-content: center;
+          text-align: center;
+        }
+        #boot-splash .boot-cover {
+          right: 50%;
+          top: auto;
+          bottom: 110px;
+          width: min(46vw, 168px);
+          margin-top: 0;
+          margin-right: calc(min(46vw, 168px) * -0.5);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash .boot-mark,
+        #boot-splash .boot-status,
+        #boot-splash .boot-dock,
+        #boot-splash .boot-cover,
+        #boot-splash .boot-lumen::before,
+        #boot-splash .boot-lumen > i,
+        #boot-splash .boot-lyrics span {
+          animation: none !important;
+        }
+        #boot-splash .boot-lumen::before { opacity: 0.4; transform: none; }
+        #boot-splash .boot-lumen > i { opacity: 0.7; transform: scaleX(0.8); }
+        #boot-splash .boot-lyrics span:first-child { opacity: 0.85; }
+        #boot-splash .boot-cover { opacity: 1; transform: none; }
+      }
+      #root { min-height: 100%; }
+    </style>
   <script type="importmap">
 {
   "imports": {
@@ -30,7 +354,154 @@
 </script>
 </head>
   <body>
+
+    <div id="boot-splash" data-boot-revision="2026-07-14-workbench" role="status" aria-live="polite">
+      <div class="boot-stage" aria-hidden="true">
+        <button
+          type="button"
+          class="boot-cover"
+          data-boot-cover
+          aria-label="Preview cover"
+        >
+          <span class="boot-cover-shine"></span>
+          <span class="boot-cover-meta">
+            <strong data-boot-cover-title>Aurora Drift</strong>
+            <em data-boot-cover-artist>Lyra Ensemble</em>
+          </span>
+        </button>
+      </div>
+
+      <div class="boot-core">
+        <div class="boot-mark">Lyra</div>
+        <div class="boot-tag">Soundscape</div>
+        <div class="boot-lumen" aria-hidden="true"><i></i></div>
+        <div class="boot-status" data-boot-status>夜色开始倾听…</div>
+      </div>
+
+      <div class="boot-lyrics" aria-hidden="true">
+        <span>在光落下的缝隙里听见你</span>
+        <span>Let the night settle around this room</span>
+        <span>余烬还在跳，像一句未说完的副歌</span>
+        <span>Afterglow keeps dancing on the glass</span>
+      </div>
+
+      <div class="boot-dock" data-boot-dock aria-hidden="true">
+        <div class="boot-dock-art" data-boot-dock-art></div>
+        <div class="boot-dock-copy">
+          <div class="label">Now playing</div>
+          <div class="title" data-boot-dock-title>Aurora Drift · Lyra Ensemble</div>
+        </div>
+      </div>
+    </div>
     <div id="root"></div>
+    <script>
+      // Earliest possible splash clock — used for min-dwell so dismiss never races first paint.
+      window.__lyraBootShownAt = (window.performance && performance.now) ? performance.now() : Date.now();
+    </script>
+    <script>
+      (function bootPremiere() {
+        var splash = document.getElementById('boot-splash');
+        if (!splash) return;
+        var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var cover = splash.querySelector('[data-boot-cover]');
+        var coverTitle = splash.querySelector('[data-boot-cover-title]');
+        var coverArtist = splash.querySelector('[data-boot-cover-artist]');
+        var dockTitle = splash.querySelector('[data-boot-dock-title]');
+        var dockArt = splash.querySelector('[data-boot-dock-art]');
+        var tracks = [
+          { title: 'Aurora Drift', artist: 'Lyra Ensemble', art: 'linear-gradient(145deg,#2a1f18,#c48a62,#f3e0cb)' },
+          { title: 'Ember Chorus', artist: 'Nova Lane', art: 'linear-gradient(145deg,#3a1a12,#e08a62,#ffe3cb)' },
+          { title: 'Glass Harbor', artist: 'Silent Pier', art: 'linear-gradient(145deg,#1a2428,#5f9e96,#d9fff8)' },
+          { title: 'Velvet Frequency', artist: 'Mira Sol', art: 'linear-gradient(145deg,#24152f,#9a7bc8,#f3e9ff)' }
+        ];
+        var isZh = String(navigator.language || '').toLowerCase().indexOf('zh') === 0;
+        var dockLabel = splash.querySelector('.boot-dock-copy .label');
+        if (dockLabel) dockLabel.textContent = isZh ? '正在演绎' : 'Now playing';
+        var statusNode = splash.querySelector('[data-boot-status]');
+        if (statusNode && !statusNode.getAttribute('data-boot-locked')) {
+          statusNode.textContent = isZh ? '夜色开始倾听…' : 'The night begins to listen…';
+        }
+
+        var trackIndex = 0;
+        var targetX = 0;
+        var targetY = 0;
+        var currentX = 0;
+        var currentY = 0;
+        var rafId = 0;
+        var trackTimer = 0;
+
+        function applyTrack(track) {
+          if (cover) cover.style.background = track.art;
+          if (coverTitle) coverTitle.textContent = track.title;
+          if (coverArtist) coverArtist.textContent = track.artist;
+          if (dockTitle) dockTitle.textContent = track.title + ' · ' + track.artist;
+          if (dockArt) dockArt.style.background = track.art;
+        }
+
+        function paintCover() {
+          currentX += (targetX - currentX) * 0.1;
+          currentY += (targetY - currentY) * 0.1;
+          if (cover) {
+            var tiltX = currentY * -4;
+            var tiltY = currentX * 5;
+            var shiftX = currentX * 10;
+            var shiftY = currentY * 8;
+            cover.style.transform =
+              'translate3d(' + shiftX + 'px,' + shiftY + 'px,0) rotateX(' + tiltX + 'deg) rotateY(' + tiltY + 'deg)';
+          }
+          rafId = window.requestAnimationFrame(paintCover);
+        }
+
+        function onPointerMove(event) {
+          var rect = splash.getBoundingClientRect();
+          targetX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+          targetY = ((event.clientY - rect.top) / rect.height) * 2 - 1;
+        }
+
+        function onPointerLeave() {
+          targetX = 0;
+          targetY = 0;
+        }
+
+        function cycleTrack() {
+          trackIndex = (trackIndex + 1) % tracks.length;
+          applyTrack(tracks[trackIndex]);
+        }
+
+        function onCoverActivate() {
+          cycleTrack();
+        }
+
+        applyTrack(tracks[0]);
+
+        if (!reduced) {
+          splash.addEventListener('pointermove', onPointerMove);
+          splash.addEventListener('pointerleave', onPointerLeave);
+          rafId = window.requestAnimationFrame(paintCover);
+          trackTimer = window.setInterval(cycleTrack, 4200);
+        }
+        if (cover) {
+          cover.addEventListener('click', onCoverActivate);
+          cover.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onCoverActivate();
+            }
+          });
+        }
+
+        var observer = new MutationObserver(function () {
+          if (splash.getAttribute('data-hidden') === 'true') {
+            if (rafId) cancelAnimationFrame(rafId);
+            if (trackTimer) clearInterval(trackTimer);
+            splash.removeEventListener('pointermove', onPointerMove);
+            splash.removeEventListener('pointerleave', onPointerLeave);
+            observer.disconnect();
+          }
+        });
+        observer.observe(splash, { attributes: true, attributeFilter: ['data-hidden'] });
+      })();
+    </script>
     <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>

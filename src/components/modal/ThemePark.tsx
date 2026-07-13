@@ -41,8 +41,10 @@ import {
 } from '../visualizer/PreviewPlaceholder';
 import { getVisualizerModeLabel, getVisualizerScopedSeed } from '../visualizer/registry';
 import { normalizeThemeHexColor, sanitizeDualTheme } from '../../services/themeSanitizer';
+import LyricColorPicker from '../shared/LyricColorPicker';
 import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
 import {
+    applyLyricBodyColorToDualTheme,
     applyLyricColorPresetToDualTheme,
     getLyricColorPresetById,
     matchLyricColorPresetId,
@@ -554,6 +556,10 @@ const ThemePark: React.FC<ThemeParkProps> = ({
         onSaveTheme(normalizeThemeParkDualTheme(draftTheme, normalizedInitialTheme));
     };
 
+    const applyLyricBodyColor = (color: string) => {
+        setDraftTheme(previous => applyLyricBodyColorToDualTheme(previous, color) ?? previous);
+    };
+
     const applyLyricColorPreset = (presetId: LyricColorPresetId) => {
         const preset = getLyricColorPresetById(presetId);
         if (!preset) {
@@ -712,10 +718,10 @@ const ThemePark: React.FC<ThemeParkProps> = ({
 
                             <div className="space-y-2 rounded-[20px] border border-white/10 p-3">
                                 <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                    {t('options.lyricColorPresetTitle') || '流行歌词色'}
+                                    {t('options.lyricColorPresetTitle') || '歌词颜色'}
                                 </div>
                                 <div className="text-xs opacity-50" style={{ color: 'var(--text-secondary)' }}>
-                                    {t('options.lyricColorPresetDesc') || '一键套用抖音 / 小红书常见字幕配色。'}
+                                    {t('options.lyricColorPresetDesc') || '可点选预设，也可自由取色。同色相用透明度区分已唱与未唱。'}
                                 </div>
                                 <LyricColorPresetGrid
                                     onSelect={applyLyricColorPreset}
@@ -726,6 +732,12 @@ const ThemePark: React.FC<ThemeParkProps> = ({
                                     isDaylight={isDaylight}
                                     inactiveButtonClassName={isDaylight ? 'text-stone-800 hover:bg-black/[0.05]' : 'text-white/88 hover:bg-white/[0.08]'}
                                     activeButtonClassName={isDaylight ? 'bg-white text-stone-950 shadow-sm ring-1 ring-black/10' : 'bg-white/15 text-white shadow-sm ring-1 ring-white/20'}
+                                />
+                                <LyricColorPicker
+                                    color={safeDraftTheme[pickerState.mode].primaryColor}
+                                    onChange={applyLyricBodyColor}
+                                    isDaylight={isDaylight}
+                                    compact
                                 />
                             </div>
 

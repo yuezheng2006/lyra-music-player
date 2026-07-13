@@ -126,8 +126,8 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
                             <div className={settingsTitleClass} style={settingsTitleStyle}>
                                 {t('options.enableMediaCache') || 'Cache Songs'}
                             </div>
-                            <div className={`${settingsDescClass} max-w-[200px]`} style={settingsDescStyle}>
-                                {t('options.enableMediaCacheDesc') || 'Cache audio after playback for offline listening.'}
+                            <div className={`${settingsDescClass} max-w-[260px]`} style={settingsDescStyle}>
+                                {t('options.enableMediaCacheDesc') || 'Cache audio after playback for offline listening. Some online sources cannot be cached due to CORS.'}
                             </div>
                         </div>
                         <button

@@ -8,6 +8,7 @@ import TextInputDialog from '../shared/TextInputDialog';
 import { getSongUnavailableTagText, isSongMarkedUnavailable } from '../../services/netease';
 import QueueEmptyState from './QueueEmptyState';
 import { createCoverUrlResolver } from '../app/playback/createCoverUrlResolver';
+import LazyCoverImage from '../shared/LazyCoverImage';
 
 interface QueueTabProps {
     playQueue: SongResult[];
@@ -129,11 +130,12 @@ const QueueTab: React.FC<QueueTabProps> = ({
                 className={`flex items-center gap-3 px-2 py-1 rounded-lg cursor-pointer transition-colors
                     ${isActive ? activeRowClass : hoverRowClass} ${isUnavailable ? 'opacity-55' : ''}`}
             >
-                <img
-                    src={coverUrl || undefined}
-                    alt=""
+                <LazyCoverImage
+                    src={coverUrl}
+                    placeholderLabel={song.name}
+                    placeholderArtist={song.ar?.map(a => a.name).join(', ')}
+                    sizePx={64}
                     className="h-8 w-8 shrink-0 rounded-md object-cover"
-                    loading="lazy"
                 />
                 <div className={`w-1 h-6 rounded-full ${isActive ? activeMarkerClass : 'bg-transparent'}`} />
                 <div className="min-w-0 flex-1">

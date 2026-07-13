@@ -253,7 +253,7 @@ test.describe('player controls panel', () => {
   test('applies lyric color preset and switches to AI theme mode', async ({ page }) => {
     await openControlsTab(page);
 
-    await page.getByTestId('lyric-color-preset-douyin-neon').click();
+    await page.getByTestId('lyric-color-preset-soda-white').click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('theme_bg_mode'))).toBe('ai');
   });
 });

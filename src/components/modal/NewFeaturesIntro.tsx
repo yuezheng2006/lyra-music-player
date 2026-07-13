@@ -15,8 +15,8 @@ export type NewFeaturesIntroProps = {
     };
 };
 
-// 在这里编辑当前版本的新功能介绍
-// 修改这里的介绍的同时，需要修改 src\components\modal\userGuideContent.ts 中的 USER_GUIDE_AUTO_OPEN_VERSION 到下一个发布版本号
+// 在这里编辑当前版本的新功能介绍。
+// 版本亮点会在 lastSeenGuideVersion !== __APP_VERSION__ 时自动弹出（已完成 onboarding 的用户）。
 export const NewFeaturesIntro: React.FC<NewFeaturesIntroProps> = ({ isDaylight, classes }) => {
     const { t } = useTranslation();
     const { textPrimary, textSecondary, tipCardBg, iconTileBg, cardBg } = classes;

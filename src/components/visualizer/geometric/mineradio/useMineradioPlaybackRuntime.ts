@@ -28,6 +28,8 @@ interface UseMineradioPlaybackRuntimeOptions {
     showLyrics?: boolean;
     /** Fullscreen / desktop-lyrics presentation for stage lyrics. */
     immersiveLyrics?: boolean;
+    /** Monet left lyric column end (0–1); biases cover framing into the right pane. */
+    lyricColumnEndRatio?: number;
     playing?: boolean;
     paused?: boolean;
     cameraSnapshotRef?: React.RefObject<InteractiveCameraSnapshot>;
@@ -50,6 +52,7 @@ export const useMineradioPlaybackRuntime = ({
     lines = [],
     showLyrics = true,
     immersiveLyrics = false,
+    lyricColumnEndRatio,
     playing = true,
     paused = false,
     cameraSnapshotRef,
@@ -61,6 +64,7 @@ export const useMineradioPlaybackRuntime = ({
     const linesRef = useRef(lines);
     const showLyricsRef = useRef(showLyrics);
     const immersiveLyricsRef = useRef(immersiveLyrics);
+    const lyricColumnEndRatioRef = useRef(lyricColumnEndRatio);
     const playingRef = useRef(playing);
     audioBandsRef.current = audioBands;
     pausedRef.current = paused;
@@ -68,6 +72,7 @@ export const useMineradioPlaybackRuntime = ({
     linesRef.current = lines;
     showLyricsRef.current = showLyrics;
     immersiveLyricsRef.current = immersiveLyrics;
+    lyricColumnEndRatioRef.current = lyricColumnEndRatio;
     playingRef.current = playing;
 
     useLayoutEffect(() => {
@@ -80,6 +85,7 @@ export const useMineradioPlaybackRuntime = ({
         runtime.configure(coverUrl ?? null, sceneTuning, qualityProfile);
         runtime.setLyricStageEnabled(showLyricsRef.current);
         runtime.setLyricImmersive(immersiveLyricsRef.current);
+        runtime.setLyricColumnEndRatio(lyricColumnEndRatioRef.current, { snap: true });
         runtime.setInputProvider(() => ({
             audioBands: audioBandsRef.current,
             beat: smartAtmosphereEnabled ? (beatPulse?.get() ?? 0) : 0,
@@ -91,6 +97,7 @@ export const useMineradioPlaybackRuntime = ({
             pointerActive: Math.abs(pointerX.get()) + Math.abs(pointerY.get()) > 0.02,
             paused: pausedRef.current,
             camera: cameraSnapshotRef?.current,
+            lyricColumnEndRatio: lyricColumnEndRatioRef.current,
         }));
         runtime.setLyricInputProvider(() => ({
             lines: linesRef.current,
@@ -127,31 +134,30 @@ export const useMineradioPlaybackRuntime = ({
         };
     // Intentionally omit coverUrl: remounting WebGL on track change flashes the load mist.
     // Cover updates go through the configure() effect below.
+    // Use quality tier (not object identity) — sceneTuning recreates qualityProfile often.
     }, [
         enabled,
-        qualityProfile,
+        qualityProfile.tier,
+        qualityProfile.devicePixelRatioCap,
         sceneTuning?.visualPreset,
         sceneTuning?.enableCoverParticles,
         containerRef,
-        beatPulse,
-        atmosphereEnergy,
         smartAtmosphereEnabled,
-        pointerX,
-        pointerY,
-        currentTime,
-        cameraSnapshotRef,
     ]);
 
     useEffect(() => {
         coverRuntimeRef.current?.configure(coverUrl ?? null, sceneTuning, qualityProfile);
     }, [
         coverUrl,
-        qualityProfile,
+        qualityProfile.tier,
+        qualityProfile.devicePixelRatioCap,
         sceneTuning?.visualPreset,
         sceneTuning?.enableCoverParticles,
         sceneTuning?.rhythmIntensity,
         sceneTuning?.bloomStrength,
         sceneTuning?.enableBassRipples,
+        sceneTuning,
+        qualityProfile,
     ]);
 
     useEffect(() => {
@@ -161,4 +167,9 @@ export const useMineradioPlaybackRuntime = ({
     useEffect(() => {
         coverRuntimeRef.current?.setLyricImmersive(immersiveLyrics);
     }, [immersiveLyrics]);
+
+    useEffect(() => {
+        // Snap on ratio jumps (fullscreen / chrome hide) so framing does not lag the mask.
+        coverRuntimeRef.current?.setLyricColumnEndRatio(lyricColumnEndRatio, { snap: true });
+    }, [lyricColumnEndRatio]);
 };

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, Plus } from 'lucide-react';
 import { List as VirtualList } from 'react-window';
 import { useTranslation } from 'react-i18next';
-import { getSizedCoverUrl } from '../../utils/coverUrl';
+import LazyCoverImage from './LazyCoverImage';
 
 export interface SidePanelListProps<T> {
     isOpen: boolean;
@@ -166,14 +166,14 @@ export const TrackListItem = React.memo<{
                 }`}
             >
                 <div className="relative w-10 h-10 shrink-0 rounded overflow-hidden bg-zinc-200 dark:bg-zinc-800">
-                    {coverUrl && (
-                        <img 
-                            src={getSizedCoverUrl(coverUrl, 50)} 
-                            alt={track.name}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                        />
-                    )}
+                    <LazyCoverImage
+                        src={coverUrl}
+                        alt={track.name}
+                        placeholderLabel={track.name}
+                        placeholderArtist={artistName}
+                        sizePx={50}
+                        className="w-full h-full object-cover"
+                    />
                     {!isUnavailable && (
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <Play size={16} className="text-white fill-white ml-0.5" />
@@ -224,14 +224,14 @@ export const CollectionListItem = React.memo<{
                 }`}
             >
                 <div className="w-10 h-10 shrink-0 rounded overflow-hidden bg-zinc-200 dark:bg-zinc-800 relative">
-                    {item.coverUrl && (
-                        <img 
-                            src={item.coverUrl} 
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                        />
-                    )}
+                    <LazyCoverImage
+                        src={item.coverUrl}
+                        alt={typeof item.name === 'string' ? item.name : ''}
+                        placeholderLabel={typeof item.name === 'string' ? item.name : 'Playlist'}
+                        placeholderVariant="playlist"
+                        sizePx={50}
+                        className="w-full h-full object-cover"
+                    />
                 </div>
                 <div className="flex flex-col min-w-0 flex-1 justify-center">
                     <div className="text-sm font-semibold truncate leading-tight">{item.name}</div>

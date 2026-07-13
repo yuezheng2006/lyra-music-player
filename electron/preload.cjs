@@ -169,4 +169,9 @@ contextBridge.exposeInMainWorld('electron', {
         return () => ipcRenderer.removeListener('stage-player-queue-request', listener);
     },
     debugGetRenderedFonts: (selector) => ipcRenderer.invoke('debug-get-rendered-fonts', selector),
+    ytmusicSearch: (payload) => ipcRenderer.invoke('ytmusic:search', payload),
+    ytmusicResolveStream: (payload) => ipcRenderer.invoke('ytmusic:resolveStream', payload),
+    ytmusicGetHomeShelves: (payload) => ipcRenderer.invoke('ytmusic:getHomeShelves', payload || {}),
+    ytmusicGetPlaylist: (payload) => ipcRenderer.invoke('ytmusic:getPlaylist', payload || {}),
+    ytmusicGetHome: (payload) => ipcRenderer.invoke('ytmusic:getHome', payload || {}),
 });

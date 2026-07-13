@@ -16,9 +16,10 @@ import {
     settingsTitleClass,
     settingsTitleStyle,
 } from './settingsTextStyles';
+import { isDiscordPresenceUiEnabled, isNavidromeUiEnabled } from '../../../utils/featureFlags';
 
 // src/components/modal/settings/IntegrationSettingsSubview.tsx
-// Integration settings for music providers, Discord, Stage, Now Playing, OBS, and Navidrome.
+// Integration settings for music providers, Stage, Now Playing, OBS, and Navidrome.
 
 type NavidromeTestStatus = 'idle' | 'testing' | 'success' | 'failed';
 type StageActionStatus = 'idle' | 'regenerating';
@@ -77,7 +78,7 @@ export type IntegrationDiscordModel = {
 
 type IntegrationSettingsSubviewProps = {
     chrome: IntegrationSettingsChrome;
-    discord: IntegrationDiscordModel;
+    discord?: IntegrationDiscordModel;
     navidrome: IntegrationNavidromeModel;
     stage: IntegrationStageModel;
 };
@@ -149,10 +150,11 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
         enabled: discordPresenceEnabled,
         onToggle: onToggleDiscordPresence,
         status: discordPresenceStatus,
-    } = discord;
+    } = discord ?? { enabled: false, onToggle: async () => undefined, status: null };
     const { t } = useTranslation();
     const [obsAddressCopied, setObsAddressCopied] = useState(false);
     const nowPlayingStatusLabel = getNowPlayingStatusLabel(nowPlayingConnectionStatus);
+    const showDiscordPresence = isDiscordPresenceUiEnabled() && Boolean(discord);
     const discordPresenceStatusLabel = (() => {
         if (!discordPresenceStatus?.enabled) return t('options.discordPresenceDisabled') || 'Disabled';
         if (discordPresenceStatus.connected) return t('options.discordPresenceConnected') || 'Connected';
@@ -175,15 +177,12 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
         window.setTimeout(() => setObsAddressCopied(false), 1600);
     };
 
-    const showStreamingAdvanced = Boolean(
-        (isElectron && obsBrowserSourceStatus)
-        || (isElectron && stageStatus)
-        || !isElectron,
-    );
+    const showStreamingAdvanced = true;
+    const isStreamingStatusLoading = isElectron && !obsBrowserSourceStatus && !stageStatus;
 
     return (
         <>
-            {isElectron && (
+            {isElectron && showDiscordPresence && (
                 <section>
                     <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                         <Activity size={14} /> {t('options.discordRichPresence') || 'Discord Rich Presence'}
@@ -225,6 +224,15 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
 
             {showStreamingAdvanced && (
                 <SettingsAdvancedSection title={t('options.advancedStreamingStage') || '推流与舞台'}>
+                    {isStreamingStatusLoading && (
+                        <div className={`p-4 rounded-xl border flex items-center gap-3 ${settingsCardClass}`}>
+                            <Loader2 size={16} className="animate-spin shrink-0" style={{ color: 'var(--text-secondary)' }} />
+                            <div className={settingsDescClass} style={settingsDescStyle}>
+                                {t('options.streamingStageLoading') || '正在加载推流与舞台状态…'}
+                            </div>
+                        </div>
+                    )}
+
                     {isElectron && obsBrowserSourceStatus && (
                         <section>
                             <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
@@ -484,6 +492,7 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
                 />
             </section>
 
+            {isNavidromeUiEnabled() ? (
             <section>
                 <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                     <Server size={14} /> {t('navidrome.settings') || 'Navidrome Settings'}
@@ -615,6 +624,7 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
                     )}
                 </div>
             </section>
+            ) : null}
         </>
     );
 };

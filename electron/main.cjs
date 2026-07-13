@@ -9,6 +9,7 @@ const { createStageApi } = require('./stageApi.cjs');
 const { createWindowPlaybackHandoffStore } = require('./windowPlaybackHandoff.cjs');
 const { DEFAULT_DISCORD_APPLICATION_ID, createDiscordPresenceController } = require('./discordPresence.cjs');
 const { createDesktopLyricsController } = require('./desktopLyrics.cjs');
+const ytmusicBridge = require('./ytmusicBridge.cjs');
 const { startResilientLocalApi } = require('./resilientApiStartup.cjs');
 const { sanitizeDualTheme: sanitizeGeneratedDualTheme } = require('../shared/themeSanitizer.cjs');
 const {
@@ -23,6 +24,11 @@ const linuxGraphicsMode =
   process.platform !== 'linux'
     ? 'system'
     : (process.env.LYRA_LINUX_GRAPHICS_MODE || (isAppImageRuntime ? 'swiftshader' : 'system'));
+
+// Click → await song URL → play() loses Chromium user activation; allow media
+// autoplay so entering the player from a song click starts audio without a
+// second Play tap.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 // Fix for Arch Linux / Wayland & Vulkan compatibility issues
 if (process.platform === 'linux') {
@@ -515,6 +521,7 @@ const desktopLyrics = createDesktopLyricsController({
   isTrustedSender: (sender) => isTrustedMainWindowContents(sender),
 });
 desktopLyrics.registerIpcHandlers(ipcMain);
+ytmusicBridge.registerIpcHandlers(ipcMain);
 
 function buildPlaybackSyncBridgeStatus() {
   return {
@@ -2930,11 +2937,13 @@ async function getMainWindowCaptureSource() {
 }
 
 function createWindow(options = {}) {
-  const { showImmediately = true } = options;
+  const { showImmediately = false } = options;
   const { bounds: storedBounds, isMaximized } = getStoredWindowState();
   const windowBounds = ensureWindowBoundsVisible(storedBounds);
   const useTransparentWindow = isTransparentPlayerBackgroundEnabled();
   const enableNativeBlur = store.get('enable_player_page_native_blur') === true;
+  // Solid night ink matches HTML boot splash — avoids a black flash before first paint.
+  const solidBootBackground = '#09090b';
   const win = new BrowserWindow({
     ...windowBounds,
     minWidth: 350,
@@ -2943,7 +2952,7 @@ function createWindow(options = {}) {
     transparent: useTransparentWindow,
     hasShadow: !useTransparentWindow,
     thickFrame: process.platform === 'win32' ? !useTransparentWindow : undefined,
-    backgroundColor: (useTransparentWindow || enableNativeBlur) ? '#00000000' : '#09090b',
+    backgroundColor: (useTransparentWindow || enableNativeBlur) ? '#00000000' : solidBootBackground,
     vibrancy: (!useTransparentWindow && enableNativeBlur) && process.platform === 'darwin' ? 'fullscreen-ui' : undefined,
     backgroundMaterial: (!useTransparentWindow && enableNativeBlur) && process.platform === 'win32' ? 'acrylic' : undefined,
     autoHideMenuBar: true,
@@ -2961,12 +2970,22 @@ function createWindow(options = {}) {
   });
 
   void loadAppEntry(win);
-  if (isElectronDevRuntime()) {
+  // Capture / smoke runs set LYRA_DISABLE_DEVTOOLS=1 so firstWindow is the app, not DevTools.
+  if (isElectronDevRuntime() && process.env.LYRA_DISABLE_DEVTOOLS !== '1') {
     win.webContents.openDevTools();
   }
 
   if (isMaximized) {
     win.maximize();
+  }
+
+  // Default: wait for first renderer paint so users see boot splash, not an empty window.
+  if (!showImmediately) {
+    win.once('ready-to-show', () => {
+      if (!win.isDestroyed()) {
+        win.show();
+      }
+    });
   }
 
   mainWindow = win;
@@ -3073,6 +3092,8 @@ app.whenReady().then(async () => {
     app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
   }
 
+  await ytmusicBridge.registerProtocolHandler();
+
   if (!isElectronDevRuntime()) {
     await ensurePackagedUiServer();
   }
@@ -3102,29 +3123,42 @@ app.whenReady().then(async () => {
   });
 
   setupAutoUpdater();
-  if (usesExternalDevApis()) {
-    bindExternalDevApiPorts();
-  } else {
-    await startApi();
-    await startMusicProviderSidecar();
-  }
-  try {
-    await stageApi.startStageServerIfNeeded();
-  } catch (error) {
-    console.error('[Stage] Failed to start stage server during app startup', error);
-  }
-  try {
-    await startObsBrowserSourceServerIfNeeded();
-  } catch (error) {
-    console.error('[OBS] Failed to start browser source server during app startup', error);
-  }
+  // Show the shell immediately so cold start is never a long black void while APIs boot.
   ensureTray();
   createWindow();
+  focusMainWindow();
+
+  const startCriticalApis = async () => {
+    if (usesExternalDevApis()) {
+      bindExternalDevApiPorts();
+      return;
+    }
+    await startApi();
+    await startMusicProviderSidecar();
+  };
+
+  void startCriticalApis().catch((error) => {
+    console.error('[Startup] Critical music APIs failed to start', error);
+  });
+
+  // Non-critical servers can wait until after the first window is up.
+  void (async () => {
+    try {
+      await stageApi.startStageServerIfNeeded();
+    } catch (error) {
+      console.error('[Stage] Failed to start stage server during app startup', error);
+    }
+    try {
+      await startObsBrowserSourceServerIfNeeded();
+    } catch (error) {
+      console.error('[OBS] Failed to start browser source server during app startup', error);
+    }
+  })();
+
   desktopLyrics.restoreEnabledFromStore();
   screen.on('display-metrics-changed', () => {
     desktopLyrics.handleDisplayMetricsChanged();
   });
-  focusMainWindow();
   scheduleStartupUpdateCheck();
 
   app.on('activate', () => {

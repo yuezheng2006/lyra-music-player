@@ -18,8 +18,10 @@ import {
     resolveLyricContainerFit,
     resolveLyricLineFitScale,
     resolveLyricRhythmScaleHeadroom,
+    resolveLyricVerticalSafeArea,
 } from '../resolveLyricContainerFit';
 import { colorWithAlpha } from '../colorMix';
+import { resolveLyricInkFills } from '../lyricInk';
 import DazibaoWord from './dazibaoWordStage';
 
 // src/components/visualizer/dazibao/VisualizerDazibao.tsx
@@ -58,21 +60,26 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
     const [stageWidth, setStageWidth] = useState(() => (
         typeof window === 'undefined' ? 960 : Math.max(320, window.innerWidth - 220)
     ));
+    const [shellHeight, setShellHeight] = useState(() => (
+        typeof window === 'undefined' ? 720 : Math.max(420, window.innerHeight)
+    ));
 
     useLayoutEffect(() => {
         const node = stageRef.current;
         if (!node || typeof ResizeObserver === 'undefined') return undefined;
-        const apply = (width: number) => {
-            const next = Math.max(240, Math.round(width));
-            setStageWidth(prev => (prev === next ? prev : next));
+        const shell = (node.closest('[data-visualizer-shell="true"]') as HTMLElement | null) ?? node.parentElement;
+        const apply = () => {
+            const nextWidth = Math.max(240, Math.round(node.offsetWidth || node.getBoundingClientRect().width));
+            setStageWidth(prev => (prev === nextWidth ? prev : nextWidth));
+            if (shell) {
+                const nextHeight = Math.max(280, Math.round(shell.clientHeight || shell.offsetHeight));
+                setShellHeight(prev => (prev === nextHeight ? prev : nextHeight));
+            }
         };
-        apply(node.offsetWidth || node.getBoundingClientRect().width);
-        const observer = new ResizeObserver((entries) => {
-            const entry = entries[0];
-            if (!entry) return;
-            apply(entry.contentRect.width);
-        });
+        apply();
+        const observer = new ResizeObserver(() => apply());
         observer.observe(node);
+        if (shell) observer.observe(shell);
         return () => observer.disconnect();
     }, []);
 
@@ -87,6 +94,8 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
     );
 
     const isChorus = Boolean(activeLine?.isChorus);
+    const rhythmHeadroom = resolveLyricRhythmScaleHeadroom(theme.lyricRhythmScaleMultiplier ?? 1);
+    const glowInsetPx = theme.lyricGlowUsesAccent ? 40 : 24;
     const lyricFit = useMemo(
         () => resolveLyricContainerFit({
             containerWidth: stageWidth,
@@ -96,24 +105,39 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
             preferredWidthRatio: 0.11,
             minFontPx: 36,
             maxFontPx: immersiveLyrics ? 120 : 92,
-            scaleHeadroom: resolveLyricRhythmScaleHeadroom(theme.lyricRhythmScaleMultiplier ?? 1),
-            glowInsetPx: theme.lyricGlowUsesAccent ? 40 : 24,
+            scaleHeadroom: rhythmHeadroom,
+            glowInsetPx,
         }),
         [
             immersiveLyrics,
             isChorus,
             lyricsFontScale,
             stageWidth,
-            theme.lyricGlowUsesAccent,
-            theme.lyricRhythmScaleMultiplier,
+            glowInsetPx,
+            rhythmHeadroom,
         ],
     );
+    const lyricVertical = useMemo(
+        () => resolveLyricVerticalSafeArea({
+            containerHeight: shellHeight,
+            scaleHeadroom: rhythmHeadroom,
+            glowInsetPx,
+            fontPx: lyricFit.fontPx,
+            minPaddingPx: 56,
+            preferredMaxHeightRatio: immersiveLyrics ? 0.78 : 0.7,
+        }),
+        [shellHeight, rhythmHeadroom, glowInsetPx, lyricFit.fontPx, immersiveLyrics],
+    );
     const letterSpacingPx = getLyricLetterSpacingPx(fontPreset, lyricFit.fontPx);
-    const activeColor = theme.accentColor;
-    const baseColor = colorWithAlpha(theme.primaryColor, 0.42);
-    const glowColor = theme.secondaryColor || theme.accentColor;
-    const strokeColor = colorWithAlpha(theme.accentColor, 0.55);
-    const hintColor = colorWithAlpha(theme.primaryColor, 0.72);
+    const lyricInk = resolveLyricInkFills(theme);
+    const activeColor = lyricInk.sung;
+    const baseColor = lyricInk.unsung;
+    // Glow stays on the same body hue so dazibao doesn't introduce a second lyric color.
+    const glowColor = lyricInk.body;
+    const strokeColor = theme.lyricGlowUsesAccent
+        ? colorWithAlpha('#000000', 0.9)
+        : colorWithAlpha(lyricInk.body, 0.72);
+    const hintColor = colorWithAlpha(lyricInk.meta || lyricInk.body, 0.92);
 
     const displayWords = useMemo(() => {
         if (!activeLine) return [];
@@ -154,11 +178,19 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
                 ref={stageRef}
                 className="pointer-events-none absolute inset-0 z-10 flex h-full w-full items-center justify-center overflow-hidden"
                 data-testid="yehuo-lyric-stage"
+                style={{ paddingTop: lyricVertical.opticalTopBiasPx }}
             >
                 {showText ? (
                     <div
-                        className="relative flex max-h-[78vh] w-full flex-col items-center justify-center px-4"
-                        style={{ paddingLeft: lyricFit.sidePaddingPx, paddingRight: lyricFit.sidePaddingPx }}
+                        className="relative flex w-full flex-col items-center justify-center px-4"
+                        style={{
+                            height: `${(lyricVertical.maxHeightRatio * 100).toFixed(2)}%`,
+                            maxHeight: `${(lyricVertical.maxHeightRatio * 100).toFixed(2)}%`,
+                            paddingLeft: lyricFit.sidePaddingPx,
+                            paddingRight: lyricFit.sidePaddingPx,
+                            paddingTop: lyricVertical.topPaddingPx,
+                            paddingBottom: lyricVertical.bottomPaddingPx,
+                        }}
                     >
                         <AnimatePresence mode="wait">
                             {activeLine ? (

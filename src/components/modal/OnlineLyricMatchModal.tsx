@@ -16,6 +16,7 @@ import {
 } from './lyricMatchResultHelpers';
 import { LyricPreviewPanel } from './LyricPreviewPanel';
 import { SearchClearButton } from '../shared/SearchClearButton';
+import LazyCoverImage from '../shared/LazyCoverImage';
 
 // src/components/modal/OnlineLyricMatchModal.tsx
 
@@ -263,15 +264,14 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                                         >
                                             <div className="flex items-start gap-4">
                                                 <div className={`w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center ${isDaylight ? 'bg-black/5' : 'bg-white/5'} shrink-0`}>
-                                                    {resultCover ? (
-                                                        <img
-                                                            src={resultCover}
-                                                            alt="Cover"
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <Music size={18} className={textSecondary} />
-                                                    )}
+                                                    <LazyCoverImage
+                                                        src={resultCover}
+                                                        alt="Cover"
+                                                        placeholderLabel={result.name}
+                                                        placeholderArtist={artist}
+                                                        sizePx={80}
+                                                        className="w-full h-full object-cover"
+                                                    />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center gap-2">
@@ -298,19 +298,17 @@ const OnlineLyricMatchModal: React.FC<OnlineLyricMatchModalProps> = ({ song, onC
                         <div className="flex flex-col items-center justify-start w-full flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                             {/* Cover Image */}
                             <div className="w-32 h-32 min-h-[64px] rounded-2xl overflow-hidden bg-zinc-800 shadow-md flex-shrink transition-all duration-300">
-                                {selectedResult ? (
-                                    getMatchResultCoverUrl(selectedResult, source) ? (
-                                        <img src={getMatchResultCoverUrl(selectedResult, source) || ''} alt="Cover" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center"><Music size={28} className="opacity-10" /></div>
-                                    )
-                                ) : (
-                                    song.al?.picUrl || song.album?.picUrl ? (
-                                        <img src={song.al?.picUrl || song.album?.picUrl || ''} alt="Cover" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center"><Music size={28} className="opacity-10" /></div>
-                                    )
-                                )}
+                                <LazyCoverImage
+                                    src={
+                                        selectedResult
+                                            ? getMatchResultCoverUrl(selectedResult, source)
+                                            : (song.al?.picUrl || song.album?.picUrl)
+                                    }
+                                    alt="Cover"
+                                    placeholderLabel={selectedResult?.name || song.name}
+                                    sizePx={256}
+                                    className="w-full h-full object-cover"
+                                />
                             </div>
 
                             {/* Song Info (Centered) */}

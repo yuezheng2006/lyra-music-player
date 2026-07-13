@@ -181,6 +181,7 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                     onToggleMinimizeToTray(false);
                                     onToggleHideTaskbarIcon(false);
                                     onToggleOpenPlayerOnLaunch(false);
+                                    onTogglePlayerPageNativeBlur(false);
                                     onVisualizerFrameRateChange('off');
                                 }}
                                 className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors ${utilityGhostButtonClass}`}

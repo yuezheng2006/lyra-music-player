@@ -2,15 +2,23 @@ import React from 'react';
 import { type VisualizerMode } from '../../types';
 import { resolveVisualizerBackgroundMode } from '../../stores/useSettingsUiStore';
 import { type VisualizerSharedProps } from './definition';
-import { getVisualizerRegistryEntry } from './registry';
+import { useVisualizerRegistryEntry } from './registry';
+
+// src/components/visualizer/VisualizerRenderer.tsx
 
 interface VisualizerRendererProps extends VisualizerSharedProps {
     mode: VisualizerMode;
 }
 
 const VisualizerRenderer: React.FC<VisualizerRendererProps> = ({ mode, ...props }) => {
+    const entry = useVisualizerRegistryEntry(mode);
     const resolvedBackgroundMode = resolveVisualizerBackgroundMode(props.visualizerBackgroundMode, mode);
-    return getVisualizerRegistryEntry(mode).render({
+
+    if (!entry) {
+        return null;
+    }
+
+    return entry.render({
         ...props,
         visualizerMode: mode,
         resolvedVisualizerBackgroundMode: resolvedBackgroundMode,

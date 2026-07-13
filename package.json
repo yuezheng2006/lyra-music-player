@@ -23,6 +23,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
+    "ci": "npm run lint && npm run test:unit && cross-env ELECTRON=true ELECTRON_DEV=false vite build",
     "test": "vitest run -c vitest.config.ts",
     "test:unit": "vitest run -c vitest.config.ts",
     "test:unit:watch": "vitest -c vitest.config.ts",
@@ -180,6 +181,7 @@
     "twgl.js": "^7.0.0",
     "wanakana": "^5.3.1",
     "ws": "^8.18.0",
+    "youtubei.js": "^17.2.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

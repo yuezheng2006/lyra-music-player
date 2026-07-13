@@ -3,27 +3,31 @@ import { AnimatePresence, motion, useTransform, MotionValue } from 'framer-motio
 import type { Theme, AudioBands, Line } from '../../../types';
 import type { GraphemeTiming } from '../../../utils/lyrics/graphemeTiming';
 import { getLineRenderEndTime } from '../../../utils/lyrics/renderHints';
-import { colorWithAlpha, mixColors } from '../colorMix';
+import { colorWithAlpha } from '../colorMix';
 import {
     buildWordColorRangesFromMatchers,
     prepareWordColorMatchers,
-    resolveWordColor,
     resolveTokenColorMap,
     type WordColorMatcher,
 } from '../wordColoring';
-import { resolveLyricStageInkColors } from '../../../utils/theme/lyricColorPresets';
+import {
+    resolveLyricStageInkColors,
+} from '../../../utils/theme/lyricColorPresets';
 import {
     buildMonetDisplayTokens,
     measureMonetGraphemeOffsets,
     measureMonetLineLayout,
-    resolveMonetWordStatus,
     type MonetLineStatus,
     type MonetMeasuredLineLayout,
     type MonetVisibleLineEntry,
 } from './monetLyricsModel';
 import {
-    buildLyricStageStroke,
-    combineShadowEffects,
+    resolveMonetLineTone,
+    type MonetLineTone,
+    type MonetRailPresentation,
+} from './monetLineTone';
+import {
+    buildLyricKaraokeOutlineLayers,
     getRecommendedEffectConfig,
     type LyricVisualEffectConfig,
     type LyricVisualEffectIntensity,
@@ -40,7 +44,7 @@ import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 // src/components/visualizer/monet/MonetLyricsRail.tsx
 // Renders Monet lyrics on fixed transform tracks so scrolling stays smooth without layout reflow jumps.
 
-type MonetRailPresentation = 'monet' | 'karaoke';
+export type { MonetRailPresentation, MonetLineTone } from './monetLineTone';
 
 interface MonetLyricsRailProps {
     entries: MonetVisibleLineEntry[];
@@ -74,15 +78,6 @@ interface MonetRailSize {
     height: number;
 }
 
-interface MonetLineTone {
-    opacity: number;
-    scale: number;
-    blurPx: number;
-    baseColor: string;
-    fontWeight: number;
-    zIndex: number;
-}
-
 interface PositionedMonetLineEntry extends MonetVisibleLineEntry {
     y: number;
     tone: MonetLineTone;
@@ -96,8 +91,6 @@ const MONET_RAIL_WIDTH_FALLBACK_PX = 680;
 const MONET_RAIL_HEIGHT_FALLBACK_PX = 340;
 const MONET_ACTIVE_GAP_PX = 18;
 const MONET_INACTIVE_GAP_PX = 14;
-const MONET_GLOW_RISE_DURATION_SCALE = 1.18;
-const MONET_GLOW_PASS_TAIL_SECONDS = 1.05;
 const MONET_SCROLL_IDLE_RESET_MS = 1800;
 const MONET_SCROLL_STEP_PX = 72;
 const MONET_TOUCH_STEP_PX = 52;
@@ -109,94 +102,11 @@ const MONET_SCROLL_TRANSITION = {
     y: { type: 'spring', stiffness: 142, damping: 28, mass: 0.82 },
     scale: { type: 'spring', stiffness: 150, damping: 30, mass: 0.78 },
     opacity: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
-    filter: { duration: 0.32, ease: [0.32, 0.72, 0, 1] },
 } as const;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const clampScrollSteps = (steps: number) => Math.max(-1, Math.min(1, steps));
 const getScrollDirection = (delta: number) => (delta === 0 ? 0 : delta > 0 ? 1 : -1);
-
-export const resolveMonetWordColor = (
-    wordText: string,
-    theme: Theme,
-    fallbackColor: string,
-    keywordColoringEnabled = true,
-): string => {
-    return resolveWordColor(wordText, theme.wordColors, fallbackColor, {
-        keywordColoringEnabled,
-        cjkMatchMode: 'exact',
-    });
-};
-
-const resolveLineTone = (
-    entry: MonetVisibleLineEntry,
-    theme: Theme,
-    inactiveScale: number,
-    presentation: MonetRailPresentation = 'monet',
-    immersiveLyrics: boolean = false,
-): MonetLineTone => {
-    const { titleColor, hintColor } = resolveLyricStageInkColors(theme);
-    // 沉浸模式：字重更粗，效果更强烈
-    const weightBoost = immersiveLyrics ? 100 : 0;
-
-    if (presentation === 'karaoke') {
-        // KTV: unsung text stays clearly readable; sung fill uses bright stage ink.
-        // Prefer accent-family colors so presets like 野火红 stay vivid, not washed gray.
-        if (entry.status === 'active') {
-            return {
-                opacity: 1,
-                scale: immersiveLyrics ? 1.08 : 1.04,
-                blurPx: 0,
-                baseColor: colorWithAlpha(titleColor, 0.55),
-                fontWeight: Math.min(700 + weightBoost, 900),
-                zIndex: 4,
-            };
-        }
-
-        const distance = Math.max(Math.abs(entry.offset), 1);
-        const isWaiting = entry.status === 'waiting';
-        return {
-            opacity: isWaiting
-                ? clamp(0.72 - (distance - 1) * 0.1, 0.48, 0.72)
-                : clamp(0.42 - (distance - 1) * 0.08, 0.28, 0.42),
-            scale: clamp(0.9 * Math.pow(0.96, distance - 1), 0.8, 0.9),
-            blurPx: 0,
-            baseColor: colorWithAlpha(hintColor, isWaiting ? 0.88 : 0.55),
-            fontWeight: Math.min(isWaiting ? 650 + weightBoost : 550 + weightBoost, 900),
-            zIndex: isWaiting ? 3 - distance : 2 - distance,
-        };
-    }
-
-    if (entry.status === 'active') {
-        return {
-            opacity: 1,
-            scale: immersiveLyrics ? 1.05 : 1,
-            blurPx: 0,
-            // Unsung underlay stays on primary; sung fill uses accent (see MonetTimedTokenSpan).
-            baseColor: colorWithAlpha(titleColor, immersiveLyrics ? 0.4 : 0.34),
-            fontWeight: Math.min((immersiveLyrics ? 800 : 700) + weightBoost, 900),
-            zIndex: 4,
-        };
-    }
-
-    const distance = Math.max(Math.abs(entry.offset), 1);
-    const isWaiting = entry.status === 'waiting';
-    const scale = clamp(inactiveScale * Math.pow(0.9, distance - 1), 0.68, 0.92);
-
-    return {
-        opacity: isWaiting
-            ? clamp(0.72 - (distance - 1) * 0.18, 0.36, 0.72)
-            : clamp(0.52 - (distance - 1) * 0.12, 0.28, 0.52),
-        scale,
-        blurPx: isWaiting
-            ? distance === 1 ? 0.7 : 1.8 + (distance - 2) * 0.8
-            : 1.1 + (distance - 1) * 0.7,
-        // Waiting / passed lines are "hints" — follow secondary from the lyric-color preset.
-        baseColor: colorWithAlpha(hintColor, isWaiting ? 0.72 : 0.52),
-        fontWeight: Math.min(500 + (weightBoost / 2), 900),
-        zIndex: isWaiting ? 3 - distance : 2 - distance,
-    };
-};
 
 const resolveLineGap = (previous: PositionedMonetLineEntry, next: PositionedMonetLineEntry): number => (
     previous.status === 'active' || next.status === 'active'
@@ -356,7 +266,7 @@ const buildPositionedEntries = (
     const contentWidthPx = Math.max(railWidth - glowBufferPx * 2, 0);
 
     const measuredEntries: PositionedMonetLineEntry[] = entries.map(entry => {
-        const tone = resolveLineTone(entry, theme, inactiveScale, presentation, immersiveLyrics);
+        const tone = resolveMonetLineTone(entry, theme, inactiveScale, presentation, immersiveLyrics);
         const layout = getOrMeasureMonetLineLayout(
             layoutCache,
             entry,
@@ -410,6 +320,7 @@ const MonetTimedTokenSpan: React.FC<{
     entry: PositionedMonetLineEntry;
     currentTime: MotionValue<number>;
     accentColor: string;
+    settleColor: string;
     fontPx: number;
     fontStack: string;
     wordColorMatchers: WordColorMatcher[];
@@ -420,7 +331,7 @@ const MonetTimedTokenSpan: React.FC<{
     enableGlow?: boolean;
     immersiveLyrics?: boolean;
     visualEffectConfig?: LyricVisualEffectConfig;
-}> = ({ entry, currentTime, accentColor, fontPx, fontStack, wordColorMatchers, isChorus, chorusAccentColor, audioPower, renderStaticPassed = false, enableGlow = true, immersiveLyrics = false, visualEffectConfig }) => {
+}> = ({ entry, currentTime, accentColor: _accentColor, settleColor, fontPx, fontStack, wordColorMatchers, isChorus: _isChorus, chorusAccentColor: _chorusAccentColor, audioPower, renderStaticPassed = false, enableGlow = true, immersiveLyrics = false, visualEffectConfig }) => {
     const lineRenderEndTime = useMemo(() => getLineRenderEndTime(entry.line), [entry.line]);
     const tokens = useMemo(() => buildMonetDisplayTokens(entry.line), [entry.line]);
     const wordColorRanges = useMemo(
@@ -436,10 +347,6 @@ const MonetTimedTokenSpan: React.FC<{
         [entry.tone.fontWeight, fontPx, fontStack],
     );
 
-    const resolvedAccentColor = isChorus && chorusAccentColor
-        ? mixColors(accentColor, chorusAccentColor, 0.48)
-        : accentColor;
-
     return (
         <span className="block w-full min-w-0 max-w-full whitespace-pre-wrap break-words">
             {tokens.map(token => (
@@ -447,8 +354,9 @@ const MonetTimedTokenSpan: React.FC<{
                     <span
                         key={token.key}
                         style={{
+                            // Passed rows stay on body ink; keyword colors still win when set.
                             color: token.timed
-                                ? tokenColors.get(token.key) ?? resolvedAccentColor
+                                ? tokenColors.get(token.key) ?? entry.tone.baseColor
                                 : entry.tone.baseColor,
                         }}
                     >
@@ -464,11 +372,10 @@ const MonetTimedTokenSpan: React.FC<{
                         lineRenderEndTime={lineRenderEndTime}
                         currentTime={currentTime}
                         lineStatus={entry.status}
-                        wordColor={tokenColors.get(token.key) ?? resolvedAccentColor}
+                        wordColor={tokenColors.get(token.key) ?? settleColor}
                         baseColor={entry.tone.baseColor}
                         fontPx={fontPx}
                         fontSpec={fontSpec}
-                        isChorus={isChorus}
                         enableGlow={enableGlow}
                         audioPower={audioPower}
                         immersiveLyrics={immersiveLyrics}
@@ -496,7 +403,6 @@ const MonetWordSweep: React.FC<{
     baseColor: string;
     fontPx: number;
     fontSpec: string;
-    isChorus?: boolean;
     enableGlow?: boolean;
     audioPower?: MotionValue<number>;
     immersiveLyrics?: boolean;
@@ -506,35 +412,30 @@ const MonetWordSweep: React.FC<{
     startTime,
     endTime,
     graphemeTimings,
-    lineRenderEndTime,
+    lineRenderEndTime: _lineRenderEndTime,
     currentTime,
     lineStatus,
     wordColor,
     baseColor,
     fontPx,
     fontSpec,
-    isChorus,
-    enableGlow = true,
-    audioPower,
-    immersiveLyrics = false,
+    enableGlow: _enableGlow = true,
+    audioPower: _audioPower,
+    immersiveLyrics: _immersiveLyrics = false,
     visualEffectConfig,
 }) => {
         const isLineActive = lineStatus === 'active';
-        const canRenderGlow = enableGlow && (lineStatus === 'active' || lineStatus === 'passed');
+        const strokeEnabled = isLineActive && visualEffectConfig?.enableStroke !== false;
+        const intensity = visualEffectConfig?.intensity ?? 'strong';
+        // 色字白边: scaled solid rim + drop-shadow on wipe fill (calligraphy-safe).
+        const outlineLayers = useMemo(
+            () => buildLyricKaraokeOutlineLayers(wordColor, fontPx, intensity),
+            [fontPx, intensity, wordColor],
+        );
         const graphemeOffsets = useMemo(
             () => measureMonetGraphemeOffsets(text, fontPx, fontSpec),
             [text, fontPx, fontSpec],
         );
-
-        const wordStatus = useTransform(currentTime, latest => (
-            isLineActive ? resolveMonetWordStatus(latest, startTime, endTime) : lineStatus
-        ));
-
-        const wordProgress = useTransform(currentTime, latest => {
-            if (!isLineActive || latest <= startTime) return 0;
-            if (latest >= endTime) return 1;
-            return (latest - startTime) / Math.max(0.001, endTime - startTime);
-        });
 
         const fillWidth = useTransform(currentTime, latest => {
             const fullWidth = graphemeOffsets[graphemeOffsets.length - 1] ?? 0;
@@ -577,69 +478,44 @@ const MonetWordSweep: React.FC<{
         });
 
         const maskImage = useTransform(fillWidth, latest => {
-            const edgeSoftness = Math.max(Math.min(fontPx * 0.45, 16), 6);
+            // Hard wipe edge — soft feather reads as blur on CJK strokes.
+            const edgeSoftness = Math.max(Math.min(fontPx * 0.12, 4), 1.5);
             const solidEnd = Math.max(latest - edgeSoftness, 0);
-            const featherStart = Math.max(latest - edgeSoftness * 0.55, 0);
-            const featherEnd = Math.max(latest, 0);
-            return `linear-gradient(90deg, rgba(0, 0, 0, 1) 0px, rgba(0, 0, 0, 1) ${solidEnd}px, rgba(0, 0, 0, 0.92) ${featherStart}px, rgba(0, 0, 0, 0) ${featherEnd}px, rgba(0, 0, 0, 0) 100%)`;
+            return `linear-gradient(90deg, #000 0px, #000 ${solidEnd}px, transparent ${latest}px, transparent 100%)`;
         });
 
-        const fillGradient = useTransform(wordProgress, progress => {
-            const color = mixColors(baseColor, wordColor, Math.min(progress, 1));
-            return `linear-gradient(90deg, ${color} 0%, ${colorWithAlpha(color, 0.92)} 68%, ${colorWithAlpha(color, 0.72)} 100%)`;
-        });
+        // One hue only: wipe reveals full body (or keyword color) over the dimmer underlay.
+        const fillColor = wordColor;
 
-        const resolvedBaseColor = useTransform(wordStatus, status =>
-            (isLineActive && status === 'passed') || lineStatus === 'passed' ? wordColor : baseColor,
-        );
-
-        // 应用动态效果样式
-
-
-        const glowShadow = useTransform(currentTime, latest => {
-            if (!canRenderGlow || latest <= startTime) return 'none';
-
-            const wordDuration = Math.max(0.001, endTime - startTime);
-            const glowRiseDuration = wordDuration * MONET_GLOW_RISE_DURATION_SCALE;
-            const glowPeakTime = startTime + glowRiseDuration;
-            const glowTailEndTime = Math.max(lineRenderEndTime, endTime + MONET_GLOW_PASS_TAIL_SECONDS);
-            let intensity: number;
-            if (latest <= glowPeakTime) {
-                const progress = Math.min(1, Math.max(0, (latest - startTime) / glowRiseDuration));
-                // 使用 Smoothstep (ease-in-out) 曲线，让发光开始和到达峰值时都平滑过渡
-                intensity = progress * progress * (3 - 2 * progress);
-            } else {
-                const decayDuration = Math.max(0.18, glowTailEndTime - glowPeakTime);
-                const decayProgress = Math.min(1, Math.max(0, (latest - glowPeakTime) / decayDuration));
-                const remaining = 1 - decayProgress;
-                // 使用 Smoothstep (ease-in-out)，让衰退初期缓慢（有”驻留”感），然后再平滑消失
-                intensity = remaining * remaining * (3 - 2 * remaining);
-            }
-
-            if (intensity <= 0) return 'none';
-
-            const glowColor = mixColors(baseColor, wordColor, intensity, intensity);
-            if (visualEffectConfig?.enableIntenseGlow || visualEffectConfig?.enable3D) {
-                return combineShadowEffects(baseColor, glowColor, {
-                    ...visualEffectConfig,
-                    immersive: immersiveLyrics || visualEffectConfig.immersive,
-                });
-            }
-
-            // Stroke carries contrast; skip soft dual-radius glow by default.
-            return 'none';
-        }) as unknown as MotionValue<string>;
-
-
-
-
+        // Underlay always stays on dimmed body ink.
+        const resolvedBaseColor = baseColor;
 
         return (
             <span className="relative inline-block whitespace-pre-wrap break-words">
+                {strokeEnabled ? (
+                    <motion.span
+                        aria-hidden
+                        className="lyric-karaoke-rim pointer-events-none absolute inset-0 select-none whitespace-pre-wrap break-words"
+                        style={{
+                            WebkitMaskImage: maskImage,
+                            maskImage,
+                            WebkitMaskSize: '100% 100%',
+                            maskSize: '100% 100%',
+                            WebkitMaskRepeat: 'no-repeat',
+                            maskRepeat: 'no-repeat',
+                            color: outlineLayers.rimColor,
+                            transform: `scale(${outlineLayers.rimScale})`,
+                            transformOrigin: 'center center',
+                            textShadow: outlineLayers.rimTextShadow,
+                        }}
+                    >
+                        {text}
+                    </motion.span>
+                ) : null}
                 <motion.span
+                    className="relative"
                     style={{
                         color: resolvedBaseColor,
-                        textShadow: glowShadow,
                     }}
                 >
                     {text}
@@ -655,26 +531,17 @@ const MonetWordSweep: React.FC<{
                             maskSize: '100% 100%',
                             WebkitMaskRepeat: 'no-repeat',
                             maskRepeat: 'no-repeat',
-                            textShadow: 'none',
+                            color: fillColor,
+                            // drop-shadow follows glyph alpha through calligraphy; Monet fill has no filter:none fight.
+                            filter: strokeEnabled ? outlineLayers.fillFilter : undefined,
                         }}
                     >
-                        <motion.span
-                            className="block whitespace-pre-wrap break-words"
-                            style={{
-                                color: 'transparent',
-                                WebkitTextFillColor: 'transparent',
-                                backgroundImage: fillGradient,
-                                WebkitBackgroundClip: 'text',
-                                backgroundClip: 'text',
-                            }}
-                        >
-                            {text}
-                        </motion.span>
+                        {text}
                     </motion.span>
                 ) : null}
             </span>
         );
-    };
+};
 
 const MonetRailLine: React.FC<{
     entry: PositionedMonetLineEntry;
@@ -697,13 +564,11 @@ const MonetRailLine: React.FC<{
     visualEffectConfig?: LyricVisualEffectConfig;
     letterSpacingPx?: number;
 }> = ({ entry, currentTime, theme, lyricFontPx, translationFontPx, fontStack, glowBufferPx, vGlowBufferPx, wordColorMatchers, showSubtitleTranslation, presentation = 'monet', audioPower, onLineSeek, canSeek = false, disableEntryMotion = false, renderStaticPassed = false, immersiveLyrics = false, visualEffectConfig, letterSpacingPx = 0 }) => {
-    const { activeColor, hintColor } = resolveLyricStageInkColors(theme);
+    const { activeColor, hintColor, titleColor } = resolveLyricStageInkColors(theme);
     const isKaraoke = presentation === 'karaoke';
-    // Active sung fill must use accent (e.g. 野火红纯红), never the softer title/primary.
+    // Wipe + body share one hue; progress is opacity reveal, not a second fill color.
     const sungColor = activeColor;
-    const stageStroke = visualEffectConfig?.enableStroke
-        ? buildLyricStageStroke(visualEffectConfig.intensity)
-        : null;
+    const settleColor = entry.status === 'active' ? titleColor : entry.tone.baseColor;
     const initialOffset = entry.offset >= 0 ? 34 : -34;
     const exitOffset = entry.status === 'passed' || entry.offset < 0 ? -38 : 38;
     const textMask = getLineMask(entry.layout.isTextClipped, Math.max(lyricFontPx * 0.55, 12));
@@ -734,19 +599,16 @@ const MonetRailLine: React.FC<{
                 opacity: 0,
                 y: entry.y + initialOffset,
                 scale: entry.tone.scale * 0.98,
-                filter: 'blur(5px)',
             }}
             animate={{
                 opacity: entry.tone.opacity,
                 y: entry.y,
                 scale: entry.tone.scale,
-                filter: `blur(${entry.tone.blurPx}px)`,
             }}
             exit={suppressMotion ? undefined : {
                 opacity: 0,
                 y: entry.y + exitOffset,
                 scale: entry.tone.scale * 0.98,
-                filter: 'blur(6px)',
                 transition: { duration: 0.2, ease: [0.32, 0.72, 0, 1] },
             }}
             transition={MONET_SCROLL_TRANSITION}
@@ -769,12 +631,13 @@ const MonetRailLine: React.FC<{
                     transition={{ duration: 0.45, ease: 'easeOut' }}
                     style={{
                         background: `radial-gradient(circle at 50% 45%, ${colorWithAlpha(activeColor, 0.14)} 0%, ${colorWithAlpha(activeColor, 0.04)} 55%, transparent 82%)`,
-                        filter: 'blur(10px)',
+                        filter: 'blur(6px)',
                     }}
                 />
             )}
             <div
-                className="min-w-0 overflow-hidden"
+                className={`min-w-0 ${entry.status === 'active' ? 'overflow-visible lyric-active-line' : 'overflow-hidden'}`}
+                data-lyric-outline={entry.status === 'active' ? '1' : undefined}
                 style={{
                     marginLeft: `-${glowBufferPx}px`,
                     marginRight: `-${glowBufferPx}px`,
@@ -797,14 +660,13 @@ const MonetRailLine: React.FC<{
                     maskRepeat: 'no-repeat',
                     WebkitMaskSize: '100% 100%',
                     maskSize: '100% 100%',
-                    ...(stageStroke ?? {}),
-                    textShadow: 'none',
                 }}
             >
                 <MonetTimedTokenSpan
                     entry={entry}
                     currentTime={currentTime}
                     accentColor={colorWithAlpha(sungColor, isKaraoke ? 1 : 0.98)}
+                    settleColor={settleColor}
                     fontPx={lyricFontPx}
                     fontStack={fontStack}
                     wordColorMatchers={wordColorMatchers}
@@ -812,7 +674,7 @@ const MonetRailLine: React.FC<{
                     chorusAccentColor={sungColor}
                     audioPower={audioPower}
                     renderStaticPassed={renderStaticPassed}
-                    enableGlow={!isKaraoke}
+                    enableGlow={false}
                     immersiveLyrics={immersiveLyrics}
                     visualEffectConfig={visualEffectConfig}
                 />
@@ -890,8 +752,8 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
     const storeVisualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
     const lyricFontPresetId = lyricFontPresetIdProp ?? storeLyricFontPresetId;
     const visualEffectIntensity = visualEffectIntensityProp ?? storeVisualEffectIntensity;
-    const glowBufferPx = Math.round(lyricFontPx * (isKaraoke ? 0.85 : (immersiveLyrics ? 1.65 : 1.35)));
-    const vGlowBufferPx = Math.round(lyricFontPx * (isKaraoke ? 0.7 : (immersiveLyrics ? 1.65 : 1.35)));
+    const glowBufferPx = Math.round(lyricFontPx * (isKaraoke ? 0.35 : 0.45));
+    const vGlowBufferPx = Math.round(lyricFontPx * (isKaraoke ? 0.28 : 0.4));
     const canSeek = Boolean(onLyricLineSeek) && !seekDisabled;
 
     // 获取当前行的字体预设
@@ -902,15 +764,16 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
     const resolvedFontStack = currentFontPreset.fontFamily || fontStack;
     const letterSpacingPx = getLyricLetterSpacingPx(currentFontPreset, lyricFontPx);
 
-    // 获取视觉效果配置
-    const visualEffectConfig = useMemo<LyricVisualEffectConfig>(() => (
-        getRecommendedEffectConfig(
+    const visualEffectConfig = useMemo<LyricVisualEffectConfig>(() => ({
+        ...getRecommendedEffectConfig(
             immersiveLyrics,
             currentFontPreset.dramatic ?? false,
             visualEffectIntensity,
-        )
-    ), [immersiveLyrics, currentFontPreset, visualEffectIntensity]);
-
+        ),
+        // Soft glow / 3D muddy CJK on particle backdrops; keep a fine stroke for edge contrast.
+        enableIntenseGlow: false,
+        enable3D: false,
+    }), [immersiveLyrics, currentFontPreset, visualEffectIntensity]);
 
     const visibleEntries = useMemo(
         () => manualScrollAnchorIndex === null
@@ -1101,10 +964,10 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
                 WebkitUserSelect: 'none',
                 WebkitMaskImage: isKaraoke
                     ? 'linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%)'
-                    : 'linear-gradient(to bottom, transparent 0%, black 11%, black 88%, transparent 100%)',
+                    : 'linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%)',
                 maskImage: isKaraoke
                     ? 'linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%)'
-                    : 'linear-gradient(to bottom, transparent 0%, black 11%, black 88%, transparent 100%)',
+                    : 'linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%)',
             }}
         >
             {positionedEntries.length > 0 ? (

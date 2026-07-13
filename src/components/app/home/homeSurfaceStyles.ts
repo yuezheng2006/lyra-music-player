@@ -3,6 +3,15 @@ import type { CSSProperties } from 'react';
 // src/components/app/home/homeSurfaceStyles.ts
 // Shared chrome spacing so home / browse / search content clears titlebar and floating dock.
 
+/** Stable list/browse foreground — daylight only, never follows cover/theme primary. */
+export const resolveContentTextColor = (isDaylight: boolean): string => (
+    isDaylight ? '#171717' : '#fafafa'
+);
+
+export const resolveContentMutedTextColor = (isDaylight: boolean): string => (
+    isDaylight ? 'rgba(23, 23, 23, 0.55)' : 'rgba(250, 250, 250, 0.45)'
+);
+
 export const resolveHomeSolidBackgroundClass = (_isDaylight: boolean): string => (
     'bg-[var(--shell-surface)] transition-colors duration-500'
 );
@@ -11,7 +20,8 @@ export const resolveHomeSolidBackgroundClass = (_isDaylight: boolean): string =>
 export const resolveShellSurfaceBackgroundStyle = (): CSSProperties => ({
     backgroundColor: 'var(--shell-surface)',
     backgroundImage: 'var(--shell-canvas)',
-    color: 'var(--shell-text)',
+    // Content text stays neutral; only the canvas/surface tracks the cover palette.
+    color: 'var(--content-text)',
 });
 
 /**
@@ -44,3 +54,13 @@ export const resolveHomeContentBottomPaddingClass = (hasFloatingPlayer: boolean)
 
 /** Alias used by search / browse overlays that always reserve the floating dock. */
 export const APP_CONTENT_BOTTOM_PADDING_CLASS = resolveHomeContentBottomPaddingClass(true);
+
+/**
+ * Shared interactive list-row chrome for home/browse song lists:
+ * pointer cursor + visible hover/active highlight (daylight + dark).
+ */
+export const resolveBrowseListRowClass = (isDaylight: boolean): string => (
+    isDaylight
+        ? 'cursor-pointer transition-colors hover:bg-black/[0.07] active:bg-black/[0.1]'
+        : 'cursor-pointer transition-colors hover:bg-white/[0.1] active:bg-white/[0.14]'
+);

@@ -111,6 +111,7 @@ type BuildPlayerPanelModelParams = {
     handleToggleEnableSmartAtmosphere: LegacyUnifiedPanelProps['playback']['onToggleEnableSmartAtmosphere'];
     handleToggleDisableVisualizerVignette: LegacyUnifiedPanelProps['playback']['onToggleDisableVisualizerVignette'];
     openAdvancedBackgroundSettings: LegacyUnifiedPanelProps['playback']['onOpenAdvancedBackgroundSettings'];
+    onApplyLyricBodyColor: LegacyUnifiedPanelProps['playback']['onApplyLyricBodyColor'];
     onApplyLyricColorPreset: LegacyUnifiedPanelProps['playback']['onApplyLyricColorPreset'];
 };
 
@@ -216,6 +217,7 @@ export const buildPlayerPanelModel = ({
     handleToggleEnableSmartAtmosphere,
     handleToggleDisableVisualizerVignette,
     openAdvancedBackgroundSettings,
+    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
 }: BuildPlayerPanelModelParams): PlayerPanelViewModel => ({
     legacyProps: {
@@ -294,6 +296,7 @@ export const buildPlayerPanelModel = ({
             onToggleEnableSmartAtmosphere: handleToggleEnableSmartAtmosphere,
             onToggleDisableVisualizerVignette: handleToggleDisableVisualizerVignette,
             onOpenAdvancedBackgroundSettings: openAdvancedBackgroundSettings,
+            onApplyLyricBodyColor,
             onApplyLyricColorPreset,
         },
         queue: {

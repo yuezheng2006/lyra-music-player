@@ -234,8 +234,10 @@ export default async function viteConfig({ mode }: ConfigEnv): Promise<UserConfi
             registerType: 'autoUpdate',
             includeAssets: ['icon.svg'],
             injectRegister: 'script',
+            // Dev SW caches index.html and can keep serving a stale boot splash
+            // after source edits; keep PWA for production builds only.
             devOptions: {
-              enabled: true,
+              enabled: false,
             },
             workbox: {
               maximumFileSizeToCacheInBytes: 5000000

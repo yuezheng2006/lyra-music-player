@@ -25,6 +25,7 @@ interface MineradioPlaybackStageProps {
     lines?: Line[];
     showLyrics?: boolean;
     immersiveLyrics?: boolean;
+    lyricColumnEndRatio?: number;
     playing?: boolean;
     paused?: boolean;
     cameraControlState?: InteractiveCameraControlValue;
@@ -45,6 +46,7 @@ const MineradioPlaybackStage: React.FC<MineradioPlaybackStageProps> = ({
     lines = [],
     showLyrics = true,
     immersiveLyrics = false,
+    lyricColumnEndRatio,
     playing = true,
     paused = false,
     cameraControlState,
@@ -70,6 +72,7 @@ const MineradioPlaybackStage: React.FC<MineradioPlaybackStageProps> = ({
         lines,
         showLyrics,
         immersiveLyrics,
+        lyricColumnEndRatio,
         playing,
         paused,
         cameraSnapshotRef: cameraControlState?.snapshotRef,

@@ -167,6 +167,7 @@ interface FloatingPlayerControlsProps {
     onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
     visualizerMode?: VisualizerMode;
     onVisualizerModeChange?: (mode: VisualizerMode) => void;
+    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
     backgroundMenuLabel?: string;
     backgroundModeInteractive3dLabel?: string;
@@ -241,6 +242,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     onInteractive3dSceneTuningChange,
     visualizerMode = 'classic',
     onVisualizerModeChange,
+    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
     backgroundMenuLabel = 'Background',
     backgroundModeInteractive3dLabel = '3D',
@@ -374,6 +376,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         visualizerMode={visualizerMode}
                         onVisualizerModeChange={onVisualizerModeChange}
                         theme={theme}
+                        onApplyLyricBodyColor={onApplyLyricBodyColor}
                         onApplyLyricColorPreset={onApplyLyricColorPreset}
                         backgroundMenuLabel={backgroundMenuLabel}
                         backgroundModeInteractive3dLabel={backgroundModeInteractive3dLabel}
@@ -466,6 +469,7 @@ type DockedBarProps = {
     visualizerMode: VisualizerMode;
     onVisualizerModeChange?: (mode: VisualizerMode) => void;
     theme?: Theme;
+    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
     backgroundMenuLabel: string;
     backgroundModeInteractive3dLabel: string;
@@ -535,6 +539,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
     visualizerMode,
     onVisualizerModeChange,
     theme,
+    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
     backgroundMenuLabel,
     backgroundModeInteractive3dLabel,
@@ -817,6 +822,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
                             visualizerMode={visualizerMode}
                             onVisualizerModeChange={onVisualizerModeChange}
                             theme={theme}
+                            onApplyLyricBodyColor={onApplyLyricBodyColor}
                             onApplyLyricColorPreset={onApplyLyricColorPreset}
                             onOpenChange={setBackgroundMenuOpen}
                             backgroundMenuLabel={backgroundMenuLabel}
@@ -858,8 +864,8 @@ const DockedBar: React.FC<DockedBarProps> = ({
                             open={queueMenuOpen}
                             onOpenChange={setQueueMenuOpen}
                             disabled={controlsDisabled}
-                            triggerClassName={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled, queueMenuOpen)}`}
-                            queueLabel={queueLabel}
+                            triggerClassName={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled, queueMenuOpen)} ${playQueue.length > 1 && !queueMenuOpen ? (isDaylight ? 'ring-1 ring-black/10' : 'ring-1 ring-white/18') : ''}`}
+                            queueLabel={`${queueLabel}${playQueue.length > 0 ? ` (${playQueue.length})` : ''}`}
                         />
                     ) : null}
 

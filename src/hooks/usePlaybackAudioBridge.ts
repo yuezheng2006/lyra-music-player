@@ -226,7 +226,7 @@ export function usePlaybackAudioBridge({
                         }
 
                         if (error instanceof DOMException && error.name === 'NotAllowedError') {
-                            shouldAutoPlayRef.current = false;
+                            // Keep intent armed so a later canplay/user-resume can still start.
                             setStatusMsg({ type: 'info', text: t('status.clickToPlay') });
                             setPlayerState(PlayerState.PAUSED);
                             return;

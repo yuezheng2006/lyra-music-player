@@ -80,6 +80,9 @@ export type CommandPaletteContext = {
     enableAlternativeLyricSources: boolean;
     runAutoMatchBestLyric: () => Promise<boolean>;
     setIsUserGuideModalOpen: (isOpen: boolean) => void;
+    setIsShortcutsCheatSheetOpen: (isOpen: boolean) => void;
+    setIsOnboardingOpen: (isOpen: boolean) => void;
+    setIsWhatsNewOpen: (isOpen: boolean) => void;
     openThemeQuickEditor: () => void;
     canOpenThemeQuickEditor: boolean;
     toggleDesktopLyrics: () => Promise<boolean>;

@@ -11,6 +11,7 @@ import {
     INTERACTIVE3D_VISUAL_PRESET_OPTIONS,
 } from '../visualizer/geometric/mineradioVisualPresets';
 import { getControlsTabOptionButtonClass, getControlsTabOptionStyles } from './controlsTabOptionStyles';
+import LyricColorPicker from '../shared/LyricColorPicker';
 import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
 import LyricFontPresetSelector from '../shared/LyricFontPresetSelector';
 import LyricVisualEffectSelector from '../shared/LyricVisualEffectSelector';
@@ -62,6 +63,7 @@ interface ControlsTabProps {
     onToggleEnableSmartAtmosphere?: (enabled: boolean) => void;
     onToggleDisableVisualizerVignette?: (disabled: boolean) => void;
     onOpenAdvancedBackgroundSettings?: () => void;
+    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
 }
 
@@ -87,6 +89,7 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
     onVisualizerBackgroundModeChange,
     onInteractive3dSceneTuningChange,
     onOpenAdvancedBackgroundSettings,
+    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
 }) => {
     const { t } = useTranslation();
@@ -232,28 +235,40 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                         testIdPrefix="controls-lyric-word-mode"
                     />
 
-                    {onApplyLyricColorPreset && (
-                        <div className="space-y-1" data-testid="controls-lyric-color-presets">
+                    {(onApplyLyricBodyColor || onApplyLyricColorPreset) && (
+                        <div className="space-y-1" data-testid="controls-lyric-color-section">
                             <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
                                 {t('options.lyricColorPresetTitle') || '歌词颜色'}
                             </label>
-                            <div className={`${wellBg} p-0.5 rounded-lg`}>
-                                <LyricColorPresetGrid
-                                    compact
-                                    onSelect={onApplyLyricColorPreset}
-                                    activePresetId={resolveActiveLyricColorPresetId(
-                                        theme,
-                                        isDaylight ? 'light' : 'dark',
-                                    )}
-                                    isDaylight={isDaylight}
-                                    className="!grid-cols-3 gap-0.5"
-                                    inactiveButtonClassName={isDaylight
-                                        ? 'text-stone-800 hover:bg-black/[0.05]'
-                                        : 'text-white/88 hover:bg-white/[0.08]'}
-                                    activeButtonClassName={optionStyles.activeOptionClass}
-                                    buttonClassName="w-full"
-                                />
-                            </div>
+                            {onApplyLyricColorPreset ? (
+                                <div className={`${wellBg} p-0.5 rounded-lg`} data-testid="controls-lyric-color-presets">
+                                    <LyricColorPresetGrid
+                                        compact
+                                        onSelect={onApplyLyricColorPreset}
+                                        activePresetId={resolveActiveLyricColorPresetId(
+                                            theme,
+                                            isDaylight ? 'light' : 'dark',
+                                        )}
+                                        isDaylight={isDaylight}
+                                        className="!grid-cols-3 gap-0.5"
+                                        inactiveButtonClassName={isDaylight
+                                            ? 'text-stone-800 hover:bg-black/[0.05]'
+                                            : 'text-white/88 hover:bg-white/[0.08]'}
+                                        activeButtonClassName={optionStyles.activeOptionClass}
+                                        buttonClassName="w-full"
+                                    />
+                                </div>
+                            ) : null}
+                            {onApplyLyricBodyColor ? (
+                                <div className={`${wellBg} p-1.5 rounded-lg ${onApplyLyricColorPreset ? 'mt-1' : ''}`}>
+                                    <LyricColorPicker
+                                        compact
+                                        color={theme.primaryColor}
+                                        onChange={onApplyLyricBodyColor}
+                                        isDaylight={isDaylight}
+                                    />
+                                </div>
+                            ) : null}
                             <div className={`mt-2 space-y-1 border-t pt-2 ${
                                 isDaylight ? 'border-black/10' : 'border-white/10'
                             }`}>

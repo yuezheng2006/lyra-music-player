@@ -15,7 +15,9 @@ import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { sanitizeUrlBackgroundItem } from '../../../utils/urlBackground';
 import {
     getLyricColorPresetById,
+    readStoredLyricBodyColor,
     readStoredLyricColorPresetId,
+    saveStoredLyricBodyColor,
     saveStoredLyricColorPresetId,
 } from '../../../utils/theme/lyricColorPresets';
 import SettingsAdvancedSection from './SettingsAdvancedSection';
@@ -62,6 +64,8 @@ type AppearanceSettingsSubviewProps = {
     onChangeGrid3dCardStyle: (style: 'image' | 'card') => void;
     aiTheme?: DualTheme | null;
     customTheme?: DualTheme | null;
+    hasAiApiKeyConfigured?: boolean;
+    isElectronDesktop?: boolean;
 };
 
 // ==========================================
@@ -259,6 +263,7 @@ export const compressConfig = (config: any): string => {
     if (config.lyricsFontStyle) minified.lfs = config.lyricsFontStyle;
     if (config.lyricsFontScale !== undefined) minified.lfn = config.lyricsFontScale;
     if (config.lyricColorPresetId) minified.lcp = config.lyricColorPresetId;
+    if (config.lyricBodyColor) minified.lbc = config.lyricBodyColor;
 
     if (config.classicTuning) minified.ct = compressClassic(config.classicTuning);
     if (config.cadenzaTuning) minified.cat = compressCadenza(config.cadenzaTuning);
@@ -325,6 +330,7 @@ export const decompressConfig = (str: string): any => {
         if (parsed.lfs) decompressed.lyricsFontStyle = parsed.lfs;
         if (parsed.lfn !== undefined) decompressed.lyricsFontScale = parsed.lfn;
         if (parsed.lcp) decompressed.lyricColorPresetId = parsed.lcp;
+        if (parsed.lbc) decompressed.lyricBodyColor = parsed.lbc;
 
         if (parsed.ct) decompressed.classicTuning = decompressClassic(parsed.ct);
         if (parsed.cat) decompressed.cadenzaTuning = decompressCadenza(parsed.cat);
@@ -348,7 +354,7 @@ export const decompressConfig = (str: string): any => {
         const validKeys = [
             'theme', 'visualizerMode', 'lyricWordMode', 'lyricFontPresetId', 'visualEffectIntensity', 'visualizerBackgroundMode', 'backgroundOpacity',
             'visualizerOpacity', 'hidePlayerTranslationSubtitle', 'showSubtitleTranslation',
-            'lyricsFontStyle', 'lyricsFontScale', 'lyricColorPresetId', 'classicTuning',
+            'lyricsFontStyle', 'lyricsFontScale', 'lyricColorPresetId', 'lyricBodyColor', 'classicTuning',
             'cadenzaTuning', 'partitaTuning', 'fumeTuning', 'claddaghTuning', 'cappellaTuning',
             'tiltTuning', 'monetBackgroundTuning', 'interactive3dSceneTuning', 'monetTuning',
             'urlBackgroundList', 'urlBackgroundSelectedId',
@@ -409,6 +415,8 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
     onChangeGrid3dCardStyle,
     aiTheme,
     customTheme,
+    hasAiApiKeyConfigured = false,
+    isElectronDesktop = false,
 }) => {
     const { t } = useTranslation();
     const [importText, setImportText] = useState('');
@@ -522,6 +530,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             lyricsFontStyle: store.lyricsFontStyle,
             lyricsFontScale: store.lyricsFontScale,
             lyricColorPresetId: readStoredLyricColorPresetId(),
+            lyricBodyColor: readStoredLyricBodyColor(),
             classicTuning: store.classicTuning,
             cadenzaTuning: store.cadenzaTuning,
             partitaTuning: store.partitaTuning,
@@ -616,6 +625,8 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             }
             if (config.lyricColorPresetId && getLyricColorPresetById(config.lyricColorPresetId)) {
                 saveStoredLyricColorPresetId(config.lyricColorPresetId);
+            } else if (typeof config.lyricBodyColor === 'string') {
+                saveStoredLyricBodyColor(config.lyricBodyColor);
             }
 
             // Tunings
@@ -790,22 +801,31 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
                         </button>
                     </div>
                     {songThemeAutoSwitchEnabled && (
-                        <div className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${settingsCardClass}`}>
-                            <div className="space-y-1">
-                                <div className={settingsTitleClass} style={settingsTitleStyle}>
-                                    {t('options.autoGenerateSongTheme') || '自动为播放歌曲进行主题生成'}
+                        <div className={`p-3 rounded-xl border space-y-2 ${settingsCardClass}`}>
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="space-y-1">
+                                    <div className={settingsTitleClass} style={settingsTitleStyle}>
+                                        {t('options.autoGenerateSongTheme') || '自动为播放歌曲进行主题生成'}
+                                    </div>
+                                    <div className={settingsDescClass} style={settingsDescStyle}>
+                                        {t('options.autoGenerateSongThemeDesc') || '当播放歌曲没有缓存 AI 主题时，自动调用AI并应用（会产生较高token费用！）'}
+                                    </div>
                                 </div>
-                                <div className={settingsDescClass} style={settingsDescStyle}>
-                                    {t('options.autoGenerateSongThemeDesc') || '当播放歌曲没有缓存 AI 主题时，自动调用AI并应用（会产生较高token费用！）'}
-                                </div>
+                                <button
+                                    onClick={() => onToggleSongThemeAutoGenerate(!songThemeAutoGenerateEnabled)}
+                                    className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!songThemeAutoGenerateEnabled ? toggleOffBackgroundClass : ''}`}
+                                    style={{ backgroundColor: songThemeAutoGenerateEnabled ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
+                                >
+                                    <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${songThemeAutoGenerateEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                                </button>
                             </div>
-                            <button
-                                onClick={() => onToggleSongThemeAutoGenerate(!songThemeAutoGenerateEnabled)}
-                                className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!songThemeAutoGenerateEnabled ? toggleOffBackgroundClass : ''}`}
-                                style={{ backgroundColor: songThemeAutoGenerateEnabled ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
-                            >
-                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${songThemeAutoGenerateEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
-                            </button>
+                            {!hasAiApiKeyConfigured && (
+                                <div className={settingsDescClass} style={settingsDescStyle}>
+                                    {isElectronDesktop
+                                        ? (t('options.autoGenerateSongThemeNeedsKey') || '请先在桌面设置中填写 AI API Key，否则自动生成不会生效。')
+                                        : (t('options.autoGenerateSongThemeNeedsDesktopKey') || '自动生成主题需要在桌面端设置中填写 AI API Key。')}
+                                </div>
+                            )}
                         </div>
                     )}
                 </SettingsAdvancedSection>

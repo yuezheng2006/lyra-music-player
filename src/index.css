@@ -129,16 +129,16 @@ body {
   height: 0;
 }
 
-/* Polaroid Card theme-adaptive styles */
+/* Polaroid Card theme-adaptive styles — surface follows shell, text stays content-neutral. */
 .theme-polaroid-card {
-  background-color: color-mix(in srgb, var(--bg-color) 95%, transparent) !important;
-  border-color: color-mix(in srgb, var(--text-primary) 5%, transparent) !important;
-  color: var(--text-primary) !important;
+  background-color: color-mix(in srgb, var(--shell-surface, var(--bg-color)) 92%, transparent) !important;
+  border-color: color-mix(in srgb, var(--content-text, var(--shell-text)) 8%, transparent) !important;
+  color: var(--content-text, var(--shell-text)) !important;
   transition: all 0.3s ease;
 }
 
 .theme-polaroid-card:hover {
-  border-color: color-mix(in srgb, var(--text-primary) 32%, transparent) !important;
+  border-color: color-mix(in srgb, var(--content-text, var(--shell-text)) 28%, transparent) !important;
 }
 
 /* Glass panel (search box, sidebar) theme-adaptive styles */
@@ -195,6 +195,15 @@ body {
   animation-delay: 180ms;
 }
 
+.folia-eq--sm {
+  height: 10px;
+  gap: 2px;
+}
+
+.folia-eq--sm .folia-eq__bar {
+  width: 2px;
+}
+
 .folia-eq--md {
   height: 13px;
   gap: 2.5px;
@@ -220,4 +229,17 @@ body {
 
 .folia-eq--xl .folia-eq__bar {
   width: 4px;
+}
+
+/*
+ * Karaoke 色字白边 — solid scaled rim twin behind active lyric fill.
+ * Do not rely on -webkit-text-stroke here; calligraphy fonts often ignore it.
+ */
+.lyric-karaoke-rim {
+  z-index: 0;
+  pointer-events: none;
+}
+
+.lyric-active-line .lyric-karaoke-rim {
+  z-index: 0;
 }

@@ -7,9 +7,14 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version (e.g. 1.0.1). Leave empty to use package.json version.'
+        description: 'Version (e.g. 1.0.3). Leave empty to use package.json. Prefer same version + overwrite — do not bump for hotfixes.'
         required: false
         type: string
+      overwrite:
+        description: 'Overwrite existing GitHub release assets for this tag (clobber). Default true — no new upgrade tag.'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write # Required to upload artifacts and publish releases
@@ -29,7 +34,7 @@ jobs:
         id: check
         shell: bash
         run: |
-          # If triggered manually, always proceed
+          # Manual dispatch always proceeds (same-tag overwrite is the default path).
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
             exit 0
@@ -55,6 +60,7 @@ jobs:
     outputs:
       version: ${{ steps.meta.outputs.version }}
       tag: ${{ steps.meta.outputs.tag }}
+      overwrite: ${{ steps.meta.outputs.overwrite }}
 
     steps:
       - name: Check out Git repository
@@ -70,8 +76,14 @@ jobs:
             VERSION=$(jq -r .version package.json)
           fi
 
+          OVERWRITE="true"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.overwrite }}" = "false" ]; then
+            OVERWRITE="false"
+          fi
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "overwrite=${OVERWRITE}" >> "$GITHUB_OUTPUT"
 
       - name: Clean up orphaned release tag
         env:
@@ -80,7 +92,7 @@ jobs:
         shell: bash
         run: |
           if gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            echo "Release ${RELEASE_TAG} already exists, keeping current release/tag state."
+            echo "Release ${RELEASE_TAG} already exists — will overwrite assets (no new upgrade tag)."
             exit 0
           fi
 
@@ -202,15 +214,21 @@ jobs:
           fi
           cp "${NOTES_FILE}" release-notes.md
 
-      - name: Publish GitHub draft release
+      - name: Publish GitHub release (overwrite same tag)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.prepare-release.outputs.tag }}
+          OVERWRITE: ${{ needs.prepare-release.outputs.overwrite }}
         shell: bash
         run: |
           mapfile -d '' files < <(find release-artifacts -type f ! -name 'release-notes.md' -print0)
 
           if gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            if [ "${OVERWRITE}" != "true" ]; then
+              echo "Release ${RELEASE_TAG} already exists and overwrite=false; refusing to create an upgrade tag."
+              exit 1
+            fi
+            echo "Overwriting assets on existing ${RELEASE_TAG} (no version upgrade)."
             gh release upload "${RELEASE_TAG}" \
               "${files[@]}" \
               --repo "${GITHUB_REPOSITORY}" \
@@ -218,7 +236,8 @@ jobs:
             gh release edit "${RELEASE_TAG}" \
               --repo "${GITHUB_REPOSITORY}" \
               --notes-file release-notes.md \
-              --title "${RELEASE_TAG}"
+              --title "${RELEASE_TAG}" \
+              --draft=false
           else
             gh release create "${RELEASE_TAG}" \
               "${files[@]}" \
@@ -226,6 +245,6 @@ jobs:
               --title "${RELEASE_TAG}" \
               --notes-file release-notes.md \
               --target "${GITHUB_SHA}" \
-              --draft
+              --latest
           fi
 
