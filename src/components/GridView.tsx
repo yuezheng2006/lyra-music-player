@@ -23,6 +23,7 @@ import PlaylistSelectionDialog from './shared/PlaylistSelectionDialog';
 import TextInputDialog from './shared/TextInputDialog';
 import { SidePanelList, TrackListItem } from './shared/SidePanelList';
 import { shouldStartGridViewDrag } from './gridView/shouldStartGridViewDrag';
+import { isSameTrackId } from './gridView/isSameTrackId';
 import { APP_CONTENT_TOP_OFFSET_CLASS, resolveShellSurfaceBackgroundStyle } from './app/home/homeSurfaceStyles';
 
 export interface GridViewSourceActions {
@@ -178,13 +179,14 @@ export const PolaroidCard = React.memo<{
             if (isEditMode || isUnavailable) return;
             if (mode === 'tracks') {
                 triggerCoverPlayFeedback();
+                onCenter();
                 onSelect();
                 return;
             }
             if (mode === 'collection') {
                 onSelect();
             }
-        }, [isEditMode, isUnavailable, mode, onSelect, triggerCoverPlayFeedback]);
+        }, [isEditMode, isUnavailable, mode, onCenter, onSelect, triggerCoverPlayFeedback]);
 
         const handleAddQueueClick = useCallback((event: React.MouseEvent) => {
             event.stopPropagation();
@@ -421,7 +423,7 @@ export const PolaroidCard = React.memo<{
                                 ) : (
                                     <Pause size={10} fill="currentColor" className="opacity-90" />
                                 )}
-                                <span>NOW</span>
+                                <span>{showPlayingEq ? 'PLAYING' : 'NOW'}</span>
                             </div>
                         </>
                     )}
@@ -450,7 +452,13 @@ export const PolaroidCard = React.memo<{
                 <div className="w-full flex-1 flex flex-col justify-between pt-3 text-left min-w-0">
                     <div className="space-y-1 mb-2">
                         {/* Title */}
-                        <div className="text-s font-bold tracking-tight opacity-90 max-w-full line-clamp-4 whitespace-normal break-words">
+                        <div
+                            className="text-s font-bold tracking-tight max-w-full line-clamp-4 whitespace-normal break-words"
+                            style={{
+                                opacity: showNowPlayingChrome ? 1 : 0.9,
+                                color: showNowPlayingChrome ? accent : undefined,
+                            }}
+                        >
                             {item.name}
                         </div>
                         {/* Clickable Artists */}
@@ -520,6 +528,7 @@ export const PolaroidCard = React.memo<{
                                         if (!isUnavailable) {
                                             triggerCoverPlayFeedback();
                                         }
+                                        onCenter();
                                         onSelect();
                                     }}
                                     style={{
@@ -661,6 +670,7 @@ export const GridView: React.FC<GridViewProps> = ({
     const dragControls = useDragControls();
     const [focusedIndex, setFocusedIndex] = useState(0);
     const focusedIndexRef = useRef(0);
+    const [pendingActiveTrackId, setPendingActiveTrackId] = useState<string | number | null>(null);
     const searchInputRef = useRef<HTMLInputElement | null>(null);
     const isComposingSearchRef = useRef(false);
     const pendingFocusCommitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -856,6 +866,18 @@ export const GridView: React.FC<GridViewProps> = ({
         if (isDraggingRef.current || pendingFocusCommitTimeoutRef.current) return;
         focusedIndexRef.current = focusedIndex;
     }, [focusedIndex]);
+
+    // Drop optimistic active chrome once the real current track catches up.
+    useEffect(() => {
+        if (pendingActiveTrackId == null) return;
+        if (isSameTrackId(pendingActiveTrackId, currentTrackId)) {
+            setPendingActiveTrackId(null);
+        }
+    }, [currentTrackId, pendingActiveTrackId]);
+
+    useEffect(() => {
+        setPendingActiveTrackId(null);
+    }, [collection?.id]);
 
     useEffect(() => {
         setEditableTitle(title);
@@ -1658,6 +1680,7 @@ export const GridView: React.FC<GridViewProps> = ({
                         onSelect={() => {
                             if (mode === 'tracks' && onSelectTrack && item.rawTrack) {
                                 persistNavigationState(idx);
+                                setPendingActiveTrackId(item.rawTrack.id);
                                 onSelectTrack(item.rawTrack, displayTracks);
                             } else if (mode === 'collection' && onSelectCollection) {
                                 onSelectCollection(item.rawCollection || item);
@@ -1673,8 +1696,20 @@ export const GridView: React.FC<GridViewProps> = ({
                             }
                         }}
                         isFocused={idx === focusedIndex}
-                        isNowPlaying={mode === 'tracks' && currentTrackId != null && item.rawTrack?.id === currentTrackId}
-                        isPlaybackActive={isPlaying}
+                        isNowPlaying={
+                            mode === 'tracks'
+                            && (
+                                isSameTrackId(item.rawTrack?.id, currentTrackId)
+                                || isSameTrackId(item.rawTrack?.id, pendingActiveTrackId)
+                            )
+                        }
+                        isPlaybackActive={
+                            (
+                                Boolean(isPlaying)
+                                && isSameTrackId(item.rawTrack?.id, currentTrackId)
+                            )
+                            || isSameTrackId(item.rawTrack?.id, pendingActiveTrackId)
+                        }
                     />
                 </div>
             );
@@ -1701,6 +1736,7 @@ export const GridView: React.FC<GridViewProps> = ({
         persistNavigationState,
         focusedIndex,
         currentTrackId,
+        pendingActiveTrackId,
         isPlaying,
     ]);
 

@@ -508,8 +508,8 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
     }, [refreshNavidromePlaylists, selectedCollection]);
 
     const handleSelectTrack = useCallback((track: SongResult, queue: SongResult[]) => {
-        // Single-track play enters listening mode; GridView stays in store for soft return.
-        const playOptions = { shouldNavigateToPlayer: true };
+        // Keep GridView visible so the clicked card can show now-playing chrome immediately.
+        const playOptions = { shouldNavigateToPlayer: false };
         const unifiedTrack = track as UnifiedSong;
         if (unifiedTrack.isNavidrome) {
             const naviSong = resolveNavidromePlaybackCarrier(unifiedTrack);
