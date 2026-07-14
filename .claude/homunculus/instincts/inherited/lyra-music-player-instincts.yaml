@@ -1,0 +1,592 @@
+# Instincts generated from https://github.com/yuezheng2006/lyra-music-player
+# Generated: 2026-07-14T16:44:08.623Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: lyra-music-player-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat
+
+## Evidence
+
+- 3 commits analyzed
+- Detected conventional commit pattern
+- Examples: feat: land MVP mood engine, ambient strategies, character, and perf monitor, feat: add Kugou and Bilibili peer providers with UP search and video stage
+
+---
+id: lyra-music-player-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Commit Length
+
+## Action
+
+Write moderate-length commit messages (~72 characters)
+
+## Evidence
+
+- Average commit message length: 72 chars
+- Based on 3 commits
+
+---
+id: lyra-music-player-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: lyra-music-player-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: lyra-music-player-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: lyra-music-player-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: assets, components, hooks, i18n, services
+
+---
+id: lyra-music-player-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: lyra-music-player-test-framework
+trigger: "when writing tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Test Framework
+
+## Action
+
+Use jest as the test framework
+
+## Evidence
+
+- Test framework detected: jest
+- File pattern: *.test.ts
+
+---
+id: lyra-music-player-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.ts
+
+## Evidence
+
+- File pattern: *.test.ts
+- Consistent across test files
+
+---
+id: lyra-music-player-workflow-add-new-feature-with-ui-state-and-tests
+trigger: "when doing add new feature with ui state and tests"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Workflow Add New Feature With Ui State And Tests
+
+## Action
+
+Follow the add-new-feature-with-ui-state-and-tests workflow:
+1. Create or update UI components in src/components/
+2. Add or update supporting hooks in src/hooks/
+3. Add or update state stores in src/stores/
+4. Add or update types in src/types/ or src/types.ts
+5. Update or add service logic in src/services/ or scripts/
+6. Add or update assets if needed in src/assets/
+7. Update localization files in src/i18n/locales/
+8. Write or update unit tests in test/unit/ and/or test/ui/
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: src/components/*, src/hooks/*, src/stores/*
+
+---
+id: lyra-music-player-workflow-add-or-integrate-music-provider
+trigger: "when doing add or integrate music provider"
+confidence: 0.55
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Workflow Add Or Integrate Music Provider
+
+## Action
+
+Follow the add-or-integrate-music-provider workflow:
+1. Create or update provider adapter scripts in scripts/music-provider-adapters/
+2. Update provider registry and client in src/services/musicProviders/
+3. Add provider icons/assets in src/assets/providers/
+4. Update UI components to show provider badges and filters in src/components/
+5. Update hooks and stores for provider data in src/hooks/ and src/stores/
+6. Update localization files in src/i18n/locales/
+7. Add or update utility functions for provider logic in src/utils/
+8. Write or update unit tests for provider integration in test/unit/
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~1x per month
+- Files: scripts/music-provider-adapters/*, src/services/musicProviders/*, src/assets/providers/*
+
+---
+id: lyra-music-player-workflow-add-or-update-feature-with-documentation-and-tests
+trigger: "when doing add or update feature with documentation and tests"
+confidence: 0.55
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Workflow Add Or Update Feature With Documentation And Tests
+
+## Action
+
+Follow the add-or-update-feature-with-documentation-and-tests workflow:
+1. Create or update ADRs in docs/adr/
+2. Update or add technical documentation in docs/ or docs/technical.md
+3. Add or update README files in relevant component/service directories
+4. Implement or update feature in src/components/, src/services/, etc.
+5. Write or update unit and UI tests in test/unit/ and test/ui/
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~1x per month
+- Files: docs/adr/*, docs/technical.md, src/components/*/README.md
+
+---
+id: lyra-music-player-instinct-file-naming
+trigger: "When creating or renaming a file in the codebase"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct File Naming
+
+## Action
+
+Use camelCase for file names
+
+## Evidence
+
+- Pattern in namingConventions.files
+- Consistent file names in src/components/, src/hooks/, etc.
+
+---
+id: lyra-music-player-instinct-function-naming
+trigger: "When defining a function"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Function Naming
+
+## Action
+
+Use camelCase for function names
+
+## Evidence
+
+- Pattern in namingConventions.functions
+- TypeScript code in src/ uses camelCase for functions
+
+---
+id: lyra-music-player-instinct-class-naming
+trigger: "When defining a class"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Class Naming
+
+## Action
+
+Use PascalCase for class names
+
+## Evidence
+
+- Pattern in namingConventions.classes
+- TypeScript code in src/ uses PascalCase for classes
+
+---
+id: lyra-music-player-instinct-constant-naming
+trigger: "When defining a constant"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Constant Naming
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constant names
+
+## Evidence
+
+- Pattern in namingConventions.constants
+- TypeScript code in src/ uses SCREAMING_SNAKE_CASE for constants
+
+---
+id: lyra-music-player-instinct-import-style
+trigger: "When importing modules"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Import Style
+
+## Action
+
+Use relative imports
+
+## Evidence
+
+- Pattern in importStyle: relative
+- Imports in src/components/, src/hooks/ use relative paths
+
+---
+id: lyra-music-player-instinct-export-style
+trigger: "When exporting modules or functions"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in exportStyle: named
+- Exports in src/components/, src/hooks/ use named exports
+
+---
+id: lyra-music-player-instinct-test-location
+trigger: "When adding or updating tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Test Location
+
+## Action
+
+Place test files in the separate test/ directory, not alongside source files
+
+## Evidence
+
+- testLocation: separate
+- Test files found in test/unit/ and test/ui/
+
+---
+id: lyra-music-player-instinct-test-pattern
+trigger: "When naming a test file"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Test Pattern
+
+## Action
+
+Use the pattern *.test.ts for test files
+
+## Evidence
+
+- testing.filePattern: *.test.ts
+- Files in test/unit/ and test/ui/ follow this pattern
+
+---
+id: lyra-music-player-instinct-test-framework
+trigger: "When writing tests"
+confidence: 0.95
+domain: testing
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Test Framework
+
+## Action
+
+Use Jest as the testing framework
+
+## Evidence
+
+- testing.framework: jest
+- Presence of jest config and test files
+
+---
+id: lyra-music-player-instinct-unit-tests
+trigger: "When adding a new feature or updating code"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Unit Tests
+
+## Action
+
+Write or update unit tests in test/unit/
+
+## Evidence
+
+- Workflow steps for all workflows include writing/updating unit tests
+- test/unit/ directory present
+
+---
+id: lyra-music-player-instinct-git-commit-format
+trigger: "When making a git commit"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Git Commit Format
+
+## Action
+
+Use the conventional commit format with a 'feat' prefix for features
+
+## Evidence
+
+- commits.type: conventional
+- commits.prefixes: ["feat"]
+- Examples: 'feat: land MVP mood engine...'
+
+---
+id: lyra-music-player-instinct-git-commit-length
+trigger: "When writing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Git Commit Length
+
+## Action
+
+Keep the commit message around 72 characters on average
+
+## Evidence
+
+- commits.averageLength: 72
+- Observed in commit examples
+
+---
+id: lyra-music-player-instinct-add-new-feature-workflow
+trigger: "When adding a new user-facing feature involving UI, state, and logic"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Add New Feature Workflow
+
+## Action
+
+Follow the workflow: update/create UI components, hooks, stores, types, services, assets, localization, and unit tests as per the documented sequence
+
+## Evidence
+
+- Workflow: add-new-feature-with-ui-state-and-tests
+- Commit sequences and files involved in workflow definition
+
+---
+id: lyra-music-player-instinct-add-music-provider-workflow
+trigger: "When integrating a new online music provider"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Add Music Provider Workflow
+
+## Action
+
+Follow the workflow: add/update adapter scripts, update provider registry/client, add provider assets, update UI, hooks, stores, localization, utils, and unit tests
+
+## Evidence
+
+- Workflow: add-or-integrate-music-provider
+- Commit sequences and files involved in workflow definition
+
+---
+id: lyra-music-player-instinct-doc-feature-workflow
+trigger: "When introducing a significant feature or architectural change that requires documentation"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Doc Feature Workflow
+
+## Action
+
+Follow the workflow: create/update ADRs, technical docs, component/service READMEs, implement/update feature, and write/update unit/UI tests
+
+## Evidence
+
+- Workflow: add-or-update-feature-with-documentation-and-tests
+- Commit sequences and files involved in workflow definition
+
+---
+id: lyra-music-player-instinct-error-boundaries
+trigger: "When handling errors in UI components"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: yuezheng2006/lyra-music-player
+---
+
+# Lyra Music Player Instinct Error Boundaries
+
+## Action
+
+Use error boundaries for error handling
+
+## Evidence
+
+- errorHandling.style: error-boundaries
+- errorHandling.errorBoundaries: true
+
