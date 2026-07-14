@@ -67,6 +67,7 @@ type UsePlaybackQueueControllerParams = {
     setLyrics: (nextLyrics: any) => void;
     setCachedCoverUrl: SetState<string | null>;
     setAudioSrc: SetState<string | null>;
+    setVideoSrc: SetState<string | null>;
     setPlayQueue: SetState<SongResult[]>;
     setPlayerState: SetState<PlayerState>;
     setCurrentLineIndex: SetState<number>;
@@ -172,6 +173,7 @@ export function usePlaybackQueueController({
     setLyrics,
     setCachedCoverUrl,
     setAudioSrc,
+    setVideoSrc,
     setPlayQueue,
     setPlayerState,
     setCurrentLineIndex,
@@ -698,6 +700,11 @@ export function usePlaybackQueueController({
         shouldAutoPlayRef.current = true;
         flushSync(() => {
             setAudioSrc(audioResult.audioSrc);
+            setVideoSrc(
+                song.musicProvider === 'bilibili' && audioResult.videoSrc
+                    ? audioResult.videoSrc
+                    : null,
+            );
         });
 
         const audioElement = audioRef.current;
@@ -808,6 +815,7 @@ export function usePlaybackQueueController({
         playbackRequestIdRef,
         restoreCachedThemeForSong,
         setAudioSrc,
+        setVideoSrc,
         setCachedCoverUrl,
         setCurrentLineIndex,
         setCurrentSong,

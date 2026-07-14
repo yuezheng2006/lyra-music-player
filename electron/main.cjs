@@ -1043,6 +1043,11 @@ function setupCorsBypassHandlers() {
         hostname.endsWith('.qq.com') ||
         hostname === 'kugou.com' ||
         hostname.endsWith('.kugou.com') ||
+        hostname === 'bilibili.com' ||
+        hostname.endsWith('.bilibili.com') ||
+        hostname === 'bilivideo.com' ||
+        hostname.endsWith('.bilivideo.com') ||
+        hostname.endsWith('.bilivideo.cn') ||
         hostname === 'amll-ttml-db.stevexmh.net';
     } catch (error) {
       isTargetDomain = false;
@@ -1056,6 +1061,32 @@ function setupCorsBypassHandlers() {
     }
 
     callback({ cancel: false, responseHeaders });
+  });
+}
+
+/** CDN streams for Kugou / Bilibili reject wrong Referer from the app origin. */
+function setupMediaRefererHandlers() {
+  const ses = session.defaultSession;
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    const requestHeaders = { ...details.requestHeaders };
+    try {
+      const hostname = new URL(details.url).hostname;
+      if (
+        hostname === 'bilibili.com'
+        || hostname.endsWith('.bilibili.com')
+        || hostname === 'bilivideo.com'
+        || hostname.endsWith('.bilivideo.com')
+        || hostname.endsWith('.bilivideo.cn')
+      ) {
+        requestHeaders.Referer = 'https://www.bilibili.com/';
+        requestHeaders.Origin = 'https://www.bilibili.com';
+      } else if (hostname === 'kugou.com' || hostname.endsWith('.kugou.com')) {
+        requestHeaders.Referer = 'https://www.kugou.com/';
+      }
+    } catch {
+      // Keep original headers when URL parsing fails.
+    }
+    callback({ cancel: false, requestHeaders });
   });
 }
 
@@ -3100,6 +3131,7 @@ app.whenReady().then(async () => {
 
   setupFileSystemAccessPermissionHandlers();
   setupCorsBypassHandlers();
+  setupMediaRefererHandlers();
 
   session.defaultSession.on('file-system-access-restricted', (event, details, callback) => {
     if (details.isDirectory) {

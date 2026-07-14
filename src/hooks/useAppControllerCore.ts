@@ -47,6 +47,7 @@ export function useAppControllerCore() {
 
     // Player Data
     const [audioSrc, setAudioSrc] = useState<string | null>(null);
+    const [videoSrc, setVideoSrc] = useState<string | null>(null);
     const [currentSong, setCurrentSong] = useState<SongResult | null>(null);
     const [lyrics, setLyricsState] = useState<LyricData | null>(null);
     const [lyricTimelineOffsetMs, setLyricTimelineOffsetMs] = useState(0);
@@ -206,6 +207,7 @@ export function useAppControllerCore() {
 
     // Refs
     const audioRef = useRef<HTMLAudioElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const animationFrameRef = useRef<number>(0);
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
@@ -584,6 +586,8 @@ export function useAppControllerCore() {
         audioQuality,
         audioRef,
         audioSrc,
+        videoRef,
+        videoSrc,
         backgroundOpacity,
         bass,
         applyCustomTheme,
@@ -724,6 +728,7 @@ export function useAppControllerCore() {
         setActiveGridViewCollection,
         setAudioQuality,
         setAudioSrc,
+        setVideoSrc,
         setCachedCoverUrl,
         setCurrentLineIndex,
         setCurrentSong,

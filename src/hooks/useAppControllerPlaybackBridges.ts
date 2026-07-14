@@ -90,6 +90,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         t,
         transparentPlayerBackground,
         updateCacheSize,
+        videoSrc,
     } = core;
 
     const { setupAudioAnalyzer, cacheSongAssets } = usePlaybackAudioBridge({
@@ -264,8 +265,14 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         () => resolveAtmosphereTrackHints(currentSong),
         [currentSong],
     );
+    // Dual decode (DASH video + audio) is already heavy; pause atmosphere RAF while video stage is up.
+    const bilibiliVideoActive = Boolean(
+        currentView === 'player'
+        && currentSong?.musicProvider === 'bilibili'
+        && videoSrc,
+    );
     const atmosphereEngine = useAtmosphereEngine({
-        enabled: enableSmartAtmosphere && !staticMode,
+        enabled: enableSmartAtmosphere && !staticMode && !bilibiliVideoActive,
         audioSrc,
         songKey: atmosphereSongKey,
         audioContextRef,

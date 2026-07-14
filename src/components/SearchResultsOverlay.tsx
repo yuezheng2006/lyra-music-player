@@ -18,6 +18,7 @@ import {
     getOnlineSearchShortcutGroups,
     isSearchShortcutProvider,
 } from '../utils/onlineSearchShortcuts';
+import { isOnlineMusicProviderId } from '../utils/onlinePeerProviders';
 import {
     APP_CONTENT_BOTTOM_PADDING_CLASS,
     APP_CONTENT_TOP_PADDING_CLASS,
@@ -134,17 +135,8 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
     })));
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-    const activeProviders = searchProviders.filter(
-        (id): id is OnlineLibraryProviderId => (
-            id === 'netease' || id === 'qq' || id === 'qishui' || id === 'coco'
-        ),
-    );
-    const sourceFallback = (
-        searchSourceTab === 'netease'
-        || searchSourceTab === 'qq'
-        || searchSourceTab === 'qishui'
-        || searchSourceTab === 'coco'
-    ) ? searchSourceTab : null;
+    const activeProviders = searchProviders.filter(isOnlineMusicProviderId);
+    const sourceFallback = isOnlineMusicProviderId(searchSourceTab) ? searchSourceTab : null;
     const isMultiSource = activeProviders.length > 1;
     const activeProvider = activeProviders[0] || sourceFallback || 'coco';
     const isPeerOnly = !isMultiSource && isSearchShortcutProvider(activeProvider);
@@ -158,6 +150,8 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         if (activeProvider === 'qq') return t('home.searchQQMusic');
         if (activeProvider === 'qishui') return t('home.searchQishuiMusic');
         if (activeProvider === 'coco') return t('home.searchCocoMusic');
+        if (activeProvider === 'kugou') return t('home.searchKugouMusic');
+        if (activeProvider === 'bilibili') return t('home.searchBilibiliMusic');
         return t('search.placeholder');
     }, [activeProvider, isMultiSource, t]);
 
@@ -165,6 +159,8 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         if (isMultiSource) return t('search.subtitleMulti');
         if (activeProvider === 'qishui') return t('search.subtitleQishui');
         if (activeProvider === 'coco') return t('search.subtitleCoco');
+        if (activeProvider === 'kugou') return t('search.subtitleKugou');
+        if (activeProvider === 'bilibili') return t('search.subtitleBilibili');
         return t('search.subtitle');
     }, [activeProvider, isMultiSource, t]);
 
@@ -172,7 +168,13 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         ? t('search.title')
         : (activeProvider === 'qishui'
             ? t('home.qishuiProvider')
-            : (activeProvider === 'coco' ? t('home.cocoProvider') : t('search.title')));
+            : (activeProvider === 'coco'
+                ? t('home.cocoProvider')
+                : (activeProvider === 'kugou'
+                    ? t('home.kugouProvider')
+                    : (activeProvider === 'bilibili'
+                        ? t('home.bilibiliProvider')
+                        : t('search.title')))));
 
     const shellBg = isDaylight ? 'bg-[#f4f7fb]/92' : 'bg-black/80';
     const panelBg = isDaylight
@@ -469,6 +471,16 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                     groups={shortcutGroups}
                                     isDaylight={isDaylight}
                                     disabled={isSearching}
+                                    hintKey={
+                                        activeProvider === 'bilibili'
+                                            ? 'search.bilibiliShortcutsHint'
+                                            : 'search.shortcutsHint'
+                                    }
+                                    hintFallback={
+                                        activeProvider === 'bilibili'
+                                            ? 'Tap an account to search that UP; or use up:name / a keyword'
+                                            : 'Placeholder suggestions — tap to search'
+                                    }
                                     onSelect={handleShortcutSelect}
                                 />
                             ) : (

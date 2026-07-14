@@ -9,23 +9,29 @@ type SearchShortcutChipsProps = {
     groups: readonly OnlineSearchShortcutGroup[];
     isDaylight: boolean;
     disabled?: boolean;
+    hintKey?: string;
+    hintFallback?: string;
     onSelect: (query: string) => void;
 };
 
 const GROUP_LABEL_KEY: Record<OnlineSearchShortcutGroup['id'], string> = {
     hot: 'search.hotSearches',
     common: 'search.commonSearches',
+    accounts: 'search.aiAccountSearches',
 };
 
 const GROUP_LABEL_FALLBACK: Record<OnlineSearchShortcutGroup['id'], string> = {
     hot: 'Popular searches',
     common: 'Common searches',
+    accounts: 'Popular AI accounts',
 };
 
 export const SearchShortcutChips: React.FC<SearchShortcutChipsProps> = ({
     groups,
     isDaylight,
     disabled = false,
+    hintKey = 'search.shortcutsHint',
+    hintFallback = 'Placeholder suggestions — tap to search',
     onSelect,
 }) => {
     const { t } = useTranslation();
@@ -61,7 +67,7 @@ export const SearchShortcutChips: React.FC<SearchShortcutChipsProps> = ({
                 </section>
             ))}
             <p className={`text-[11px] leading-relaxed ${mutedText}`}>
-                {t('search.shortcutsHint', 'Placeholder suggestions — tap to search')}
+                {t(hintKey, hintFallback)}
             </p>
         </div>
     );

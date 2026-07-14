@@ -3,7 +3,7 @@ import type { LyricData, OnlineMusicProviderId, SongResult } from '../../types';
 // src/services/musicProviders/types.ts
 
 export type ProviderAudioResult =
-    | { kind: 'ok'; audioUrl: string }
+    | { kind: 'ok'; audioUrl: string; videoUrl?: string }
     | { kind: 'unavailable' };
 
 export type MusicProviderSearchResult = {

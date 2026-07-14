@@ -45,6 +45,18 @@ const PROVIDER_META: Record<OnlineProviderVisualId, {
         glassDay: 'bg-[#D97706]/14 text-[#B45309] border border-[#D97706]/20',
         glassNight: 'bg-[#D97706]/22 text-[#FCD34D] border border-white/10',
     },
+    kugou: {
+        short: '酷狗',
+        solid: 'bg-[#1DB954] text-white shadow-[0_1px_6px_rgba(29,185,84,0.35)]',
+        glassDay: 'bg-[#1DB954]/14 text-[#0F7A3A] border border-[#1DB954]/20',
+        glassNight: 'bg-[#1DB954]/22 text-[#A7F3D0] border border-white/10',
+    },
+    bilibili: {
+        short: 'B站',
+        solid: 'bg-[#FB7299] text-white shadow-[0_1px_6px_rgba(251,114,153,0.35)]',
+        glassDay: 'bg-[#FB7299]/14 text-[#BE185D] border border-[#FB7299]/20',
+        glassNight: 'bg-[#FB7299]/22 text-[#FBCFE8] border border-white/10',
+    },
 };
 
 export const resolveOnlineProviderVisualId = (
@@ -53,6 +65,8 @@ export const resolveOnlineProviderVisualId = (
     if (provider === 'qq') return 'qq';
     if (provider === 'qishui') return 'qishui';
     if (provider === 'coco') return 'coco';
+    if (provider === 'kugou') return 'kugou';
+    if (provider === 'bilibili') return 'bilibili';
     return 'netease';
 };
 

@@ -20,6 +20,8 @@ import { resolveFloatingPlayerBarReserve } from '@/components/floatingPlayerDock
 import { VISUALIZER_SUBTITLE_PORTAL_ROOT_ID } from '@/components/visualizer/visualizerSubtitlePortal';
 import type { AppControllerResult } from '@/hooks/useAppController';
 import { AppAudioElement } from '@/components/app/root/AppAudioElement';
+import { BilibiliVideoSurface } from '@/components/bilibili/BilibiliVideoSurface';
+import { useBilibiliVideoSync } from '@/hooks/useBilibiliVideoSync';
 import { useAppSidebarCollapse } from '@/hooks/useAppSidebarCollapse';
 import { resolveSidebarLayout } from '@/hooks/resolveSidebarLayout';
 import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
@@ -94,6 +96,9 @@ export function AppRootView({ controller }: AppRootViewProps) {
         audioPower,
         audioRef,
         audioSrc,
+        videoRef,
+        videoSrc,
+        setVideoSrc,
         backgroundOpacity,
         cacheSongAssets,
         cadenzaTuning,
@@ -187,6 +192,25 @@ export function AppRootView({ controller }: AppRootViewProps) {
         visualizerTheme,
     } = controller;
     const shellTheme = useCoverShellTheme(getCoverUrl(), isDaylight);
+
+    const showBilibiliVideo = Boolean(
+        currentView === 'player'
+        && currentSong?.musicProvider === 'bilibili'
+        && videoSrc,
+    );
+
+    useEffect(() => {
+        if (currentSong?.musicProvider !== 'bilibili' && videoSrc) {
+            setVideoSrc(null);
+        }
+    }, [currentSong?.id, currentSong?.musicProvider, setVideoSrc, videoSrc]);
+
+    useBilibiliVideoSync({
+        enabled: showBilibiliVideo,
+        videoSrc,
+        audioRef,
+        videoRef,
+    });
 
     // Immersive fullscreen hides the rail temporarily; user collapse preference stays independent.
     const immersiveCanvas = currentView === 'player' && isPlayerChromeHidden;
@@ -342,6 +366,11 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 className="absolute inset-0 z-0"
                 onClick={handleContainerClick}
             >
+                <BilibiliVideoSurface
+                    videoRef={videoRef}
+                    videoSrc={videoSrc || ''}
+                    visible={showBilibiliVideo}
+                />
                 {!isObsBrowserSourceRendering && (
                     <VisualizerRenderer
                         mode={visualizerMode}
@@ -369,16 +398,22 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         useCoverColorBg={useCoverColorBg}
                         seed={visualizerGeometrySeed}
                         staticMode={staticMode}
-                        paused={shouldPauseVisualizerBackground}
-                        backgroundOpacity={backgroundOpacity}
+                        paused={shouldPauseVisualizerBackground || showBilibiliVideo}
+                        backgroundOpacity={showBilibiliVideo ? 0 : backgroundOpacity}
                         visualizerOpacity={visualizerOpacity}
-                        transparentBackground={currentView === 'player' && isPlayerPageTransparent && !isSettingsModalOpen}
-                        disableGeometricBackground={resolvePlayerGeometricBackgroundDisabled(
-                            resolvedVisualizerBackgroundMode,
-                            isSettingsSubviewOpen,
-                        )}
-                        enableAtmosphereLayer={enableSmartAtmosphere && !staticMode}
-                        enableBeatBursts={enableSmartAtmosphere && !staticMode}
+                        transparentBackground={
+                            (currentView === 'player' && isPlayerPageTransparent && !isSettingsModalOpen)
+                            || showBilibiliVideo
+                        }
+                        disableGeometricBackground={
+                            showBilibiliVideo
+                            || resolvePlayerGeometricBackgroundDisabled(
+                                resolvedVisualizerBackgroundMode,
+                                isSettingsSubviewOpen,
+                            )
+                        }
+                        enableAtmosphereLayer={enableSmartAtmosphere && !staticMode && !showBilibiliVideo}
+                        enableBeatBursts={enableSmartAtmosphere && !staticMode && !showBilibiliVideo}
                         disableVignette={disableVisualizerVignette}
                         visualizerBackgroundMode={visualizerBackgroundMode}
                         lyricsFontScale={lyricsFontScale}

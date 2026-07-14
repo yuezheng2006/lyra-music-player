@@ -9,6 +9,8 @@ import type {
 } from './types';
 import { isDiscordPresenceUiEnabled, isNavidromeUiEnabled } from '../../utils/featureFlags';
 import { usePerformanceMonitorStore } from '../../stores/usePerformanceMonitorStore';
+import { useAmbientVisualStore } from '../../stores/useAmbientVisualStore';
+import { useMoodEngineStore } from '../../stores/useMoodEngineStore';
 import type { PerformanceMode } from '../../types/performance';
 
 // src/components/command-palette/commandRegistry.ts
@@ -267,6 +269,8 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createSearchCommand('search-qq', 'Search QQ Music songs', 'Search QQ Music', ['qq', 'qq music', 'search qq', 'QQ音乐', '扣扣音乐', 'qqyinyue', 'qqyy'], () => 'qq'),
     createSearchCommand('search-qishui', 'Parse Qishui Music link', 'Paste a Qishui Music share link', ['qishui', 'qishui music', 'search qishui', '汽水', '汽水音乐', 'qishuiyinyue', 'qsyy'], () => 'qishui'),
     createSearchCommand('search-coco', 'Search Coco songs', 'Search free aggregated music sources', ['coco', 'coco downloader', 'search coco', '聚合', '免费搜索', 'juhe'], () => 'coco'),
+    createSearchCommand('search-kugou', 'Search Kugou songs', 'Search Kugou Music', ['kugou', '酷狗', '酷狗音乐', 'kugouyinyue', 'kgyy'], () => 'kugou'),
+    createSearchCommand('search-bilibili', 'Search Bilibili audio', 'Search Bilibili video audio', ['bilibili', 'bili', 'B站', '哔哩哔哩', 'b站', 'blbl'], () => 'bilibili'),
     createQueueSearchCommand(),
 
     createSettingsCommand('settings-help', 'Open Help', 'Open help and shortcuts', ['help', '帮助', 'bangzhu', 'bz'], 'help'),
@@ -364,6 +368,52 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createPerformanceModeCommand('high', 'Performance: High', 'Full visual quality', ['performance high', '高性能', 'gaoxingneng', 'gxn']),
     createPerformanceModeCommand('balanced', 'Performance: Balanced', 'Balanced visual quality', ['performance balanced', '均衡性能', 'junheng', 'jhxn']),
     createPerformanceModeCommand('lite', 'Performance: Lite', 'Minimal visual quality', ['performance lite', 'low performance', '低性能', '省电', 'dixingneng', 'dxn']),
+    {
+        id: 'toggle-ambient-visual',
+        group: 'visualizer',
+        title: 'Toggle ambient visual',
+        description: 'Show or hide mood-driven ambient visual strategies above cover particles',
+        keywords: [
+            'ambient visual',
+            'ambient',
+            'mood visual',
+            '主视觉',
+            '氛围视觉',
+            '情绪视觉',
+            'zhushijue',
+            'fenweishijue',
+            'zsj',
+            'fwsj',
+        ],
+        execute: () => {
+            const store = useAmbientVisualStore.getState();
+            store.setEnabled(!store.enabled);
+            return true;
+        },
+    },
+    {
+        id: 'open-emotion-selector',
+        group: 'playback',
+        title: 'Correct song emotion',
+        description: 'Open the mood correction picker for the current track',
+        keywords: [
+            'emotion',
+            'mood',
+            'correct emotion',
+            '情绪',
+            '心情',
+            '修正情绪',
+            'qingxu',
+            'xinqing',
+            'qx',
+            'xq',
+        ],
+        execute: () => {
+            if (!useMoodEngineStore.getState().currentEmotion) return false;
+            useMoodEngineStore.getState().openSelector();
+            return true;
+        },
+    },
     createSettingsCommand('settings-visualizer', 'Visualizer settings', 'Open lyrics animation workbench', ['visualizer settings', 'visualizer workbench', '可视化', '歌词动画', 'keshihua', 'gecidonghua', 'ksh', 'gcdh'], 'options', 'visualizer'),
     createSettingsCommand('settings-theme-park', 'Color', 'Open theme editor', ['color', 'theme park', 'theme', '配色', '主题', '主题公园', 'peise', 'zhuti', 'zhutigongyuan', 'ps', 'zt', 'ztgy'], 'options', 'themePark'),
     createSettingsCommand('settings-lyric-filter', 'Lyric filter', 'Open lyric filter settings', ['lyric filter', 'lyrics filter', '歌词过滤', '过滤', 'geciguolv', 'guolv', 'gcgl', 'gl'], 'options', 'lyricFilter'),

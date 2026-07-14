@@ -26,9 +26,11 @@ describe('onlineSearchRouting', () => {
         expect(resolveOnlineSearchProvider('晴天', 'qq')).toBe('qq');
     });
 
-    it('treats coco and qishui as always searchable and gated providers by login', () => {
+    it('treats peer-free channels as always searchable and gated providers by login', () => {
         expect(isProviderSearchable('coco', {})).toBe(true);
         expect(isProviderSearchable('qishui', {})).toBe(true);
+        expect(isProviderSearchable('kugou', {})).toBe(true);
+        expect(isProviderSearchable('bilibili', {})).toBe(true);
         expect(isProviderSearchable('netease', {})).toBe(false);
         expect(isProviderSearchable('qq', { qq: true })).toBe(true);
     });
@@ -39,10 +41,12 @@ describe('onlineSearchRouting', () => {
             qq: true,
             qishui: true,
             coco: true,
+            kugou: true,
+            bilibili: true,
         }, 'coco', {
             netease: true,
             qq: true,
-        })).toEqual(['netease', 'qq', 'qishui', 'coco']);
+        })).toEqual(['netease', 'qq', 'qishui', 'coco', 'kugou', 'bilibili']);
     });
 
     it('skips unchecked or unsigned-in netease/qq even when pills look selected', () => {
@@ -51,6 +55,8 @@ describe('onlineSearchRouting', () => {
             qq: true,
             qishui: false,
             coco: true,
+            kugou: false,
+            bilibili: false,
         }, {
             netease: false,
             qq: false,
@@ -61,10 +67,12 @@ describe('onlineSearchRouting', () => {
             qq: true,
             qishui: true,
             coco: true,
+            kugou: true,
+            bilibili: false,
         }, 'netease', {
             netease: false,
             qq: true,
-        })).toEqual(['qq', 'qishui', 'coco']);
+        })).toEqual(['qq', 'qishui', 'coco', 'kugou']);
     });
 
     it('falls back to coco when no signed-in source is available', () => {
@@ -73,6 +81,8 @@ describe('onlineSearchRouting', () => {
             qq: true,
             qishui: false,
             coco: false,
+            kugou: false,
+            bilibili: false,
         }, 'netease', {
             netease: false,
             qq: false,
@@ -85,6 +95,8 @@ describe('onlineSearchRouting', () => {
             qq: true,
             qishui: true,
             coco: true,
+            kugou: true,
+            bilibili: true,
         }, 'coco', {
             netease: true,
             qq: true,
@@ -96,7 +108,7 @@ describe('onlineSearchRouting', () => {
             query: '孤勇者',
             sourceTab: 'coco',
             activeProviders: ['coco'],
-            enabledProviders: { coco: true, qishui: true, netease: true, qq: true },
+            enabledProviders: { coco: true, qishui: true, netease: true, qq: true, kugou: true, bilibili: true },
             sessions: { netease: true, qq: true },
         })).toEqual(['coco']);
 
@@ -104,18 +116,26 @@ describe('onlineSearchRouting', () => {
             query: '周杰伦',
             sourceTab: 'qishui',
             activeProviders: ['qishui'],
-            enabledProviders: { coco: true, qishui: true, netease: true, qq: true },
+            enabledProviders: { coco: true, qishui: true, netease: true, qq: true, kugou: true, bilibili: true },
             sessions: { netease: true, qq: true },
         })).toEqual(['qishui']);
+
+        expect(resolveOverlaySearchProviders({
+            query: '小苹果',
+            sourceTab: 'kugou',
+            activeProviders: ['kugou'],
+            enabledProviders: { coco: true, qishui: true, netease: true, qq: true, kugou: true, bilibili: true },
+            sessions: { netease: true, qq: true },
+        })).toEqual(['kugou']);
     });
 
     it('keeps home aggregate sessions with coco and qishui together', () => {
         expect(resolveOverlaySearchProviders({
             query: '你好',
             sourceTab: 'coco',
-            activeProviders: ['qq', 'qishui', 'coco'],
-            enabledProviders: { coco: true, qishui: true, netease: false, qq: true },
+            activeProviders: ['qq', 'qishui', 'coco', 'kugou'],
+            enabledProviders: { coco: true, qishui: true, netease: false, qq: true, kugou: true, bilibili: false },
             sessions: { netease: false, qq: true },
-        })).toEqual(['qq', 'qishui', 'coco']);
+        })).toEqual(['qq', 'qishui', 'coco', 'kugou']);
     });
 });

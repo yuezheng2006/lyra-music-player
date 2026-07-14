@@ -111,7 +111,7 @@ export type LyricWordMode = 'default' | 'karaoke';
 export type VisualizerFrameRate = 'off' | 120 | 90 | 60;
 
 export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'ytmusic' | 'radio' | 'daily' | 'podcast' | 'history';
-export type OnlineMusicProviderId = 'netease' | 'qq' | 'qishui' | 'coco';
+export type OnlineMusicProviderId = 'netease' | 'qq' | 'qishui' | 'coco' | 'kugou' | 'bilibili';
 export type SearchSourceId = HomeViewTab | OnlineMusicProviderId;
 
 export type PlaybackContext = 'main' | 'stage';

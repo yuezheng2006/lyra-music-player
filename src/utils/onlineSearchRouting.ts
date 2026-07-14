@@ -1,6 +1,7 @@
 import type { OnlineMusicProviderId, SearchSourceId } from '../types';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
 import { ONLINE_LIBRARY_PROVIDER_IDS } from '../stores/useOnlineLibraryFilterStore';
+import { isOnlineMusicProviderId, isPeerFreeProviderId } from './onlinePeerProviders';
 
 // src/utils/onlineSearchRouting.ts
 // Resolves which online provider(s) should handle a search query.
@@ -15,18 +16,18 @@ export type OnlineSearchSessionAccess = {
 export const isQishuiShareUrl = (value?: string | null) =>
     typeof value === 'string' && QISHUI_SHARE_URL_RE.test(value.trim());
 
-/** Coco / Qishui are always searchable; Netease/QQ require an active login session. */
+/** Peer-free channels are always searchable; Netease/QQ require an active login session. */
 export const isProviderSearchable = (
     id: OnlineLibraryProviderId,
     sessions: OnlineSearchSessionAccess,
 ): boolean => {
-    if (id === 'coco' || id === 'qishui') return true;
+    if (isPeerFreeProviderId(id)) return true;
     if (id === 'netease') return Boolean(sessions.netease);
     if (id === 'qq') return Boolean(sessions.qq);
     return false;
 };
 
-/** Enabled library pills ∩ login-ready providers (Coco always counts as ready). */
+/** Enabled library pills ∩ login-ready providers (peer-free always counts as ready). */
 export const resolveSearchableLibraryProviders = (
     enabledProviders: Partial<Record<OnlineLibraryProviderId, boolean>>,
     sessions: OnlineSearchSessionAccess,
@@ -41,7 +42,7 @@ export const resolveOnlineSearchProvider = (
     if (isQishuiShareUrl(query)) {
         return 'qishui';
     }
-    if (preferred === 'qq' || preferred === 'coco' || preferred === 'qishui' || preferred === 'netease') {
+    if (isOnlineMusicProviderId(preferred)) {
         return preferred;
     }
     return 'netease';
@@ -71,24 +72,16 @@ export const resolveEnabledSearchProviders = (
     if (fallback === 'qishui') {
         return ['qishui'];
     }
-    if (
-        (fallback === 'netease' || fallback === 'qq' || fallback === 'coco')
-        && isProviderSearchable(fallback, sessions)
-    ) {
+    if (isProviderSearchable(fallback, sessions)) {
         return [fallback];
     }
     return ['coco'];
 };
 
-const isPeerFreeProvider = (
-    id?: string | null,
-): id is Extract<OnlineMusicProviderId, 'coco' | 'qishui'> =>
-    id === 'coco' || id === 'qishui';
-
 /**
  * Overlay search provider resolution.
  * - Dedicated peer channel (exactly one free peer active): stay isolated.
- * - Home aggregate (multiple actives): keep the full set, including coco + qishui together.
+ * - Home aggregate (multiple actives): keep the full set.
  * - Empty active + peer sourceTab: independent entry fallback.
  */
 export const resolveOverlaySearchProviders = (input: {
@@ -102,24 +95,20 @@ export const resolveOverlaySearchProviders = (input: {
         return ['qishui'];
     }
 
-    const active = (input.activeProviders || []).filter(
-        (id): id is OnlineMusicProviderId => (
-            id === 'netease' || id === 'qq' || id === 'qishui' || id === 'coco'
-        ),
-    );
+    const active = (input.activeProviders || []).filter(isOnlineMusicProviderId);
 
     // Dedicated peer channel: exactly one free peer active.
-    if (active.length === 1 && isPeerFreeProvider(active[0])) {
+    if (active.length === 1 && isPeerFreeProviderId(active[0])) {
         return [active[0]];
     }
 
-    // Home multi-source session — preserve coco + qishui together when both are active.
+    // Home multi-source session — preserve peer channels together when both are active.
     if (active.length > 1) {
         return active;
     }
 
     // Independent peer entry before the first submit stamped searchProviders.
-    if (active.length === 0 && isPeerFreeProvider(input.sourceTab)) {
+    if (active.length === 0 && isPeerFreeProviderId(input.sourceTab)) {
         return [input.sourceTab];
     }
 

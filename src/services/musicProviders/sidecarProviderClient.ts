@@ -242,7 +242,10 @@ export const requestSidecarAudioUrl = async (
             rememberNegativeAudio(lookupKey);
             return { kind: 'unavailable' };
         }
-        return { kind: 'ok', audioUrl };
+        const videoUrl = typeof data?.videoUrl === 'string' && data.videoUrl.trim()
+            ? data.videoUrl.trim()
+            : undefined;
+        return videoUrl ? { kind: 'ok', audioUrl, videoUrl } : { kind: 'ok', audioUrl };
     })();
 
     audioInflight.set(lookupKey, request);

@@ -25,6 +25,8 @@ export function isAllowedLyricProxyHost(hostname: string): boolean {
     host.endsWith('.googleusercontent.com') ||
     host === 'ggpht.com' ||
     host.endsWith('.ggpht.com') ||
+    host === 'hdslb.com' ||
+    host.endsWith('.hdslb.com') ||
     host === 'amll-ttml-db.stevexmh.net'
   );
 }
@@ -68,6 +70,9 @@ export function resolveCoverProxyReferer(url: string): string {
       || host.endsWith('.ggpht.com')
     ) {
       return 'https://music.youtube.com/';
+    }
+    if (host === 'hdslb.com' || host.endsWith('.hdslb.com')) {
+      return 'https://www.bilibili.com/';
     }
   } catch {
     // ignore invalid urls

@@ -27,7 +27,8 @@ import OnlineProviderFilterBar from './shared/OnlineProviderFilterBar';
 import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterStore';
 import { hasNeteaseSession, hasQQMusicSession } from '../utils/onlineLibraryAccess';
 import { resolveSearchableLibraryProviders } from '../utils/onlineSearchRouting';
-import { isProviderDefaultPlaylist, QISHUI_DEFAULT_PLAYLIST_ID } from '../utils/onlineDefaultPlaylists';
+import { resolvePeerDefaultDescription, resolvePeerDefaultDisplayName, resolveProviderDefaultChannel } from '../utils/onlineDefaultPlaylists';
+import { isPeerFreeProviderId } from '../utils/onlinePeerProviders';
 import { SearchClearButton } from './shared/SearchClearButton';
 import { resolveOnlineSearchProvider } from '../utils/onlineSearchRouting';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
@@ -98,7 +99,13 @@ interface Grid3DProps {
 }
 
 const resolvePlaylistProvider = (playlist: NeteasePlaylist): OnlineMusicProviderId => {
-    if (playlist.musicProvider === 'qq' || playlist.musicProvider === 'qishui' || playlist.musicProvider === 'coco') {
+    if (
+        playlist.musicProvider === 'qq'
+        || playlist.musicProvider === 'qishui'
+        || playlist.musicProvider === 'coco'
+        || playlist.musicProvider === 'kugou'
+        || playlist.musicProvider === 'bilibili'
+    ) {
         return playlist.musicProvider;
     }
     return 'netease';
@@ -156,23 +163,15 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         if (only === 'qq') return t('home.searchQQMusic');
         if (only === 'qishui') return t('home.searchQishuiMusic');
         if (only === 'coco') return t('home.searchCocoMusic');
+        if (only === 'kugou') return t('home.searchKugouMusic');
+        if (only === 'bilibili') return t('home.searchBilibiliMusic');
         return t('home.searchDatabase');
     }, [searchProvider, searchableProviders, t]);
-
-    const resolveDefaultPlaylistDescription = (provider?: string) => {
-        if (provider === 'qishui') return t('home.qishuiDefaultDescription');
-        return t('home.cocoDefaultDescription');
-    };
-
-    const resolveDefaultPlaylistName = (provider?: string) => {
-        if (provider === 'qishui') return t('home.qishuiProvider');
-        return t('home.cocoProvider');
-    };
 
     const playlistCards = useMemo(() => playlists.map(p => ({
         id: p.id,
         name: p.specialType === 'provider-default'
-            ? resolveDefaultPlaylistName(p.musicProvider)
+            ? resolvePeerDefaultDisplayName(p.musicProvider, t)
             : p.name,
         coverUrl: p.coverImgUrl || (p as any).coverUrl,
         trackCount: p.trackCount,
@@ -180,14 +179,14 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         description: p.specialType === 'cloud'
             ? t('home.cloud')
             : p.specialType === 'provider-default'
-                ? resolveDefaultPlaylistDescription(p.musicProvider)
+                ? resolvePeerDefaultDescription(p.musicProvider, t)
                 : (p.creator?.nickname || t('home.playlists')),
         raw: p,
     })), [playlists, t]);
 
     const openSearchChannel = (provider: OnlineLibraryProviderId) => {
         setSearchProvider(provider);
-        if (provider === 'coco' || provider === 'qishui') {
+        if (isPeerFreeProviderId(provider)) {
             openPeerSearchChannel({
                 sourceTab: provider,
                 returnView: 'home',
@@ -204,12 +203,9 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
 
     const handleSelectCollectionCard = (card: { raw: NeteasePlaylist }) => {
         const playlist = card.raw;
-        if (isProviderDefaultPlaylist(playlist)) {
-            const provider = playlist.musicProvider === 'qishui'
-                || (playlist.musicProvider !== 'coco' && playlist.id === QISHUI_DEFAULT_PLAYLIST_ID)
-                ? 'qishui'
-                : 'coco';
-            openSearchChannel(provider);
+        const peerChannel = resolveProviderDefaultChannel(playlist);
+        if (peerChannel) {
+            openSearchChannel(peerChannel);
             return;
         }
         onOpenGridView?.(createOnlinePlaylistGridViewCollection(playlist));
