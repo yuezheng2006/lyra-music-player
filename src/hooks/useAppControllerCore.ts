@@ -118,8 +118,14 @@ export function useAppControllerCore() {
 
     useEffect(() => {
         const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+        // Re-read storage in case an earlier skip wrote before this store instance hydrated.
+        const storedCompleted = typeof window !== 'undefined'
+            && (
+                localStorage.getItem('lyra_onboarding_completed') === 'true'
+                || Boolean(localStorage.getItem('folia_last_seen_guide_version'))
+            );
         const overlay = resolveStartupOverlay({
-            onboardingCompleted,
+            onboardingCompleted: onboardingCompleted || storedCompleted,
             lastSeenGuideVersion,
             appVersion,
         });

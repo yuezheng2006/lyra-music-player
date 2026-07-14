@@ -42,9 +42,15 @@ import {
 } from './quantumCubeShaders';
 import { normalizeInteractive3dVisualPreset } from '../mineradioVisualPresets';
 import { fetchCoverViaProxy } from '../../../../utils/fetchCoverViaProxy';
+import {
+    type CoverParticleCaptureSnapshot,
+    shouldEnableCoverParticleCaptureBridge,
+} from './coverParticleCaptureMath';
 
 // src/components/visualizer/geometric/webgl/coverParticleRuntime.ts
 // Three.js runtime for cover particle WebGL layers.
+
+export type { CoverParticleCaptureSnapshot };
 
 export interface CoverParticleRuntimeInputs {
     audioBands?: AudioBands;
@@ -232,6 +238,12 @@ export class CoverParticleRuntime {
     private inputProvider: (() => CoverParticleRuntimeInputs) | null = null;
 
     private clock = new THREE.Clock();
+
+    /** When set, renderFrame uses this elapsed instead of the wall clock (capture only). */
+    private forcedElapsed: number | null = null;
+
+    /** When set, renderFrame uses this dt instead of clock.getDelta() (capture only). */
+    private forcedDt: number | null = null;
 
     private lyricStage = new LyricStageRuntime();
 
@@ -430,14 +442,19 @@ export class CoverParticleRuntime {
 
     mount(container: HTMLElement) {
         this.container = container;
+        const captureBridge = shouldEnableCoverParticleCaptureBridge();
         this.renderer = new THREE.WebGLRenderer({
             alpha: true,
             antialias: false,
             powerPreference: 'high-performance',
+            preserveDrawingBuffer: captureBridge,
         });
         this.renderer.setPixelRatio(1);
         this.renderer.setClearColor(0x000000, 0);
         container.appendChild(this.renderer.domElement);
+        if (captureBridge) {
+            this.attachCaptureBridge(container);
+        }
         const canvas = this.renderer.domElement;
         canvas.style.position = 'absolute';
         canvas.style.inset = '0';
@@ -486,6 +503,7 @@ export class CoverParticleRuntime {
         this.inputProvider = null;
         this.removeInteractionListeners?.();
         this.removeInteractionListeners = null;
+        this.detachCaptureBridge();
         this.coverPoints?.geometry.dispose();
         this.coverMaterial.dispose();
         this.bloomMaterial.dispose();
@@ -502,6 +520,53 @@ export class CoverParticleRuntime {
         this.renderer?.dispose();
         this.renderer?.domElement.remove();
         this.container = null;
+    }
+
+    /**
+     * Capture/test seam: render one frame at a fixed elapsed time.
+     * Daily playback never calls this; Playwright / export hooks do.
+     */
+    renderAt(options: {
+        elapsed: number;
+        inputs?: Partial<CoverParticleRuntimeInputs>;
+    }): CoverParticleCaptureSnapshot {
+        if (options.inputs) {
+            this.latestInputs = { ...this.latestInputs, ...options.inputs };
+        }
+        this.forcedElapsed = options.elapsed;
+        this.forcedDt = 1 / 30;
+        this.renderFrame();
+        this.forcedElapsed = null;
+        this.forcedDt = null;
+        return {
+            elapsed: options.elapsed,
+            uTime: this.uniforms.uTime.value as number,
+            hasRenderer: Boolean(this.renderer),
+            canvasWidth: this.renderer?.domElement.width ?? 0,
+            canvasHeight: this.renderer?.domElement.height ?? 0,
+        };
+    }
+
+    /** Attach test-only capture bridge on the stage element. */
+    private attachCaptureBridge(container: HTMLElement) {
+        container.setAttribute('data-capture-bridge', '1');
+        const host = container as HTMLElement & {
+            __coverParticleCapture?: {
+                renderAt: CoverParticleRuntime['renderAt'];
+            };
+        };
+        host.__coverParticleCapture = {
+            renderAt: (options) => this.renderAt(options),
+        };
+    }
+
+    private detachCaptureBridge() {
+        if (!this.container) return;
+        this.container.removeAttribute('data-capture-bridge');
+        const host = this.container as HTMLElement & {
+            __coverParticleCapture?: unknown;
+        };
+        delete host.__coverParticleCapture;
     }
 
     private isEventInsideContainer(event: MouseEvent | PointerEvent | WheelEvent) {
@@ -1112,8 +1177,8 @@ export class CoverParticleRuntime {
         const directedAtmosphereEnergy = smartAtmosphereEnabled
             ? (atmosphereEnergy ?? 0) * atmosphereSensitivity
             : 0;
-        const elapsed = this.clock.getElapsedTime();
-        const dt = Math.min(this.clock.getDelta(), 0.05);
+        const elapsed = this.forcedElapsed ?? this.clock.getElapsedTime();
+        const dt = this.forcedDt ?? Math.min(this.clock.getDelta(), 0.05);
 
         if (this.lyricInputProvider) {
             this.latestLyricInputs = this.lyricInputProvider();

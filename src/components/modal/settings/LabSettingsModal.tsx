@@ -4,7 +4,9 @@ import { Check, ChevronLeft, ChevronRight, Cpu, GamepadDirectional, Monitor, Pla
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import type { Theme, VisualizerFrameRate } from '../../../types';
+import type { PerformanceMode } from '../../../types/performance';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
 import { VISUALIZER_FRAME_RATE_OPTIONS } from '../../../utils/frameRateLimiter';
 import {
     settingsDescClass,
@@ -34,6 +36,8 @@ const panelMotion = {
 
 const getFrameRateLabel = (frameRate: VisualizerFrameRate) => `${frameRate} FPS`;
 
+const PERFORMANCE_MODE_OPTIONS: PerformanceMode[] = ['auto', 'high', 'balanced', 'lite'];
+
 const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
     isOpen,
     onClose,
@@ -41,6 +45,9 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
     theme,
 }) => {
     const { t } = useTranslation();
+    const performanceMode = usePerformanceMonitorStore((s) => s.mode);
+    const effectiveTier = usePerformanceMonitorStore((s) => s.effectiveTier);
+    const setPerformanceMode = usePerformanceMonitorStore((s) => s.setMode);
     const {
         disableHomeDynamicBackground,
         hidePlayerRightPanelButton,
@@ -183,6 +190,7 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                     onToggleOpenPlayerOnLaunch(false);
                                     onTogglePlayerPageNativeBlur(false);
                                     onVisualizerFrameRateChange('off');
+                                    setPerformanceMode('auto');
                                 }}
                                 className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors ${utilityGhostButtonClass}`}
                                 style={{ color: 'var(--text-primary)' }}
@@ -224,6 +232,38 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                         </div>
                                     </div>
                                     {renderToggle(disableHomeDynamicBackground, () => onToggleDisableHomeDynamicBackground(!disableHomeDynamicBackground))}
+                                </div>
+
+                                <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
+                                    <div className="space-y-1">
+                                        <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                            <Cpu size={14} />
+                                            {t('options.performanceMode') || 'Performance mode'}
+                                        </div>
+                                        <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
+                                            {t('options.performanceModeDesc') || 'Auto adapts visual quality when FPS drops. Manual tiers override the ladder.'}
+                                        </div>
+                                        <div className={`${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
+                                            {(t('options.performanceModeActive') || 'Active tier') + `: ${effectiveTier}`}
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {PERFORMANCE_MODE_OPTIONS.map((mode) => (
+                                            <button
+                                                key={mode}
+                                                type="button"
+                                                onClick={() => setPerformanceMode(mode)}
+                                                className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                                                    performanceMode === mode
+                                                        ? 'border-white/40 bg-white/20'
+                                                        : utilityGhostButtonClass
+                                                }`}
+                                                style={{ color: 'var(--text-primary)' }}
+                                            >
+                                                {t(`options.performanceMode${mode[0].toUpperCase()}${mode.slice(1)}`) || mode}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>

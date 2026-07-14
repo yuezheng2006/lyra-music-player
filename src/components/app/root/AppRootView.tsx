@@ -28,6 +28,8 @@ import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
 import type { AppSidebarActive } from '@/components/app/chrome/AppSidebar';
 import { useCoverShellTheme } from '@/hooks/useCoverShellTheme';
 import { useBootSplashLifecycle } from '@/hooks/useBootSplashLifecycle';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
+import { PerformanceHud } from '@/components/performance/PerformanceHud';
 
 interface AppRootViewProps {
     controller: AppControllerResult;
@@ -45,6 +47,8 @@ export function AppRootView({ controller }: AppRootViewProps) {
     const completeOnboarding = useSettingsUiStore(state => state.completeOnboarding);
     const markWhatsNewSeen = useSettingsUiStore(state => state.markWhatsNewSeen);
     const [bootShellReady, setBootShellReady] = useState(false);
+
+    usePerformanceMonitor();
 
     // Mark shell ready after first commit + paint so splash doesn't uncover black.
     useEffect(() => {
@@ -541,6 +545,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                     setIsWhatsNewOpen(false);
                 }}
             />
+            <PerformanceHud />
         </AppShell>
     );
 }

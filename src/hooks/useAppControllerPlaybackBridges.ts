@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { getAtmosphereSongKey, useAtmosphereEngine } from '@/hooks/useAtmosphereEngine';
+import { useMoodEngineSongSync } from '@/hooks/atmosphere/useMoodEngineSongSync';
 import { useElectronPlaybackBridge } from '@/hooks/useElectronPlaybackBridge';
 import { useElectronVideoExportController } from '@/hooks/useElectronVideoExportController';
 import { useMediaSessionBridge } from '@/hooks/useMediaSessionBridge';
@@ -272,6 +273,8 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         contentType: atmosphereTrackHints.contentType,
         precomputedBeatMap: atmosphereTrackHints.precomputedBeatMap,
     });
+
+    useMoodEngineSongSync(typeof currentSong?.id === 'number' ? currentSong.id : null);
 
     usePlaybackVisualizerBridge({
         audioRef,

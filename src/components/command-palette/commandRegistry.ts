@@ -8,6 +8,8 @@ import type {
     CommandPaletteSearchSource,
 } from './types';
 import { isDiscordPresenceUiEnabled, isNavidromeUiEnabled } from '../../utils/featureFlags';
+import { usePerformanceMonitorStore } from '../../stores/usePerformanceMonitorStore';
+import type { PerformanceMode } from '../../types/performance';
 
 // src/components/command-palette/commandRegistry.ts
 // Defines command palette entries and the lightweight matching used for autocomplete.
@@ -223,6 +225,23 @@ const createPanelCommand = (
     },
 });
 
+const createPerformanceModeCommand = (
+    mode: PerformanceMode,
+    title: string,
+    description: string,
+    keywords: string[],
+): CommandPaletteCommand => ({
+    id: `performance-mode-${mode}`,
+    group: 'settings',
+    title,
+    description,
+    keywords,
+    execute: () => {
+        usePerformanceMonitorStore.getState().setMode(mode);
+        return true;
+    },
+});
+
 const createVisualizerCommand = (
     mode: VisualizerMode,
     title: string,
@@ -341,6 +360,10 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         },
     },
     createSettingsCommand('settings-lab', 'Lab settings', 'Open experimental settings', ['lab', 'experimental', '实验', '实验室', 'shiyan', 'shiyanshi', 'sy', 'sys'], 'options', 'lab'),
+    createPerformanceModeCommand('auto', 'Performance: Auto', 'Auto-adapt visual quality from FPS', ['performance', 'auto quality', '性能', '自动性能', 'xingneng', 'zdnx', 'xn']),
+    createPerformanceModeCommand('high', 'Performance: High', 'Full visual quality', ['performance high', '高性能', 'gaoxingneng', 'gxn']),
+    createPerformanceModeCommand('balanced', 'Performance: Balanced', 'Balanced visual quality', ['performance balanced', '均衡性能', 'junheng', 'jhxn']),
+    createPerformanceModeCommand('lite', 'Performance: Lite', 'Minimal visual quality', ['performance lite', 'low performance', '低性能', '省电', 'dixingneng', 'dxn']),
     createSettingsCommand('settings-visualizer', 'Visualizer settings', 'Open lyrics animation workbench', ['visualizer settings', 'visualizer workbench', '可视化', '歌词动画', 'keshihua', 'gecidonghua', 'ksh', 'gcdh'], 'options', 'visualizer'),
     createSettingsCommand('settings-theme-park', 'Color', 'Open theme editor', ['color', 'theme park', 'theme', '配色', '主题', '主题公园', 'peise', 'zhuti', 'zhutigongyuan', 'ps', 'zt', 'ztgy'], 'options', 'themePark'),
     createSettingsCommand('settings-lyric-filter', 'Lyric filter', 'Open lyric filter settings', ['lyric filter', 'lyrics filter', '歌词过滤', '过滤', 'geciguolv', 'guolv', 'gcgl', 'gl'], 'options', 'lyricFilter'),

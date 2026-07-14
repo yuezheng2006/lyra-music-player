@@ -9,7 +9,21 @@
 3. 按 skill 中的触发条件和执行规则完成工作。
 4. 如果多个 skill 同时相关，可以组合使用，但只加载当前任务真正需要的内容。
 
-当前项目内 skills：
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Using default triage labels (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo with CONTEXT.md at root and docs/adr/ for ADRs. See `docs/agents/domain.md`.
+
+## 当前项目内 skills：
 
 - `testing-strategy`
   路径：`skills/testing-strategy/SKILL.md`

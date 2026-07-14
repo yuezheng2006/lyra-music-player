@@ -884,6 +884,13 @@ export default {
     "visualizerFrameRate": "Experimental Animation FPS Limit",
     "visualizerFrameRateDesc": "Experimental setting. When enabled, it limits requestAnimationFrame-driven animation and may cause unexpected issues in animation, measurement, or third-party motion code.",
     "visualizerFrameRateValue": "Limit",
+    "performanceMode": "Performance mode",
+    "performanceModeDesc": "Auto lowers particle and character detail when FPS drops. Manual tiers lock quality.",
+    "performanceModeActive": "Active tier",
+    "performanceModeAuto": "Auto",
+    "performanceModeHigh": "High",
+    "performanceModeBalanced": "Balanced",
+    "performanceModeLite": "Lite",
     "themePresets": "Theme Presets",
     "themePresetsDefault": "Default",
     "openThemePark": "Open Theme Park",
@@ -1233,9 +1240,7 @@ export default {
     "back": "Back",
     "skip": "Skip",
     "done": "Done",
-    "reopen": "Getting started",
-    "nowPlaying": "Now playing",
-    "showcaseHint": "Hover · click a cover · feel the stage"
+    "reopen": "Getting started"
   },
   "whatsNew": {
     "open": "What's new",

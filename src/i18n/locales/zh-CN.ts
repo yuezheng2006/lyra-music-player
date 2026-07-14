@@ -887,6 +887,13 @@ export default {
     "visualizerFrameRate": "实验性动画帧率限制",
     "visualizerFrameRateDesc": "限制 requestAnimationFrame 驱动的动画帧率，可能导致意外问题，请谨慎使用。",
     "visualizerFrameRateValue": "限制档位",
+    "performanceMode": "性能模式",
+    "performanceModeDesc": "帧率下降时自动降低粒子与角色细节；手动档位会锁定画质。",
+    "performanceModeActive": "当前档位",
+    "performanceModeAuto": "自动",
+    "performanceModeHigh": "高",
+    "performanceModeBalanced": "均衡",
+    "performanceModeLite": "低",
     "themePresets": "配色主题预设",
     "themePresetsDefault": "墨染 / 素白",
     "openThemePark": "打开 Theme Park",
@@ -1236,9 +1243,7 @@ export default {
     "back": "返回",
     "skip": "跳过",
     "done": "完成",
-    "reopen": "入门引导",
-    "nowPlaying": "正在演绎",
-    "showcaseHint": "移动指针 · 点击封面 · 感受舞台"
+    "reopen": "入门引导"
   },
   "whatsNew": {
     "open": "版本亮点",
