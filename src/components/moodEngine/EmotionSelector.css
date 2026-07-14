@@ -95,6 +95,13 @@
 }
 
 /* Emotion Button Styles */
+.emotion-selector-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(0, 0, 0, 0.35);
+}
+
 .emotion-button {
   display: inline-flex;
   align-items: center;
@@ -107,6 +114,15 @@
   cursor: pointer;
   transition: all 0.2s;
   font-size: 14px;
+}
+
+.emotion-button--compact {
+  height: 32px;
+  width: 32px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 9999px;
+  gap: 0;
 }
 
 .emotion-button:hover {

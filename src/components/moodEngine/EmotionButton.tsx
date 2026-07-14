@@ -5,6 +5,7 @@
 import React from 'react';
 import { useMoodEngineStore } from '../../stores/useMoodEngineStore';
 import { getEmotionDisplayName } from '../../types/moodEngine';
+import './EmotionSelector.css';
 
 interface EmotionButtonProps {
   /** 是否精简模式（仅图标） */
@@ -21,11 +22,18 @@ export const EmotionButton: React.FC<EmotionButtonProps> = ({
   compact = false,
   className = '',
 }) => {
-  const { currentEmotion, loading, openSelector } = useMoodEngineStore();
+  const currentEmotion = useMoodEngineStore((s) => s.currentEmotion);
+  const loading = useMoodEngineStore((s) => s.loading);
+  const openSelector = useMoodEngineStore((s) => s.openSelector);
 
   if (loading) {
     return (
-      <button className={`emotion-button loading ${className}`} disabled>
+      <button
+        type="button"
+        className={`emotion-button loading ${className}`}
+        disabled
+        aria-label="分析情绪中"
+      >
         <span className="emotion-icon">⏳</span>
         {!compact && <span className="emotion-text">分析中...</span>}
       </button>
@@ -40,9 +48,11 @@ export const EmotionButton: React.FC<EmotionButtonProps> = ({
 
   return (
     <button
-      className={`emotion-button ${className}`}
+      type="button"
+      className={`emotion-button ${compact ? 'emotion-button--compact' : ''} ${className}`}
       onClick={openSelector}
       title={`当前情绪: ${emotionName} (点击修改)`}
+      aria-label={`当前情绪 ${emotionName}，点击修改`}
     >
       <span className="emotion-icon">{getEmotionIcon(currentEmotion.emotion)}</span>
       {!compact && (

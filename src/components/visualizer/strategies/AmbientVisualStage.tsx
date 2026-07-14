@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { CSSProperties, MutableRefObject } from 'react';
+import type { MotionValue } from 'framer-motion';
 import type { BeatMap } from '../../../types/atmosphere';
 import { VisualStrategyManager } from './VisualStrategyManager';
 import { useAmbientVisualController } from '../../../hooks/atmosphere/useAmbientVisualController';
 import { useAmbientVisualStore } from '../../../stores/useAmbientVisualStore';
+import { useAtmosphereBeatMapStore } from '../../../stores/useAtmosphereBeatMapStore';
 import { useMoodEngineStore } from '../../../stores/useMoodEngineStore';
 
 // src/components/visualizer/strategies/AmbientVisualStage.tsx
@@ -15,6 +17,8 @@ type AmbientVisualStageProps = {
   beatMapRef?: MutableRefObject<BeatMap | null>;
   /** Audio element for currentTime; optional — rhythm idle without it. */
   audioRef?: MutableRefObject<HTMLAudioElement | null>;
+  /** Preferred playback clock (GeometricLayer MotionValue). */
+  currentTime?: MotionValue<number> | null;
   className?: string;
   style?: CSSProperties;
 };
@@ -24,14 +28,24 @@ type AmbientVisualStageProps = {
  * Does not replace geometric cover-particle runtime; sits alongside as Ambient Layer.
  */
 export function AmbientVisualStage({
-  beatMapRef,
+  beatMapRef: beatMapRefProp,
   audioRef,
+  currentTime = null,
   className,
   style,
 }: AmbientVisualStageProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const managerRef = useRef<VisualStrategyManager | null>(null);
+  const localBeatMapRef = useRef<BeatMap | null>(null);
   const enabled = useAmbientVisualStore((s) => s.enabled);
+  const storeBeatMap = useAtmosphereBeatMapStore((s) => s.beatMap);
+
+  // Keep RAF off the React store; sync beat map into a stable ref.
+  useEffect(() => {
+    localBeatMapRef.current = storeBeatMap;
+  }, [storeBeatMap]);
+
+  const beatMapRef = beatMapRefProp ?? localBeatMapRef;
 
   const { tickAmbientRhythm, resetRhythmCursor } = useAmbientVisualController({
     managerRef,
@@ -43,6 +57,8 @@ export function AmbientVisualStage({
   tickRef.current = tickAmbientRhythm;
   const audioHolder = useRef(audioRef);
   audioHolder.current = audioRef;
+  const currentTimeHolder = useRef(currentTime);
+  currentTimeHolder.current = currentTime;
 
   useEffect(() => {
     if (!enabled) return;
@@ -95,8 +111,11 @@ export function AmbientVisualStage({
       const dt = Math.min(0.08, Math.max(0.001, (ts - lastTs) / 1000));
       lastTs = ts;
 
-      const currentTime = audioHolder.current?.current?.currentTime ?? 0;
-      tickRef.current(currentTime, dt);
+      const mv = currentTimeHolder.current;
+      const timeSec = mv
+        ? mv.get()
+        : (audioHolder.current?.current?.currentTime ?? 0);
+      tickRef.current(timeSec, dt);
 
       renderer.render(scene, camera);
       raf = requestAnimationFrame(frame);

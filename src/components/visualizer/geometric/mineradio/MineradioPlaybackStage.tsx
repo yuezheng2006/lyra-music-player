@@ -83,7 +83,7 @@ const MineradioPlaybackStage: React.FC<MineradioPlaybackStageProps> = ({
     return (
         <div
             ref={containerRef}
-            className="absolute inset-0 overflow-hidden z-0 isolate"
+            className="absolute inset-0 overflow-hidden z-[1] isolate"
             style={{
                 pointerEvents: 'auto',
                 touchAction: 'none',

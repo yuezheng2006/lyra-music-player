@@ -9,6 +9,7 @@ import {
     resolveInteractive3dStageContainmentStyle,
     shouldContainInteractive3dStageForMode,
 } from './resolveInteractive3dStageContainment';
+import AmbientVisualOverlay from './AmbientVisualOverlay';
 import CharacterStageOverlay from './CharacterStageOverlay';
 import StaticGeometricScene from './StaticGeometricScene';
 import type { GeometricBackgroundProps } from './types';
@@ -18,7 +19,7 @@ import VignetteOverlay from './VignetteOverlay';
 import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
 
 // src/components/visualizer/geometric/GeometricLayer.tsx
-// Mineradio unified WebGL playback background (cover particles + stage lyrics + character).
+// Mineradio unified WebGL playback background (ambient + cover particles + stage lyrics + character).
 
 const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
     theme,
@@ -176,6 +177,11 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                         playing={playing}
                         paused={paused}
                         cameraControlState={cameraControlState}
+                    />
+                    {/* Above cover particles, below character — otherwise Emily/dense particles hide ambient. */}
+                    <AmbientVisualOverlay
+                        staticMode={staticMode}
+                        currentTime={currentTime}
                     />
                     <CharacterStageOverlay
                         // Player stage with lyrics/immersive — not on home shell (boot-safe).

@@ -9,6 +9,7 @@ import {
   getEmotionDisplayName,
   type EmotionTag,
 } from '../../types/moodEngine';
+import './EmotionSelector.css';
 
 interface EmotionSelectorProps {
   songId: number;
@@ -39,35 +40,45 @@ export const EmotionSelector: React.FC<EmotionSelectorProps> = ({
   };
 
   return (
-    <div className="emotion-selector">
-      <div className="emotion-selector-header">
-        <h3>选择歌曲情绪</h3>
-        <button
-          className="emotion-selector-close"
-          onClick={handleClose}
-          aria-label="关闭"
-        >
-          ×
-        </button>
-      </div>
+    <>
+      <button
+        type="button"
+        className="emotion-selector-backdrop"
+        aria-label="关闭情绪选择"
+        onClick={handleClose}
+      />
+      <div className="emotion-selector" role="dialog" aria-modal="true" aria-label="选择歌曲情绪">
+        <div className="emotion-selector-header">
+          <h3>选择歌曲情绪</h3>
+          <button
+            type="button"
+            className="emotion-selector-close"
+            onClick={handleClose}
+            aria-label="关闭"
+          >
+            ×
+          </button>
+        </div>
 
-      <div className="emotion-selector-grid">
-        {emotionTags.map((emotion) => {
-          const isSelected = emotion === currentEmotion;
-          return (
-            <button
-              key={emotion}
-              className={`emotion-tag ${isSelected ? 'selected' : ''}`}
-              onClick={() => handleSelect(emotion)}
-              data-emotion={emotion}
-            >
-              <span className="emotion-icon">{getEmotionIcon(emotion)}</span>
-              <span className="emotion-name">{getEmotionDisplayName(emotion)}</span>
-            </button>
-          );
-        })}
+        <div className="emotion-selector-grid">
+          {emotionTags.map((emotion) => {
+            const isSelected = emotion === currentEmotion;
+            return (
+              <button
+                type="button"
+                key={emotion}
+                className={`emotion-tag ${isSelected ? 'selected' : ''}`}
+                onClick={() => handleSelect(emotion)}
+                data-emotion={emotion}
+              >
+                <span className="emotion-icon">{getEmotionIcon(emotion)}</span>
+                <span className="emotion-name">{getEmotionDisplayName(emotion)}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

@@ -13,6 +13,7 @@ import {
 } from '../../../types';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
+import { useAmbientVisualStore } from '../../../stores/useAmbientVisualStore';
 import { parsePerformanceMode } from '../../../utils/performance/performanceMonitorMath';
 import { sanitizeUrlBackgroundItem } from '../../../utils/urlBackground';
 import {
@@ -284,6 +285,7 @@ export const compressConfig = (config: any): string => {
     if (config.enableSmartAtmosphere !== undefined) minified.esa = config.enableSmartAtmosphere;
     if (config.enable3dInteractiveBackground !== undefined) minified.e3ib = config.enable3dInteractiveBackground;
     if (config.performanceMode) minified.pm = config.performanceMode;
+    if (config.ambientVisualEnabled !== undefined) minified.ave = config.ambientVisualEnabled;
 
     const jsonStr = JSON.stringify(minified);
     const bytes = new TextEncoder().encode(jsonStr);
@@ -312,7 +314,7 @@ export const decompressConfig = (str: string): any => {
         throw new Error('Invalid format');
     }
 
-    const isMinified = parsed.t !== undefined || parsed.vm !== undefined || parsed.lwm !== undefined || parsed.ct !== undefined || parsed.cat !== undefined || parsed.hpts !== undefined || parsed.sst !== undefined || parsed.esa !== undefined || parsed.e3ib !== undefined || parsed.pm !== undefined;
+    const isMinified = parsed.t !== undefined || parsed.vm !== undefined || parsed.lwm !== undefined || parsed.ct !== undefined || parsed.cat !== undefined || parsed.hpts !== undefined || parsed.sst !== undefined || parsed.esa !== undefined || parsed.e3ib !== undefined || parsed.pm !== undefined || parsed.ave !== undefined;
     if (isMinified) {
         const decompressed: any = {};
         if (parsed.t) {
@@ -352,6 +354,7 @@ export const decompressConfig = (str: string): any => {
         if (parsed.esa !== undefined) decompressed.enableSmartAtmosphere = parsed.esa;
         if (parsed.e3ib !== undefined) decompressed.enable3dInteractiveBackground = parsed.e3ib;
         if (parsed.pm) decompressed.performanceMode = parsed.pm;
+        if (parsed.ave !== undefined) decompressed.ambientVisualEnabled = parsed.ave;
 
         return decompressed;
     } else {
@@ -363,7 +366,7 @@ export const decompressConfig = (str: string): any => {
             'tiltTuning', 'monetBackgroundTuning', 'interactive3dSceneTuning', 'monetTuning',
             'urlBackgroundList', 'urlBackgroundSelectedId',
             'songThemeAutoSwitchEnabled', 'songThemeAutoGenerateEnabled',
-            'enableSmartAtmosphere', 'enable3dInteractiveBackground', 'performanceMode',
+            'enableSmartAtmosphere', 'enable3dInteractiveBackground', 'performanceMode', 'ambientVisualEnabled',
         ];
         const hasValidKey = validKeys.some(k => parsed[k] !== undefined);
         if (!hasValidKey) {
@@ -552,6 +555,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             enableSmartAtmosphere: store.enableSmartAtmosphere,
             enable3dInteractiveBackground: store.enable3dInteractiveBackground,
             performanceMode: usePerformanceMonitorStore.getState().mode,
+            ambientVisualEnabled: useAmbientVisualStore.getState().enabled,
         };
     };
 
@@ -709,6 +713,9 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             }
             if (config.performanceMode !== undefined) {
                 usePerformanceMonitorStore.getState().setMode(parsePerformanceMode(String(config.performanceMode)));
+            }
+            if (config.ambientVisualEnabled !== undefined) {
+                useAmbientVisualStore.getState().setEnabled(Boolean(config.ambientVisualEnabled));
             }
 
             store.statusSetter?.({ type: 'success', text: t('options.importSuccess') || '配置导入成功！' });
