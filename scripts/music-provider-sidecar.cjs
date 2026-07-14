@@ -51,7 +51,8 @@ const getAdapterModulePath = (provider) => {
     return path.join(__dirname, 'music-provider-adapters', 'coco-provider-adapter.mjs');
   }
   if (provider === 'qishui') {
-    return path.resolve(process.cwd(), 'scripts/music-provider-adapters/qishui-provider-adapter.mjs');
+    // Same as qq/coco: resolve next to this script so packaged apps do not depend on cwd.
+    return path.join(__dirname, 'music-provider-adapters', 'qishui-provider-adapter.mjs');
   }
   const generic = process.env.MUSIC_PROVIDER_ADAPTER;
   return generic && generic.trim() ? generic.trim() : null;
