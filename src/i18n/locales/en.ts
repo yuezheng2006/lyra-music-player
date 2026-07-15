@@ -905,6 +905,8 @@ export default {
     "performanceModeLite": "Lite",
     "ambientVisualEnabled": "Ambient visual",
     "ambientVisualEnabledDesc": "Mood-driven particle / wave / geometry layer above cover particles (below the character). Auto-off on lite performance tier.",
+    "characterEnabled": "Interactive character",
+    "characterEnabledDesc": "Show the fox companion on the player stage when lyrics are visible. Preference is saved locally.",
     "themePresets": "Theme Presets",
     "themePresetsDefault": "Default",
     "openThemePark": "Open Theme Park",

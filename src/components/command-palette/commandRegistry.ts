@@ -10,6 +10,7 @@ import type {
 import { isDiscordPresenceUiEnabled, isNavidromeUiEnabled } from '../../utils/featureFlags';
 import { usePerformanceMonitorStore } from '../../stores/usePerformanceMonitorStore';
 import { useAmbientVisualStore } from '../../stores/useAmbientVisualStore';
+import { useCharacterStore } from '../../stores/useCharacterStore';
 import { useMoodEngineStore } from '../../stores/useMoodEngineStore';
 import type { PerformanceMode } from '../../types/performance';
 
@@ -387,6 +388,29 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         ],
         execute: () => {
             const store = useAmbientVisualStore.getState();
+            store.setEnabled(!store.enabled);
+            return true;
+        },
+    },
+    {
+        id: 'toggle-interactive-character',
+        group: 'visualizer',
+        title: 'Toggle interactive character',
+        description: 'Show or hide the fox companion on the player stage',
+        keywords: [
+            'character',
+            'fox',
+            'interactive character',
+            '角色',
+            '互动角色',
+            '狐狸',
+            'juese',
+            'hudongjuese',
+            'js',
+            'hdjs',
+        ],
+        execute: () => {
+            const store = useCharacterStore.getState();
             store.setEnabled(!store.enabled);
             return true;
         },

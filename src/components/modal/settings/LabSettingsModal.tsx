@@ -8,6 +8,7 @@ import type { PerformanceMode } from '../../../types/performance';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
 import { useAmbientVisualStore } from '../../../stores/useAmbientVisualStore';
+import { useCharacterStore } from '../../../stores/useCharacterStore';
 import { VISUALIZER_FRAME_RATE_OPTIONS } from '../../../utils/frameRateLimiter';
 import {
     settingsDescClass,
@@ -51,6 +52,8 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
     const setPerformanceMode = usePerformanceMonitorStore((s) => s.setMode);
     const ambientVisualEnabled = useAmbientVisualStore((s) => s.enabled);
     const setAmbientVisualEnabled = useAmbientVisualStore((s) => s.setEnabled);
+    const characterEnabled = useCharacterStore((s) => s.enabled);
+    const setCharacterEnabled = useCharacterStore((s) => s.setEnabled);
     const {
         disableHomeDynamicBackground,
         hidePlayerRightPanelButton,
@@ -281,6 +284,21 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                             </div>
                                         </div>
                                         {renderToggle(ambientVisualEnabled, () => setAmbientVisualEnabled(!ambientVisualEnabled))}
+                                    </div>
+                                </div>
+
+                                <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="space-y-1">
+                                            <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                                <GamepadDirectional size={14} />
+                                                {t('options.characterEnabled') || 'Interactive character'}
+                                            </div>
+                                            <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
+                                                {t('options.characterEnabledDesc') || 'Show the fox companion on the player stage when lyrics are visible. Preference is saved locally.'}
+                                            </div>
+                                        </div>
+                                        {renderToggle(characterEnabled, () => setCharacterEnabled(!characterEnabled))}
                                     </div>
                                 </div>
 

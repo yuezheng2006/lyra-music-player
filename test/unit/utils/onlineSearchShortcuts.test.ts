@@ -34,12 +34,12 @@ describe('onlineSearchShortcuts', () => {
         const groups = getOnlineSearchShortcutGroups('bilibili');
         expect(groups.map(group => group.id)).toEqual(['accounts', 'hot']);
         expect(groups[0].queries).toEqual([
-            '天花板上吊着猫',
-            '溪谷之风',
-            '阿德托昆博带件衣服',
-            '黑蓝墨水就爱搞事儿',
-            '漫游会议室',
-            '狼叔-回声电台',
+            'up:天花板上吊着猫',
+            'up:溪谷之风',
+            'up:阿德托昆博带件衣服',
+            'up:黑蓝墨水就爱搞事儿',
+            'up:漫游会议室',
+            'up:狼叔-回声电台',
         ]);
         expect(groups[1].queries).toContain('AI歌曲');
     });

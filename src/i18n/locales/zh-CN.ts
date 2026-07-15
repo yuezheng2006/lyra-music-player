@@ -908,6 +908,8 @@ export default {
     "performanceModeLite": "低",
     "ambientVisualEnabled": "主视觉氛围",
     "ambientVisualEnabledDesc": "情绪驱动的粒子 / 波浪 / 几何层，叠在封面粒子之上、角色之下；性能档位为「低」时自动关闭。",
+    "characterEnabled": "互动角色",
+    "characterEnabledDesc": "播放页有歌词时显示狐狸同伴；开关会本地保存。",
     "themePresets": "配色主题预设",
     "themePresetsDefault": "墨染 / 素白",
     "openThemePark": "打开 Theme Park",

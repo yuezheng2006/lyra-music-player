@@ -97,7 +97,7 @@ describe('useSearchNavigationStore', () => {
             homeViewTab: 'playlist',
             homeSearchQuery: '',
             searchQuery: '',
-            peerSearchQueries: { coco: '', qishui: '' },
+            peerSearchQueries: { coco: '', qishui: '', kugou: '', bilibili: '' },
             searchSourceTab: 'playlist',
             searchProviders: [],
             searchResults: null,
@@ -510,7 +510,7 @@ describe('useSearchNavigationStore', () => {
         useSearchNavigationStore.setState({
             homeSearchQuery: '',
             searchQuery: '大头针',
-            peerSearchQueries: { coco: '', qishui: '大头针' },
+            peerSearchQueries: { coco: '', qishui: '大头针', kugou: '', bilibili: '' },
             searchSourceTab: 'qishui',
             searchProviders: ['qishui'],
             isSearchOpen: false,
@@ -532,7 +532,7 @@ describe('useSearchNavigationStore', () => {
         useSearchNavigationStore.setState({
             homeSearchQuery: '你好',
             searchQuery: '',
-            peerSearchQueries: { coco: '', qishui: '' },
+            peerSearchQueries: { coco: '', qishui: '', kugou: '', bilibili: '' },
             isSearchOpen: false,
         });
 

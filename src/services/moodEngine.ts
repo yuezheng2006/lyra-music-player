@@ -105,16 +105,35 @@ export class MoodEngineService {
     songId: number,
     moodProfile?: MoodProfile,
   ): Promise<SongEmotion | null> {
-    // 1. 检查缓存
+    const refreshLocal = async (existing: SongEmotion): Promise<SongEmotion> => {
+      if (!moodProfile || existing.source !== 'local') {
+        return existing;
+      }
+      const nextTag = this.inferEmotionFromLocal(moodProfile);
+      if (nextTag === existing.emotion) {
+        return existing;
+      }
+      const updated: SongEmotion = {
+        ...existing,
+        emotion: nextTag,
+        updatedAt: Date.now(),
+      };
+      await this.saveEmotionToDB(updated);
+      this.emotionCache.set(songId, updated);
+      return updated;
+    };
+
+    // 1. 检查缓存（用户/API 修正不可被本地分析覆盖；local 可在 beatMap 到位后刷新）
     if (this.emotionCache.has(songId)) {
-      return this.emotionCache.get(songId)!;
+      const cached = this.emotionCache.get(songId)!;
+      return refreshLocal(cached);
     }
 
     // 2. 检查数据库
     const stored = await this.getEmotionFromDB(songId);
     if (stored) {
       this.emotionCache.set(songId, stored);
-      return stored;
+      return refreshLocal(stored);
     }
 
     // 3. 尝试从 API 获取
@@ -133,7 +152,7 @@ export class MoodEngineService {
       return emotion;
     }
 
-    // 4. 如果有 MoodProfile，使用本地分析
+    // 4. 如果有 MoodProfile，使用本地分析（含无 beatMap 冷启动默认画像）
     if (moodProfile) {
       const localEmotion = this.inferEmotionFromLocal(moodProfile);
       const emotion: SongEmotion = {

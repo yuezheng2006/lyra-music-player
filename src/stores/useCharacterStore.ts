@@ -9,6 +9,15 @@ import {
   type CharacterPlaybackState,
 } from '../types/character';
 
+export const CHARACTER_ENABLED_STORAGE_KEY = 'lyra_character_enabled';
+
+const readStoredEnabled = (): boolean => {
+  if (typeof window === 'undefined') return true;
+  const raw = localStorage.getItem(CHARACTER_ENABLED_STORAGE_KEY);
+  if (raw === null) return true;
+  return raw === '1' || raw === 'true';
+};
+
 interface CharacterState {
   enabled: boolean;
   modelUrl: string;
@@ -36,7 +45,7 @@ interface CharacterState {
 
 export const useCharacterStore = create<CharacterState>((set) => ({
   /** On by default once GeometricLayer mounts CharacterStageOverlay. */
-  enabled: true,
+  enabled: readStoredEnabled(),
   modelUrl: DEFAULT_CHARACTER_MODEL_URL,
   status: 'idle',
   error: null,
@@ -46,7 +55,12 @@ export const useCharacterStore = create<CharacterState>((set) => ({
   playback: 'stopped',
   bpm: null,
 
-  setEnabled: (enabled) => set({ enabled }),
+  setEnabled: (enabled) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(CHARACTER_ENABLED_STORAGE_KEY, enabled ? '1' : '0');
+    }
+    set({ enabled });
+  },
   setModelUrl: (url) => set({ modelUrl: url }),
   setStatus: (status, error = null) => set({ status, error }),
   setClips: (clipNames) => set({ clipNames }),

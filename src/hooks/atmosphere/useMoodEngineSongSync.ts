@@ -42,9 +42,11 @@ export function useMoodEngineSongSync(songId: number | null | undefined): void {
     lastSongRef.current = songId;
     lastBeatMapRef.current = beatMap;
 
-    const moodProfile = beatMap
-      ? buildMoodProfile(createCinemaTrackProfile(), EMPTY_SAMPLE, beatMap)
-      : undefined;
+    const moodProfile = buildMoodProfile(
+      createCinemaTrackProfile(),
+      EMPTY_SAMPLE,
+      beatMap,
+    );
 
     void updateCurrentEmotion(songId, moodProfile);
   }, [beatMap, clearCurrent, songId, updateCurrentEmotion]);
