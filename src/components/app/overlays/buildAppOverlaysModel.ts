@@ -52,6 +52,9 @@ type BuildAppOverlaysModelParams = {
     handleSearchResultPlay: (track: UnifiedSong) => void;
     handleSearchResultArtistSelect: (track: UnifiedSong, artistName: string, artistId?: number) => void;
     handleSearchResultAlbumSelect: (track: UnifiedSong, albumName: string, albumId?: number) => void;
+    onDownloadSong?: (song: SongResult) => void | Promise<boolean>;
+    canDownloadSong?: (song: SongResult | null | undefined) => boolean;
+    downloadSongLabel?: string;
     popOverlay: () => void;
     playSong: (
         song: SongResult,
@@ -164,6 +167,9 @@ export const buildAppOverlaysModel = ({
     handleSearchResultPlay,
     handleSearchResultArtistSelect,
     handleSearchResultAlbumSelect,
+    onDownloadSong,
+    canDownloadSong,
+    downloadSongLabel = 'Download',
     popOverlay,
     playSong,
     playOnlineQueueFromStart,
@@ -263,6 +269,9 @@ export const buildAppOverlaysModel = ({
             onAddSongToQueue: addNeteaseSongToQueue,
             onSelectArtist: handleSearchResultArtistSelect,
             onSelectAlbum: handleSearchResultAlbumSelect,
+            onDownloadSong,
+            canDownloadSong,
+            downloadSongLabel,
         }
         : null,
     detailOverlay: isOverlayVisible && topOverlay
@@ -427,6 +436,10 @@ export const buildAppOverlaysModel = ({
             lyricColorSectionLabel,
             getBackgroundPresetLabel,
             getVisualizerModeLabel,
+            onDownloadSong: onDownloadSong && canDownloadSong?.(currentSong)
+                ? () => { void onDownloadSong(currentSong); }
+                : undefined,
+            downloadSongLabel,
         }
         : null,
 });

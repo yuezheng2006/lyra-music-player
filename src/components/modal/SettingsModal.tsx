@@ -290,6 +290,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     const [cacheDirectory, setCacheDirectory] = useState<string>('');
     const [cacheDirectoryIsDefault, setCacheDirectoryIsDefault] = useState(true);
     const [cacheDirectoryStatus, setCacheDirectoryStatus] = useState<'idle' | 'choosing'>('idle');
+    const [downloadDirectory, setDownloadDirectory] = useState<string>('');
+    const [downloadDirectoryIsDefault, setDownloadDirectoryIsDefault] = useState(true);
+    const [downloadDirectoryStatus, setDownloadDirectoryStatus] = useState<'idle' | 'choosing' | 'opening' | 'resetting'>('idle');
     const [stageActionStatus, setStageActionStatus] = useState<'idle' | 'regenerating'>('idle');
     const configuredAiProvider = isElectron ? electronSettings.AI_PROVIDER : import.meta.env.VITE_AI_PROVIDER;
     const aiServiceLabel = configuredAiProvider === 'openai' ? 'OpenAI Compatible' : 'Google Gemini';
@@ -313,6 +316,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 if (result?.path) {
                     setCacheDirectory(result.path);
                     setCacheDirectoryIsDefault(result.isDefault);
+                }
+            });
+            (window as any).electron.getDownloadDirectory?.().then((result: ElectronDownloadDirectoryResult) => {
+                if (result?.path) {
+                    setDownloadDirectory(result.path);
+                    setDownloadDirectoryIsDefault(result.isDefault);
                 }
             });
             (window as any).electron.getUpdateStatus?.().then((status: ElectronUpdateStatus) => {
@@ -636,6 +645,56 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             }
         } finally {
             setCacheDirectoryStatus('idle');
+        }
+    };
+
+    const handleChooseDownloadDirectory = async () => {
+        if (!(window as any).electron?.chooseDownloadDirectory) {
+            return;
+        }
+
+        setDownloadDirectoryStatus('choosing');
+        try {
+            const result = await (window as any).electron.chooseDownloadDirectory();
+            if (result?.path) {
+                setDownloadDirectory(result.path);
+                setDownloadDirectoryIsDefault(result.isDefault);
+            }
+        } finally {
+            setDownloadDirectoryStatus('idle');
+        }
+    };
+
+    const handleResetDownloadDirectory = async () => {
+        if (!(window as any).electron?.resetDownloadDirectory) {
+            return;
+        }
+
+        setDownloadDirectoryStatus('resetting');
+        try {
+            const result = await (window as any).electron.resetDownloadDirectory();
+            if (result?.path) {
+                setDownloadDirectory(result.path);
+                setDownloadDirectoryIsDefault(result.isDefault);
+            }
+        } finally {
+            setDownloadDirectoryStatus('idle');
+        }
+    };
+
+    const handleOpenDownloadDirectory = async () => {
+        if (!(window as any).electron?.openDownloadDirectory) {
+            return;
+        }
+
+        setDownloadDirectoryStatus('opening');
+        try {
+            const result = await (window as any).electron.openDownloadDirectory();
+            if (result?.path) {
+                setDownloadDirectory(result.path);
+            }
+        } finally {
+            setDownloadDirectoryStatus('idle');
         }
     };
 
@@ -1690,14 +1749,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         cacheDirectoryIsDefault={cacheDirectoryIsDefault}
                         cacheDirectoryStatus={cacheDirectoryStatus}
                         cacheSizes={cacheSizes}
+                        downloadDirectory={downloadDirectory}
+                        downloadDirectoryIsDefault={downloadDirectoryIsDefault}
+                        downloadDirectoryStatus={downloadDirectoryStatus}
                         enableMediaCache={enableMediaCache}
                         errorTextColor={errorTextColor}
                         isCleaning={isCleaning}
                         isElectron={isElectron}
                         mediaCount={mediaCount}
                         onChooseCacheDirectory={handleChooseCacheDirectory}
+                        onChooseDownloadDirectory={handleChooseDownloadDirectory}
                         onClear={handleClear}
                         onClearAll={handleClearAllCache}
+                        onOpenDownloadDirectory={handleOpenDownloadDirectory}
+                        onResetDownloadDirectory={handleResetDownloadDirectory}
                         onToggleMediaCache={onToggleMediaCache}
                         settingsCardClass={settingsCardClass}
                         settingsIconClass={settingsIconClass}

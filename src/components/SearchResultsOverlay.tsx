@@ -18,6 +18,7 @@ import {
     getOnlineSearchShortcutGroups,
     isSearchShortcutProvider,
 } from '../utils/onlineSearchShortcuts';
+import { isOnlineMusicProviderId } from '../utils/onlinePeerProviders';
 import {
     APP_CONTENT_BOTTOM_PADDING_CLASS,
     APP_CONTENT_TOP_PADDING_CLASS,
@@ -134,17 +135,8 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
     })));
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-    const activeProviders = searchProviders.filter(
-        (id): id is OnlineLibraryProviderId => (
-            id === 'netease' || id === 'qq' || id === 'qishui' || id === 'coco'
-        ),
-    );
-    const sourceFallback = (
-        searchSourceTab === 'netease'
-        || searchSourceTab === 'qq'
-        || searchSourceTab === 'qishui'
-        || searchSourceTab === 'coco'
-    ) ? searchSourceTab : null;
+    const activeProviders = searchProviders.filter(isOnlineMusicProviderId);
+    const sourceFallback = isOnlineMusicProviderId(searchSourceTab) ? searchSourceTab : null;
     const isMultiSource = activeProviders.length > 1;
     const activeProvider = activeProviders[0] || sourceFallback || 'coco';
     const isPeerOnly = !isMultiSource && isSearchShortcutProvider(activeProvider);
@@ -158,6 +150,9 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         if (activeProvider === 'qq') return t('home.searchQQMusic');
         if (activeProvider === 'qishui') return t('home.searchQishuiMusic');
         if (activeProvider === 'coco') return t('home.searchCocoMusic');
+        if (activeProvider === 'kugou') return t('home.searchKugouMusic');
+        if (activeProvider === 'bilibili') return t('home.searchBilibiliMusic');
+        if (activeProvider === 'kuwo') return t('home.searchKuwoMusic');
         return t('search.placeholder');
     }, [activeProvider, isMultiSource, t]);
 
@@ -165,14 +160,21 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         if (isMultiSource) return t('search.subtitleMulti');
         if (activeProvider === 'qishui') return t('search.subtitleQishui');
         if (activeProvider === 'coco') return t('search.subtitleCoco');
+        if (activeProvider === 'kugou') return t('search.subtitleKugou');
+        if (activeProvider === 'bilibili') return t('search.subtitleBilibili');
+        if (activeProvider === 'kuwo') return t('search.subtitleKuwo');
         return t('search.subtitle');
     }, [activeProvider, isMultiSource, t]);
 
-    const searchTitle = isMultiSource
-        ? t('search.title')
-        : (activeProvider === 'qishui'
-            ? t('home.qishuiProvider')
-            : (activeProvider === 'coco' ? t('home.cocoProvider') : t('search.title')));
+    const searchTitle = (() => {
+        if (isMultiSource) return t('search.title');
+        if (activeProvider === 'qishui') return t('home.qishuiProvider');
+        if (activeProvider === 'coco') return t('home.cocoProvider');
+        if (activeProvider === 'kugou') return t('home.kugouProvider');
+        if (activeProvider === 'bilibili') return t('home.bilibiliProvider');
+        if (activeProvider === 'kuwo') return t('home.kuwoProvider');
+        return t('search.title');
+    })();
 
     const shellBg = isDaylight ? 'bg-[#f4f7fb]/92' : 'bg-black/80';
     const panelBg = isDaylight
@@ -469,6 +471,16 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                     groups={shortcutGroups}
                                     isDaylight={isDaylight}
                                     disabled={isSearching}
+                                    hintKey={
+                                        activeProvider === 'bilibili'
+                                            ? 'search.bilibiliShortcutsHint'
+                                            : 'search.shortcutsHint'
+                                    }
+                                    hintFallback={
+                                        activeProvider === 'bilibili'
+                                            ? 'Tap an account to search that UP; or use up:name / a keyword'
+                                            : 'Placeholder suggestions — tap to search'
+                                    }
                                     onSelect={handleShortcutSelect}
                                 />
                             ) : (

@@ -12,6 +12,34 @@ declare global {
     canceled?: boolean;
   }
 
+  interface ElectronDownloadDirectoryResult {
+    path: string;
+    isDefault: boolean;
+    canceled?: boolean;
+  }
+
+  interface ElectronOpenDownloadDirectoryResult {
+    ok: boolean;
+    path: string;
+    error?: string | null;
+  }
+
+  interface ElectronDownloadSongFilePayload {
+    relativePath: string;
+    audioUrl?: string;
+    data?: ArrayBuffer | Uint8Array;
+    mimeType?: string | null;
+    reveal?: boolean;
+  }
+
+  interface ElectronDownloadSongFileResult {
+    ok: boolean;
+    path?: string;
+    bytes?: number;
+    mimeType?: string | null;
+    error?: string | null;
+  }
+
   interface ElectronAudioCacheEntry {
     found: boolean;
     data?: Uint8Array | ArrayBuffer | null;
@@ -465,6 +493,11 @@ declare global {
       getCacheDirectory: () => Promise<ElectronCacheDirectoryResult>;
       chooseCacheDirectory: () => Promise<ElectronCacheDirectoryResult>;
       resetCacheDirectory: () => Promise<ElectronCacheDirectoryResult>;
+      getDownloadDirectory: () => Promise<ElectronDownloadDirectoryResult>;
+      chooseDownloadDirectory: () => Promise<ElectronDownloadDirectoryResult>;
+      resetDownloadDirectory: () => Promise<ElectronDownloadDirectoryResult>;
+      openDownloadDirectory: () => Promise<ElectronOpenDownloadDirectoryResult>;
+      downloadSongFile: (payload: ElectronDownloadSongFilePayload) => Promise<ElectronDownloadSongFileResult>;
       getUpdateStatus: () => Promise<ElectronUpdateStatus>;
       checkForUpdates: () => Promise<ElectronUpdateStatus>;
       markUpdateSeen: (version?: string | null) => Promise<ElectronUpdateStatus>;

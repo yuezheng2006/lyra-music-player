@@ -302,6 +302,8 @@ export interface NavidromeSong extends SongResult {
         path: string;
         bitRate?: number;
         suffix: string;
+        /** Subsonic isVideo — drives muted video stage under lyrics when true. */
+        isVideo?: boolean;
         starred?: string;
     };
     // For lyrics matching (similar to local songs)

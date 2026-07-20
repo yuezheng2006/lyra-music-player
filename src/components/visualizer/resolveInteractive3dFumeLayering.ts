@@ -7,11 +7,23 @@ export const isInteractive3dBackgroundMode = (
     backgroundMode: VisualizerBackgroundMode | undefined,
 ): boolean => backgroundMode === 'interactive3d';
 
+type FumeCanvasBackgroundOptions = {
+    /** Dual-stream video stage: keep Fume canvas clear so <video> shows through. */
+    videoStageActive?: boolean;
+    transparentBackground?: boolean;
+};
+
 /** Fume canvas should not paint its own geometric backdrop when Shell already renders 3D cover stage. */
 export const shouldDrawFumeCanvasBackground = (
     backgroundMode: VisualizerBackgroundMode | undefined,
     staticMode: boolean,
-): boolean => !isInteractive3dBackgroundMode(backgroundMode) && !staticMode;
+    options?: FumeCanvasBackgroundOptions,
+): boolean => {
+    if (options?.videoStageActive || options?.transparentBackground) {
+        return false;
+    }
+    return !isInteractive3dBackgroundMode(backgroundMode) && !staticMode;
+};
 
 /** Shell keeps WebGL geometric background visible even while player settings sub-panels are open. */
 export const resolvePlayerGeometricBackgroundDisabled = (

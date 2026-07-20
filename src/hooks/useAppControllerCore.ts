@@ -47,6 +47,7 @@ export function useAppControllerCore() {
 
     // Player Data
     const [audioSrc, setAudioSrc] = useState<string | null>(null);
+    const [videoSrc, setVideoSrc] = useState<string | null>(null);
     const [currentSong, setCurrentSong] = useState<SongResult | null>(null);
     const [lyrics, setLyricsState] = useState<LyricData | null>(null);
     const [lyricTimelineOffsetMs, setLyricTimelineOffsetMs] = useState(0);
@@ -118,8 +119,14 @@ export function useAppControllerCore() {
 
     useEffect(() => {
         const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+        // Re-read storage in case an earlier skip wrote before this store instance hydrated.
+        const storedCompleted = typeof window !== 'undefined'
+            && (
+                localStorage.getItem('lyra_onboarding_completed') === 'true'
+                || Boolean(localStorage.getItem('folia_last_seen_guide_version'))
+            );
         const overlay = resolveStartupOverlay({
-            onboardingCompleted,
+            onboardingCompleted: onboardingCompleted || storedCompleted,
             lastSeenGuideVersion,
             appVersion,
         });
@@ -200,6 +207,7 @@ export function useAppControllerCore() {
 
     // Refs
     const audioRef = useRef<HTMLAudioElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const animationFrameRef = useRef<number>(0);
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
@@ -578,6 +586,8 @@ export function useAppControllerCore() {
         audioQuality,
         audioRef,
         audioSrc,
+        videoRef,
+        videoSrc,
         backgroundOpacity,
         bass,
         applyCustomTheme,
@@ -718,6 +728,7 @@ export function useAppControllerCore() {
         setActiveGridViewCollection,
         setAudioQuality,
         setAudioSrc,
+        setVideoSrc,
         setCachedCoverUrl,
         setCurrentLineIndex,
         setCurrentSong,

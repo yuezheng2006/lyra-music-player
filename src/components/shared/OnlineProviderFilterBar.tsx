@@ -14,7 +14,7 @@ import { useQQMusicLogin } from '../../hooks/useQQMusicLogin';
 import { resolveOnlineProviderIconUrl } from '../../utils/onlineProviderAssets';
 
 // src/components/shared/OnlineProviderFilterBar.tsx
-// Peer library sources: Netease / QQ / Qishui / Coco.
+// Peer library sources: Netease / QQ / Qishui / Coco / Kugou / Bilibili.
 
 type OnlineProviderFilterBarProps = {
     neteaseConnected: boolean;
@@ -87,11 +87,17 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
         qq: t('home.qqMusicProvider'),
         qishui: t('home.qishuiProvider'),
         coco: t('home.cocoProvider'),
+        kugou: t('home.kugouProvider'),
+        bilibili: t('home.bilibiliProvider'),
+        kuwo: t('home.kuwoProvider'),
     };
 
     const providerHints: Partial<Record<OnlineLibraryProviderId, string>> = {
         qishui: t('home.qishuiProviderHint'),
         coco: t('home.cocoProviderHint'),
+        kugou: t('home.kugouProviderHint'),
+        bilibili: t('home.bilibiliProviderHint'),
+        kuwo: t('home.kuwoProviderHint'),
     };
 
     const isConnected = (id: OnlineLibraryProviderId) => {

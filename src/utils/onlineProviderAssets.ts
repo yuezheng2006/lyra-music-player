@@ -3,6 +3,10 @@ import neteaseIconUrl from '../assets/providers/netease-icon.png';
 import qqIconUrl from '../assets/providers/qq-icon.png';
 import qishuiIconUrl from '../assets/providers/qishui-icon.png';
 import cocoIconUrl from '../assets/providers/coco-icon.svg';
+import kugouIconUrl from '../assets/providers/kugou-icon.svg';
+import bilibiliIconUrl from '../assets/providers/bilibili-icon.svg';
+import kuwoIconUrl from '../assets/providers/kuwo-icon.svg';
+import { isOnlineMusicProviderId } from './onlinePeerProviders';
 
 // src/utils/onlineProviderAssets.ts
 // Brand marks for peer providers shown as special home entries / badges.
@@ -12,17 +16,15 @@ export const ONLINE_PROVIDER_ICON_URL: Partial<Record<OnlineMusicProviderId, str
     qq: qqIconUrl,
     qishui: qishuiIconUrl,
     coco: cocoIconUrl,
+    kugou: kugouIconUrl,
+    bilibili: bilibiliIconUrl,
+    kuwo: kuwoIconUrl,
 };
 
 export const resolveOnlineProviderIconUrl = (
     provider?: string | null,
 ): string | undefined => {
-    if (
-        provider === 'netease'
-        || provider === 'qq'
-        || provider === 'qishui'
-        || provider === 'coco'
-    ) {
+    if (isOnlineMusicProviderId(provider)) {
         return ONLINE_PROVIDER_ICON_URL[provider];
     }
     return undefined;

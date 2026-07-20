@@ -9,14 +9,17 @@ import {
     resolveInteractive3dStageContainmentStyle,
     shouldContainInteractive3dStageForMode,
 } from './resolveInteractive3dStageContainment';
+import AmbientVisualOverlay from './AmbientVisualOverlay';
+import CharacterStageOverlay from './CharacterStageOverlay';
 import StaticGeometricScene from './StaticGeometricScene';
 import type { GeometricBackgroundProps } from './types';
 import { useGeometricPointer } from './useGeometricPointer';
 import { useInteractiveCameraControl } from './useInteractiveCameraControl';
 import VignetteOverlay from './VignetteOverlay';
+import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
 
 // src/components/visualizer/geometric/GeometricLayer.tsx
-// Mineradio unified WebGL playback background (cover particles + stage lyrics).
+// Mineradio unified WebGL playback background (ambient + cover particles + stage lyrics + character).
 
 const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
     theme,
@@ -50,11 +53,16 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
         staticMode,
         captureRef: interactionRef,
     });
+    const performanceTier = usePerformanceMonitorStore((s) => s.effectiveTier);
     const qualityProfile = useMemo(
-        () => sceneTuning
-            ? resolveInteractive3dQualityProfile(sceneTuning)
-            : resolveGeometricQualityProfile(),
-        [sceneTuning],
+        () => {
+            if (sceneTuning) {
+                const tuned = { ...sceneTuning, qualityTier: performanceTier };
+                return resolveInteractive3dQualityProfile(tuned);
+            }
+            return resolveGeometricQualityProfile(921600, performanceTier);
+        },
+        [performanceTier, sceneTuning],
     );
     const needsContainment = shouldContainInteractive3dStageForMode(visualizerMode);
 
@@ -145,30 +153,44 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                     disableVignette={disableVignette}
                 />
             ) : (
-                <MineradioPlaybackStage
-                    theme={theme}
-                    coverUrl={coverUrl}
-                    sceneTuning={sceneTuning}
-                    qualityProfile={qualityProfile}
-                    audioBands={audioBands}
-                    beatPulse={beatPulse ?? fallbackMotion}
-                    atmosphereEnergy={atmosphereEnergy ?? fallbackMotion}
-                    smartAtmosphereEnabled={enableBeatBursts}
-                    pointerX={pointerX}
-                    pointerY={pointerY}
-                    currentTime={currentTime}
-                    lines={lines}
-                    showLyrics={showLyrics}
-                    immersiveLyrics={immersiveLyrics}
-                    lyricColumnEndRatio={
-                        needsContainment
-                            ? (lyricColumnEndRatio ?? DEFAULT_LYRIC_COLUMN_END_RATIO)
-                            : undefined
-                    }
-                    playing={playing}
-                    paused={paused}
-                    cameraControlState={cameraControlState}
-                />
+                <>
+                    <MineradioPlaybackStage
+                        theme={theme}
+                        coverUrl={coverUrl}
+                        sceneTuning={sceneTuning}
+                        qualityProfile={qualityProfile}
+                        audioBands={audioBands}
+                        beatPulse={beatPulse ?? fallbackMotion}
+                        atmosphereEnergy={atmosphereEnergy ?? fallbackMotion}
+                        smartAtmosphereEnabled={enableBeatBursts}
+                        pointerX={pointerX}
+                        pointerY={pointerY}
+                        currentTime={currentTime}
+                        lines={lines}
+                        showLyrics={showLyrics}
+                        immersiveLyrics={immersiveLyrics}
+                        lyricColumnEndRatio={
+                            needsContainment
+                                ? (lyricColumnEndRatio ?? DEFAULT_LYRIC_COLUMN_END_RATIO)
+                                : undefined
+                        }
+                        playing={playing}
+                        paused={paused}
+                        cameraControlState={cameraControlState}
+                    />
+                    {/* Above cover particles, below character — otherwise Emily/dense particles hide ambient. */}
+                    <AmbientVisualOverlay
+                        staticMode={staticMode}
+                        currentTime={currentTime}
+                    />
+                    <CharacterStageOverlay
+                        // Player stage with lyrics/immersive — not on home shell (boot-safe).
+                        visible={immersiveLyrics || showLyrics}
+                        immersive={immersiveLyrics}
+                        paused={!playing}
+                        currentTime={currentTime}
+                    />
+                </>
             )}
             <VignetteOverlay disabled={disableVignette} immersive={immersiveLyrics} />
         </div>

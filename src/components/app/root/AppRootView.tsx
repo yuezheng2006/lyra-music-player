@@ -20,6 +20,8 @@ import { resolveFloatingPlayerBarReserve } from '@/components/floatingPlayerDock
 import { VISUALIZER_SUBTITLE_PORTAL_ROOT_ID } from '@/components/visualizer/visualizerSubtitlePortal';
 import type { AppControllerResult } from '@/hooks/useAppController';
 import { AppAudioElement } from '@/components/app/root/AppAudioElement';
+import { BilibiliVideoSurface } from '@/components/bilibili/BilibiliVideoSurface';
+import { useBilibiliVideoSync } from '@/hooks/useBilibiliVideoSync';
 import { useAppSidebarCollapse } from '@/hooks/useAppSidebarCollapse';
 import { resolveSidebarLayout } from '@/hooks/resolveSidebarLayout';
 import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
@@ -28,6 +30,9 @@ import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
 import type { AppSidebarActive } from '@/components/app/chrome/AppSidebar';
 import { useCoverShellTheme } from '@/hooks/useCoverShellTheme';
 import { useBootSplashLifecycle } from '@/hooks/useBootSplashLifecycle';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
+import { PerformanceHud } from '@/components/performance/PerformanceHud';
+import { isVideoPlaybackStageActive } from '@/utils/playback/resolveVideoPlaybackStage';
 
 interface AppRootViewProps {
     controller: AppControllerResult;
@@ -45,6 +50,8 @@ export function AppRootView({ controller }: AppRootViewProps) {
     const completeOnboarding = useSettingsUiStore(state => state.completeOnboarding);
     const markWhatsNewSeen = useSettingsUiStore(state => state.markWhatsNewSeen);
     const [bootShellReady, setBootShellReady] = useState(false);
+
+    usePerformanceMonitor();
 
     // Mark shell ready after first commit + paint so splash doesn't uncover black.
     useEffect(() => {
@@ -90,6 +97,9 @@ export function AppRootView({ controller }: AppRootViewProps) {
         audioPower,
         audioRef,
         audioSrc,
+        videoRef,
+        videoSrc,
+        setVideoSrc,
         backgroundOpacity,
         cacheSongAssets,
         cadenzaTuning,
@@ -183,6 +193,21 @@ export function AppRootView({ controller }: AppRootViewProps) {
         visualizerTheme,
     } = controller;
     const shellTheme = useCoverShellTheme(getCoverUrl(), isDaylight);
+
+    const videoStageActive = isVideoPlaybackStageActive(currentView, videoSrc);
+
+    useEffect(() => {
+        if (!currentSong && videoSrc) {
+            setVideoSrc(null);
+        }
+    }, [currentSong, setVideoSrc, videoSrc]);
+
+    useBilibiliVideoSync({
+        enabled: videoStageActive,
+        videoSrc,
+        audioRef,
+        videoRef,
+    });
 
     // Immersive fullscreen hides the rail temporarily; user collapse preference stays independent.
     const immersiveCanvas = currentView === 'player' && isPlayerChromeHidden;
@@ -338,6 +363,11 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 className="absolute inset-0 z-0"
                 onClick={handleContainerClick}
             >
+                <BilibiliVideoSurface
+                    videoRef={videoRef}
+                    videoSrc={videoSrc || ''}
+                    visible={videoStageActive}
+                />
                 {!isObsBrowserSourceRendering && (
                     <VisualizerRenderer
                         mode={visualizerMode}
@@ -365,16 +395,23 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         useCoverColorBg={useCoverColorBg}
                         seed={visualizerGeometrySeed}
                         staticMode={staticMode}
-                        paused={shouldPauseVisualizerBackground}
-                        backgroundOpacity={backgroundOpacity}
+                        paused={shouldPauseVisualizerBackground || videoStageActive}
+                        backgroundOpacity={videoStageActive ? 0 : backgroundOpacity}
                         visualizerOpacity={visualizerOpacity}
-                        transparentBackground={currentView === 'player' && isPlayerPageTransparent && !isSettingsModalOpen}
-                        disableGeometricBackground={resolvePlayerGeometricBackgroundDisabled(
-                            resolvedVisualizerBackgroundMode,
-                            isSettingsSubviewOpen,
-                        )}
-                        enableAtmosphereLayer={enableSmartAtmosphere && !staticMode}
-                        enableBeatBursts={enableSmartAtmosphere && !staticMode}
+                        videoStageActive={videoStageActive}
+                        transparentBackground={
+                            (currentView === 'player' && isPlayerPageTransparent && !isSettingsModalOpen)
+                            || videoStageActive
+                        }
+                        disableGeometricBackground={
+                            videoStageActive
+                            || resolvePlayerGeometricBackgroundDisabled(
+                                resolvedVisualizerBackgroundMode,
+                                isSettingsSubviewOpen,
+                            )
+                        }
+                        enableAtmosphereLayer={enableSmartAtmosphere && !staticMode && !videoStageActive}
+                        enableBeatBursts={enableSmartAtmosphere && !staticMode && !videoStageActive}
                         disableVignette={disableVisualizerVignette}
                         visualizerBackgroundMode={visualizerBackgroundMode}
                         lyricsFontScale={lyricsFontScale}
@@ -541,6 +578,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                     setIsWhatsNewOpen(false);
                 }}
             />
+            <PerformanceHud />
         </AppShell>
     );
 }

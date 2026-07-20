@@ -22,6 +22,9 @@ export const ProviderIconBadge: React.FC<ProviderIconBadgeProps> = ({
     'qq': 'qq',
     'qishui': 'qishui',
     'coco': 'coco',
+    'kugou': 'kugou',
+    'bilibili': 'bilibili',
+    'kuwo': 'kuwo',
   };
 
   const providerId = providerMap[provider];

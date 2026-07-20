@@ -713,6 +713,11 @@ export const neteaseApi = {
     return fetchWithCreds(`/lyric/new?id=${id}`);
   },
 
+  /** Brief song wiki/summary — may include style / emotion-ish tag blocks. */
+  getSongWikiSummary: async (id: number) => {
+    return fetchWithCreds(`/song/wiki/summary?id=${id}`);
+  },
+
   getChorus: async (id: number) => {
     return fetchWithCreds(`/song/chorus?id=${id}`);
   },

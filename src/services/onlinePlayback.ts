@@ -31,7 +31,7 @@ export async function loadOnlineSongAudioSource(
     audioQuality: string,
     prefetched: PrefetchedSongData | null
 ): Promise<
-    | { kind: 'ok'; audioSrc: string; blobUrl?: string }
+    | { kind: 'ok'; audioSrc: string; videoSrc?: string; blobUrl?: string }
     | { kind: 'unavailable' }
 > {
     const audioCacheKey = getProviderSongCacheKey('audio', song);
@@ -56,7 +56,8 @@ export async function loadOnlineSongAudioSource(
         return { kind: 'unavailable' };
     }
     updatePrefetchedAudioUrl(song, url, audioQuality);
-    return { kind: 'ok', audioSrc: url };
+    const videoSrc = normalizeAudioUrl(audioResult.videoUrl || null) || undefined;
+    return videoSrc ? { kind: 'ok', audioSrc: url, videoSrc } : { kind: 'ok', audioSrc: url };
 }
 
 export async function loadOnlineSongLyrics(

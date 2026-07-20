@@ -9,6 +9,11 @@ import {
     resetRealtimeBeatEngine,
 } from '../../utils/atmosphere/realtimeBeatEngine';
 import { shouldUsePodcastDjBeatMap } from '../../utils/atmosphere/podcastDjBeatMap';
+import { useAtmosphereBeatMapStore } from '../../stores/useAtmosphereBeatMapStore';
+import {
+    resetAtmospherePresentationBeat,
+    setAtmospherePresentationBeatPulse,
+} from '../../utils/atmosphere/atmospherePresentationBus';
 import { useAtmosphereBeatMapLoader } from './useAtmosphereBeatMapLoader';
 import {
     createBeatCameraState,
@@ -55,7 +60,10 @@ export function useAtmosphereEngine({
         resetBeatMapSchedulerState(schedulerRef.current);
         resetBeatCameraState(cameraStateRef.current);
         beatMapRef.current = null;
+        useAtmosphereBeatMapStore.getState().setBeatMap(null);
         beatPulse.set(0);
+        resetAtmospherePresentationBeat();
+        setAtmospherePresentationBeatPulse(0);
         cinemaScale.set(0.82);
         atmosphereEnergy.set(0.42);
         atmosphereGroove.set(0.5);
@@ -74,6 +82,14 @@ export function useAtmosphereEngine({
         sceneRoll,
     ]);
 
+    // Must stay referentially stable — loader effect deps include these callbacks.
+    // An inline onReset re-created every render restarts analyzeBeatMapFromUrl in a loop
+    // and freezes the player main thread.
+    const onBeatMapLoaded = useCallback((beatMap: import('../../types/atmosphere').BeatMap) => {
+        useAtmosphereBeatMapStore.getState().setBeatMap(beatMap);
+        syncBeatMapScheduler(schedulerRef.current, beatMap, 0);
+    }, []);
+
     useAtmosphereBeatMapLoader({
         enabled,
         audioSrc,
@@ -85,9 +101,7 @@ export function useAtmosphereEngine({
         longFormAudio,
         precomputedBeatMap,
         onReset: reset,
-        onBeatMapLoaded: (beatMap) => {
-            syncBeatMapScheduler(schedulerRef.current, beatMap, 0);
-        },
+        onBeatMapLoaded,
     });
 
     const tick = useAtmosphereTick({

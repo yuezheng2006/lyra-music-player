@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { getAtmosphereSongKey, useAtmosphereEngine } from '@/hooks/useAtmosphereEngine';
+import { useMoodEngineSongSync } from '@/hooks/atmosphere/useMoodEngineSongSync';
 import { useElectronPlaybackBridge } from '@/hooks/useElectronPlaybackBridge';
 import { useElectronVideoExportController } from '@/hooks/useElectronVideoExportController';
 import { useMediaSessionBridge } from '@/hooks/useMediaSessionBridge';
@@ -10,6 +11,7 @@ import { usePlaybackTransportController } from '@/hooks/usePlaybackTransportCont
 import { usePlaybackVisualizerBridge } from '@/hooks/usePlaybackVisualizerBridge';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, resolveNavidromePlaybackCarrier } from '@/utils/appPlaybackGuards';
 import { resolveAtmosphereTrackHints } from '@/utils/atmosphere/resolveAtmosphereTrackHints';
+import { isVideoPlaybackStageActive } from '@/utils/playback/resolveVideoPlaybackStage';
 import type { AppControllerCoreResult, AppControllerLibraryResult } from './useAppController.types';
 
 export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & AppControllerLibraryResult) {
@@ -89,6 +91,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         t,
         transparentPlayerBackground,
         updateCacheSize,
+        videoSrc,
     } = core;
 
     const { setupAudioAnalyzer, cacheSongAssets } = usePlaybackAudioBridge({
@@ -263,8 +266,10 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         () => resolveAtmosphereTrackHints(currentSong),
         [currentSong],
     );
+    // Dual decode (DASH video + audio) is already heavy; pause atmosphere RAF while video stage is up.
+    const videoStageActive = isVideoPlaybackStageActive(currentView, videoSrc);
     const atmosphereEngine = useAtmosphereEngine({
-        enabled: enableSmartAtmosphere && !staticMode,
+        enabled: enableSmartAtmosphere && !staticMode && !videoStageActive,
         audioSrc,
         songKey: atmosphereSongKey,
         audioContextRef,
@@ -272,6 +277,8 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         contentType: atmosphereTrackHints.contentType,
         precomputedBeatMap: atmosphereTrackHints.precomputedBeatMap,
     });
+
+    useMoodEngineSongSync(currentSong);
 
     usePlaybackVisualizerBridge({
         audioRef,

@@ -20,12 +20,15 @@ import LyricColorPresetGrid from './shared/LyricColorPresetGrid';
 import LyricWordModeToggle from './shared/LyricWordModeToggle';
 import LyricVisualEffectSelector from './shared/LyricVisualEffectSelector';
 import LyricFontPresetSelector from './shared/LyricFontPresetSelector';
+import LyricEffectPackSelector from './shared/LyricEffectPackSelector';
 import { FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX } from './floatingPlayerDockLayout';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import {
     resolveActiveLyricColorPresetId,
+    saveStoredLyricColorPresetId,
     type LyricColorPresetId,
 } from '../utils/theme/lyricColorPresets';
+import { getLyricEffectPackSuggestion } from '../utils/lyricEffectPacks';
 
 // src/components/FloatingPlayerBackgroundMenu.tsx
 // Dock popover: high-frequency 3D, lyric mode, color, and font controls.
@@ -91,10 +94,12 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
     const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
     const lyricFontPresetId = useSettingsUiStore(state => state.lyricFontPresetId);
     const visualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
+    const lyricEffectPackId = useSettingsUiStore(state => state.lyricEffectPackId);
     const handleSetLyricWordMode = useSettingsUiStore(state => state.handleSetLyricWordMode);
     const handleSetLyricFontPresetId = useSettingsUiStore(state => state.handleSetLyricFontPresetId);
     const handleSetLyricsCustomFont = useSettingsUiStore(state => state.handleSetLyricsCustomFont);
     const handleSetVisualEffectIntensity = useSettingsUiStore(state => state.handleSetVisualEffectIntensity);
+    const handleSetLyricEffectPackId = useSettingsUiStore(state => state.handleSetLyricEffectPackId);
 
     useEffect(() => {
         onOpenChange?.(open);
@@ -287,6 +292,35 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                                         selectedIntensity={visualEffectIntensity}
                                         onIntensityChange={handleSetVisualEffectIntensity}
                                         isDaylight={isDaylight}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Lyric effect pack block */}
+                            <div className={`mt-3 border-t pt-3 ${
+                                isDaylight ? 'border-black/10' : 'border-white/10'
+                            }`}>
+                                <div className={`mb-1.5 px-1 text-[12px] font-semibold uppercase tracking-[0.12em] ${
+                                    isDaylight ? 'text-black/55' : 'text-white/60'
+                                }`}>
+                                    {t('options.lyricEffectPack') || '歌词特效'}
+                                </div>
+                                <div className={`rounded-xl p-1.5 ${isDaylight ? 'bg-black/[0.05]' : 'bg-white/[0.07]'}`}>
+                                    <LyricEffectPackSelector
+                                        selectedPackId={lyricEffectPackId}
+                                        onPackChange={handleSetLyricEffectPackId}
+                                        isDaylight={isDaylight}
+                                        onApplySuggestion={(packId) => {
+                                            const suggestion = getLyricEffectPackSuggestion(packId);
+                                            if (suggestion.fontPresetId) {
+                                                handleSetLyricsCustomFont(null);
+                                                handleSetLyricFontPresetId(suggestion.fontPresetId);
+                                            }
+                                            if (suggestion.colorPresetId && onApplyLyricColorPreset) {
+                                                saveStoredLyricColorPresetId(suggestion.colorPresetId as LyricColorPresetId);
+                                                onApplyLyricColorPreset(suggestion.colorPresetId as LyricColorPresetId);
+                                            }
+                                        }}
                                     />
                                 </div>
                             </div>

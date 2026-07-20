@@ -26,11 +26,12 @@ const TEST_COVER_URL = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/200
 async function openVisPlaygroundWithInteractive3d(
     page: import('@playwright/test').Page,
     visualPreset: string,
+    options?: { captureBridge?: boolean },
 ) {
     await page.goto('/');
     await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
 
-    await page.evaluate(async ({ tuning, preset, coverUrl }) => {
+    await page.evaluate(async ({ tuning, preset, coverUrl, captureBridge }) => {
         // Playwright page sandbox path; resolved at runtime in the browser.
         const { saveToCache } = await import(/* @vite-ignore */ '/src/services/db.ts' as string);
         const song = {
@@ -52,7 +53,17 @@ async function openVisPlaygroundWithInteractive3d(
             ...tuning,
             visualPreset: preset,
         }));
-    }, { tuning: BASE_INTERACTIVE3D_TUNING, preset: visualPreset, coverUrl: TEST_COVER_URL });
+        if (captureBridge) {
+            localStorage.setItem('cover_particle_capture_bridge', '1');
+        } else {
+            localStorage.removeItem('cover_particle_capture_bridge');
+        }
+    }, {
+        tuning: BASE_INTERACTIVE3D_TUNING,
+        preset: visualPreset,
+        coverUrl: TEST_COVER_URL,
+        captureBridge: Boolean(options?.captureBridge),
+    });
 
     await page.reload();
     await page.waitForLoadState('networkidle');
@@ -144,5 +155,84 @@ test.describe('interactive3d WebGL cover particles', () => {
         await openVisPlaygroundWithInteractive3d(page, 'emily');
         await expectWebGLStageMounted(page, 'emily');
         await expectWebGLStageInteractive(page);
+    });
+
+    test('capture bridge renderAt produces a non-blank WebGL frame', async ({ page }) => {
+        const pageErrors: string[] = [];
+        page.on('pageerror', (error) => pageErrors.push(error.message));
+        page.on('console', (message) => {
+            if (message.type() === 'error') pageErrors.push(message.text());
+        });
+
+        await openVisPlaygroundWithInteractive3d(page, 'emily', { captureBridge: true });
+        await expectWebGLStageMounted(page, 'emily');
+
+        const stage = await getWebGLStage(page);
+        await expect(stage).toHaveAttribute('data-capture-bridge', '1');
+
+        const stats = await stage.evaluate((node) => {
+            const host = node as HTMLElement & {
+                __coverParticleCapture?: {
+                    renderAt: (options: { elapsed: number }) => {
+                        elapsed: number;
+                        hasRenderer: boolean;
+                        canvasWidth: number;
+                        canvasHeight: number;
+                    };
+                };
+            };
+            const capture = host.__coverParticleCapture;
+            if (!capture) {
+                return { ok: false as const, reason: 'missing-capture-bridge' };
+            }
+            const snapshot = capture.renderAt({ elapsed: 1.0 });
+            const canvas = node.querySelector('canvas');
+            if (!canvas) {
+                return { ok: false as const, reason: 'missing-canvas', snapshot };
+            }
+            const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+            if (!gl) {
+                return { ok: false as const, reason: 'missing-webgl-context', snapshot };
+            }
+            const width = canvas.width;
+            const height = canvas.height;
+            const pixels = new Uint8Array(width * height * 4);
+            gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+            let total = 0;
+            let bright = 0;
+            let colored = 0;
+            for (let i = 0; i < pixels.length; i += 32) {
+                const r = pixels[i];
+                const g = pixels[i + 1];
+                const b = pixels[i + 2];
+                const a = pixels[i + 3];
+                if (a > 0) total += 1;
+                if (r + g + b > 55) bright += 1;
+                if (Math.max(r, g, b) - Math.min(r, g, b) > 18) colored += 1;
+            }
+
+            return {
+                ok: true as const,
+                snapshot,
+                width,
+                height,
+                brightRatio: bright / Math.max(total, 1),
+                coloredRatio: colored / Math.max(total, 1),
+                sampled: total,
+            };
+        });
+
+        expect(stats).toMatchObject({
+            ok: true,
+            snapshot: {
+                elapsed: 1,
+                hasRenderer: true,
+            },
+        });
+        if (!stats.ok) throw new Error(stats.reason);
+        expect(stats.brightRatio).toBeGreaterThanOrEqual(0.08);
+        expect(stats.coloredRatio).toBeGreaterThanOrEqual(0.04);
+        expect(pageErrors).toEqual([]);
     });
 });

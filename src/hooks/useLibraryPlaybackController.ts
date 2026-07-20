@@ -34,6 +34,7 @@ import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
 import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState, getOnlineLyricsStateCacheKey } from '../utils/onlineLyricsState';
 import { getBlobObjectUrlSignature, isBlob } from '../utils/blobGuards';
 import { armAutoPlayIntent, unlockHtmlAudioForAutoplay } from '../utils/audioAutoPlayGuard';
+import { isVideoPlaybackCarrier } from '../utils/playback/resolveVideoPlaybackStage';
 
 // src/hooks/useLibraryPlaybackController.ts
 
@@ -76,6 +77,7 @@ type UseLibraryPlaybackControllerParams = {
     setLyrics: (nextLyrics: LyricData | null) => void;
     setCachedCoverUrl: SetState<string | null>;
     setAudioSrc: SetState<string | null>;
+    setVideoSrc: SetState<string | null>;
     setPlayQueue: SetState<SongResult[]>;
     setPlayerState: SetState<PlayerState>;
     setCurrentLineIndex: SetState<number>;
@@ -115,6 +117,7 @@ export function useLibraryPlaybackController({
     setLyrics,
     setCachedCoverUrl,
     setAudioSrc,
+    setVideoSrc,
     setPlayQueue,
     setPlayerState,
     setCurrentLineIndex,
@@ -622,8 +625,11 @@ export function useLibraryPlaybackController({
         setCurrentLineIndex(-1);
         currentTime.set(0);
         setCurrentSong(initialMeta.unifiedSong);
+        const localVideoSrc = isVideoPlaybackCarrier(preparedLocalSong) ? blobUrl : null;
         flushSync(() => {
             setAudioSrc(blobUrl);
+            // Same blob drives muted <video> under lyrics when the file is video.
+            setVideoSrc(localVideoSrc);
         });
         const audioElement = audioRef.current;
         if (audioElement) {
@@ -710,6 +716,7 @@ export function useLibraryPlaybackController({
         restoreCachedThemeForSong,
         resolveLocalMetadataUI,
         setAudioSrc,
+        setVideoSrc,
         setManagedCachedCoverUrl,
         setCurrentLineIndex,
         setCurrentSong,
@@ -790,8 +797,16 @@ export function useLibraryPlaybackController({
         setCurrentSong(unifiedSong);
         setManagedCachedCoverUrl(coverUrl ?? null);
         setIsLyricsLoading(true);
+        const navidromeVideoSrc = isVideoPlaybackCarrier({
+            isVideo: navidromeSong.navidromeData?.isVideo,
+            fileName: navidromeSong.navidromeData?.path
+                || (navidromeSong.navidromeData?.suffix
+                    ? `.${navidromeSong.navidromeData.suffix}`
+                    : null),
+        }) ? streamUrl : null;
         flushSync(() => {
             setAudioSrc(streamUrl);
+            setVideoSrc(navidromeVideoSrc);
         });
         const audioElement = audioRef.current;
         if (audioElement) {
@@ -988,6 +1003,7 @@ export function useLibraryPlaybackController({
         persistLastPlaybackCache,
         restoreCachedThemeForSong,
         setAudioSrc,
+        setVideoSrc,
         setDuration,
         setManagedCachedCoverUrl,
         setCurrentLineIndex,
@@ -1062,6 +1078,8 @@ export function useLibraryPlaybackController({
         setManagedCachedCoverUrl(coverUrl);
         flushSync(() => {
             setAudioSrc(streamUrl);
+            // YTM is audio-only in this player; clear any prior bilibili/local video stage.
+            setVideoSrc(null);
         });
         const audioElement = audioRef.current;
         if (audioElement) {
@@ -1139,6 +1157,7 @@ export function useLibraryPlaybackController({
         persistLastPlaybackCache,
         restoreCachedThemeForSong,
         setAudioSrc,
+        setVideoSrc,
         setDuration,
         setManagedCachedCoverUrl,
         setCurrentLineIndex,

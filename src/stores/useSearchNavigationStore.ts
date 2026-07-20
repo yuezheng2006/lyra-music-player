@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { getNavidromeConfig, navidromeApi } from '../services/navidromeService';
 import { getMusicProvider } from '../services/musicProviders/registry';
 import { isQishuiShareUrl, resolveOnlineSearchProvider } from '../utils/onlineSearchRouting';
+import { isOnlineMusicProviderId, isPeerFreeProviderId, type PeerFreeProviderId } from '../utils/onlinePeerProviders';
 import type { HomeViewTab, LocalSong, OnlineMusicProviderId, SearchSourceId, UnifiedSong } from '../types';
 
 const LAST_HOME_VIEW_TAB_KEY = 'last_home_view_tab';
@@ -11,7 +12,7 @@ export type SearchReturnView = 'home' | 'player';
 /** Bumps on every submit/restore so stale async responses cannot cross channels. */
 let searchRequestEpoch = 0;
 
-type PeerSearchProviderId = Extract<OnlineMusicProviderId, 'coco' | 'qishui'>;
+type PeerSearchProviderId = PeerFreeProviderId;
 type PeerSearchQueryMap = Record<PeerSearchProviderId, string>;
 
 type SearchExecutorDeps = {
@@ -143,15 +144,15 @@ const searchNavidromeSongs = async (query: string): Promise<SearchExecutionResul
     };
 };
 
-const isOnlineMusicProviderId = (sourceTab: SearchSourceId): sourceTab is OnlineMusicProviderId =>
-    sourceTab === 'netease' || sourceTab === 'qq' || sourceTab === 'qishui' || sourceTab === 'coco';
-
 const isPeerSearchProviderId = (sourceTab: SearchSourceId): sourceTab is PeerSearchProviderId =>
-    sourceTab === 'coco' || sourceTab === 'qishui';
+    isPeerFreeProviderId(sourceTab);
 
 const EMPTY_PEER_SEARCH_QUERIES: PeerSearchQueryMap = {
     coco: '',
     qishui: '',
+    kugou: '',
+    bilibili: '',
+    kuwo: '',
 };
 
 /** Persist the active input into the leaving peer channel before switching away. */

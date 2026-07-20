@@ -7,13 +7,16 @@ import type { OnlineMusicProviderId } from '../types';
 export type OnlineLibraryModuleFilter = 'all' | 'created' | 'liked';
 
 /** Providers shown on the home source row (login peers + no-login search peers). */
-export type OnlineLibraryProviderId = Extract<OnlineMusicProviderId, 'netease' | 'qq' | 'qishui' | 'coco'>;
+export type OnlineLibraryProviderId = OnlineMusicProviderId;
 
 export const ONLINE_LIBRARY_PROVIDER_IDS: OnlineLibraryProviderId[] = [
     'netease',
     'qq',
     'qishui',
     'coco',
+    'kugou',
+    'bilibili',
+    'kuwo',
 ];
 
 export const ONLINE_LIBRARY_FILTER_STORAGE_KEY = 'online_library_filter_v1';
@@ -23,10 +26,19 @@ const createDefaultPlaylistProviders = (): Record<OnlineLibraryProviderId, boole
     qq: true,
     qishui: true,
     coco: true,
+    kugou: true,
+    bilibili: true,
+    kuwo: true,
 });
 
 const isOnlineLibraryProviderId = (value: unknown): value is OnlineLibraryProviderId =>
-    value === 'netease' || value === 'qq' || value === 'qishui' || value === 'coco';
+    value === 'netease'
+    || value === 'qq'
+    || value === 'qishui'
+    || value === 'coco'
+    || value === 'kugou'
+    || value === 'bilibili'
+    || value === 'kuwo';
 
 const isModuleFilter = (value: unknown): value is OnlineLibraryModuleFilter =>
     value === 'all' || value === 'created' || value === 'liked';

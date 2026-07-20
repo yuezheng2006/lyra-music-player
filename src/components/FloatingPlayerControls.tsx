@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Maximize, Minimize, Maximize2 } from 'lucide-react';
+import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Download, Maximize, Minimize, Maximize2 } from 'lucide-react';
 import { MotionValue } from 'framer-motion';
 import ProgressBar from './ProgressBar';
 import FloatingPlayerBackgroundMenu from './FloatingPlayerBackgroundMenu';
@@ -26,6 +26,7 @@ import {
     FLOATING_PLAYER_PROGRESS_INSET_PX,
     resolveFloatingPlayerDockFrameStyle,
 } from './floatingPlayerDockLayout';
+import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 
 // src/components/FloatingPlayerControls.tsx
 // Floating dock: left meta, center transport, right tool chips.
@@ -257,6 +258,11 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
 }) => {
     // Timeline modal kept mounted for minimal churn; dock no longer opens it.
     const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+    // Startup overlays must win pointer hit-testing; otherwise Skip never persists.
+    const startupOverlayOpen = useSettingsUiStore(
+        (s) => s.isOnboardingOpen || s.isWhatsNewOpen,
+    );
+    const dockHidden = isHidden || startupOverlayOpen;
     const effectsModeActive = currentView === 'player';
     const trackColor = isDaylight ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.10)';
     const canSwitchBackground = Boolean(
@@ -266,6 +272,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
         && onVisualizerModeChange,
     );
 
+    // EmotionSelector demoted from primary chrome; mood engine still drives ambient/Lab.
     if (hideControlBar) {
         return null;
     }
@@ -286,7 +293,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
             {/* Outer frame spans the content column; inner dock is width-capped and centered. */}
             <div
                 className="fixed z-[130] flex justify-center overflow-visible"
-                style={resolveFloatingPlayerDockFrameStyle(isHidden)}
+                style={resolveFloatingPlayerDockFrameStyle(dockHidden)}
                 data-testid="floating-player-dock-frame"
             >
                 <motion.div
@@ -295,8 +302,8 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                     }`}
                     initial={false}
                     animate={{
-                        opacity: isHidden ? 0 : 0.94,
-                        y: isHidden ? 16 : 0,
+                        opacity: dockHidden ? 0 : 0.94,
+                        y: dockHidden ? 16 : 0,
                     }}
                     transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                     style={{
@@ -309,7 +316,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         boxShadow: isDaylight
                             ? 'inset 0 0 2px 1px rgba(255,255,255,0.55), inset 0 0 10px 4px rgba(255,255,255,0.22), 0 8px 28px rgba(17,17,26,0.08), 0 16px 48px rgba(17,17,26,0.06)'
                             : 'inset 0 0 2px 1px rgba(255,255,255,0.35), inset 0 0 10px 4px rgba(255,255,255,0.15), 0 8px 28px rgba(17,17,26,0.08), 0 16px 56px rgba(17,17,26,0.08)',
-                        pointerEvents: isHidden ? 'none' : 'auto',
+                        pointerEvents: dockHidden ? 'none' : 'auto',
                     } as React.CSSProperties}
                     onClick={(e) => e.stopPropagation()}
                     data-testid="floating-player-dock"

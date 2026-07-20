@@ -7,12 +7,13 @@ import {
     combineShadowEffects,
     type LyricVisualEffectConfig,
 } from '../../../utils/lyricVisualEffects';
+import type { ResolvedLyricEffectPack } from '../../../utils/lyricEffectPacks';
 import type { WaitingWordPresentation } from '../../../utils/lyrics/lyricWordMode';
 import { colorWithAlpha } from '../colorMix';
 import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
 
 // src/components/visualizer/dazibao/dazibaoWordStage.tsx
-// 野火走位词级砸脸；字体/颜色/特效由 visualEffectConfig 驱动。
+// 野火走位词级砸脸；特效包为衬托，节拍通过舞台 CSS vars 微调（不喧宾夺主）。
 
 type WordStatus = 'waiting' | 'active' | 'passed';
 
@@ -29,7 +30,9 @@ type DazibaoWordProps = {
     letterSpacingPx: number;
     waitingPresentation: WaitingWordPresentation;
     visualEffectConfig: LyricVisualEffectConfig;
-    isChorus: boolean;
+    effectPack: ResolvedLyricEffectPack;
+    /** Active-word punch from phrase presentation (verse/chorus/breath). */
+    wordActiveScale: number;
     lookaheadSec?: number;
 };
 
@@ -46,7 +49,8 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
     letterSpacingPx,
     waitingPresentation,
     visualEffectConfig,
-    isChorus,
+    effectPack,
+    wordActiveScale,
     lookaheadSec = 0.08,
 }) => {
     const [status, setStatus] = useState<WordStatus>('waiting');
@@ -69,16 +73,19 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
         if (!visualEffectConfig.enableStroke || status !== 'active') {
             return null;
         }
-        // 色字白边 — scaled solid rim (calligraphy-safe; no -webkit-text-stroke).
         return buildLyricKaraokeOutlineLayers(activeColor, fontPx, visualEffectConfig.intensity);
     }, [activeColor, fontPx, status, visualEffectConfig.enableStroke, visualEffectConfig.intensity]);
 
     const activeShadow = useMemo(() => {
-        if (visualEffectConfig.enableIntenseGlow) {
-            return combineShadowEffects(activeColor, glowColor, visualEffectConfig);
-        }
-        return `0 0 ${Math.round(fontPx * 0.2)}px ${colorWithAlpha(glowColor, 0.25)}`;
-    }, [activeColor, fontPx, glowColor, visualEffectConfig]);
+        const base = visualEffectConfig.enableIntenseGlow
+            ? combineShadowEffects(activeColor, glowColor, visualEffectConfig)
+            : `0 0 ${Math.round(fontPx * 0.2)}px ${colorWithAlpha(glowColor, 0.25)}`;
+        if (effectPack.glowBoost <= 0) return base;
+        // Soft static halo; beat lift comes from a separate opacity-driven layer + CSS var.
+        const boostBlur = Math.round(fontPx * (0.22 + effectPack.glowBoost * 0.35));
+        const boost = `0 0 ${boostBlur}px ${colorWithAlpha(glowColor, 0.22 + effectPack.glowBoost * 0.22)}`;
+        return `${base}, ${boost}`;
+    }, [activeColor, effectPack.glowBoost, fontPx, glowColor, visualEffectConfig]);
 
     const passedShadow = useMemo(
         () => `0 0 ${Math.round(fontPx * 0.35)}px ${colorWithAlpha(glowColor, 0.4)}`,
@@ -86,7 +93,7 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
     );
 
     const scaleTarget = status === 'active'
-        ? (isChorus ? 1.14 : 1.08)
+        ? wordActiveScale
         : status === 'passed'
             ? 1
             : (waitingPresentation.parkAtRest ? 1 : 0.92);
@@ -113,6 +120,10 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
         lineHeight: 1.05,
     };
 
+    const glitchActive = effectPack.glitch && status === 'active';
+    const neonActive = effectPack.neonScan && status === 'active';
+    const glowBeatActive = effectPack.glowBoost > 0 && status === 'active';
+
     return (
         <motion.span
             className="relative inline-block origin-center whitespace-nowrap will-change-transform"
@@ -135,6 +146,65 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
             }}
         >
             <span className="relative z-[1] inline-block">
+                {effectPack.echo ? (
+                    <span
+                        aria-hidden
+                        className="absolute inset-0 select-none pointer-events-none"
+                        style={{
+                            ...sharedType,
+                            color: colorWithAlpha('#000000', Math.min(0.7, effectPack.echoOpacity + 0.18)),
+                            // Beat modulates opacity / micro-scale via stage CSS vars (no setState).
+                            opacity: `calc(${effectPack.echoOpacity} * var(--lyric-pack-echo-mul, 1))`,
+                            transform: `scale(calc(${effectPack.echoScale} * (0.92 + 0.08 * var(--lyric-pack-echo-mul, 1)))) translate(0.03em, 0.05em)`,
+                            transformOrigin: 'center center',
+                            filter: 'blur(0.35px)',
+                        } as React.CSSProperties}
+                    >
+                        {glyph}
+                    </span>
+                ) : null}
+                {glowBeatActive ? (
+                    <span
+                        aria-hidden
+                        className="absolute inset-0 select-none pointer-events-none"
+                        style={{
+                            ...sharedType,
+                            color: 'transparent',
+                            opacity: `calc(${0.2 + effectPack.glowBoost * 0.25} * var(--lyric-pack-glow-mul, 1))`,
+                            textShadow: `0 0 ${Math.round(fontPx * (0.18 + effectPack.glowBoost * 0.28))}px ${colorWithAlpha(glowColor, 0.55)}`,
+                        } as React.CSSProperties}
+                    >
+                        {glyph}
+                    </span>
+                ) : null}
+                {glitchActive ? (
+                    <>
+                        <span
+                            aria-hidden
+                            className="absolute inset-0 select-none pointer-events-none mix-blend-screen"
+                            style={{
+                                ...sharedType,
+                                color: colorWithAlpha('#ff3b5c', 0.28),
+                                opacity: 'calc(0.55 * var(--lyric-pack-glitch-mul, 1))',
+                                transform: `translate(calc(${-effectPack.glitchOffsetPx}px * var(--lyric-pack-glitch-mul, 1)), 0)`,
+                            } as React.CSSProperties}
+                        >
+                            {glyph}
+                        </span>
+                        <span
+                            aria-hidden
+                            className="absolute inset-0 select-none pointer-events-none mix-blend-screen"
+                            style={{
+                                ...sharedType,
+                                color: colorWithAlpha('#3bd6ff', 0.28),
+                                opacity: 'calc(0.55 * var(--lyric-pack-glitch-mul, 1))',
+                                transform: `translate(calc(${effectPack.glitchOffsetPx}px * var(--lyric-pack-glitch-mul, 1)), 0)`,
+                            } as React.CSSProperties}
+                        >
+                            {glyph}
+                        </span>
+                    </>
+                ) : null}
                 {karaokeOutline ? (
                     <span
                         aria-hidden
@@ -151,11 +221,10 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
                     </span>
                 ) : null}
                 <span
-                    className="relative inline-block"
+                    className={`relative inline-block${neonActive ? ' lyric-effect-neon-scan' : ''}`}
                     style={{
                         ...sharedType,
                         color: faceColor,
-                        // Keep dazibao punch glow on the fill face; rim is the outline twin.
                         textShadow: status === 'active'
                             ? activeShadow
                             : status === 'passed'

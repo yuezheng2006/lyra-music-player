@@ -54,6 +54,15 @@ const getAdapterModulePath = (provider) => {
     // Same as qq/coco: resolve next to this script so packaged apps do not depend on cwd.
     return path.join(__dirname, 'music-provider-adapters', 'qishui-provider-adapter.mjs');
   }
+  if (provider === 'kugou') {
+    return path.join(__dirname, 'music-provider-adapters', 'kugou-provider-adapter.mjs');
+  }
+  if (provider === 'bilibili') {
+    return path.join(__dirname, 'music-provider-adapters', 'bilibili-provider-adapter.mjs');
+  }
+  if (provider === 'kuwo') {
+    return path.join(__dirname, 'music-provider-adapters', 'kuwo-provider-adapter.mjs');
+  }
   const generic = process.env.MUSIC_PROVIDER_ADAPTER;
   return generic && generic.trim() ? generic.trim() : null;
 };
@@ -67,7 +76,13 @@ const loadAdapter = async (provider) => {
   if (!fs.existsSync(resolvedPath)) {
     const error = new Error(`[music-provider-sidecar] adapter missing for ${provider}: ${resolvedPath}`);
     // Built-in qq/coco adapters are required; missing files are transport failures, not "song unavailable".
-    if (provider === 'qq' || provider === 'coco') {
+    if (
+      provider === 'qq'
+      || provider === 'coco'
+      || provider === 'kugou'
+      || provider === 'bilibili'
+      || provider === 'kuwo'
+    ) {
       throw error;
     }
     console.warn(error.message);
@@ -156,7 +171,16 @@ const parseProviderPath = (pathname) => {
   const match = pathname.match(/^\/providers\/([^/]+)\/([^/]+)$/);
   if (!match) return null;
   const [, provider, endpoint] = match;
-  if (provider !== 'qq' && provider !== 'qishui' && provider !== 'coco') return null;
+  if (
+    provider !== 'qq'
+    && provider !== 'qishui'
+    && provider !== 'coco'
+    && provider !== 'kugou'
+    && provider !== 'bilibili'
+    && provider !== 'kuwo'
+  ) {
+    return null;
+  }
   return { provider, endpoint };
 };
 
@@ -175,6 +199,8 @@ const normalizeSearchResponse = (payload) => {
     hasMore: Boolean(payload.hasMore),
     ...(payload.kind ? { kind: payload.kind } : {}),
     ...(payload.query ? { query: payload.query } : {}),
+    ...(payload.searchMode ? { searchMode: payload.searchMode } : {}),
+    ...(payload.uploader ? { uploader: payload.uploader } : {}),
   };
 };
 
@@ -282,7 +308,16 @@ const server = http.createServer(async (req, res) => {
         || await runBuiltInProvider(route.provider, 'audio', body)
         || await runExtractor(route.provider, 'audio', body);
       const audioUrl = payload?.audioUrl || payload?.url || null;
-      sendJson(res, audioUrl ? 200 : 404, audioUrl ? { audioUrl } : { error: 'Audio URL unavailable' });
+      const videoUrl = typeof payload?.videoUrl === 'string' && payload.videoUrl.trim()
+        ? payload.videoUrl.trim()
+        : null;
+      sendJson(
+        res,
+        audioUrl ? 200 : 404,
+        audioUrl
+          ? { audioUrl, ...(videoUrl ? { videoUrl } : {}) }
+          : { error: 'Audio URL unavailable' },
+      );
       return;
     }
 

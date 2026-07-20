@@ -4,6 +4,7 @@ import { buildSettingsDialogModel } from '@/components/app/dialogs/buildSettings
 import { buildAppDialogsModel } from '@/components/app/dialogs/buildAppDialogsModel';
 import { getVisualizerModeLabel as resolveVisualizerModeLabel } from '@/components/visualizer/registry';
 import { isLocalPlaybackSong, isNavidromePlaybackSong } from '@/utils/appPlaybackGuards';
+import { canDownloadSongToDirectory } from '@/services/songDownloadService';
 import type { AppViewModelContext } from './useAppViewModels.shared';
 import type { AudioQuality } from '@/stores/useSettingsUiStore';
 
@@ -23,6 +24,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         handleSearchResultPlay,
         handleSearchResultArtistSelect,
         handleSearchResultAlbumSelect,
+        downloadSong,
         popOverlay,
         playSong,
         playOnlineQueueFromStart,
@@ -137,6 +139,9 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         handleSearchResultPlay,
         handleSearchResultArtistSelect,
         handleSearchResultAlbumSelect,
+        onDownloadSong: downloadSong,
+        canDownloadSong: canDownloadSongToDirectory,
+        downloadSongLabel: t('search.download') || t('player.download') || 'Download',
         popOverlay,
         playSong,
         playOnlineQueueFromStart,
@@ -262,6 +267,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         currentTime,
         currentView,
         devDebugSnapshot,
+        downloadSong,
         duration,
         effectiveLoopMode,
         handleNextTrack,
