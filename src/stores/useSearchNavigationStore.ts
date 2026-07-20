@@ -152,6 +152,7 @@ const EMPTY_PEER_SEARCH_QUERIES: PeerSearchQueryMap = {
     qishui: '',
     kugou: '',
     bilibili: '',
+    kuwo: '',
 };
 
 /** Persist the active input into the leaving peer channel before switching away. */

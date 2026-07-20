@@ -89,6 +89,7 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
         coco: t('home.cocoProvider'),
         kugou: t('home.kugouProvider'),
         bilibili: t('home.bilibiliProvider'),
+        kuwo: t('home.kuwoProvider'),
     };
 
     const providerHints: Partial<Record<OnlineLibraryProviderId, string>> = {
@@ -96,6 +97,7 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
         coco: t('home.cocoProviderHint'),
         kugou: t('home.kugouProviderHint'),
         bilibili: t('home.bilibiliProviderHint'),
+        kuwo: t('home.kuwoProviderHint'),
     };
 
     const isConnected = (id: OnlineLibraryProviderId) => {

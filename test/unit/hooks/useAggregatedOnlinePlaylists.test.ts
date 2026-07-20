@@ -24,6 +24,7 @@ const allProviders = {
     coco: true,
     kugou: true,
     bilibili: true,
+    kuwo: true,
 };
 
 describe('aggregateOnlinePlaylists', () => {
@@ -34,7 +35,7 @@ describe('aggregateOnlinePlaylists', () => {
         const result = aggregateOnlinePlaylists({
             neteasePlaylists,
             qqPlaylists,
-            enabledProviders: { ...allProviders, coco: false, qishui: false, kugou: false, bilibili: false },
+            enabledProviders: { ...allProviders, coco: false, qishui: false, kugou: false, bilibili: false, kuwo: false },
             moduleFilter: 'all',
         });
 
@@ -47,7 +48,7 @@ describe('aggregateOnlinePlaylists', () => {
         const result = aggregateOnlinePlaylists({
             neteasePlaylists: [],
             qqPlaylists: [],
-            enabledProviders: { ...allProviders, netease: false, qq: false, qishui: false, kugou: false, bilibili: false },
+            enabledProviders: { ...allProviders, netease: false, qq: false, qishui: false, kugou: false, bilibili: false, kuwo: false },
             moduleFilter: 'all',
         });
 
@@ -60,7 +61,7 @@ describe('aggregateOnlinePlaylists', () => {
         const result = aggregateOnlinePlaylists({
             neteasePlaylists: [],
             qqPlaylists: [],
-            enabledProviders: { ...allProviders, netease: false, qq: false, coco: false, kugou: false, bilibili: false },
+            enabledProviders: { ...allProviders, netease: false, qq: false, coco: false, kugou: false, bilibili: false, kuwo: false },
             moduleFilter: 'all',
         });
 
@@ -73,13 +74,13 @@ describe('aggregateOnlinePlaylists', () => {
         const liked = aggregateOnlinePlaylists({
             neteasePlaylists: [],
             qqPlaylists: [],
-            enabledProviders: { ...allProviders, netease: false, qq: false, qishui: false, kugou: false, bilibili: false },
+            enabledProviders: { ...allProviders, netease: false, qq: false, qishui: false, kugou: false, bilibili: false, kuwo: false },
             moduleFilter: 'liked',
         });
         const created = aggregateOnlinePlaylists({
             neteasePlaylists: [],
             qqPlaylists: [],
-            enabledProviders: { ...allProviders, netease: false, qq: false, qishui: false, kugou: false, bilibili: false },
+            enabledProviders: { ...allProviders, netease: false, qq: false, qishui: false, kugou: false, bilibili: false, kuwo: false },
             moduleFilter: 'created',
         });
 
@@ -97,7 +98,7 @@ describe('aggregateOnlinePlaylists', () => {
         const result = aggregateOnlinePlaylists({
             neteasePlaylists,
             qqPlaylists,
-            enabledProviders: { ...allProviders, qq: false, coco: false, qishui: false, kugou: false, bilibili: false },
+            enabledProviders: { ...allProviders, qq: false, coco: false, qishui: false, kugou: false, bilibili: false, kuwo: false },
             moduleFilter: 'liked',
         });
 
@@ -113,7 +114,7 @@ describe('aggregateOnlinePlaylists', () => {
             neteasePlaylists,
             qqPlaylists: [],
             cloudPlaylist,
-            enabledProviders: { ...allProviders, qq: false, coco: false, qishui: false, kugou: false, bilibili: false },
+            enabledProviders: { ...allProviders, qq: false, coco: false, qishui: false, kugou: false, bilibili: false, kuwo: false },
             moduleFilter: 'all',
         });
 

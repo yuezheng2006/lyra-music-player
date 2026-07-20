@@ -10,11 +10,26 @@ import {
 } from '../types/character';
 
 export const CHARACTER_ENABLED_STORAGE_KEY = 'lyra_character_enabled';
+/** One-time demotion toward melody/rhythm focus; after this, Lab opt-in is honored. */
+export const CHARACTER_DEMOTED_MIGRATION_KEY = 'lyra_character_demoted_v1';
 
-const readStoredEnabled = (): boolean => {
-  if (typeof window === 'undefined') return true;
+/** Lab / command-palette opt-in; off for new users and anyone without a stored preference. */
+export const DEFAULT_CHARACTER_ENABLED = false;
+
+/**
+ * Read character enabled preference.
+ * Missing key → off. First launch after demotion migration forces off once,
+ * then stored Lab / command-palette choice is honored.
+ */
+export const readCharacterEnabledPreference = (): boolean => {
+  if (typeof window === 'undefined') return DEFAULT_CHARACTER_ENABLED;
+  if (localStorage.getItem(CHARACTER_DEMOTED_MIGRATION_KEY) !== '1') {
+    localStorage.setItem(CHARACTER_DEMOTED_MIGRATION_KEY, '1');
+    localStorage.setItem(CHARACTER_ENABLED_STORAGE_KEY, '0');
+    return false;
+  }
   const raw = localStorage.getItem(CHARACTER_ENABLED_STORAGE_KEY);
-  if (raw === null) return true;
+  if (raw === null) return DEFAULT_CHARACTER_ENABLED;
   return raw === '1' || raw === 'true';
 };
 
@@ -44,8 +59,8 @@ interface CharacterState {
 }
 
 export const useCharacterStore = create<CharacterState>((set) => ({
-  /** On by default once GeometricLayer mounts CharacterStageOverlay. */
-  enabled: readStoredEnabled(),
+  /** Off by default; Lab / command palette can opt in. */
+  enabled: readCharacterEnabledPreference(),
   modelUrl: DEFAULT_CHARACTER_MODEL_URL,
   status: 'idle',
   error: null,

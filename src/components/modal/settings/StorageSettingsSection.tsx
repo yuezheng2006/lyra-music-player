@@ -1,5 +1,5 @@
 import React from 'react';
-import { Command, Database, Disc3, FolderOpen, Layers, Loader2, Pencil, PlayCircle, Trash2 } from 'lucide-react';
+import { Command, Database, Disc3, ExternalLink, FolderOpen, Layers, Loader2, Pencil, PlayCircle, RotateCcw, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Theme } from '../../../types';
 import SettingsAdvancedSection from './SettingsAdvancedSection';
@@ -15,7 +15,7 @@ import {
 } from './settingsTextStyles';
 
 // src/components/modal/settings/StorageSettingsSection.tsx
-// Shared storage and media cache settings used by the main options page and storage subview.
+// Shared storage, media cache, and download directory settings.
 
 type CacheCategory = 'playlist' | 'lyrics' | 'cover' | 'media';
 
@@ -26,14 +26,20 @@ type StorageSettingsSectionProps = {
     cacheDirectoryIsDefault: boolean;
     cacheDirectoryStatus: 'idle' | 'choosing';
     cacheSizes: CacheSizes;
+    downloadDirectory: string;
+    downloadDirectoryIsDefault: boolean;
+    downloadDirectoryStatus: 'idle' | 'choosing' | 'opening' | 'resetting';
     enableMediaCache: boolean;
     errorTextColor: string;
     isCleaning: string | null;
     isElectron: boolean;
     mediaCount: number;
     onChooseCacheDirectory: () => void;
+    onChooseDownloadDirectory: () => void;
     onClear: (category: CacheCategory) => void;
     onClearAll: () => void;
+    onOpenDownloadDirectory: () => void;
+    onResetDownloadDirectory: () => void;
     onToggleMediaCache: (enabled: boolean) => void;
     settingsCardClass: string;
     settingsIconClass?: string;
@@ -47,14 +53,20 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
     cacheDirectoryIsDefault,
     cacheDirectoryStatus,
     cacheSizes,
+    downloadDirectory,
+    downloadDirectoryIsDefault,
+    downloadDirectoryStatus,
     enableMediaCache,
     errorTextColor,
     isCleaning,
     isElectron,
     mediaCount,
     onChooseCacheDirectory,
+    onChooseDownloadDirectory,
     onClear,
     onClearAll,
+    onOpenDownloadDirectory,
+    onResetDownloadDirectory,
     onToggleMediaCache,
     settingsCardClass,
     settingsIconClass,
@@ -75,6 +87,7 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
         { id: 'cover' as const, label: t('options.covers') || 'Covers', size: cacheSizes.cover, icon: Disc3 },
         { id: 'media' as const, label: t('options.mediaFiles') || 'Media Files', size: cacheSizes.media, icon: PlayCircle },
     ];
+    const downloadBusy = downloadDirectoryStatus !== 'idle';
 
     return (
         <>
@@ -184,6 +197,72 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
                     </SettingsAdvancedSection>
                 )}
             </section>
+
+            {isElectron && (
+                <section className="space-y-3">
+                    <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                        <FolderOpen size={14} /> {t('options.downloadDirectory') || 'Download Directory'}
+                    </h3>
+                    <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
+                        <div className="space-y-1">
+                            <div className={settingsTitleClass} style={settingsTitleStyle}>
+                                {t('options.downloadDirectoryTitle') || 'Local downloads'}
+                            </div>
+                            <div className={settingsDescClass} style={settingsDescStyle}>
+                                {t('options.downloadDirectoryDesc') || 'Choose a Finder-friendly folder for songs saved to disk. Files use readable names under per-source subfolders.'}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <div className="flex-1 bg-black/10 rounded-lg border border-white/5 px-3 py-2 min-w-0">
+                                <div className="text-[11px] break-all font-mono" style={{ color: 'var(--text-primary)' }}>
+                                    {downloadDirectory || '...'}
+                                </div>
+                                <div className={`mt-1 ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
+                                    {downloadDirectoryIsDefault
+                                        ? (t('options.downloadDirectoryDefaultHint') || 'Default: Music/Lyra')
+                                        : (t('options.downloadDirectoryCustomHint') || 'Using a custom download location.')}
+                                </div>
+                            </div>
+                            <button
+                                onClick={onChooseDownloadDirectory}
+                                disabled={downloadBusy}
+                                className="shrink-0 w-12 rounded-lg text-sm font-medium transition-colors flex items-center justify-center bg-white/10 hover:bg-white/15 disabled:opacity-40 disabled:cursor-not-allowed"
+                                style={{ color: 'var(--text-primary)' }}
+                                title={t('options.chooseDownloadDirectory') || 'Choose Folder'}
+                                aria-label={t('options.chooseDownloadDirectory') || 'Choose Folder'}
+                            >
+                                {downloadDirectoryStatus === 'choosing' ? <Loader2 size={16} className="animate-spin" /> : <Pencil size={16} />}
+                            </button>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={onOpenDownloadDirectory}
+                                disabled={downloadBusy || !downloadDirectory}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/10 hover:bg-white/15 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                style={{ color: 'var(--text-primary)' }}
+                            >
+                                {downloadDirectoryStatus === 'opening' ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+                                {t('options.openDownloadDirectory') || 'Open Folder'}
+                            </button>
+                            {!downloadDirectoryIsDefault && (
+                                <button
+                                    type="button"
+                                    onClick={onResetDownloadDirectory}
+                                    disabled={downloadBusy}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    style={{ color: 'var(--text-secondary)' }}
+                                >
+                                    {downloadDirectoryStatus === 'resetting' ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                                    {t('options.resetDownloadDirectory') || 'Use Default Folder'}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </section>
+            )}
         </>
     );
 };

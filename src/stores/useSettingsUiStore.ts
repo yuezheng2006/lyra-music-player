@@ -19,6 +19,12 @@ import {
     parseLyricVisualEffectIntensity,
     type LyricVisualEffectIntensity,
 } from '../utils/lyricVisualEffects';
+import {
+    DEFAULT_LYRIC_EFFECT_PACK_ID,
+    LYRIC_EFFECT_PACK_STORAGE_KEY,
+    parseLyricEffectPackId,
+    type LyricEffectPackId,
+} from '../utils/lyricEffectPacks';
 import { getLyricFilterError } from '../utils/lyrics/filtering';
 import { buildStoredCappellaEmojiPack, clearCustomCappellaEmojiPack, isSupportedCappellaEmojiFile, saveCustomCappellaEmojiPack } from '../services/cappellaEmojiPack';
 import { buildStoredCappellaAvatar, clearCustomCappellaAvatar, isSupportedCappellaAvatarFile, saveCustomCappellaAvatar } from '../services/cappellaAvatarPack';
@@ -711,6 +717,13 @@ const readStoredVisualEffectIntensity = (): LyricVisualEffectIntensity => {
     return parseLyricVisualEffectIntensity(localStorage.getItem(LYRIC_VISUAL_EFFECT_INTENSITY_STORAGE_KEY));
 };
 
+const readStoredLyricEffectPackId = (): LyricEffectPackId => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_LYRIC_EFFECT_PACK_ID;
+    }
+    return parseLyricEffectPackId(localStorage.getItem(LYRIC_EFFECT_PACK_STORAGE_KEY));
+};
+
 const readStoredLyricsFontScale = (): number => {
     if (typeof window === 'undefined') {
         return 1;
@@ -891,6 +904,7 @@ type SettingsUiState = {
     lyricWordMode: LyricWordMode;
     lyricFontPresetId: string;
     visualEffectIntensity: LyricVisualEffectIntensity;
+    lyricEffectPackId: LyricEffectPackId;
     classicTuning: ClassicTuning;
     cadenzaTuning: CadenzaTuning;
     partitaTuning: PartitaTuning;
@@ -1001,6 +1015,7 @@ type SettingsUiState = {
     handleSetLyricWordMode: (mode: LyricWordMode) => void;
     handleSetLyricFontPresetId: (presetId: string) => void;
     handleSetVisualEffectIntensity: (intensity: LyricVisualEffectIntensity) => void;
+    handleSetLyricEffectPackId: (packId: LyricEffectPackId) => void;
     handleSetClassicTuning: (patch: Partial<ClassicTuning>) => void;
     handleResetClassicTuning: () => void;
     handleSetCadenzaTuning: (patch: Partial<CadenzaTuning>) => void;
@@ -1086,6 +1101,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     lyricWordMode: readStoredLyricWordMode(),
     lyricFontPresetId: readStoredLyricFontPresetId(),
     visualEffectIntensity: readStoredVisualEffectIntensity(),
+    lyricEffectPackId: readStoredLyricEffectPackId(),
     classicTuning: readStoredClassicTuning(),
     cadenzaTuning: readStoredCadenzaTuning(),
     partitaTuning: readStoredPartitaTuning(),
@@ -1526,6 +1542,13 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             localStorage.setItem(LYRIC_VISUAL_EFFECT_INTENSITY_STORAGE_KEY, next);
         }
         set({ visualEffectIntensity: next });
+    },
+    handleSetLyricEffectPackId: (packId) => {
+        const next = parseLyricEffectPackId(packId);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(LYRIC_EFFECT_PACK_STORAGE_KEY, next);
+        }
+        set({ lyricEffectPackId: next });
     },
     handleSetClassicTuning: (patch) => {
         const prev = get().classicTuning;
@@ -2096,6 +2119,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     lyricWordMode: state.lyricWordMode,
     lyricFontPresetId: state.lyricFontPresetId,
     visualEffectIntensity: state.visualEffectIntensity,
+    lyricEffectPackId: state.lyricEffectPackId,
     homeLayoutStyle: state.homeLayoutStyle,
     handleSetHomeLayoutStyle: state.handleSetHomeLayoutStyle,
     grid3dCardStyle: state.grid3dCardStyle,
@@ -2202,6 +2226,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleSetLyricWordMode: state.handleSetLyricWordMode,
     handleSetLyricFontPresetId: state.handleSetLyricFontPresetId,
     handleSetVisualEffectIntensity: state.handleSetVisualEffectIntensity,
+    handleSetLyricEffectPackId: state.handleSetLyricEffectPackId,
     handleSetLyricsFontStyle: state.handleSetLyricsFontStyle,
     handleSetLyricsFontScale: state.handleSetLyricsFontScale,
     handleSetLyricsCustomFont: state.handleSetLyricsCustomFont,

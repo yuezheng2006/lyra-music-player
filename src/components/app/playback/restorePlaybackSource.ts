@@ -22,6 +22,7 @@ import { loadYtmSongLyrics } from '../../../utils/lyrics/loadYtmSongLyrics';
 import { resolveYtmusicStream } from '../../../services/ytmusicService';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import type { YtmSong } from '../../../types/ytmusic';
+import { normalizePlaybackVideoSrc } from '../../../utils/playback/resolveVideoPlaybackStage';
 
 // src/components/app/playback/restorePlaybackSource.ts
 // Rehydrates playable audio and lyrics for a remembered song without reusing stale blob URLs.
@@ -36,6 +37,7 @@ type RestorePlaybackSourceParams = {
     setCurrentSong: SetState<SongResult | null>;
     setCachedCoverUrl: SetState<string | null>;
     setAudioSrc: SetState<string | null>;
+    setVideoSrc?: SetState<string | null>;
     setLyrics: (nextLyrics: LyricData | null) => void;
     setStatusMsg: SetState<StatusMessage | null>;
     restoreCachedThemeForSong?: (songId: ThemeCacheSongKey, options?: {
@@ -66,6 +68,7 @@ export const restorePlaybackSourceForSong = async (
         setCurrentSong,
         setCachedCoverUrl,
         setAudioSrc,
+        setVideoSrc,
         setLyrics,
         setStatusMsg,
         restoreCachedThemeForSong,
@@ -251,6 +254,7 @@ export const restorePlaybackSourceForSong = async (
         if (audioResult.kind === 'ok') {
             currentOnlineAudioUrlFetchedAtRef.current = Date.now();
             setAudioSrc(audioResult.audioUrl);
+            setVideoSrc?.(normalizePlaybackVideoSrc(audioResult.videoUrl));
         } else {
             return false;
         }
@@ -264,6 +268,7 @@ export const restorePlaybackSourceForSong = async (
             currentOnlineAudioUrlFetchedAtRef.current = Date.now();
             setAudioSrc(url);
         }
+        setVideoSrc?.(null);
     }
 
     const cachedLyrics = await getFromCacheWithMigration<LyricData>(

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Maximize, Minimize, Maximize2 } from 'lucide-react';
+import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Download, Maximize, Minimize, Maximize2 } from 'lucide-react';
 import { MotionValue } from 'framer-motion';
 import ProgressBar from './ProgressBar';
 import FloatingPlayerBackgroundMenu from './FloatingPlayerBackgroundMenu';
@@ -27,8 +27,6 @@ import {
     resolveFloatingPlayerDockFrameStyle,
 } from './floatingPlayerDockLayout';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
-import { useMoodEngineStore } from '../stores/useMoodEngineStore';
-import { EmotionButton, EmotionSelector } from './moodEngine';
 
 // src/components/FloatingPlayerControls.tsx
 // Floating dock: left meta, center transport, right tool chips.
@@ -264,9 +262,6 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     const startupOverlayOpen = useSettingsUiStore(
         (s) => s.isOnboardingOpen || s.isWhatsNewOpen,
     );
-    const selectorOpen = useMoodEngineStore((s) => s.selectorOpen);
-    const currentEmotion = useMoodEngineStore((s) => s.currentEmotion);
-    const closeSelector = useMoodEngineStore((s) => s.closeSelector);
     const dockHidden = isHidden || startupOverlayOpen;
     const effectsModeActive = currentView === 'player';
     const trackColor = isDaylight ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.10)';
@@ -277,16 +272,9 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
         && onVisualizerModeChange,
     );
 
-    const emotionSelector = selectorOpen && currentSong ? (
-        <EmotionSelector
-            songId={currentSong.id}
-            currentEmotion={currentEmotion?.emotion}
-            onClose={closeSelector}
-        />
-    ) : null;
-
+    // EmotionSelector demoted from primary chrome; mood engine still drives ambient/Lab.
     if (hideControlBar) {
-        return emotionSelector;
+        return null;
     }
 
     const handleToggleLyrics = () => {
@@ -428,7 +416,6 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                 isDaylight={isDaylight}
                 disabled={controlsDisabled}
             />
-            {emotionSelector}
         </>
     );
 };
@@ -857,11 +844,6 @@ const DockedBar: React.FC<DockedBarProps> = ({
                             buildToolButtonClass={(disabled, active) => buildToolButtonClass(isDaylight, disabled, active)}
                         />
                     ) : null}
-
-                    <EmotionButton
-                        compact
-                        className={buildToolButtonClass(isDaylight, controlsDisabled)}
-                    />
 
                     <button
                         type="button"

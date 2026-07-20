@@ -146,6 +146,7 @@ export function useAppControllerLibrary(core: AppControllerCoreResult) {
         setLyrics,
         setCachedCoverUrl,
         setAudioSrc,
+        setVideoSrc,
         setPlayQueue,
         setPlayerState,
         setCurrentLineIndex,

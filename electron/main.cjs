@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, screen, dialog, shell, nativeImage, desktopCapturer, Menu, Tray, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, session, screen, dialog, shell, nativeImage, desktopCapturer, Menu, Tray, nativeTheme, net } = require('electron');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
@@ -94,6 +94,8 @@ const DEFAULT_WINDOW_BOUNDS = {
 };
 const WINDOW_STATE_SAVE_DEBOUNCE_MS = 300;
 const CACHE_DIRECTORY_SETTING_KEY = 'CACHE_DIRECTORY';
+const DOWNLOAD_DIRECTORY_SETTING_KEY = 'DOWNLOAD_DIRECTORY';
+const DOWNLOAD_FOLDER_NAME = 'Lyra';
 const ENABLE_UPDATE_CHECK_SETTING_KEY = 'ENABLE_UPDATE_CHECK';
 const ENABLE_AUTO_UPDATE_SETTING_KEY = 'ENABLE_AUTO_UPDATE';
 const LAST_SEEN_UPDATE_VERSION_SETTING_KEY = 'LAST_SEEN_UPDATE_VERSION';
@@ -704,6 +706,161 @@ function getConfiguredCacheDirectory() {
   return typeof configured === 'string' && configured.trim().length > 0
     ? configured
     : getDefaultCacheDirectory();
+}
+
+/** User-visible download root: ~/Music/Lyra by default (Finder-friendly). */
+function getDefaultDownloadDirectory() {
+  return path.join(app.getPath('music'), DOWNLOAD_FOLDER_NAME);
+}
+
+function getConfiguredDownloadDirectory() {
+  const configured = store.get(DOWNLOAD_DIRECTORY_SETTING_KEY);
+  return typeof configured === 'string' && configured.trim().length > 0
+    ? configured.trim()
+    : getDefaultDownloadDirectory();
+}
+
+function ensureDownloadDirectory(dirPath) {
+  fs.mkdirSync(dirPath, { recursive: true });
+  return dirPath;
+}
+
+function getDownloadDirectoryResult() {
+  const dirPath = ensureDownloadDirectory(getConfiguredDownloadDirectory());
+  return {
+    path: dirPath,
+    isDefault: !store.has(DOWNLOAD_DIRECTORY_SETTING_KEY),
+  };
+}
+
+/** Keep download writes inside the configured root (no path traversal). */
+function resolveSafeDownloadAbsolutePath(relativePath) {
+  const root = path.resolve(getConfiguredDownloadDirectory());
+  const normalizedRelative = String(relativePath || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter(part => part && part !== '.' && part !== '..')
+    .join(path.sep);
+
+  if (!normalizedRelative) {
+    throw new Error('Invalid download relative path');
+  }
+
+  const absolutePath = path.resolve(root, normalizedRelative);
+  const rootWithSep = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
+  if (absolutePath !== root && !absolutePath.startsWith(rootWithSep)) {
+    throw new Error('Download path escapes configured directory');
+  }
+
+  return { root, absolutePath };
+}
+
+async function allocateUniqueDownloadPath(relativePath) {
+  const { root, absolutePath: initialPath } = resolveSafeDownloadAbsolutePath(relativePath);
+  let absolutePath = initialPath;
+  let attempt = 1;
+
+  while (true) {
+    try {
+      await fs.promises.access(absolutePath);
+      const parsed = path.parse(initialPath);
+      absolutePath = path.join(parsed.dir, `${parsed.name} (${attempt})${parsed.ext}`);
+      attempt += 1;
+      if (attempt > 99) {
+        throw new Error('Too many duplicate download filenames');
+      }
+    } catch (error) {
+      if (error && error.code === 'ENOENT') {
+        break;
+      }
+      if (error && error.message === 'Too many duplicate download filenames') {
+        throw error;
+      }
+      // access threw for an unexpected reason — still try writing this path.
+      break;
+    }
+  }
+
+  return { root, absolutePath };
+}
+
+function buildDownloadRequestHeaders(audioUrl) {
+  const headers = {
+    'User-Agent': `Lyra/${app.getVersion()}`,
+    Accept: '*/*',
+  };
+
+  try {
+    const hostname = new URL(audioUrl).hostname.toLowerCase();
+    if (
+      hostname === 'bilivideo.com'
+      || hostname.endsWith('.bilivideo.com')
+      || hostname.endsWith('.bilivideo.cn')
+    ) {
+      headers.Referer = 'https://www.bilibili.com/';
+    } else if (hostname.includes('kugou')) {
+      headers.Referer = 'https://www.kugou.com/';
+    }
+  } catch {
+    // Keep default headers when URL parsing fails.
+  }
+
+  return headers;
+}
+
+async function downloadSongFileToDirectory(payload = {}) {
+  const relativePath = String(payload.relativePath || '').trim();
+  const audioUrl = typeof payload.audioUrl === 'string' ? payload.audioUrl.trim() : '';
+  const reveal = Boolean(payload.reveal);
+  const mimeType = typeof payload.mimeType === 'string' ? payload.mimeType : null;
+
+  if (!relativePath) {
+    return { ok: false, error: 'missing-relative-path' };
+  }
+
+  ensureDownloadDirectory(getConfiguredDownloadDirectory());
+  const { absolutePath } = await allocateUniqueDownloadPath(relativePath);
+  await fs.promises.mkdir(path.dirname(absolutePath), { recursive: true });
+
+  let buffer = null;
+  let resolvedMime = mimeType;
+
+  if (payload.data != null) {
+    buffer = Buffer.isBuffer(payload.data)
+      ? payload.data
+      : Buffer.from(payload.data instanceof ArrayBuffer ? new Uint8Array(payload.data) : payload.data);
+  } else if (audioUrl) {
+    if (!/^https?:\/\//i.test(audioUrl)) {
+      return { ok: false, error: 'unsupported-audio-url' };
+    }
+
+    const response = await net.fetch(audioUrl, {
+      headers: buildDownloadRequestHeaders(audioUrl),
+    });
+    if (!response.ok) {
+      return { ok: false, error: `http-${response.status}`, path: absolutePath };
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    buffer = Buffer.from(arrayBuffer);
+    if (!resolvedMime) {
+      resolvedMime = response.headers.get('content-type');
+    }
+  } else {
+    return { ok: false, error: 'missing-audio-source' };
+  }
+
+  await fs.promises.writeFile(absolutePath, buffer);
+
+  if (reveal) {
+    shell.showItemInFolder(absolutePath);
+  }
+
+  return {
+    ok: true,
+    path: absolutePath,
+    bytes: buffer.byteLength,
+    mimeType: resolvedMime || null,
+  };
 }
 
 function getAudioCacheDirectory() {
@@ -2188,7 +2345,7 @@ const {
 } = require('@neteasecloudmusicapienhanced/api/util/index');
 const { serveNcmApi } = require('@neteasecloudmusicapienhanced/api/server');
 
-const net = require('net');
+const nodeNet = require('net');
 let assignedPort = 30000; // default fallback
 let assignedMusicProviderPort = 30002;
 let musicProviderSidecarProcess = null;
@@ -2216,7 +2373,7 @@ function updateNeteaseApiStatus(nextStatus) {
 
 async function getFreePort() {
   return new Promise((resolve, reject) => {
-    const srv = net.createServer();
+    const srv = nodeNet.createServer();
     srv.listen(0, () => {
       const port = srv.address().port;
       srv.close((err) => {
@@ -3351,6 +3508,67 @@ ipcMain.handle('reset-cache-directory', () => {
     path: getConfiguredCacheDirectory(),
     isDefault: true,
   };
+});
+
+ipcMain.handle('get-download-directory', () => getDownloadDirectoryResult());
+
+ipcMain.handle('choose-download-directory', async () => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return {
+      canceled: true,
+      ...getDownloadDirectoryResult(),
+    };
+  }
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose download directory',
+    properties: ['openDirectory', 'createDirectory'],
+    defaultPath: getConfiguredDownloadDirectory(),
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return {
+      canceled: true,
+      ...getDownloadDirectoryResult(),
+    };
+  }
+
+  const selectedPath = result.filePaths[0];
+  store.set(DOWNLOAD_DIRECTORY_SETTING_KEY, selectedPath);
+  ensureDownloadDirectory(selectedPath);
+
+  return {
+    canceled: false,
+    path: selectedPath,
+    isDefault: false,
+  };
+});
+
+ipcMain.handle('reset-download-directory', () => {
+  store.delete(DOWNLOAD_DIRECTORY_SETTING_KEY);
+  return getDownloadDirectoryResult();
+});
+
+ipcMain.handle('open-download-directory', async () => {
+  const { path: dirPath } = getDownloadDirectoryResult();
+  const openError = await shell.openPath(dirPath);
+  return {
+    ok: !openError,
+    path: dirPath,
+    error: openError || null,
+  };
+});
+
+ipcMain.handle('download-song-file', async (_event, payload) => {
+  try {
+    return await downloadSongFileToDirectory(payload || {});
+  } catch (error) {
+    console.error('[Download] Failed to save song file', error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'download-failed',
+    };
+  }
 });
 
 ipcMain.handle('updates-get-status', () => {

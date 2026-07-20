@@ -2,14 +2,14 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NeteasePlaylist, OnlineMusicProviderId } from '../../types';
 import { OnlineProviderBadge } from '../shared/OnlineProviderBadge';
-import { FreeSourceNotice } from '../shared/FreeSourceNotice';
 import LazyCoverImage from '../shared/LazyCoverImage';
 import { isProviderDefaultPlaylist } from '../../utils/onlineDefaultPlaylists';
 import { resolveOnlineProviderIconUrl } from '../../utils/onlineProviderAssets';
+import { shouldShowHomePeerShortcuts } from '../../utils/ui/homePeerSectionMath';
 import { resolveHomeContentBottomPaddingClass } from '../app/home/homeSurfaceStyles';
 
 // src/components/folia-grid/OnlineHomeFlatSurface.tsx
-// Flat sectional home: peer-source entries stay separate from personal playlists.
+// Flat sectional home: peer shortcuts stay demoted; personal playlists own the fold.
 
 export type OnlineHomeFlatItem = {
     id: string | number;
@@ -35,46 +35,33 @@ const isLikedName = (item: OnlineHomeFlatItem) => {
     return name.includes('喜欢') || name.includes('红心') || name.includes('Favorite');
 };
 
-/** Compact horizontal entry so peer sources do not dominate above-the-fold height. */
-const PeerSourceCard: React.FC<{
+/** Dense chip: opens peer search without competing with「来源」pills. */
+const PeerShortcutChip: React.FC<{
     item: OnlineHomeFlatItem;
     isDaylight: boolean;
     onSelect: () => void;
 }> = ({ item, isDaylight, onSelect }) => {
     const shell = isDaylight
-        ? 'bg-white/55 border-white/70 shadow-[0_6px_18px_rgba(0,0,0,0.05)] hover:bg-white/75'
-        : 'bg-white/[0.07] border-white/10 shadow-[0_8px_20px_rgba(0,0,0,0.24)] hover:bg-white/[0.11]';
-    const metaTone = isDaylight ? 'text-black/42' : 'text-white/42';
-    const titleTone = isDaylight ? 'text-black/88' : 'text-white/92';
+        ? 'bg-black/[0.04] border-black/10 text-black/75 hover:bg-black/[0.07] hover:text-black'
+        : 'bg-white/[0.06] border-white/12 text-white/80 hover:bg-white/[0.1] hover:text-white';
     const iconUrl = resolveOnlineProviderIconUrl(item.musicProvider) || item.coverUrl;
 
     return (
         <button
             type="button"
             onClick={onSelect}
-            className={`group flex min-w-[200px] max-w-[280px] flex-1 items-center gap-3 rounded-2xl border px-3 py-2.5 text-left backdrop-blur-xl transition-all duration-300 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.985] ${shell}`}
+            title={item.description || item.name}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors active:scale-[0.97] ${shell}`}
         >
-            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-black">
-                <LazyCoverImage
+            {iconUrl ? (
+                <img
                     src={iconUrl}
-                    alt={item.name}
-                    placeholderLabel={item.name}
-                    placeholderVariant="playlist"
-                    sizePx={88}
-                    className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                    alt=""
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 rounded-[3px] object-cover shrink-0"
                 />
-            </div>
-
-            <div className="min-w-0 flex-1">
-                <div className={`truncate text-[13px] font-semibold leading-snug tracking-tight ${titleTone}`}>
-                    {item.name}
-                </div>
-                {item.description ? (
-                    <div className={`mt-0.5 truncate text-[11px] leading-snug ${metaTone}`}>
-                        {item.description}
-                    </div>
-                ) : null}
-            </div>
+            ) : null}
+            <span className="max-w-[7.5rem] truncate">{item.name}</span>
         </button>
     );
 };
@@ -140,7 +127,7 @@ const SectionTitle: React.FC<{ title: string; isDaylight: boolean; count?: numbe
     isDaylight,
     count,
 }) => (
-    <div className="mb-2.5 flex items-baseline gap-2">
+    <div className="mb-2 flex items-baseline gap-2">
         <h2 className={`text-[14px] md:text-[15px] font-semibold tracking-tight ${isDaylight ? 'text-black/80' : 'text-white/88'}`}>
             {title}
         </h2>
@@ -152,14 +139,14 @@ const SectionTitle: React.FC<{ title: string; isDaylight: boolean; count?: numbe
     </div>
 );
 
-const PeerSourceRow: React.FC<{
+const PeerShortcutRow: React.FC<{
     items: OnlineHomeFlatItem[];
     isDaylight: boolean;
     onSelectPlaylist: (item: OnlineHomeFlatItem) => void;
 }> = ({ items, isDaylight, onSelectPlaylist }) => (
-    <div className="flex flex-wrap gap-2.5">
+    <div className="flex flex-wrap gap-1.5">
         {items.map(item => (
-            <PeerSourceCard
+            <PeerShortcutChip
                 key={`${item.musicProvider || 'netease'}-${item.id}`}
                 item={item}
                 isDaylight={isDaylight}
@@ -221,7 +208,9 @@ export const OnlineHomeFlatSurface: React.FC<OnlineHomeFlatSurfaceProps> = ({
         [items],
     );
 
-    const showSpecialSection = moduleFilter === 'all' && specialItems.length > 0;
+    const personalItemCount = libraryItems.length + likedItems.length;
+    const showPeerShortcuts = moduleFilter === 'all'
+        && shouldShowHomePeerShortcuts(specialItems.length, personalItemCount);
     const primaryItems = moduleFilter === 'all'
         ? libraryItems
         : items.filter(item => !isProviderDefaultPlaylist(item.raw));
@@ -238,16 +227,15 @@ export const OnlineHomeFlatSurface: React.FC<OnlineHomeFlatSurfaceProps> = ({
             }`}
             data-app-ui-surface="home-playlists"
         >
-            <div className="mx-auto max-w-6xl space-y-5">
-                {showSpecialSection ? (
+            <div className="mx-auto max-w-6xl space-y-4">
+                {showPeerShortcuts ? (
                     <section>
                         <SectionTitle
-                            title={t('home.sectionPeerSources')}
+                            title={t('home.sectionPeerShortcuts')}
                             isDaylight={isDaylight}
                             count={specialItems.length}
                         />
-                        <FreeSourceNotice isDaylight={isDaylight} className="mb-2.5" compact />
-                        <PeerSourceRow
+                        <PeerShortcutRow
                             items={specialItems}
                             isDaylight={isDaylight}
                             onSelectPlaylist={onSelectPlaylist}

@@ -1,6 +1,7 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import type { MotionValue } from 'framer-motion';
 import { useAmbientVisualStore } from '../../../stores/useAmbientVisualStore';
+import { useMoodEngineStore } from '../../../stores/useMoodEngineStore';
 import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
 import { shouldMountAmbientVisual } from '../../../utils/atmosphere/ambientVisualMountMath';
 
@@ -8,7 +9,10 @@ import { shouldMountAmbientVisual } from '../../../utils/atmosphere/ambientVisua
 // Ambient layer between Mineradio cover particles and Character (pointer-events none).
 
 /** Keep cover particles readable while mood strategies stay visible. */
-const AMBIENT_OVERLAY_OPACITY = 0.52;
+const AMBIENT_OVERLAY_OPACITY = 0.58;
+/** Brief boost after user emotion correction so the strategy switch is legible. */
+const AMBIENT_CORRECTION_BOOST_OPACITY = 0.88;
+const AMBIENT_CORRECTION_BOOST_MS = 1600;
 
 const AmbientVisualStageLazy = lazy(() =>
   import('../strategies/AmbientVisualStage')
@@ -35,12 +39,21 @@ const AmbientVisualOverlay: React.FC<AmbientVisualOverlayProps> = ({
   currentTime = null,
 }) => {
   const enabled = useAmbientVisualStore((s) => s.enabled);
+  const correctionPulseAt = useMoodEngineStore((s) => s.correctionPulseAt);
   const performanceTier = usePerformanceMonitorStore((s) => s.effectiveTier);
+  const [boosted, setBoosted] = useState(false);
   const visible = shouldMountAmbientVisual({
     enabled,
     performanceTier,
     staticMode,
   });
+
+  useEffect(() => {
+    if (!correctionPulseAt) return undefined;
+    setBoosted(true);
+    const timer = window.setTimeout(() => setBoosted(false), AMBIENT_CORRECTION_BOOST_MS);
+    return () => window.clearTimeout(timer);
+  }, [correctionPulseAt]);
 
   if (!visible) return null;
 
@@ -50,7 +63,8 @@ const AmbientVisualOverlay: React.FC<AmbientVisualOverlayProps> = ({
       className="absolute inset-0 z-[2]"
       style={{
         pointerEvents: 'none',
-        opacity: AMBIENT_OVERLAY_OPACITY,
+        opacity: boosted ? AMBIENT_CORRECTION_BOOST_OPACITY : AMBIENT_OVERLAY_OPACITY,
+        transition: 'opacity 280ms ease-out',
       }}
       aria-hidden
     >

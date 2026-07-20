@@ -53,6 +53,8 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     setDesktopLyricsLocked: vi.fn(async () => true),
     desktopLyricsEnabled: false,
     desktopLyricsLocked: true,
+    downloadCurrentSong: vi.fn(async () => true),
+    setLyricEffectPackId: vi.fn(),
     ...overrides,
 });
 

@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import type { MotionValue } from 'framer-motion';
 import { CharacterStageErrorBoundary } from '../../character/CharacterStageErrorBoundary';
+import { resolveCharacterStageDockStyle } from '../../character/characterStageDockMath';
 import { useCharacterStore } from '../../../stores/useCharacterStore';
 
 // src/components/visualizer/geometric/CharacterStageOverlay.tsx
@@ -17,13 +18,14 @@ const CharacterStageLazy = lazy(() =>
     }),
 );
 
-/** Corner dock size — keeps the companion clear of center lyrics. */
-const CHARACTER_DOCK_WIDTH = 'min(42vw, 280px)';
-const CHARACTER_DOCK_HEIGHT = 'min(42vw, 280px)';
-
 type CharacterStageOverlayProps = {
   /** Hide when geometric stage is in static/paused shell mode or not playing. */
   visible: boolean;
+  /**
+   * Player chrome-hide / fullscreen play. Only adjusts bottom inset for the
+   * vanished dock — fox stays companion-sized (no character-fullscreen mode).
+   */
+  immersive?: boolean;
   /** Pause skeletal animation without tearing down the WebGL layer. */
   paused?: boolean;
   /** Audio/lyric clock for beat-map rhythm drive. */
@@ -36,6 +38,7 @@ type CharacterStageOverlayProps = {
  */
 const CharacterStageOverlay: React.FC<CharacterStageOverlayProps> = ({
   visible,
+  immersive = false,
   paused = false,
   currentTime = null,
 }) => {
@@ -45,14 +48,9 @@ const CharacterStageOverlay: React.FC<CharacterStageOverlayProps> = ({
   return (
     <div
       data-testid="character-stage-dock"
+      data-immersive={immersive ? 'true' : 'false'}
       className="absolute z-[3]"
-      style={{
-        right: 'max(12px, env(safe-area-inset-right, 0px))',
-        bottom: 'calc(var(--app-player-bar-height, 72px) + 16px + env(safe-area-inset-bottom, 0px))',
-        width: CHARACTER_DOCK_WIDTH,
-        height: CHARACTER_DOCK_HEIGHT,
-        pointerEvents: 'auto',
-      }}
+      style={resolveCharacterStageDockStyle(immersive)}
       aria-hidden
     >
       <CharacterStageErrorBoundary>

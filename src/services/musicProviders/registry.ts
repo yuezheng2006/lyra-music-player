@@ -3,6 +3,7 @@ import { getOnlineSongCacheKey, isCloudSong, neteaseApi } from '../netease';
 import { bilibiliMusicProvider } from './bilibiliMusicProvider';
 import { cocoMusicProvider } from './cocoMusicProvider';
 import { kugouMusicProvider } from './kugouMusicProvider';
+import { kuwoMusicProvider } from './kuwoMusicProvider';
 import { qishuiMusicProvider } from './qishuiMusicProvider';
 import { qqMusicProvider } from './qqMusicProvider';
 import type { MusicProvider, ProviderAudioResult } from './types';
@@ -44,6 +45,7 @@ const providers: Record<OnlineMusicProviderId, MusicProvider> = {
     coco: cocoMusicProvider,
     kugou: kugouMusicProvider,
     bilibili: bilibiliMusicProvider,
+    kuwo: kuwoMusicProvider,
 };
 
 export const getSongMusicProviderId = (song?: Pick<SongResult, 'musicProvider' | 't'> | null): OnlineMusicProviderId => {

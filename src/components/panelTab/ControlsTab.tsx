@@ -15,6 +15,8 @@ import LyricColorPicker from '../shared/LyricColorPicker';
 import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
 import LyricFontPresetSelector from '../shared/LyricFontPresetSelector';
 import LyricVisualEffectSelector from '../shared/LyricVisualEffectSelector';
+import LyricEffectPackSelector from '../shared/LyricEffectPackSelector';
+import { getLyricEffectPackSuggestion } from '../../utils/lyricEffectPacks';
 import LyricWordModeToggle from '../shared/LyricWordModeToggle';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import {
@@ -96,10 +98,12 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
     const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
     const lyricFontPresetId = useSettingsUiStore(state => state.lyricFontPresetId);
     const visualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
+    const lyricEffectPackId = useSettingsUiStore(state => state.lyricEffectPackId);
     const handleSetLyricsCustomFont = useSettingsUiStore(state => state.handleSetLyricsCustomFont);
     const handleSetLyricWordMode = useSettingsUiStore(state => state.handleSetLyricWordMode);
     const handleSetLyricFontPresetId = useSettingsUiStore(state => state.handleSetLyricFontPresetId);
     const handleSetVisualEffectIntensity = useSettingsUiStore(state => state.handleSetVisualEffectIntensity);
+    const handleSetLyricEffectPackId = useSettingsUiStore(state => state.handleSetLyricEffectPackId);
     const [sliderVolume, setSliderVolume] = useState(isMuted ? 0 : volume);
     const isDraggingRef = useRef(false);
     const pendingVolumeRef = useRef(sliderVolume);
@@ -297,6 +301,30 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                                         selectedIntensity={visualEffectIntensity}
                                         onIntensityChange={handleSetVisualEffectIntensity}
                                         isDaylight={isDaylight}
+                                    />
+                                </div>
+                            </div>
+                            <div className={`mt-2 space-y-1 border-t pt-2 ${
+                                isDaylight ? 'border-black/10' : 'border-white/10'
+                            }`}>
+                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                                    {t('options.lyricEffectPack') || '歌词特效'}
+                                </label>
+                                <div className={`${wellBg} p-0.5 rounded-lg`}>
+                                    <LyricEffectPackSelector
+                                        selectedPackId={lyricEffectPackId}
+                                        onPackChange={handleSetLyricEffectPackId}
+                                        isDaylight={isDaylight}
+                                        onApplySuggestion={(packId) => {
+                                            const suggestion = getLyricEffectPackSuggestion(packId);
+                                            if (suggestion.fontPresetId) {
+                                                handleSetLyricsCustomFont(null);
+                                                handleSetLyricFontPresetId(suggestion.fontPresetId);
+                                            }
+                                            if (suggestion.colorPresetId && onApplyLyricColorPreset) {
+                                                onApplyLyricColorPreset(suggestion.colorPresetId as Parameters<NonNullable<typeof onApplyLyricColorPreset>>[0]);
+                                            }
+                                        }}
                                     />
                                 </div>
                             </div>

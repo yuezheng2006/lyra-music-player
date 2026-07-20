@@ -40,6 +40,7 @@ describe('useOnlineLibraryFilterStore', () => {
                 coco: true,
                 kugou: true,
                 bilibili: true,
+                kuwo: true,
             },
             moduleFilter: 'all',
             searchProvider: 'netease',
@@ -77,6 +78,7 @@ describe('useOnlineLibraryFilterStore', () => {
                 coco: true,
                 kugou: true,
                 bilibili: true,
+                kuwo: true,
             },
             searchProvider: 'netease',
         });
@@ -116,6 +118,7 @@ describe('useOnlineLibraryFilterStore', () => {
                 coco: true,
                 kugou: true,
                 bilibili: true,
+                kuwo: true,
             },
             moduleFilter: 'liked',
             searchProvider: 'qq',

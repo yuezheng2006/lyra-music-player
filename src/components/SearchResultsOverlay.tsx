@@ -152,6 +152,7 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         if (activeProvider === 'coco') return t('home.searchCocoMusic');
         if (activeProvider === 'kugou') return t('home.searchKugouMusic');
         if (activeProvider === 'bilibili') return t('home.searchBilibiliMusic');
+        if (activeProvider === 'kuwo') return t('home.searchKuwoMusic');
         return t('search.placeholder');
     }, [activeProvider, isMultiSource, t]);
 
@@ -161,20 +162,19 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         if (activeProvider === 'coco') return t('search.subtitleCoco');
         if (activeProvider === 'kugou') return t('search.subtitleKugou');
         if (activeProvider === 'bilibili') return t('search.subtitleBilibili');
+        if (activeProvider === 'kuwo') return t('search.subtitleKuwo');
         return t('search.subtitle');
     }, [activeProvider, isMultiSource, t]);
 
-    const searchTitle = isMultiSource
-        ? t('search.title')
-        : (activeProvider === 'qishui'
-            ? t('home.qishuiProvider')
-            : (activeProvider === 'coco'
-                ? t('home.cocoProvider')
-                : (activeProvider === 'kugou'
-                    ? t('home.kugouProvider')
-                    : (activeProvider === 'bilibili'
-                        ? t('home.bilibiliProvider')
-                        : t('search.title')))));
+    const searchTitle = (() => {
+        if (isMultiSource) return t('search.title');
+        if (activeProvider === 'qishui') return t('home.qishuiProvider');
+        if (activeProvider === 'coco') return t('home.cocoProvider');
+        if (activeProvider === 'kugou') return t('home.kugouProvider');
+        if (activeProvider === 'bilibili') return t('home.bilibiliProvider');
+        if (activeProvider === 'kuwo') return t('home.kuwoProvider');
+        return t('search.title');
+    })();
 
     const shellBg = isDaylight ? 'bg-[#f4f7fb]/92' : 'bg-black/80';
     const panelBg = isDaylight

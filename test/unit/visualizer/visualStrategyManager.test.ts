@@ -55,12 +55,13 @@ describe('ambient visual transition math', () => {
 });
 
 describe('emotion → strategy mapping', () => {
-  it('maps happy/energetic to particle, calm/sad to wave, neutral to geometry', () => {
+  it('maps happy/energetic to particle; calm/sad/neutral to geometry (no ambient wave)', () => {
     expect(getVisualStrategyForEmotion('happy')).toBe('particle');
     expect(getVisualStrategyForEmotion('energetic')).toBe('particle');
     expect(getVisualStrategyForEmotion('uplifting')).toBe('particle');
-    expect(getVisualStrategyForEmotion('sad')).toBe('wave');
-    expect(getVisualStrategyForEmotion('calm')).toBe('wave');
+    expect(getVisualStrategyForEmotion('sad')).toBe('geometry');
+    expect(getVisualStrategyForEmotion('calm')).toBe('geometry');
+    expect(getVisualStrategyForEmotion('melancholic')).toBe('geometry');
     expect(getVisualStrategyForEmotion('neutral')).toBe('geometry');
     expect(getVisualStrategyForEmotion('romantic')).toBe('geometry');
   });

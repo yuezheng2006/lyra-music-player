@@ -105,6 +105,7 @@ const resolvePlaylistProvider = (playlist: NeteasePlaylist): OnlineMusicProvider
         || playlist.musicProvider === 'coco'
         || playlist.musicProvider === 'kugou'
         || playlist.musicProvider === 'bilibili'
+        || playlist.musicProvider === 'kuwo'
     ) {
         return playlist.musicProvider;
     }
@@ -165,6 +166,7 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         if (only === 'coco') return t('home.searchCocoMusic');
         if (only === 'kugou') return t('home.searchKugouMusic');
         if (only === 'bilibili') return t('home.searchBilibiliMusic');
+        if (only === 'kuwo') return t('home.searchKuwoMusic');
         return t('home.searchDatabase');
     }, [searchProvider, searchableProviders, t]);
 

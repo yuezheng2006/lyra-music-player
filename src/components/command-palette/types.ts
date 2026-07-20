@@ -66,6 +66,7 @@ export type CommandPaletteContext = {
     generateAITheme: () => void;
     setVisualizerMode: (mode: VisualizerMode) => void;
     setLyricWordMode: (mode: LyricWordMode) => void;
+    setLyricEffectPackId: (packId: import('../../utils/lyricEffectPacks').LyricEffectPackId) => void;
     setVisualizerBackgroundMode: (mode: VisualizerBackgroundMode) => void;
     setMonetBackgroundTuning: (patch: Partial<MonetBackgroundTuning>) => void;
     toggleTransparentBackground: () => void;
@@ -89,4 +90,5 @@ export type CommandPaletteContext = {
     setDesktopLyricsLocked: (locked: boolean) => Promise<boolean>;
     desktopLyricsEnabled: boolean;
     desktopLyricsLocked: boolean;
+    downloadCurrentSong: () => Promise<boolean>;
 };

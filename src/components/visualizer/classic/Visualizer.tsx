@@ -23,7 +23,10 @@ import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { resolveWaitingWordPresentation, resolveLyricWordAnimateKey } from '../../../utils/lyrics/lyricWordMode';
 import { LYRIC_MOTION_BLUR_PX, lyricBlurFilter } from '../../../utils/lyrics/lyricMotionClarity';
 import { buildLyricKaraokeOutlineLayers } from '../../../utils/lyricVisualEffects';
+import { resolveLyricEffectPack } from '../../../utils/lyricEffectPacks';
+import { resolveLyricPhrasePresentation } from '../../../utils/lyrics/lyricPhrasePresentationMath';
 import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
+import { useLyricEffectPackBeatVars } from '../../../hooks/useLyricEffectPackBeatVars';
 
 // This mode is the most straightforward lyric pipeline in the folder.
 // First we ask runtime which line is active right now, then read renderHints from that line,
@@ -198,7 +201,9 @@ const Word: React.FC<{
     isChorus?: boolean;
     fontSize: string;
     lyricWordMode: 'default' | 'karaoke';
-}> = ({ word, config, currentTime, theme, isChaotic, layoutVariants, bodyVariants, glowVariants, baseColor, activeColor, renderProfile, isChorus, fontSize, lyricWordMode }) => {
+    /** Neon pack only: soft scan garnish on the active glyph face. */
+    neonScan?: boolean;
+}> = ({ word, config, currentTime, theme, isChaotic, layoutVariants, bodyVariants, glowVariants, baseColor, activeColor, renderProfile, isChorus, fontSize, lyricWordMode, neonScan = false }) => {
     const [status, setStatus] = useState<"waiting" | "active" | "passed">("waiting");
     const rippleScale = useMemo(() => 1.5 + Math.random() * 2, []);
     const duration = getClassicWordDisplayDuration(word, renderProfile);
@@ -309,7 +314,7 @@ const Word: React.FC<{
                         duration,
                         wordRevealMode: renderProfile.wordRevealMode,
                     }}
-                    className="relative block"
+                    className={`relative block${neonScan && status === 'active' ? ' lyric-effect-neon-scan' : ''}`}
                 >
                     {word.text}
                 </motion.span>
@@ -349,9 +354,12 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         showSubtitleTranslation = true,
         classicTuning,
         mineradioStageActive = false,
+        beatPulse,
     } = props;
     const { t } = useTranslation();
     const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const lyricEffectPackId = useSettingsUiStore(state => state.lyricEffectPackId);
+    const visualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
     const waitingWordPresentation = resolveWaitingWordPresentation(lyricWordMode);
 
     const resolvedClassicTuning = useMemo(() => resolveClassicTuning(classicTuning), [classicTuning]);
@@ -368,8 +376,24 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
     const activeLineRenderProfile = activeLine ? resolveClassicLineRenderProfile(activeLine) : null;
     const activeWordRenderProfile = activeLineRenderProfile ?? (activeLine ? resolveClassicLineRenderProfile(activeLine) : null);
     const activeLineContainerMotion = getClassicLineContainerMotion(activeLineRenderProfile);
+    const isChorus = Boolean(activeLine?.isChorus);
+    const phrase = useMemo(() => resolveLyricPhrasePresentation({
+        isChorus,
+        timingClass: activeLineRenderProfile?.renderHints?.timingClass ?? null,
+    }), [activeLineRenderProfile?.renderHints?.timingClass, isChorus]);
+    const effectPack = useMemo(
+        () => resolveLyricEffectPack(lyricEffectPackId, visualEffectIntensity),
+        [lyricEffectPackId, visualEffectIntensity],
+    );
 
     const stageRef = useRef<HTMLDivElement | null>(null);
+    useLyricEffectPackBeatVars({
+        hostRef: stageRef,
+        packId: effectPack.id,
+        intensity: visualEffectIntensity,
+        beatPulse,
+        isChorus,
+    });
     const [stageWidth, setStageWidth] = useState(() => (
         typeof window === 'undefined' ? 960 : Math.max(320, window.innerWidth - 220)
     ));
@@ -411,7 +435,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
     const lyricFit = useMemo(
         () => resolveLyricContainerFit({
             containerWidth: stageWidth,
-            lyricsFontScale,
+            lyricsFontScale: lyricsFontScale * phrase.fontScaleMul,
             sidePaddingRatio: 0.09,
             minSidePaddingPx: 32,
             preferredWidthRatio: 0.068,
@@ -420,7 +444,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
             scaleHeadroom: rhythmHeadroom,
             glowInsetPx,
         }),
-        [stageWidth, lyricsFontScale, glowInsetPx, rhythmHeadroom],
+        [stageWidth, lyricsFontScale, phrase.fontScaleMul, glowInsetPx, rhythmHeadroom],
     );
     const lyricVertical = useMemo(
         () => resolveLyricVerticalSafeArea({
@@ -786,6 +810,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
                                         isChorus={activeLine.isChorus}
                                         fontSize={mainFontSize}
                                         lyricWordMode={lyricWordMode}
+                                        neonScan={effectPack.neonScan}
                                     />
                                 );
                             })}

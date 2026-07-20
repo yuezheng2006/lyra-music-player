@@ -60,6 +60,9 @@ const getAdapterModulePath = (provider) => {
   if (provider === 'bilibili') {
     return path.join(__dirname, 'music-provider-adapters', 'bilibili-provider-adapter.mjs');
   }
+  if (provider === 'kuwo') {
+    return path.join(__dirname, 'music-provider-adapters', 'kuwo-provider-adapter.mjs');
+  }
   const generic = process.env.MUSIC_PROVIDER_ADAPTER;
   return generic && generic.trim() ? generic.trim() : null;
 };
@@ -73,7 +76,13 @@ const loadAdapter = async (provider) => {
   if (!fs.existsSync(resolvedPath)) {
     const error = new Error(`[music-provider-sidecar] adapter missing for ${provider}: ${resolvedPath}`);
     // Built-in qq/coco adapters are required; missing files are transport failures, not "song unavailable".
-    if (provider === 'qq' || provider === 'coco' || provider === 'kugou' || provider === 'bilibili') {
+    if (
+      provider === 'qq'
+      || provider === 'coco'
+      || provider === 'kugou'
+      || provider === 'bilibili'
+      || provider === 'kuwo'
+    ) {
       throw error;
     }
     console.warn(error.message);
@@ -168,6 +177,7 @@ const parseProviderPath = (pathname) => {
     && provider !== 'coco'
     && provider !== 'kugou'
     && provider !== 'bilibili'
+    && provider !== 'kuwo'
   ) {
     return null;
   }

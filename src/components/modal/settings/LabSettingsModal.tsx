@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, ChevronLeft, ChevronRight, Cpu, GamepadDirectional, Monitor, PlayCircle, RotateCcw, Settings2 } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Cpu, GamepadDirectional, Magnet, Monitor, PlayCircle, RotateCcw, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import type { Theme, VisualizerFrameRate } from '../../../types';
@@ -9,6 +9,7 @@ import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
 import { useAmbientVisualStore } from '../../../stores/useAmbientVisualStore';
 import { useCharacterStore } from '../../../stores/useCharacterStore';
+import { useMagneticPullStore } from '../../../stores/useMagneticPullStore';
 import { VISUALIZER_FRAME_RATE_OPTIONS } from '../../../utils/frameRateLimiter';
 import {
     settingsDescClass,
@@ -54,6 +55,12 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
     const setAmbientVisualEnabled = useAmbientVisualStore((s) => s.setEnabled);
     const characterEnabled = useCharacterStore((s) => s.enabled);
     const setCharacterEnabled = useCharacterStore((s) => s.setEnabled);
+    const magneticPullEnabled = useMagneticPullStore((s) => s.enabled);
+    const setMagneticPullEnabled = useMagneticPullStore((s) => s.setEnabled);
+    const emotionScrambleEnabled = useMagneticPullStore((s) => s.scrambleEnabled);
+    const setEmotionScrambleEnabled = useMagneticPullStore((s) => s.setScrambleEnabled);
+    const emotionBeatPulseEnabled = useMagneticPullStore((s) => s.beatPulseEnabled);
+    const setEmotionBeatPulseEnabled = useMagneticPullStore((s) => s.setBeatPulseEnabled);
     const {
         disableHomeDynamicBackground,
         hidePlayerRightPanelButton,
@@ -280,7 +287,7 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                                 {t('options.ambientVisualEnabled') || 'Ambient visual'}
                                             </div>
                                             <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
-                                                {t('options.ambientVisualEnabledDesc') || 'Mood-driven particle / wave / geometry layer above cover particles (below the character). Auto-off on lite performance tier.'}
+                                                {t('options.ambientVisualEnabledDesc') || 'Mood-driven particle / geometry layer above cover particles (below the character). Wave fabric stays inside cover 3D presets. Auto-off on lite performance tier.'}
                                             </div>
                                         </div>
                                         {renderToggle(ambientVisualEnabled, () => setAmbientVisualEnabled(!ambientVisualEnabled))}
@@ -292,13 +299,50 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                         <div className="space-y-1">
                                             <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
                                                 <GamepadDirectional size={14} />
-                                                {t('options.characterEnabled') || 'Interactive character'}
+                                                {t('options.characterEnabled') || 'Interactive character (experimental)'}
                                             </div>
                                             <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
-                                                {t('options.characterEnabledDesc') || 'Show the fox companion on the player stage when lyrics are visible. Preference is saved locally.'}
+                                                {t('options.characterEnabledDesc') || 'Optional fox companion on the player stage when lyrics are visible. Off by default; turn on here if you want to try it. Preference is saved locally.'}
                                             </div>
                                         </div>
                                         {renderToggle(characterEnabled, () => setCharacterEnabled(!characterEnabled))}
+                                    </div>
+                                </div>
+
+                                <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="space-y-1">
+                                            <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                                <Magnet size={14} />
+                                                {t('options.magneticPullEnabled') || 'Magnetic emotion chip'}
+                                            </div>
+                                            <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
+                                                {t('options.magneticPullEnabledDesc') || 'Soft pointer-follow on the floating mood chip. Respects reduced-motion; preference is saved locally.'}
+                                            </div>
+                                        </div>
+                                        {renderToggle(magneticPullEnabled, () => setMagneticPullEnabled(!magneticPullEnabled))}
+                                    </div>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="space-y-1">
+                                            <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                                {t('options.emotionScrambleEnabled') || 'Emotion label scramble'}
+                                            </div>
+                                            <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
+                                                {t('options.emotionScrambleEnabledDesc') || 'Brief scramble reveal when the mood label changes. Compact dock expands the name temporarily.'}
+                                            </div>
+                                        </div>
+                                        {renderToggle(emotionScrambleEnabled, () => setEmotionScrambleEnabled(!emotionScrambleEnabled))}
+                                    </div>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="space-y-1">
+                                            <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                                {t('options.emotionBeatPulseEnabled') || 'Emotion chip beat pulse'}
+                                            </div>
+                                            <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
+                                                {t('options.emotionBeatPulseEnabledDesc') || 'Soft glow on the mood chip follows smart-atmosphere beat pulse.'}
+                                            </div>
+                                        </div>
+                                        {renderToggle(emotionBeatPulseEnabled, () => setEmotionBeatPulseEnabled(!emotionBeatPulseEnabled))}
                                     </div>
                                 </div>
 

@@ -14,6 +14,7 @@ import {
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
 import { useAmbientVisualStore } from '../../../stores/useAmbientVisualStore';
+import { useMagneticPullStore } from '../../../stores/useMagneticPullStore';
 import { parsePerformanceMode } from '../../../utils/performance/performanceMonitorMath';
 import { sanitizeUrlBackgroundItem } from '../../../utils/urlBackground';
 import {
@@ -257,6 +258,7 @@ export const compressConfig = (config: any): string => {
     if (config.visualizerMode) minified.vm = config.visualizerMode;
     if (config.lyricWordMode) minified.lwm = config.lyricWordMode;
     if (config.lyricFontPresetId) minified.lfp = config.lyricFontPresetId;
+    if (config.lyricEffectPackId) minified.lep = config.lyricEffectPackId;
     if (config.visualEffectIntensity) minified.vei = config.visualEffectIntensity;
     if (config.visualizerBackgroundMode) minified.vbm = config.visualizerBackgroundMode;
     if (config.backgroundOpacity !== undefined) minified.bo = config.backgroundOpacity;
@@ -286,6 +288,9 @@ export const compressConfig = (config: any): string => {
     if (config.enable3dInteractiveBackground !== undefined) minified.e3ib = config.enable3dInteractiveBackground;
     if (config.performanceMode) minified.pm = config.performanceMode;
     if (config.ambientVisualEnabled !== undefined) minified.ave = config.ambientVisualEnabled;
+    if (config.magneticPullEnabled !== undefined) minified.mpe = config.magneticPullEnabled;
+    if (config.emotionScrambleEnabled !== undefined) minified.ese = config.emotionScrambleEnabled;
+    if (config.emotionBeatPulseEnabled !== undefined) minified.ebe = config.emotionBeatPulseEnabled;
 
     const jsonStr = JSON.stringify(minified);
     const bytes = new TextEncoder().encode(jsonStr);
@@ -314,7 +319,7 @@ export const decompressConfig = (str: string): any => {
         throw new Error('Invalid format');
     }
 
-    const isMinified = parsed.t !== undefined || parsed.vm !== undefined || parsed.lwm !== undefined || parsed.ct !== undefined || parsed.cat !== undefined || parsed.hpts !== undefined || parsed.sst !== undefined || parsed.esa !== undefined || parsed.e3ib !== undefined || parsed.pm !== undefined || parsed.ave !== undefined;
+    const isMinified = parsed.t !== undefined || parsed.vm !== undefined || parsed.lwm !== undefined || parsed.ct !== undefined || parsed.cat !== undefined || parsed.hpts !== undefined || parsed.sst !== undefined || parsed.esa !== undefined || parsed.e3ib !== undefined || parsed.pm !== undefined || parsed.ave !== undefined || parsed.mpe !== undefined || parsed.ese !== undefined || parsed.ebe !== undefined;
     if (isMinified) {
         const decompressed: any = {};
         if (parsed.t) {
@@ -326,6 +331,7 @@ export const decompressConfig = (str: string): any => {
         if (parsed.vm) decompressed.visualizerMode = parsed.vm;
         if (parsed.lwm) decompressed.lyricWordMode = parsed.lwm;
         if (parsed.lfp) decompressed.lyricFontPresetId = parsed.lfp;
+        if (parsed.lep) decompressed.lyricEffectPackId = parsed.lep;
         if (parsed.vei) decompressed.visualEffectIntensity = parsed.vei;
         if (parsed.vbm) decompressed.visualizerBackgroundMode = parsed.vbm;
         if (parsed.bo !== undefined) decompressed.backgroundOpacity = parsed.bo;
@@ -355,11 +361,14 @@ export const decompressConfig = (str: string): any => {
         if (parsed.e3ib !== undefined) decompressed.enable3dInteractiveBackground = parsed.e3ib;
         if (parsed.pm) decompressed.performanceMode = parsed.pm;
         if (parsed.ave !== undefined) decompressed.ambientVisualEnabled = parsed.ave;
+        if (parsed.mpe !== undefined) decompressed.magneticPullEnabled = parsed.mpe;
+        if (parsed.ese !== undefined) decompressed.emotionScrambleEnabled = parsed.ese;
+        if (parsed.ebe !== undefined) decompressed.emotionBeatPulseEnabled = parsed.ebe;
 
         return decompressed;
     } else {
         const validKeys = [
-            'theme', 'visualizerMode', 'lyricWordMode', 'lyricFontPresetId', 'visualEffectIntensity', 'visualizerBackgroundMode', 'backgroundOpacity',
+            'theme', 'visualizerMode', 'lyricWordMode', 'lyricFontPresetId', 'lyricEffectPackId', 'visualEffectIntensity', 'visualizerBackgroundMode', 'backgroundOpacity',
             'visualizerOpacity', 'hidePlayerTranslationSubtitle', 'showSubtitleTranslation',
             'lyricsFontStyle', 'lyricsFontScale', 'lyricColorPresetId', 'lyricBodyColor', 'classicTuning',
             'cadenzaTuning', 'partitaTuning', 'fumeTuning', 'claddaghTuning', 'cappellaTuning',
@@ -367,6 +376,7 @@ export const decompressConfig = (str: string): any => {
             'urlBackgroundList', 'urlBackgroundSelectedId',
             'songThemeAutoSwitchEnabled', 'songThemeAutoGenerateEnabled',
             'enableSmartAtmosphere', 'enable3dInteractiveBackground', 'performanceMode', 'ambientVisualEnabled',
+            'magneticPullEnabled', 'emotionScrambleEnabled', 'emotionBeatPulseEnabled',
         ];
         const hasValidKey = validKeys.some(k => parsed[k] !== undefined);
         if (!hasValidKey) {
@@ -451,6 +461,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         visualizerMode: state.visualizerMode,
         lyricWordMode: state.lyricWordMode,
         lyricFontPresetId: state.lyricFontPresetId,
+        lyricEffectPackId: state.lyricEffectPackId,
         visualEffectIntensity: state.visualEffectIntensity,
         visualizerBackgroundMode: state.visualizerBackgroundMode,
         backgroundOpacity: state.backgroundOpacity,
@@ -477,6 +488,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         handleSetVisualizerMode: state.handleSetVisualizerMode,
         handleSetLyricWordMode: state.handleSetLyricWordMode,
         handleSetLyricFontPresetId: state.handleSetLyricFontPresetId,
+        handleSetLyricEffectPackId: state.handleSetLyricEffectPackId,
         handleSetVisualEffectIntensity: state.handleSetVisualEffectIntensity,
         handleSetVisualizerBackgroundMode: state.handleSetVisualizerBackgroundMode,
         handleSetBackgroundOpacity: state.handleSetBackgroundOpacity,
@@ -528,6 +540,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             visualizerMode: store.visualizerMode,
             lyricWordMode: store.lyricWordMode,
             lyricFontPresetId: store.lyricFontPresetId,
+            lyricEffectPackId: store.lyricEffectPackId,
             visualEffectIntensity: store.visualEffectIntensity,
             visualizerBackgroundMode: store.visualizerBackgroundMode,
             backgroundOpacity: store.backgroundOpacity,
@@ -556,6 +569,9 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             enable3dInteractiveBackground: store.enable3dInteractiveBackground,
             performanceMode: usePerformanceMonitorStore.getState().mode,
             ambientVisualEnabled: useAmbientVisualStore.getState().enabled,
+            magneticPullEnabled: useMagneticPullStore.getState().enabled,
+            emotionScrambleEnabled: useMagneticPullStore.getState().scrambleEnabled,
+            emotionBeatPulseEnabled: useMagneticPullStore.getState().beatPulseEnabled,
         };
     };
 
@@ -607,6 +623,9 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             }
             if (config.lyricFontPresetId) {
                 store.handleSetLyricFontPresetId(config.lyricFontPresetId);
+            }
+            if (config.lyricEffectPackId) {
+                store.handleSetLyricEffectPackId(config.lyricEffectPackId);
             }
             if (config.visualEffectIntensity) {
                 store.handleSetVisualEffectIntensity(config.visualEffectIntensity);
@@ -716,6 +735,15 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             }
             if (config.ambientVisualEnabled !== undefined) {
                 useAmbientVisualStore.getState().setEnabled(Boolean(config.ambientVisualEnabled));
+            }
+            if (config.magneticPullEnabled !== undefined) {
+                useMagneticPullStore.getState().setEnabled(Boolean(config.magneticPullEnabled));
+            }
+            if (config.emotionScrambleEnabled !== undefined) {
+                useMagneticPullStore.getState().setScrambleEnabled(Boolean(config.emotionScrambleEnabled));
+            }
+            if (config.emotionBeatPulseEnabled !== undefined) {
+                useMagneticPullStore.getState().setBeatPulseEnabled(Boolean(config.emotionBeatPulseEnabled));
             }
 
             store.statusSetter?.({ type: 'success', text: t('options.importSuccess') || '配置导入成功！' });

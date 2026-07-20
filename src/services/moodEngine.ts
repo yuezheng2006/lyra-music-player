@@ -3,12 +3,24 @@
 // 情绪引擎 - 混合情绪识别系统
 
 import type { MoodProfile } from '../types/atmosphere';
+import type { OnlineMusicProviderId } from '../types';
 import type {
   EmotionTag,
   SongEmotion,
   UserEmotionCorrection,
 } from '../types/moodEngine';
 import { inferEmotionFromMoodProfile } from '../types/moodEngine';
+import { applyEmotionCorrectionBias } from '../utils/moodEngine/emotionCorrectionLearningMath';
+import {
+  collectPlatformLabelCandidates,
+  pickEmotionFromPlatformLabels,
+} from '../utils/moodEngine/platformEmotionLabelMath';
+import { neteaseApi } from './netease';
+
+export type GetSongEmotionOptions = {
+  /** When set, platform wiki lookup runs only for Netease catalog ids. */
+  musicProvider?: OnlineMusicProviderId | null;
+};
 
 /**
  * 情绪引擎服务
@@ -77,24 +89,41 @@ export class MoodEngineService {
   }
 
   /**
-   * 从 API 获取情绪标签（优先级1）
-   * Get emotion from API (Priority 1)
-   *
-   * TODO: 实际对接 QQ音乐/网易云 API
+   * 从平台 API 获取情绪标签（优先级1）
+   * Netease: song wiki/summary tag blocks → EmotionTag mapping.
    */
-  private async getEmotionFromAPI(songId: number): Promise<EmotionTag | null> {
-    // 这里应该调用实际的音乐平台 API
-    // 目前返回 null，表示 API 无数据
-    // TODO: Implement actual API calls to QQ Music / Netease Cloud Music
-    return null;
+  private async getEmotionFromAPI(
+    songId: number,
+    musicProvider?: OnlineMusicProviderId | null,
+  ): Promise<EmotionTag | null> {
+    // Peer / non-Netease catalog ids must not hit Netease wiki.
+    if (musicProvider !== 'netease' && musicProvider != null) {
+      return null;
+    }
+    if (!(songId > 0)) {
+      return null;
+    }
+
+    try {
+      const summary = await neteaseApi.getSongWikiSummary(songId);
+      if (!summary || summary.code === 404) {
+        return null;
+      }
+      const labels = collectPlatformLabelCandidates(summary);
+      return pickEmotionFromPlatformLabels(labels);
+    } catch (error) {
+      console.warn('[MoodEngine] Platform emotion lookup failed.', error);
+      return null;
+    }
   }
 
   /**
-   * 从本地音频特征分析推断情绪（优先级2）
-   * Infer emotion from local audio analysis (Priority 2)
+   * 从本地音频特征分析推断情绪（优先级2），并套用用户修正学习偏置
    */
-  private inferEmotionFromLocal(moodProfile: MoodProfile): EmotionTag {
-    return inferEmotionFromMoodProfile(moodProfile);
+  private async inferEmotionFromLocal(moodProfile: MoodProfile): Promise<EmotionTag> {
+    const base = inferEmotionFromMoodProfile(moodProfile);
+    const corrections = await this.getUserCorrections();
+    return applyEmotionCorrectionBias(base, corrections);
   }
 
   /**
@@ -104,12 +133,13 @@ export class MoodEngineService {
   async getSongEmotion(
     songId: number,
     moodProfile?: MoodProfile,
+    options?: GetSongEmotionOptions,
   ): Promise<SongEmotion | null> {
     const refreshLocal = async (existing: SongEmotion): Promise<SongEmotion> => {
       if (!moodProfile || existing.source !== 'local') {
         return existing;
       }
-      const nextTag = this.inferEmotionFromLocal(moodProfile);
+      const nextTag = await this.inferEmotionFromLocal(moodProfile);
       if (nextTag === existing.emotion) {
         return existing;
       }
@@ -136,8 +166,8 @@ export class MoodEngineService {
       return refreshLocal(stored);
     }
 
-    // 3. 尝试从 API 获取
-    const apiEmotion = await this.getEmotionFromAPI(songId);
+    // 3. 尝试从 API 获取（网易曲目百科标签）
+    const apiEmotion = await this.getEmotionFromAPI(songId, options?.musicProvider);
     if (apiEmotion) {
       const emotion: SongEmotion = {
         songId,
@@ -152,9 +182,9 @@ export class MoodEngineService {
       return emotion;
     }
 
-    // 4. 如果有 MoodProfile，使用本地分析（含无 beatMap 冷启动默认画像）
+    // 4. 如果有 MoodProfile，使用本地分析 + 修正学习（含无 beatMap 冷启动默认画像）
     if (moodProfile) {
-      const localEmotion = this.inferEmotionFromLocal(moodProfile);
+      const localEmotion = await this.inferEmotionFromLocal(moodProfile);
       const emotion: SongEmotion = {
         songId,
         emotion: localEmotion,

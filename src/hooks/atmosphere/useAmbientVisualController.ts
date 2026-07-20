@@ -2,7 +2,10 @@ import { useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import type { BeatMap } from '../../types/atmosphere';
 import type { EmotionTag } from '../../types/moodEngine';
-import { getVisualStrategyForEmotion } from '../../types/moodEngine';
+import {
+  getVisualParamsForEmotion,
+  getVisualStrategyForEmotion,
+} from '../../types/moodEngine';
 import type { VisualStrategyType } from '../../types/visualStrategy';
 import { useMoodEngineStore } from '../../stores/useMoodEngineStore';
 import { useAmbientVisualStore } from '../../stores/useAmbientVisualStore';
@@ -43,6 +46,7 @@ export function useAmbientVisualController({
 
   const cursorRef = useRef<AmbientBeatCursor>(createAmbientBeatCursor());
   const lastEmotionRef = useRef<EmotionTag | null>(null);
+  const lastEmotionTouchRef = useRef(0);
   const lastTransitioningRef = useRef(false);
   const lastStrategyRef = useRef<VisualStrategyType | null>(null);
   const enabledRef = useRef(enabled && ambientEnabled);
@@ -59,14 +63,27 @@ export function useAmbientVisualController({
     if (!enabled || !ambientEnabled || !manager || !currentEmotion) return;
 
     const emotion = currentEmotion.emotion;
-    if (lastEmotionRef.current === emotion) return;
+    const emotionTouchedAt = currentEmotion.updatedAt ?? 0;
+    // User corrections bump updatedAt even when the tag string is unchanged.
+    const sameEmotion = lastEmotionRef.current === emotion;
+    if (sameEmotion && emotionTouchedAt <= (lastEmotionTouchRef.current || 0)) return;
+
+    const previousEmotion = lastEmotionRef.current;
     lastEmotionRef.current = emotion;
+    lastEmotionTouchRef.current = emotionTouchedAt;
 
     const target = getVisualStrategyForEmotion(emotion);
-    manager.switchByEmotion(emotion);
+    const params = getVisualParamsForEmotion(emotion);
+    // Same strategy family (happy→energetic) used to no-op; force remount with new params.
+    const forceSameFamily = previousEmotion != null
+      && lastStrategyRef.current === target;
+    const forceUserCorrection = currentEmotion.source === 'user';
+    manager.switchByEmotion(emotion, params, { force: forceSameFamily || forceUserCorrection });
 
     if (target !== lastStrategyRef.current) {
       lastStrategyRef.current = target;
+      setStrategy(target);
+    } else if (forceSameFamily || forceUserCorrection) {
       setStrategy(target);
     }
 

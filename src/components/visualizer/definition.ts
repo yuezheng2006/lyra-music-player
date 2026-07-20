@@ -48,6 +48,8 @@ export interface VisualizerSharedProps {
     backgroundOpacity?: number;
     visualizerOpacity?: number;
     transparentBackground?: boolean;
+    /** Dual-stream video under lyrics (e.g. Bilibili DASH); modes should avoid opaque scrims. */
+    videoStageActive?: boolean;
     disableGeometricBackground?: boolean;
     disableVignette?: boolean;
     lyricsFontScale?: number;

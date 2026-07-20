@@ -186,6 +186,7 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                     <CharacterStageOverlay
                         // Player stage with lyrics/immersive — not on home shell (boot-safe).
                         visible={immersiveLyrics || showLyrics}
+                        immersive={immersiveLyrics}
                         paused={!playing}
                         currentTime={currentTime}
                     />

@@ -3,9 +3,14 @@
 // 情绪引擎状态管理
 
 import { create } from 'zustand';
-import type { EmotionTag, SongEmotion } from '../types/moodEngine';
+import {
+  buildEmotionCorrectionNotice,
+  type EmotionTag,
+  type SongEmotion,
+} from '../types/moodEngine';
 import type { MoodProfile } from '../types/atmosphere';
-import { moodEngineService } from '../services/moodEngine';
+import { moodEngineService, type GetSongEmotionOptions } from '../services/moodEngine';
+import { useAmbientVisualStore } from './useAmbientVisualStore';
 
 interface MoodEngineState {
   /** 当前歌曲的情绪数据 */
@@ -17,11 +22,24 @@ interface MoodEngineState {
   /** 情绪选择器是否打开 */
   selectorOpen: boolean;
 
+  /** Brief UX copy after user correction (cleared by EmotionButton). */
+  correctionNotice: string | null;
+
+  /** Bumped on each successful correction so chrome can flash. */
+  correctionPulseAt: number;
+
   /** 更新当前歌曲的情绪 */
-  updateCurrentEmotion: (songId: number, moodProfile?: MoodProfile) => Promise<void>;
+  updateCurrentEmotion: (
+    songId: number,
+    moodProfile?: MoodProfile,
+    options?: GetSongEmotionOptions,
+  ) => Promise<void>;
 
   /** 用户修正情绪 */
   correctEmotion: (songId: number, newEmotion: EmotionTag) => Promise<void>;
+
+  /** Clear the post-correction status line */
+  clearCorrectionNotice: () => void;
 
   /** 打开情绪选择器 */
   openSelector: () => void;
@@ -37,12 +55,14 @@ export const useMoodEngineStore = create<MoodEngineState>((set, get) => ({
   currentEmotion: null,
   loading: false,
   selectorOpen: false,
+  correctionNotice: null,
+  correctionPulseAt: 0,
 
-  updateCurrentEmotion: async (songId: number, moodProfile?: MoodProfile) => {
+  updateCurrentEmotion: async (songId, moodProfile, options) => {
     set({ loading: true });
 
     try {
-      const emotion = await moodEngineService.getSongEmotion(songId, moodProfile);
+      const emotion = await moodEngineService.getSongEmotion(songId, moodProfile, options);
       set({ currentEmotion: emotion, loading: false });
     } catch (error) {
       console.error('Failed to get emotion:', error);
@@ -60,17 +80,32 @@ export const useMoodEngineStore = create<MoodEngineState>((set, get) => ({
         emotion: newEmotion,
         source: 'user',
         confidence: 1.0,
-        createdAt: Date.now(),
+        createdAt: get().currentEmotion?.createdAt || Date.now(),
         updatedAt: Date.now(),
       };
 
-      set({ currentEmotion: updatedEmotion, selectorOpen: false });
+      // Correction implies the user wants a visible mood shift — turn ambient on if off.
+      const ambientStore = useAmbientVisualStore.getState();
+      const ambientWasEnabled = ambientStore.enabled;
+      if (!ambientWasEnabled) {
+        ambientStore.setEnabled(true);
+      }
+
+      set({
+        currentEmotion: updatedEmotion,
+        selectorOpen: false,
+        correctionNotice: buildEmotionCorrectionNotice(newEmotion, true, {
+          ambientJustEnabled: !ambientWasEnabled,
+        }),
+        correctionPulseAt: Date.now(),
+      });
     } catch (error) {
       console.error('Failed to correct emotion:', error);
     }
   },
 
+  clearCorrectionNotice: () => set({ correctionNotice: null }),
   openSelector: () => set({ selectorOpen: true }),
   closeSelector: () => set({ selectorOpen: false }),
-  clearCurrent: () => set({ currentEmotion: null }),
+  clearCurrent: () => set({ currentEmotion: null, correctionNotice: null }),
 }));

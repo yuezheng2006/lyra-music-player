@@ -78,26 +78,35 @@ export class VisualStrategyManager {
   /**
    * 根据情绪切换策略
    */
-  switchByEmotion(emotion: EmotionTag, params?: VisualStrategyParams): void {
+  switchByEmotion(
+    emotion: EmotionTag,
+    params?: VisualStrategyParams,
+    options?: { force?: boolean },
+  ): void {
     const strategyType = getVisualStrategyForEmotion(emotion);
-    this.switchStrategy(strategyType, params);
+    this.switchStrategy(strategyType, params, options);
   }
 
   /**
    * 切换视觉策略（cross-fade）
+   * @param options.force — remount even when strategy type is unchanged (same-family emotion correction)
    */
-  switchStrategy(type: VisualStrategyType, params?: VisualStrategyParams): void {
+  switchStrategy(
+    type: VisualStrategyType,
+    params?: VisualStrategyParams,
+    options?: { force?: boolean },
+  ): void {
     if (!this.scene) {
       console.warn('VisualStrategyManager not initialized');
       return;
     }
 
-    if (this.currentStrategy?.name === type && !this.isTransitioning) {
+    if (this.currentStrategy?.name === type && !this.isTransitioning && !options?.force) {
       return;
     }
 
-    // 过渡中切到同一目标：保持当前过渡
-    if (this.isTransitioning && this.nextStrategy?.name === type) {
+    // 过渡中切到同一目标：默认保持；force 时打断并用新 params 重挂
+    if (this.isTransitioning && this.nextStrategy?.name === type && !options?.force) {
       this.pendingParams = params;
       return;
     }

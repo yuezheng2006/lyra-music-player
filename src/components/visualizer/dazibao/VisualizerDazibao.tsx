@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { getLineRenderEndTime } from '../../../utils/lyrics/renderHints';
+import { getLineRenderEndTime, getLineRenderHints } from '../../../utils/lyrics/renderHints';
 import { buildPostLyricLayoutUnits, buildDisplayWordsFromLayoutUnits } from '../../../utils/lyrics/cjkSemanticLayout';
 import {
     getDefaultLyricFontPreset,
@@ -9,7 +9,9 @@ import {
     getLyricLetterSpacingPx,
 } from '../../../utils/lyricFontPresets';
 import { getRecommendedEffectConfig } from '../../../utils/lyricVisualEffects';
+import { resolveLyricEffectPack } from '../../../utils/lyricEffectPacks';
 import { resolveWaitingWordPresentation } from '../../../utils/lyrics/lyricWordMode';
+import { resolveLyricPhrasePresentation } from '../../../utils/lyrics/lyricPhrasePresentationMath';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { type VisualizerSharedProps } from '../definition';
 import { useVisualizerRuntime } from '../runtime';
@@ -23,6 +25,7 @@ import {
 import { colorWithAlpha } from '../colorMix';
 import { resolveLyricInkFills } from '../lyricInk';
 import DazibaoWord from './dazibaoWordStage';
+import { useLyricEffectPackBeatVars } from '../../../hooks/useLyricEffectPackBeatVars';
 
 // src/components/visualizer/dazibao/VisualizerDazibao.tsx
 // 野火走位：仅单行英雄砸脸布局；字体/颜色/特效包各自独立。
@@ -42,11 +45,13 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
         immersiveLyrics = false,
         hideTranslationSubtitle = false,
         showSubtitleTranslation = true,
+        beatPulse,
     } = props;
     const { t } = useTranslation();
     const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
     const lyricFontPresetId = useSettingsUiStore(state => state.lyricFontPresetId);
     const visualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
+    const lyricEffectPackId = useSettingsUiStore(state => state.lyricEffectPackId);
     const waitingPresentation = resolveWaitingWordPresentation(lyricWordMode);
 
     const { activeLine } = useVisualizerRuntime({
@@ -92,14 +97,31 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
         () => getRecommendedEffectConfig(immersiveLyrics, true, visualEffectIntensity),
         [immersiveLyrics, visualEffectIntensity],
     );
-
+    const effectPack = useMemo(
+        () => resolveLyricEffectPack(lyricEffectPackId, visualEffectIntensity),
+        [lyricEffectPackId, visualEffectIntensity],
+    );
     const isChorus = Boolean(activeLine?.isChorus);
+    const phrase = useMemo(() => {
+        const hints = getLineRenderHints(activeLine);
+        return resolveLyricPhrasePresentation({
+            isChorus,
+            timingClass: hints?.timingClass ?? null,
+        });
+    }, [activeLine, isChorus]);
+    useLyricEffectPackBeatVars({
+        hostRef: stageRef,
+        packId: effectPack.id,
+        intensity: visualEffectIntensity,
+        beatPulse,
+        isChorus,
+    });
     const rhythmHeadroom = resolveLyricRhythmScaleHeadroom(theme.lyricRhythmScaleMultiplier ?? 1);
     const glowInsetPx = theme.lyricGlowUsesAccent ? 40 : 24;
     const lyricFit = useMemo(
         () => resolveLyricContainerFit({
             containerWidth: stageWidth,
-            lyricsFontScale: lyricsFontScale * (immersiveLyrics ? 1.35 : 1) * (isChorus ? 1.12 : 1),
+            lyricsFontScale: lyricsFontScale * (immersiveLyrics ? 1.35 : 1) * phrase.fontScaleMul,
             sidePaddingRatio: 0.06,
             minSidePaddingPx: 24,
             preferredWidthRatio: 0.11,
@@ -110,7 +132,7 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
         }),
         [
             immersiveLyrics,
-            isChorus,
+            phrase.fontScaleMul,
             lyricsFontScale,
             stageWidth,
             glowInsetPx,
@@ -128,7 +150,8 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
         }),
         [shellHeight, rhythmHeadroom, glowInsetPx, lyricFit.fontPx, immersiveLyrics],
     );
-    const letterSpacingPx = getLyricLetterSpacingPx(fontPreset, lyricFit.fontPx);
+    const letterSpacingPx = getLyricLetterSpacingPx(fontPreset, lyricFit.fontPx) * phrase.letterSpacingMul;
+    const wordGapEm = 0.14 * phrase.wordGapMul;
     const lyricInk = resolveLyricInkFills(theme);
     const activeColor = lyricInk.sung;
     const baseColor = lyricInk.unsung;
@@ -152,13 +175,13 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
         if (!ctx) return 1;
         const weight = Math.max(fontPreset.fontWeight, 700);
         ctx.font = `${weight} ${lyricFit.fontPx}px ${fontStack}`;
-        const gap = lyricFit.fontPx * 0.14;
+        const gap = lyricFit.fontPx * wordGapEm;
         const contentWidth = displayWords.reduce((sum, word, index) => {
             const width = ctx.measureText(word.text).width + Math.max(0, letterSpacingPx) * Math.max(0, word.text.length - 1);
             return sum + width + (index > 0 ? gap : 0);
         }, 0);
         return resolveLyricLineFitScale(contentWidth * 1.08, lyricFit.usableWidth);
-    }, [displayWords, fontPreset.fontWeight, fontStack, letterSpacingPx, lyricFit.fontPx, lyricFit.usableWidth]);
+    }, [displayWords, fontPreset.fontWeight, fontStack, letterSpacingPx, lyricFit.fontPx, lyricFit.usableWidth, wordGapEm]);
 
     const translationFontPx = Math.max(16, lyricFit.fontPx * 0.28);
     const showTranslation = Boolean(
@@ -197,19 +220,25 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
                                 <motion.div
                                     key={`${activeLine.startTime}-${activeLine.fullText}`}
                                     className="flex max-w-full flex-col items-center"
-                                    initial={{ opacity: 0, scale: 0.72, y: 28 }}
+                                    initial={{
+                                        opacity: 0,
+                                        scale: phrase.lineEnterFromScale,
+                                        y: phrase.lineEnterFromY,
+                                    }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 1.06, y: -18, filter: 'blur(8px)' }}
                                     transition={{
-                                        duration: 0.42,
+                                        duration: phrase.lineEnterDuration,
                                         ease: [0.16, 1.25, 0.28, 1],
                                     }}
                                 >
                                     <div
-                                        className="flex max-w-full flex-wrap items-center justify-center gap-x-[0.14em] gap-y-[0.08em] text-center"
+                                        className="flex max-w-full flex-wrap items-center justify-center text-center"
                                         style={{
                                             fontFamily: fontStack,
                                             fontWeight: Math.max(fontPreset.fontWeight, 700),
+                                            columnGap: `${wordGapEm}em`,
+                                            rowGap: '0.08em',
                                             transform: lineFitScale < 0.999 ? `scale(${lineFitScale})` : undefined,
                                             transformOrigin: 'center center',
                                         }}
@@ -229,7 +258,8 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
                                                 letterSpacingPx={letterSpacingPx}
                                                 waitingPresentation={waitingPresentation}
                                                 visualEffectConfig={visualEffectConfig}
-                                                isChorus={isChorus}
+                                                effectPack={effectPack}
+                                                wordActiveScale={phrase.wordActiveScale}
                                             />
                                         ))}
                                     </div>

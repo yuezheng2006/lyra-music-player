@@ -48,7 +48,10 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
         immersiveLyrics = false,
         isPlayerChromeHidden = false,
         beatPulse,
+        transparentBackground = false,
+        videoStageActive = false,
     } = props;
+    const suppressOpaqueLyricScrim = videoStageActive || transparentBackground;
     const isImmersiveStage = immersiveLyrics || isPlayerChromeHidden;
     const { t } = useTranslation();
     const { titleColor, activeColor, hintColor } = resolveLyricStageInkColors(theme);
@@ -185,13 +188,15 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                             className="relative z-10 flex h-full min-h-0 w-full max-w-[min(820px,58%)] flex-col justify-center overflow-hidden pl-[max(1.25rem,3.5rem)] pr-5 pb-5 pt-16 sm:pr-8 sm:pb-6 sm:pt-[4.5rem] lg:pr-14 lg:pb-8 lg:pt-20"
                         >
                             {/* Keep left lyric column readable when interactive3d stage fills the canvas. */}
-                            <div
-                                aria-hidden
-                                className="pointer-events-none absolute inset-y-0 left-0 -z-10 w-[min(100%,760px)]"
-                                style={{
-                                    background: `linear-gradient(90deg, ${colorWithAlpha(theme.backgroundColor, 0.72)} 0%, ${colorWithAlpha(theme.backgroundColor, 0.42)} 55%, ${colorWithAlpha(theme.backgroundColor, 0)} 100%)`,
-                                }}
-                            />
+                            {!suppressOpaqueLyricScrim ? (
+                                <div
+                                    aria-hidden
+                                    className="pointer-events-none absolute inset-y-0 left-0 -z-10 w-[min(100%,760px)]"
+                                    style={{
+                                        background: `linear-gradient(90deg, ${colorWithAlpha(theme.backgroundColor, 0.72)} 0%, ${colorWithAlpha(theme.backgroundColor, 0.42)} 55%, ${colorWithAlpha(theme.backgroundColor, 0)} 100%)`,
+                                    }}
+                                />
+                            ) : null}
                             <div className="mb-4 space-y-2">
                                 <motion.div
                                     key={`artist-${introKey}`}

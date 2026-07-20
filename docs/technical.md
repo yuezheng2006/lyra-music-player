@@ -53,9 +53,9 @@ windowrule {
 
 如果使用前端版本的话，需要先自行部署该 API 服务。
 
-### QQ / 汽水 / 酷狗 / B 站 Provider Sidecar
+### QQ / 汽水 / 酷狗 / B 站 / 酷我 Provider Sidecar
 
-QQ、汽水、酷狗、B 站通过本地 sidecar 接入。推荐实现方式是 JS adapter module：把开源 extractor 中稳定的解析逻辑移植或封装成 `search` / `audio` / `lyrics` 三个函数。CLI 调用只作为本地调试和兜底，不作为主要运行路径。
+QQ、汽水、酷狗、B 站、酷我通过本地 sidecar 接入。推荐实现方式是 JS adapter module：把开源 extractor 中稳定的解析逻辑移植或封装成 `search` / `audio` / `lyrics` 三个函数。CLI 调用只作为本地调试和兜底，不作为主要运行路径。
 
 当前内置能力：
 
@@ -63,6 +63,7 @@ QQ、汽水、酷狗、B 站通过本地 sidecar 接入。推荐实现方式是 
 - 汽水音乐：支持关键词搜索与试听播放（LunaPC 官方 search + 分享页试听链）；分享短链仍可作为兜底。Cookie / `track_v2` 高音质与 `play_auth` 解密尚未接入。
 - 酷狗音乐：关键词搜索、免费曲试听（VIP 曲常无播放地址）、LRC 歌词。
 - 哔哩哔哩：视频搜索取音频流试听；无官方歌词；Electron 会为 bilivideo CDN 注入 Referer。
+- 酷我音乐：关键词搜索、免费曲试听（VIP 曲常无播放地址）、LRC 歌词。
 
 本地 Web / Electron 开发时，`npm run dev:web` 与 `npm run dev:electron` 会同时启动：
 

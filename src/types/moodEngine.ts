@@ -2,6 +2,7 @@
 // Types for the Mood Engine - hybrid emotion recognition system
 
 import type { MoodProfile } from './atmosphere';
+import type { VisualStrategyParams } from './visualStrategy';
 
 /**
  * 情绪标签 - 用于描述歌曲的情绪类型
@@ -132,12 +133,12 @@ export function getVisualStrategyForEmotion(emotion: EmotionTag): VisualStrategy
     case 'uplifting':
       return 'particle';
 
+    // Calm/sad used to pick ambient `wave`, but wave fabric belongs inside cover 3D
+    // (e.g. terrain / 声场), not as a second plane above cover particles.
     case 'sad':
     case 'calm':
     case 'melancholic':
     case 'relaxed':
-      return 'wave';
-
     case 'neutral':
     case 'romantic':
     case 'angry':
@@ -145,6 +146,68 @@ export function getVisualStrategyForEmotion(emotion: EmotionTag): VisualStrategy
     default:
       return 'geometry';
   }
+}
+
+/**
+ * Per-emotion ambient params so same-strategy corrections still remount with a visible shift.
+ */
+export function getVisualParamsForEmotion(emotion: EmotionTag): VisualStrategyParams {
+  switch (emotion) {
+    case 'happy':
+      return { speed: 1.15, intensity: 1.2, colorTone: 'bright', particleCount: 1100 };
+    case 'energetic':
+      return { speed: 1.45, intensity: 1.45, colorTone: 'bright', particleCount: 1400 };
+    case 'uplifting':
+      return { speed: 1.25, intensity: 1.3, colorTone: 'bright', particleCount: 1200 };
+    case 'sad':
+      return { speed: 0.7, intensity: 0.75, colorTone: 'dark' };
+    case 'melancholic':
+      return { speed: 0.65, intensity: 0.7, colorTone: 'dark' };
+    case 'calm':
+      return { speed: 0.8, intensity: 0.85, colorTone: 'neutral' };
+    case 'relaxed':
+      return { speed: 0.75, intensity: 0.8, colorTone: 'neutral' };
+    case 'angry':
+      return { speed: 1.35, intensity: 1.4, colorTone: 'dark' };
+    case 'tense':
+      return { speed: 1.2, intensity: 1.25, colorTone: 'dark' };
+    case 'romantic':
+      return { speed: 0.9, intensity: 1.05, colorTone: 'bright' };
+    case 'neutral':
+    default:
+      return { speed: 1, intensity: 1, colorTone: 'neutral' };
+  }
+}
+
+/** Short Chinese label for ambient strategy (correction feedback). */
+export function getVisualStrategyDisplayName(strategy: VisualStrategyType): string {
+  switch (strategy) {
+    case 'particle':
+      return '粒子氛围';
+    case 'wave':
+      return '波浪氛围';
+    case 'geometry':
+      return '几何氛围';
+    default:
+      return '氛围层';
+  }
+}
+
+/** One-line hint: emotion → ambient layer (and that it drives character rhythm). */
+export function buildEmotionCorrectionNotice(
+  emotion: EmotionTag,
+  ambientEnabled: boolean,
+  options?: { ambientJustEnabled?: boolean },
+): string {
+  const emotionName = getEmotionDisplayName(emotion);
+  const strategyName = getVisualStrategyDisplayName(getVisualStrategyForEmotion(emotion));
+  if (options?.ambientJustEnabled) {
+    return `已应用「${emotionName}」并开启主视觉氛围 → ${strategyName}`;
+  }
+  if (!ambientEnabled) {
+    return `已应用「${emotionName}」·开启「主视觉氛围」后可见${strategyName}`;
+  }
+  return `已应用「${emotionName}」→ ${strategyName}（角色动作同步）`;
 }
 
 /**

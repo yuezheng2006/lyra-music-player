@@ -3,6 +3,7 @@ import {
     BILIBILI_DEFAULT_PLAYLIST_ID,
     COCO_DEFAULT_PLAYLIST_ID,
     KUGOU_DEFAULT_PLAYLIST_ID,
+    KUWO_DEFAULT_PLAYLIST_ID,
     QISHUI_DEFAULT_PLAYLIST_ID,
     buildEnabledDefaultPlaylists,
     isProviderDefaultPlaylist,
@@ -18,19 +19,21 @@ describe('onlineDefaultPlaylists', () => {
             qishui: true,
             kugou: true,
             bilibili: true,
+            kuwo: true,
             netease: true,
             qq: true,
         });
 
-        expect(playlists).toHaveLength(4);
-        expect(playlists.map(p => p.musicProvider)).toEqual(['qishui', 'coco', 'kugou', 'bilibili']);
+        expect(playlists).toHaveLength(5);
+        expect(playlists.map(p => p.musicProvider)).toEqual(['qishui', 'coco', 'kugou', 'bilibili', 'kuwo']);
         expect(playlists.map(p => p.id)).toEqual([
             QISHUI_DEFAULT_PLAYLIST_ID,
             COCO_DEFAULT_PLAYLIST_ID,
             KUGOU_DEFAULT_PLAYLIST_ID,
             BILIBILI_DEFAULT_PLAYLIST_ID,
+            KUWO_DEFAULT_PLAYLIST_ID,
         ]);
-        expect(new Set(playlists.map(p => p.coverImgUrl)).size).toBe(4);
+        expect(new Set(playlists.map(p => p.coverImgUrl)).size).toBe(5);
         expect(playlists.every(p => Boolean(p.coverImgUrl))).toBe(true);
         expect(playlists.every(isProviderDefaultPlaylist)).toBe(true);
     });
@@ -41,6 +44,7 @@ describe('onlineDefaultPlaylists', () => {
             qishui: false,
             kugou: false,
             bilibili: false,
+            kuwo: false,
         })).toEqual([]);
     });
 

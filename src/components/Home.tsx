@@ -216,7 +216,9 @@ const Home: React.FC<HomeProps> = ({
                         ? t('home.searchKugouMusic')
                         : (searchableProviders[0] || searchProvider) === 'bilibili'
                             ? t('home.searchBilibiliMusic')
-                            : t('home.searchDatabase');
+                            : (searchableProviders[0] || searchProvider) === 'kuwo'
+                                ? t('home.searchKuwoMusic')
+                                : t('home.searchDatabase');
     // const isDaylight = theme.name === 'Daylight Default'; // Deprecated, passed as prop
 
     useEffect(() => {

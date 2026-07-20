@@ -700,11 +700,8 @@ export function usePlaybackQueueController({
         shouldAutoPlayRef.current = true;
         flushSync(() => {
             setAudioSrc(audioResult.audioSrc);
-            setVideoSrc(
-                song.musicProvider === 'bilibili' && audioResult.videoSrc
-                    ? audioResult.videoSrc
-                    : null,
-            );
+            // Any provider returning videoSrc arms the muted video stage under lyrics.
+            setVideoSrc(audioResult.videoSrc || null);
         });
 
         const audioElement = audioRef.current;

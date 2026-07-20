@@ -5,6 +5,7 @@ import qishuiIconUrl from '../assets/providers/qishui-icon.png';
 import cocoIconUrl from '../assets/providers/coco-icon.svg';
 import kugouIconUrl from '../assets/providers/kugou-icon.svg';
 import bilibiliIconUrl from '../assets/providers/bilibili-icon.svg';
+import kuwoIconUrl from '../assets/providers/kuwo-icon.svg';
 import { isOnlineMusicProviderId } from './onlinePeerProviders';
 
 // src/utils/onlineProviderAssets.ts
@@ -17,6 +18,7 @@ export const ONLINE_PROVIDER_ICON_URL: Partial<Record<OnlineMusicProviderId, str
     coco: cocoIconUrl,
     kugou: kugouIconUrl,
     bilibili: bilibiliIconUrl,
+    kuwo: kuwoIconUrl,
 };
 
 export const resolveOnlineProviderIconUrl = (

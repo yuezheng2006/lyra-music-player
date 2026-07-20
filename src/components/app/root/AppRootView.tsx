@@ -32,6 +32,7 @@ import { useCoverShellTheme } from '@/hooks/useCoverShellTheme';
 import { useBootSplashLifecycle } from '@/hooks/useBootSplashLifecycle';
 import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 import { PerformanceHud } from '@/components/performance/PerformanceHud';
+import { isVideoPlaybackStageActive } from '@/utils/playback/resolveVideoPlaybackStage';
 
 interface AppRootViewProps {
     controller: AppControllerResult;
@@ -193,20 +194,16 @@ export function AppRootView({ controller }: AppRootViewProps) {
     } = controller;
     const shellTheme = useCoverShellTheme(getCoverUrl(), isDaylight);
 
-    const showBilibiliVideo = Boolean(
-        currentView === 'player'
-        && currentSong?.musicProvider === 'bilibili'
-        && videoSrc,
-    );
+    const videoStageActive = isVideoPlaybackStageActive(currentView, videoSrc);
 
     useEffect(() => {
-        if (currentSong?.musicProvider !== 'bilibili' && videoSrc) {
+        if (!currentSong && videoSrc) {
             setVideoSrc(null);
         }
-    }, [currentSong?.id, currentSong?.musicProvider, setVideoSrc, videoSrc]);
+    }, [currentSong, setVideoSrc, videoSrc]);
 
     useBilibiliVideoSync({
-        enabled: showBilibiliVideo,
+        enabled: videoStageActive,
         videoSrc,
         audioRef,
         videoRef,
@@ -369,7 +366,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 <BilibiliVideoSurface
                     videoRef={videoRef}
                     videoSrc={videoSrc || ''}
-                    visible={showBilibiliVideo}
+                    visible={videoStageActive}
                 />
                 {!isObsBrowserSourceRendering && (
                     <VisualizerRenderer
@@ -398,22 +395,23 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         useCoverColorBg={useCoverColorBg}
                         seed={visualizerGeometrySeed}
                         staticMode={staticMode}
-                        paused={shouldPauseVisualizerBackground || showBilibiliVideo}
-                        backgroundOpacity={showBilibiliVideo ? 0 : backgroundOpacity}
+                        paused={shouldPauseVisualizerBackground || videoStageActive}
+                        backgroundOpacity={videoStageActive ? 0 : backgroundOpacity}
                         visualizerOpacity={visualizerOpacity}
+                        videoStageActive={videoStageActive}
                         transparentBackground={
                             (currentView === 'player' && isPlayerPageTransparent && !isSettingsModalOpen)
-                            || showBilibiliVideo
+                            || videoStageActive
                         }
                         disableGeometricBackground={
-                            showBilibiliVideo
+                            videoStageActive
                             || resolvePlayerGeometricBackgroundDisabled(
                                 resolvedVisualizerBackgroundMode,
                                 isSettingsSubviewOpen,
                             )
                         }
-                        enableAtmosphereLayer={enableSmartAtmosphere && !staticMode && !showBilibiliVideo}
-                        enableBeatBursts={enableSmartAtmosphere && !staticMode && !showBilibiliVideo}
+                        enableAtmosphereLayer={enableSmartAtmosphere && !staticMode && !videoStageActive}
+                        enableBeatBursts={enableSmartAtmosphere && !staticMode && !videoStageActive}
                         disableVignette={disableVisualizerVignette}
                         visualizerBackgroundMode={visualizerBackgroundMode}
                         lyricsFontScale={lyricsFontScale}

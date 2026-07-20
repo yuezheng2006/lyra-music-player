@@ -10,6 +10,10 @@ import {
 } from '../../utils/atmosphere/realtimeBeatEngine';
 import { shouldUsePodcastDjBeatMap } from '../../utils/atmosphere/podcastDjBeatMap';
 import { useAtmosphereBeatMapStore } from '../../stores/useAtmosphereBeatMapStore';
+import {
+    resetAtmospherePresentationBeat,
+    setAtmospherePresentationBeatPulse,
+} from '../../utils/atmosphere/atmospherePresentationBus';
 import { useAtmosphereBeatMapLoader } from './useAtmosphereBeatMapLoader';
 import {
     createBeatCameraState,
@@ -58,6 +62,8 @@ export function useAtmosphereEngine({
         beatMapRef.current = null;
         useAtmosphereBeatMapStore.getState().setBeatMap(null);
         beatPulse.set(0);
+        resetAtmospherePresentationBeat();
+        setAtmospherePresentationBeatPulse(0);
         cinemaScale.set(0.82);
         atmosphereEnergy.set(0.42);
         atmosphereGroove.set(0.5);

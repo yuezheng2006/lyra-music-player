@@ -11,6 +11,8 @@ export function isAllowedLyricProxyHost(hostname: string): boolean {
     host.endsWith('.gtimg.cn') ||
     host === 'kugou.com' ||
     host.endsWith('.kugou.com') ||
+    host === 'kuwo.cn' ||
+    host.endsWith('.kuwo.cn') ||
     host === '126.net' ||
     host.endsWith('.126.net') ||
     host === '163.com' ||
@@ -52,6 +54,9 @@ export function resolveCoverProxyReferer(url: string): string {
     }
     if (host === 'kugou.com' || host.endsWith('.kugou.com')) {
       return 'https://www.kugou.com/';
+    }
+    if (host === 'kuwo.cn' || host.endsWith('.kuwo.cn')) {
+      return 'https://www.kuwo.cn/';
     }
     if (
       host === 'douyinpic.com'

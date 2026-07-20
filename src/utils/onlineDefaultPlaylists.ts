@@ -16,6 +16,7 @@ export const COCO_DEFAULT_PLAYLIST_ID = -91002;
 export const QISHUI_DEFAULT_PLAYLIST_ID = -91003;
 export const KUGOU_DEFAULT_PLAYLIST_ID = -91004;
 export const BILIBILI_DEFAULT_PLAYLIST_ID = -91005;
+export const KUWO_DEFAULT_PLAYLIST_ID = -91006;
 
 type PeerDefaultProviderId = PeerFreeProviderId;
 
@@ -49,6 +50,12 @@ const PEER_DEFAULT_META: Record<PeerDefaultProviderId, {
         description: '视频音频搜索与试听',
         coverImgUrl: ONLINE_PROVIDER_ICON_URL.bilibili || '',
     },
+    kuwo: {
+        id: KUWO_DEFAULT_PLAYLIST_ID,
+        name: '酷我音乐',
+        description: '关键词搜索与免费曲试听',
+        coverImgUrl: ONLINE_PROVIDER_ICON_URL.kuwo || '',
+    },
 };
 
 const PEER_DEFAULT_ID_TO_PROVIDER: Record<number, PeerDefaultProviderId> = {
@@ -56,6 +63,7 @@ const PEER_DEFAULT_ID_TO_PROVIDER: Record<number, PeerDefaultProviderId> = {
     [COCO_DEFAULT_PLAYLIST_ID]: 'coco',
     [KUGOU_DEFAULT_PLAYLIST_ID]: 'kugou',
     [BILIBILI_DEFAULT_PLAYLIST_ID]: 'bilibili',
+    [KUWO_DEFAULT_PLAYLIST_ID]: 'kuwo',
 };
 
 export const isProviderDefaultPlaylist = (playlist?: Pick<NeteasePlaylist, 'specialType' | 'id'> | null) =>
@@ -63,7 +71,8 @@ export const isProviderDefaultPlaylist = (playlist?: Pick<NeteasePlaylist, 'spec
     || playlist?.id === COCO_DEFAULT_PLAYLIST_ID
     || playlist?.id === QISHUI_DEFAULT_PLAYLIST_ID
     || playlist?.id === KUGOU_DEFAULT_PLAYLIST_ID
-    || playlist?.id === BILIBILI_DEFAULT_PLAYLIST_ID;
+    || playlist?.id === BILIBILI_DEFAULT_PLAYLIST_ID
+    || playlist?.id === KUWO_DEFAULT_PLAYLIST_ID;
 
 /** Resolve which peer channel a synthetic default card opens. */
 export const resolveProviderDefaultChannel = (
@@ -98,7 +107,7 @@ export const createProviderDefaultPlaylist = (
     };
 };
 
-const PEER_DEFAULT_ORDER: PeerDefaultProviderId[] = ['qishui', 'coco', 'kugou', 'bilibili'];
+const PEER_DEFAULT_ORDER: PeerDefaultProviderId[] = ['qishui', 'coco', 'kugou', 'bilibili', 'kuwo'];
 
 export const buildEnabledDefaultPlaylists = (
     enabledProviders: Partial<Record<OnlineLibraryProviderId, boolean>>,
@@ -115,6 +124,7 @@ export const resolvePeerDefaultDisplayName = (
     if (provider === 'coco') return t('home.cocoProvider');
     if (provider === 'kugou') return t('home.kugouProvider');
     if (provider === 'bilibili') return t('home.bilibiliProvider');
+    if (provider === 'kuwo') return t('home.kuwoProvider');
     return t('home.cocoProvider');
 };
 
@@ -126,5 +136,6 @@ export const resolvePeerDefaultDescription = (
     if (provider === 'coco') return t('home.cocoDefaultDescription');
     if (provider === 'kugou') return t('home.kugouDefaultDescription');
     if (provider === 'bilibili') return t('home.bilibiliDefaultDescription');
+    if (provider === 'kuwo') return t('home.kuwoDefaultDescription');
     return t('home.cocoDefaultDescription');
 };

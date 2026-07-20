@@ -11,6 +11,7 @@ import { usePlaybackTransportController } from '@/hooks/usePlaybackTransportCont
 import { usePlaybackVisualizerBridge } from '@/hooks/usePlaybackVisualizerBridge';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, resolveNavidromePlaybackCarrier } from '@/utils/appPlaybackGuards';
 import { resolveAtmosphereTrackHints } from '@/utils/atmosphere/resolveAtmosphereTrackHints';
+import { isVideoPlaybackStageActive } from '@/utils/playback/resolveVideoPlaybackStage';
 import type { AppControllerCoreResult, AppControllerLibraryResult } from './useAppController.types';
 
 export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & AppControllerLibraryResult) {
@@ -266,13 +267,9 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         [currentSong],
     );
     // Dual decode (DASH video + audio) is already heavy; pause atmosphere RAF while video stage is up.
-    const bilibiliVideoActive = Boolean(
-        currentView === 'player'
-        && currentSong?.musicProvider === 'bilibili'
-        && videoSrc,
-    );
+    const videoStageActive = isVideoPlaybackStageActive(currentView, videoSrc);
     const atmosphereEngine = useAtmosphereEngine({
-        enabled: enableSmartAtmosphere && !staticMode && !bilibiliVideoActive,
+        enabled: enableSmartAtmosphere && !staticMode && !videoStageActive,
         audioSrc,
         songKey: atmosphereSongKey,
         audioContextRef,
@@ -281,7 +278,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         precomputedBeatMap: atmosphereTrackHints.precomputedBeatMap,
     });
 
-    useMoodEngineSongSync(typeof currentSong?.id === 'number' ? currentSong.id : null);
+    useMoodEngineSongSync(currentSong);
 
     usePlaybackVisualizerBridge({
         audioRef,
