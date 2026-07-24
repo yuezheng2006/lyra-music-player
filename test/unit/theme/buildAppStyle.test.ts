@@ -63,4 +63,31 @@ describe('buildAppStyle', () => {
         expect(style['--text-primary']).toBe('#1c1917');
         expect(style['--lyric-primary']).toBe('#ff2a1a');
     });
+
+    it('keeps chrome atmosphere when AI lyric theme is active (dual mode)', () => {
+        const style = buildAppStyle({
+            bgMode: 'ai',
+            isDaylight: false,
+            theme: wildfireTheme,
+            daylightTheme,
+            defaultTheme,
+        });
+
+        expect(style['--bg-color']).toBe(defaultTheme.backgroundColor);
+        expect(style['--lyric-primary']).toBe('#ff2a1a');
+        expect(style['--lyric-accent']).toBe('#ff0000');
+    });
+
+    it('lets custom theme own atmosphere wash while lyrics still follow the theme', () => {
+        const style = buildAppStyle({
+            bgMode: 'custom',
+            isDaylight: false,
+            theme: wildfireTheme,
+            daylightTheme,
+            defaultTheme,
+        });
+
+        expect(style['--bg-color']).toBe(wildfireTheme.backgroundColor);
+        expect(style['--lyric-primary']).toBe('#ff2a1a');
+    });
 });

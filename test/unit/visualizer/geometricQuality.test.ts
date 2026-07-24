@@ -16,12 +16,19 @@ describe('geometricQuality', () => {
         const profile = resolveGeometricQualityProfile(640 * 480, 'balanced');
         const target = scaleParticleTarget(profile, 640 * 480);
         expect(target).toBeLessThanOrEqual(profile.particleTarget);
-        expect(target).toBeGreaterThanOrEqual(180);
+        expect(target).toBeGreaterThanOrEqual(160);
     });
 
     it('high tier keeps ripples and larger burst budget', () => {
         const profile = resolveGeometricQualityProfile(1920 * 1080, 'high');
         expect(profile.enableRipples).toBe(true);
-        expect(profile.maxBeatParticles).toBeGreaterThan(40);
+        expect(profile.maxBeatParticles).toBeGreaterThan(30);
+        expect(profile.frameSkip).toBeGreaterThanOrEqual(2);
+        expect(profile.devicePixelRatioCap).toBeLessThanOrEqual(1);
+    });
+
+    it('balanced/lite skip frames for CPU headroom', () => {
+        expect(resolveGeometricQualityProfile(921600, 'balanced').frameSkip).toBeGreaterThanOrEqual(3);
+        expect(resolveGeometricQualityProfile(921600, 'lite').frameSkip).toBeGreaterThanOrEqual(4);
     });
 });

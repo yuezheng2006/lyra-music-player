@@ -44,6 +44,71 @@ describe('bilibili-provider-adapter', () => {
         });
     });
 
+    it('routes up: prefix to user search mode', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input);
+            if (url.includes('/finger/spi')) {
+                return jsonResponse({ code: 0, data: { b_3: 'buvid3-test', b_4: 'buvid4-test' } });
+            }
+            if (url.includes('search_type=bili_user')) {
+                return jsonResponse({
+                    code: 0,
+                    data: {
+                        result: [{ mid: 1091, uname: '天花板上吊着猫' }],
+                    },
+                });
+            }
+            if (url.includes('/x/web-interface/nav')) {
+                return jsonResponse({
+                    code: 0,
+                    data: {
+                        wbi_img: {
+                            img_url: 'https://i0.hdslb.com/bfs/wbi/img.png',
+                            sub_url: 'https://i0.hdslb.com/bfs/wbi/sub.png',
+                        },
+                    },
+                });
+            }
+            if (url.includes('/x/space/wbi/arc/search')) {
+                return jsonResponse({
+                    code: 0,
+                    data: {
+                        list: {
+                            vlist: [{
+                                bvid: 'BV1up1111111',
+                                title: '[SUNO] 明明就',
+                                author: '天花板上吊着猫',
+                                pic: '//i0.hdslb.com/bfs/cover-up.jpg',
+                                length: '04:16',
+                            }],
+                        },
+                        page: { count: 1 },
+                    },
+                });
+            }
+            if (url.includes('/x/web-interface/view')) {
+                return jsonResponse({
+                    code: 0,
+                    data: {
+                        title: '[SUNO] 明明就',
+                        pic: 'https://i0.hdslb.com/bfs/cover-up.jpg',
+                        owner: { name: '天花板上吊着猫' },
+                        pages: [{ cid: 555, duration: 256 }],
+                    },
+                });
+            }
+            return jsonResponse({}, 404);
+        });
+
+        vi.stubGlobal('fetch', fetchMock);
+
+        const adapter = await loadAdapter();
+        const result = await adapter.search({ query: 'up:天花板上吊着猫', limit: 10, offset: 0 });
+
+        expect(result.searchMode).toBe('user');
+        expect(fetchMock.mock.calls.some(([input]) => String(input).includes('search_type=bili_user'))).toBe(true);
+    });
+
     it('uses space videos when query exactly matches an UP name', async () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = String(input);
@@ -300,7 +365,7 @@ describe('bilibili-provider-adapter', () => {
         expect(result.videoUrl).toBe('https://upos.bilivideo.com/v360.m4s');
     });
 
-    it('falls back to progressive audio only (no second muxed decoder)', async () => {
+    it('uses progressive MP4 for both audio and muted video when DASH is unavailable', async () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = String(input);
             if (url.includes('/finger/spi')) {
@@ -325,7 +390,99 @@ describe('bilibili-provider-adapter', () => {
         const adapter = await loadAdapter();
         const result = await adapter.audio({ id: 'BV1xx411c7mD|99' });
         expect(result.audioUrl).toBe('https://upos.bilivideo.com/clip.mp4');
-        expect(result.videoUrl).toBeNull();
+        expect(result.videoUrl).toBe('https://upos.bilivideo.com/clip.mp4');
+    });
+
+    it('falls back to 720p DASH video when no 360p/480p stream exists', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input);
+            if (url.includes('/finger/spi')) {
+                return jsonResponse({ code: 0, data: { b_3: 'buvid3-test' } });
+            }
+            if (url.includes('fnval=16')) {
+                return jsonResponse({
+                    code: 0,
+                    data: {
+                        dash: {
+                            audio: [
+                                { id: 30232, bandwidth: 128000, baseUrl: 'https://upos.bilivideo.com/b.m4s' },
+                            ],
+                            video: [
+                                { id: 64, bandwidth: 1200000, baseUrl: 'https://upos.bilivideo.com/v720.m4s', codecs: 'avc1' },
+                                { id: 80, bandwidth: 2000000, baseUrl: 'https://upos.bilivideo.com/v1080.m4s', codecs: 'avc1' },
+                            ],
+                        },
+                    },
+                });
+            }
+            return jsonResponse({}, 404);
+        });
+
+        vi.stubGlobal('fetch', fetchMock);
+
+        const adapter = await loadAdapter();
+        const result = await adapter.audio({
+            id: 'BV1xx411c7mD|12345',
+            song: { providerSongId: 'BV1xx411c7mD|12345' },
+        });
+
+        expect(result.audioUrl).toBe('https://upos.bilivideo.com/b.m4s');
+        expect(result.videoUrl).toBe('https://upos.bilivideo.com/v720.m4s');
+    });
+
+    it('detects bilibili share inputs', async () => {
+        const adapter = await loadAdapter();
+        expect(adapter.isBilibiliShareInput('BV1xx411c7mD')).toBe(true);
+        expect(adapter.isBilibiliShareInput('https://www.bilibili.com/video/BV1xx411c7mD?p=2')).toBe(true);
+        expect(adapter.isBilibiliShareInput('https://b23.tv/demo123')).toBe(true);
+        expect(adapter.isBilibiliShareInput('晴天')).toBe(false);
+    });
+
+    it('resolves pasted BV id and bilibili.com links into a single song', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input);
+            if (url.includes('/finger/spi')) {
+                return jsonResponse({ code: 0, data: { b_3: 'buvid3-test' } });
+            }
+            if (url.includes('/x/web-interface/view')) {
+                return jsonResponse({
+                    code: 0,
+                    data: {
+                        bvid: 'BV1xx411c7mD',
+                        title: '分享链接测试',
+                        pic: 'https://i0.hdslb.com/bfs/cover-share.jpg',
+                        owner: { name: '测试UP' },
+                        pages: [
+                            { cid: 111, duration: 100, part: 'P1' },
+                            { cid: 222, duration: 200, part: 'P2' },
+                        ],
+                    },
+                });
+            }
+            return jsonResponse({}, 404);
+        });
+
+        vi.stubGlobal('fetch', fetchMock);
+
+        const adapter = await loadAdapter();
+        const bvResult = await adapter.search({ query: 'BV1xx411c7mD', limit: 10, offset: 0 });
+        expect(bvResult.songs).toHaveLength(1);
+        expect(bvResult.songs[0]).toMatchObject({
+            id: 'BV1xx411c7mD|111',
+            title: '分享链接测试',
+            artists: ['测试UP'],
+            source: 'bilibili',
+        });
+
+        const pageResult = await adapter.search({
+            query: 'https://www.bilibili.com/video/BV1xx411c7mD?p=2',
+            limit: 10,
+            offset: 0,
+        });
+        expect(pageResult.songs[0]).toMatchObject({
+            id: 'BV1xx411c7mD|222',
+            title: '分享链接测试 - P2',
+        });
     });
 
     it('returns null lyrics', async () => {

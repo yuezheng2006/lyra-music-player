@@ -7,6 +7,7 @@ import { resolveThemeFontStack } from '../../utils/fontStacks';
 import { type VisualizerSharedProps } from './definition';
 import FluidBackground from './FluidBackground';
 import GeometricInteractiveBackground from './geometric/GeometricInteractiveBackground';
+import LatentBackground from './backgrounds/latent/LatentBackground';
 import MonetBackgroundLayer from './backgrounds/MonetBackgroundLayer';
 import UrlBackgroundLayer from './backgrounds/UrlBackgroundLayer';
 import SoraBackground from './SoraBackground';
@@ -28,6 +29,7 @@ type VisualizerShellSharedProps = Pick<
     | 'disableVignette'
     | 'resolvedVisualizerBackgroundMode'
     | 'monetBackgroundTuning'
+    | 'latentBackgroundTuning'
     | 'interactive3dSceneTuning'
     | 'monetBackgroundImage'
     | 'urlBackgroundList'
@@ -54,6 +56,7 @@ type VisualizerShellSharedProps = Pick<
     | 'showText'
     | 'audioPlaying'
     | 'immersiveLyrics'
+    | 'isPreviewMode'
 >;
 
 interface VisualizerShellProps {
@@ -116,7 +119,9 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const resolvedDisableVignette = sharedProps?.disableVignette ?? disableVignette;
     const resolvedBackgroundMode = sharedProps?.resolvedVisualizerBackgroundMode ?? 'interactive3d';
     const resolvedMonetBackgroundTuning = sharedProps?.monetBackgroundTuning;
+    const resolvedLatentBackgroundTuning = sharedProps?.latentBackgroundTuning;
     const resolvedInteractive3dSceneTuning = sharedProps?.interactive3dSceneTuning;
+    const resolvedIsPreviewMode = sharedProps?.isPreviewMode ?? false;
     const resolvedMonetBackgroundImage = sharedProps?.monetBackgroundImage;
     const resolvedUrlBackgroundList = sharedProps?.urlBackgroundList ?? urlBackgroundList;
     const resolvedUrlBackgroundSelectedId = sharedProps?.urlBackgroundSelectedId ?? urlBackgroundSelectedId;
@@ -145,8 +150,11 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
         && !resolvedStaticMode
         && !resolvedDisableGeometricBackground;
     const shouldRenderMonetBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'monet';
+    const shouldRenderLatentBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'latent';
     const shouldRenderUrlBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'url';
     const shouldRenderSoraBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'sora';
+    const latentStaticMode = resolvedStaticMode
+        || Boolean(resolvedLatentBackgroundTuning?.dynamicOnlyInPlayer && resolvedIsPreviewMode);
     // Left-column rail modes must not rhythm-scale — scale > 1 clips lyrics past the stage edge.
     const shouldApplyLyricRhythm = shouldRenderInteractive3dBackground
         && shouldApplyLyricRhythmToVisualizerMode(resolvedVisualizerMode);
@@ -264,6 +272,18 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                     isDaylight={resolvedIsDaylight}
                     tuning={resolvedMonetBackgroundTuning}
                     transparentBackground={resolvedTransparentBackground}
+                />
+            )}
+
+            {shouldRenderLatentBackground && (
+                <LatentBackground
+                    theme={theme}
+                    coverUrl={resolvedCoverUrl}
+                    audioPower={audioPower}
+                    audioBands={audioBands}
+                    staticMode={latentStaticMode}
+                    paused={resolvedPaused}
+                    tuning={resolvedLatentBackgroundTuning}
                 />
             )}
 

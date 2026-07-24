@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { usePerformanceMonitorStore } from '../stores/usePerformanceMonitorStore';
+import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import {
   createFpsTracker,
   isMemoryPressureHigh,
@@ -81,5 +82,20 @@ export function usePerformanceMonitor(): void {
 
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
+  }, []);
+
+  useEffect(() => {
+    const onGpuGone = window.electron?.onGpuProcessGone;
+    if (!onGpuGone) return undefined;
+
+    // GPU helper crash freezes the window; drop heavy backgrounds + force lite tier.
+    return onGpuGone((payload) => {
+      usePerformanceMonitorStore.getState().setMode('lite');
+      useSettingsUiStore.getState().forceSafeVisualizerBackgroundAfterGpuCrash();
+      if (import.meta.env?.DEV) {
+        console.warn('[gpu] process gone — fell back to lite / common background', payload);
+      }
+      // Main process reloads the window after repeated crashes if the renderer is wedged.
+    });
   }, []);
 }

@@ -20,7 +20,7 @@ export const BilibiliVideoSurface: React.FC<BilibiliVideoSurfaceProps> = ({
 
     return (
         <div
-            className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center overflow-hidden bg-black"
+            className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden bg-black"
             data-app-ui-surface="bilibili-video"
             aria-hidden="true"
         >

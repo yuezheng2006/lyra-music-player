@@ -2,11 +2,19 @@ import React, { useMemo, useState, useRef, useInsertionEffect } from 'react';
 import { motion, AnimatePresence, MotionValue, motionValue } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { prepareWithSegments, layoutWithLines } from '@chenglou/pretext';
-import { Line, Theme, AudioBands, type TiltColorScheme, type TiltTuning, DEFAULT_TILT_TUNING } from '../../../types';
+import { Line, Theme, AudioBands, type LyricWordMode, type TiltColorScheme, type TiltTuning, DEFAULT_TILT_TUNING } from '../../../types';
 import { buildWordGraphemeTimings } from '../../../utils/lyrics/graphemeTiming';
 import { getLineRenderEndTime } from '../../../utils/lyrics/renderHints';
+import {
+    resolveWaitingWordPresentation,
+    shouldShowUpcomingLyrics,
+    type WaitingWordPresentation,
+} from '../../../utils/lyrics/lyricWordMode';
+import { resolveLyricWordStatus } from '../../../utils/lyrics/lyricWordStatusMath';
+import { resolveTiltCharWordOpacity } from '../../../utils/lyrics/tiltLyricWordPresentationMath';
 import { resolveThemeFontStack } from '../../../utils/fontStacks';
 import { SentenceLayout } from '../../../utils/lyrics/sentenceLayout';
+import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { type VisualizerSharedProps } from '../definition';
 import { useVisualizerRuntime } from '../runtime';
 import VisualizerShell from '../VisualizerShell';
@@ -342,7 +350,22 @@ const TiltLine: React.FC<{
     segmentStartTime?: number;
     segmentEndTime?: number;
     activeLine?: Line | null;
-}> = ({ segment, theme, fontScale, scaleMultiplier, visible, colorScheme = 'default', currentTime, segmentStartTime = 0, segmentEndTime = 0, activeLine = null }) => {
+    lyricWordMode: LyricWordMode;
+    waitingPresentation: WaitingWordPresentation;
+}> = ({
+    segment,
+    theme,
+    fontScale,
+    scaleMultiplier,
+    visible,
+    colorScheme = 'default',
+    currentTime,
+    segmentStartTime = 0,
+    segmentEndTime = 0,
+    activeLine = null,
+    lyricWordMode,
+    waitingPresentation,
+}) => {
     const baseFontScale = fontScale * scaleMultiplier;
     const shortLastBoost = segment.isShortLastLine ? 1.18 : 1;
     const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
@@ -378,8 +401,12 @@ const TiltLine: React.FC<{
     }, [activeLine, segment.charOffset, segment.text, segmentStartTime, segmentEndTime]);
 
     const charScaleMvs = useRef<MotionValue<number>[]>([]);
+    const charOpacityMvs = useRef<MotionValue<number>[]>([]);
     if (charScaleMvs.current.length !== graphemes.length) {
         charScaleMvs.current = graphemes.map(() => motionValue(1));
+    }
+    if (charOpacityMvs.current.length !== graphemes.length) {
+        charOpacityMvs.current = graphemes.map(() => motionValue(0));
     }
 
     const charIndexMap = useMemo(() => {
@@ -392,44 +419,90 @@ const TiltLine: React.FC<{
     }, [graphemes]);
 
     useInsertionEffect(() => {
-        const handler = (latest: number) => {
-            if (!visible) return;
-            const mvs = charScaleMvs.current;
-            if (mvs.length !== graphemes.length) return;
+        if (!currentTime) return undefined;
+        let frameId = 0;
+        let wasHidden = false;
+
+        const paint = () => {
+            frameId = 0;
+            const latest = currentTime.get();
+            const scaleMvs = charScaleMvs.current;
+            const opacityMvs = charOpacityMvs.current;
+            if (scaleMvs.length !== graphemes.length || opacityMvs.length !== graphemes.length) return;
+
+            if (!visible) {
+                if (!wasHidden) {
+                    for (let i = 0; i < opacityMvs.length; i++) opacityMvs[i].set(0);
+                    wasHidden = true;
+                }
+                return;
+            }
+            wasHidden = false;
+
             if (!charTimings || charTimings.length === 0) {
-                for (let i = 0; i < mvs.length; i++) mvs[i].set(1);
+                for (let i = 0; i < scaleMvs.length; i++) {
+                    scaleMvs[i].set(1);
+                    if (opacityMvs[i].get() !== 1) opacityMvs[i].set(1);
+                }
                 return;
             }
 
+            const pulseScale = segment.isTilt ? 0.18 : 0.15;
             for (let ti = 0; ti < graphemes.length; ti++) {
                 const seg = graphemes[ti];
                 if (/^\s+$/.test(seg.segment)) {
-                    mvs[ti].set(1);
+                    scaleMvs[ti].set(1);
+                    if (opacityMvs[ti].get() !== 1) opacityMvs[ti].set(1);
                     continue;
                 }
                 const ci = charIndexMap[ti];
                 const charTiming = charTimings[ci];
                 if (!charTiming) {
-                    mvs[ti].set(1);
+                    scaleMvs[ti].set(1);
+                    if (opacityMvs[ti].get() !== 1) opacityMvs[ti].set(1);
                     continue;
                 }
-                const intensity = getCharPulseIntensity(latest, charTiming);
-
-                mvs[ti].set(1 + intensity * (segment.isTilt ? 0.18 : 0.15));
+                const status = resolveLyricWordStatus(latest, charTiming.startTime, charTiming.endTime);
+                const nextOpacity = resolveTiltCharWordOpacity(status, waitingPresentation.opacity);
+                if (opacityMvs[ti].get() !== nextOpacity) {
+                    opacityMvs[ti].set(nextOpacity);
+                }
+                const intensity = status === 'waiting' ? 0 : getCharPulseIntensity(latest, charTiming);
+                scaleMvs[ti].set(1 + intensity * pulseScale);
             }
         };
-        const unsubscribe = currentTime.on('change', handler);
-        handler(currentTime.get());
-        return unsubscribe;
-    }, [currentTime, graphemes, charTimings, segment, charIndexMap, visible]);
+
+        const schedule = () => {
+            if (frameId) return;
+            frameId = requestAnimationFrame(paint);
+        };
+
+        const unsubscribe = currentTime.on('change', schedule);
+        paint();
+        return () => {
+            unsubscribe();
+            if (frameId) cancelAnimationFrame(frameId);
+        };
+    }, [
+        currentTime,
+        graphemes,
+        charTimings,
+        segment,
+        charIndexMap,
+        visible,
+        waitingPresentation.opacity,
+        lyricWordMode,
+    ]);
+
+    const parkAtRest = waitingPresentation.parkAtRest;
 
     if (!segment.isTilt) {
         return (
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: parkAtRest ? 0 : 20 }}
+                animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: parkAtRest ? 0 : 20 }}
                 exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
+                transition={{ duration: parkAtRest ? 0.28 : 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
                 className="whitespace-nowrap"
                 style={{
                     fontSize: normalFontSize,
@@ -442,26 +515,15 @@ const TiltLine: React.FC<{
             >
                 {graphemes.map((seg, ti) => {
                     const isSpace = /^\s+$/.test(seg.segment);
-                    const ci = visualIndex;
                     if (!isSpace) visualIndex += 1;
 
                     return (
                         <motion.span
                             key={ti}
-                            initial={{ opacity: 0 }}
-                            animate={visible ? {
-                                opacity: 1,
-                            } : {
-                                opacity: 0,
-                            }}
-                            transition={{
-                                duration: 0.5,
-                                delay: visible && !isSpace ? ci * 0.04 : 0,
-                                ease: [0.25, 0.46, 0.45, 0.94],
-                            }}
                             className="inline-block"
                             style={{
                                 scale: charScaleMvs.current[ti],
+                                opacity: charOpacityMvs.current[ti],
                                 transition: 'transform 0.06s ease-out',
                                 ...(isSpace ? { minWidth: '0.25em' } : {}),
                             }}
@@ -476,10 +538,10 @@ const TiltLine: React.FC<{
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.92 }}
-            animate={visible ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 24, scale: 0.92 }}
+            initial={{ opacity: 0, y: parkAtRest ? 0 : 24, scale: parkAtRest ? 1 : 0.92 }}
+            animate={visible ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: parkAtRest ? 0 : 24, scale: parkAtRest ? 1 : 0.92 }}
             exit={{ opacity: 0, y: -16, scale: 0.95 }}
-            transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: parkAtRest ? 0.28 : 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="whitespace-nowrap"
             style={{
                 fontSize: tiltFontSize,
@@ -501,25 +563,23 @@ const TiltLine: React.FC<{
                 return (
                     <motion.span
                         key={ti}
-                        initial={{
-                            opacity: 0,
+                        initial={parkAtRest ? undefined : {
                             y: isSpace ? 0 : yStagger * yOffset * 2,
                         }}
                         animate={visible ? {
-                            opacity: 1,
                             y: isSpace ? 0 : yStagger * yOffset,
                         } : {
-                            opacity: 0,
-                            y: isSpace ? 0 : yStagger * yOffset * 2,
+                            y: isSpace ? 0 : (parkAtRest ? yStagger * yOffset : yStagger * yOffset * 2),
                         }}
                         transition={{
-                            duration: 0.5,
-                            delay: visible && !isSpace ? ci * 0.05 : 0,
+                            duration: parkAtRest ? 0.25 : 0.5,
+                            delay: !parkAtRest && visible && !isSpace ? ci * 0.05 : 0,
                             ease: [0.25, 0.46, 0.45, 0.94],
                         }}
                         className="inline-block"
                         style={{
                             scale: charScaleMvs.current[ti],
+                            opacity: charOpacityMvs.current[ti],
                             transition: 'transform 0.06s ease-out',
                             ...(isSpace ? { minWidth: '0.35em' } : {}),
                         }}
@@ -551,6 +611,12 @@ const VisualizerTilt: React.FC<VisualizerTiltProps & { staticMode?: boolean; }> 
     } = props;
     const { t } = useTranslation();
     const [visibleSegmentIndex, setVisibleSegmentIndex] = useState(-1);
+    const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const waitingPresentation = useMemo(
+        () => resolveWaitingWordPresentation(lyricWordMode),
+        [lyricWordMode],
+    );
+    const previewUpcomingInLine = shouldShowUpcomingLyrics(lyricWordMode);
 
     const {
         activeLine,
@@ -643,12 +709,17 @@ const VisualizerTilt: React.FC<VisualizerTiltProps & { staticMode?: boolean; }> 
                                     theme={theme}
                                     fontScale={lyricsFontScale}
                                     scaleMultiplier={layout.scaleMultiplier}
-                                    visible={si <= visibleSegmentIndex}
+                                    // Karaoke: unlock the whole active line so waiting glyphs can preview.
+                                    visible={previewUpcomingInLine
+                                        ? visibleSegmentIndex >= 0
+                                        : si <= visibleSegmentIndex}
                                     colorScheme={tiltTuning?.colorScheme}
                                     currentTime={currentTime}
                                     segmentStartTime={segmentTimings?.[si]?.start ?? 0}
                                     segmentEndTime={segmentTimings?.[si]?.end ?? 0}
                                     activeLine={activeLine}
+                                    lyricWordMode={lyricWordMode}
+                                    waitingPresentation={waitingPresentation}
                                 />
                             ))}
                         </motion.div>

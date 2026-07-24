@@ -7,6 +7,10 @@ import { isOnlineMusicProviderId, isPeerFreeProviderId } from './onlinePeerProvi
 // Resolves which online provider(s) should handle a search query.
 
 const QISHUI_SHARE_URL_RE = /^https?:\/\/qishui\.douyin\.com\/s\/[A-Za-z0-9]+/i;
+const BILIBILI_BVID_RE = /^BV1[a-zA-Z0-9]{9}$/i;
+const BILIBILI_VIDEO_URL_RE = /^https?:\/\/(?:www\.)?bilibili\.com\/video\//i;
+const BILIBILI_SHORT_URL_RE = /^https?:\/\/(?:www\.)?b23\.tv\//i;
+const BILIBILI_APP_SHORT_URL_RE = /^https?:\/\/(?:www\.)?bilibili\.com\/s\//i;
 
 export type OnlineSearchSessionAccess = {
     netease?: boolean;
@@ -15,6 +19,16 @@ export type OnlineSearchSessionAccess = {
 
 export const isQishuiShareUrl = (value?: string | null) =>
     typeof value === 'string' && QISHUI_SHARE_URL_RE.test(value.trim());
+
+/** Pasted BV id / bilibili.com / b23.tv inputs route to the bilibili adapter. */
+export const isBilibiliShareUrl = (value?: string | null) => {
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    if (!trimmed) return false;
+    return BILIBILI_BVID_RE.test(trimmed)
+        || BILIBILI_SHORT_URL_RE.test(trimmed)
+        || BILIBILI_APP_SHORT_URL_RE.test(trimmed)
+        || BILIBILI_VIDEO_URL_RE.test(trimmed);
+};
 
 /** Peer-free channels are always searchable; Netease/QQ require an active login session. */
 export const isProviderSearchable = (
@@ -42,6 +56,9 @@ export const resolveOnlineSearchProvider = (
     if (isQishuiShareUrl(query)) {
         return 'qishui';
     }
+    if (isBilibiliShareUrl(query)) {
+        return 'bilibili';
+    }
     if (isOnlineMusicProviderId(preferred)) {
         return preferred;
     }
@@ -62,6 +79,9 @@ export const resolveEnabledSearchProviders = (
     if (isQishuiShareUrl(query)) {
         return ['qishui'];
     }
+    if (isBilibiliShareUrl(query)) {
+        return ['bilibili'];
+    }
 
     const searchable = resolveSearchableLibraryProviders(enabledProviders, sessions);
     if (searchable.length > 0) {
@@ -71,6 +91,9 @@ export const resolveEnabledSearchProviders = (
     const fallback = resolveOnlineSearchProvider(query, preferred || 'coco');
     if (fallback === 'qishui') {
         return ['qishui'];
+    }
+    if (fallback === 'bilibili') {
+        return ['bilibili'];
     }
     if (isProviderSearchable(fallback, sessions)) {
         return [fallback];
@@ -93,6 +116,9 @@ export const resolveOverlaySearchProviders = (input: {
 }): OnlineMusicProviderId[] => {
     if (isQishuiShareUrl(input.query)) {
         return ['qishui'];
+    }
+    if (isBilibiliShareUrl(input.query)) {
+        return ['bilibili'];
     }
 
     const active = (input.activeProviders || []).filter(isOnlineMusicProviderId);

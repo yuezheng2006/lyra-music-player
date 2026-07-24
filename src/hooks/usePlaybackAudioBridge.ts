@@ -6,12 +6,15 @@ import type { LocalSong } from '../types';
 import { hasCachedAudio, saveAudioBlob } from '../services/audioCache';
 import { getProviderSongCacheKey } from '../services/musicProviders/registry';
 import { saveToCache } from '../services/db';
+import { hasPlayableHtmlMediaSource, isTransientAutoplayFailure } from '../utils/audioAutoPlayGuard';
 
 // src/hooks/usePlaybackAudioBridge.ts
 
 type UsePlaybackAudioBridgeParams = {
     audioRef: RefObject<HTMLAudioElement | null>;
     audioSrc: string | null;
+    /** Remount generation — re-arm autoplay listeners when <audio> is replaced. */
+    audioElementEpoch?: number;
     currentSong: SongResult | null;
     isLyricsLoading: boolean;
     enableMediaCache: boolean;
@@ -37,6 +40,7 @@ type UsePlaybackAudioBridgeParams = {
 export function usePlaybackAudioBridge({
     audioRef,
     audioSrc,
+    audioElementEpoch = 0,
     currentSong,
     isLyricsLoading,
     enableMediaCache,
@@ -60,24 +64,42 @@ export function usePlaybackAudioBridge({
     const replayGainLogSignatureRef = useRef<string | null>(null);
 
     const setupAudioAnalyzer = useCallback(() => {
-        if (!audioRef.current || sourceRef.current) return;
+        const mediaElement = audioRef.current;
+        if (!mediaElement) return;
+
+        // After <audio> remount (Format-error heal), rebind MediaElementSource to the new node.
+        const existingSource = sourceRef.current;
+        if (existingSource && existingSource.mediaElement !== mediaElement) {
+            try {
+                existingSource.disconnect();
+            } catch {
+                // Already disconnected with the old element.
+            }
+            sourceRef.current = null;
+        }
+        if (sourceRef.current) return;
+
         try {
             const AudioContextClass = window.AudioContext || (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-            const ctx = new AudioContextClass();
+            const ctx = audioContextRef.current ?? new AudioContextClass();
             audioContextRef.current = ctx;
 
-            const analyser = ctx.createAnalyser();
-            analyser.fftSize = 2048;
-            analyser.smoothingTimeConstant = 0.6;
-            analyserRef.current = analyser;
+            if (!analyserRef.current) {
+                const analyser = ctx.createAnalyser();
+                analyser.fftSize = 2048;
+                analyser.smoothingTimeConstant = 0.6;
+                analyserRef.current = analyser;
+            }
 
-            const gainNode = ctx.createGain();
-            gainNodeRef.current = gainNode;
+            if (!gainNodeRef.current) {
+                const gainNode = ctx.createGain();
+                gainNodeRef.current = gainNode;
+                gainNode.connect(analyserRef.current);
+                analyserRef.current.connect(ctx.destination);
+            }
 
-            const source = ctx.createMediaElementSource(audioRef.current);
-            source.connect(gainNode);
-            gainNode.connect(analyser);
-            analyser.connect(ctx.destination);
+            const source = ctx.createMediaElementSource(mediaElement);
+            source.connect(gainNodeRef.current);
             sourceRef.current = source;
             syncOutputGain(getTargetPlaybackVolume(), 0);
         } catch (error) {
@@ -195,12 +217,14 @@ export function usePlaybackAudioBridge({
 
         const attemptAutoPlay = () => {
             if (!shouldAutoPlayRef.current) return;
+            if (!hasPlayableHtmlMediaSource(audioElement)) return;
 
             // Match resumePlayback: wire Web Audio and wake a suspended context before play().
             setupAudioAnalyzer();
             const audioContext = audioContextRef.current;
             const kickPlay = () => {
                 if (!shouldAutoPlayRef.current) return;
+                if (!hasPlayableHtmlMediaSource(audioElement)) return;
 
                 syncOutputGain(getTargetPlaybackVolume(), 0);
                 const playPromise = audioElement.play();
@@ -220,8 +244,8 @@ export function usePlaybackAudioBridge({
                             return;
                         }
 
-                        // Src reload often aborts the first play(); keep autoplay armed for canplay.
-                        if (error instanceof DOMException && error.name === 'AbortError') {
+                        // Src reload / empty-source races reject play(); keep autoplay armed for canplay.
+                        if (isTransientAutoplayFailure(error)) {
                             return;
                         }
 
@@ -254,7 +278,7 @@ export function usePlaybackAudioBridge({
             audioElement.removeEventListener('canplay', handlePlaybackReady);
             audioElement.removeEventListener('loadeddata', handlePlaybackReady);
         };
-    }, [audioContextRef, audioRef, audioSrc, getTargetPlaybackVolume, setPlayerState, setStatusMsg, setupAudioAnalyzer, shouldAutoPlayRef, syncOutputGain, t]);
+    }, [audioContextRef, audioElementEpoch, audioRef, audioSrc, getTargetPlaybackVolume, setPlayerState, setStatusMsg, setupAudioAnalyzer, shouldAutoPlayRef, syncOutputGain, t]);
 
     return {
         setupAudioAnalyzer,

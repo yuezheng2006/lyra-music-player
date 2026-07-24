@@ -23,6 +23,7 @@ import PlaylistSelectionDialog from './shared/PlaylistSelectionDialog';
 import TextInputDialog from './shared/TextInputDialog';
 import { SidePanelList, TrackListItem } from './shared/SidePanelList';
 import LazyCoverImage from './shared/LazyCoverImage';
+import RemoteLoadState from './shared/RemoteLoadState';
 import { shouldStartGridViewDrag } from './gridView/shouldStartGridViewDrag';
 import { isSameTrackId } from './gridView/isSameTrackId';
 import { APP_CONTENT_TOP_OFFSET_CLASS, resolveShellSurfaceBackgroundStyle } from './app/home/homeSurfaceStyles';
@@ -769,6 +770,8 @@ export const GridView: React.FC<GridViewProps> = ({
     // Self-loading track states for tracks mode
     const [tracks, setTracks] = useState<SongResult[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [loadDiagnostic, setLoadDiagnostic] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(true);
     const [offset, setOffset] = useState(0);
     const [loadedAlbumInfo, setLoadedAlbumInfo] = useState<any>(null);
@@ -995,6 +998,10 @@ export const GridView: React.FC<GridViewProps> = ({
     const loadTracks = async (reset = false) => {
         if (usesExternalTracks || !collection || collection.source !== 'netease' || loading || (!hasMore && !reset)) return;
         setLoading(true);
+        if (reset) {
+            setLoadError(null);
+            setLoadDiagnostic(null);
+        }
 
         try {
             const currentOffset = reset ? 0 : offset;
@@ -1085,7 +1092,10 @@ export const GridView: React.FC<GridViewProps> = ({
                 }
             }
         } catch (error) {
-            console.error("GridView failed to load tracks:", error);
+            const { captureRequestFailure } = await import('../utils/network');
+            const failure = captureRequestFailure(error, 'gridView:tracks');
+            setLoadError(failure.message);
+            setLoadDiagnostic(failure.diagnostic);
         } finally {
             setLoading(false);
         }
@@ -2046,6 +2056,15 @@ export const GridView: React.FC<GridViewProps> = ({
                         <Loader2 className="animate-spin" size={32} />
                         <span className="text-sm font-semibold font-sans">{t('playlist.loading') || 'Loading...'}</span>
                     </div>
+                ) : loadError && displayTracks.length === 0 ? (
+                    <RemoteLoadState
+                        status="error"
+                        isDaylight={isDaylight}
+                        errorLabel={loadError}
+                        onRetry={() => void loadTracks(true)}
+                        diagnostic={loadDiagnostic}
+                        className="min-h-[220px]"
+                    />
                 ) : gridItems.length === 0 ? (
                     <div className="opacity-40 text-sm font-sans">
                         {hasSearchQuery

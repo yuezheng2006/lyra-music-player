@@ -21,7 +21,13 @@ import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
 import { buildStagePlayerSnapshot, resolveStagePlayerQueueItemIndex } from '../utils/stagePlayerSnapshot';
 import { clearOnlinePlaybackRecoveryState } from '../components/app/playback/createOnlineRecoveryController';
 import { resolveSongDurationSec } from '../utils/appPlaybackHelpers';
-import { armAutoPlayIntent, unlockHtmlAudioForAutoplay } from '../utils/audioAutoPlayGuard';
+import {
+    armAutoPlayIntent,
+    hasPlayableHtmlMediaSource,
+    isTransientAutoplayFailure,
+    unlockHtmlAudioForAutoplay,
+} from '../utils/audioAutoPlayGuard';
+import { isRetryableRequestCode, type RequestErrorCode } from '../utils/network';
 import { recordPlay } from '../services/playHistoryService';
 
 // src/hooks/usePlaybackQueueController.ts
@@ -31,6 +37,7 @@ type SetState<T> = Dispatch<SetStateAction<T>>;
 type SearchDeps = {
     submitSearch: (args: {
         query: string;
+        displayQuery?: string;
         sourceTab: SearchSourceId;
         providers?: OnlineMusicProviderId[];
         deps: {
@@ -619,9 +626,17 @@ export function usePlaybackQueueController({
             if (preloadedOnlineAudioResult.kind === 'unavailable') {
                 const nextSong = getNextPlayableQueueSong(queueContext, song.id);
                 const canSkip = Boolean(nextSong) && skipCount < MAX_UNAVAILABLE_AUTO_SKIP_COUNT;
-                const unavailableErrorKey = isNeteaseOnlineSong(song)
+                // Network/5xx (e.g. netease ECONNRESET) is not a takedown — keep "播放出错".
+                const fetchErrorCode = preloadedOnlineAudioResult.errorCode as RequestErrorCode | undefined;
+                const isTransientFetchFailure = Boolean(
+                    fetchErrorCode && isRetryableRequestCode(fetchErrorCode),
+                );
+                const unavailableErrorKey = !isTransientFetchFailure && isNeteaseOnlineSong(song)
                     ? 'status.songUnavailable'
                     : 'status.playbackError';
+                if (preloadedOnlineAudioResult.diagnostic) {
+                    console.warn('[App] Audio unavailable:', preloadedOnlineAudioResult.diagnostic);
+                }
 
                 setIsLyricsLoading(false);
                 clearPendingIfCurrent();
@@ -633,12 +648,16 @@ export function usePlaybackQueueController({
                         unavailableSkipCount: skipCount + 1,
                     });
                 } else {
-                    setStatusMsg({ type: 'error', text: t(unavailableErrorKey) });
+                    const hint = preloadedOnlineAudioResult.diagnostic
+                        ? ` (${t('status.copyDiagnosticHint')})`
+                        : '';
+                    setStatusMsg({ type: 'error', text: `${t(unavailableErrorKey)}${hint}` });
                 }
                 return;
             }
         } catch (error) {
-            console.error('[App] Failed to fetch song URL:', error);
+            const { captureRequestFailure } = await import('../utils/network');
+            const failure = captureRequestFailure(error, `playSong:audio:${song.name}`);
             const nextSong = getNextPlayableQueueSong(queueContext, song.id);
             setIsLyricsLoading(false);
             clearPendingIfCurrent();
@@ -648,7 +667,11 @@ export function usePlaybackQueueController({
                     unavailableSkipCount: skipCount + 1,
                 });
             } else {
-                setStatusMsg({ type: 'error', text: t('status.playbackError') });
+                setStatusMsg({
+                    type: 'error',
+                    text: `${t('status.playbackError')} (${t('status.copyDiagnosticHint')})`,
+                });
+                void failure;
             }
             return;
         }
@@ -705,7 +728,7 @@ export function usePlaybackQueueController({
         });
 
         const audioElement = audioRef.current;
-        if (audioElement) {
+        if (audioElement && hasPlayableHtmlMediaSource(audioElement)) {
             shouldAutoPlayRef.current = true;
             void audioElement.play().then(() => {
                 if (currentSongRef.current !== song.id) {
@@ -719,8 +742,8 @@ export function usePlaybackQueueController({
                     setPlayerState(PlayerState.PLAYING);
                     return;
                 }
-                // AbortError is common while the element reloads; autoplay effect retries on canplay.
-                if (error instanceof DOMException && error.name === 'AbortError') {
+                // Abort/NotSupported while src attaches; autoplay effect retries on canplay.
+                if (isTransientAutoplayFailure(error)) {
                     return;
                 }
                 if (error instanceof DOMException && error.name === 'NotAllowedError') {
@@ -858,7 +881,10 @@ export function usePlaybackQueueController({
         void playSong(song, nextQueue, false, options);
     }, [playQueue, playSong]);
 
-    const handleSearchOverlaySubmit = useCallback(async (overrideQuery?: string) => {
+    const handleSearchOverlaySubmit = useCallback(async (
+        overrideQuery?: string,
+        options?: { displayQuery?: string },
+    ) => {
         const trimmedQuery = (overrideQuery ?? searchQuery).trim();
         if (!trimmedQuery) {
             return;
@@ -881,6 +907,7 @@ export function usePlaybackQueueController({
 
         const didSearch = await searchDeps.submitSearch({
             query: trimmedQuery,
+            displayQuery: options?.displayQuery,
             sourceTab,
             providers,
             deps: {

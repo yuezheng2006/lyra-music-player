@@ -12,10 +12,51 @@ import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState } fro
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
 import { getMusicProviderForSong, getProviderSongCacheKey, isNeteaseOnlineSong } from './musicProviders/registry';
+import { shouldResolveCompanionVideoForSong } from '../utils/playback/playbackLoadPriorityMath';
 
 const normalizeAudioUrl = (url?: string | null) => {
     if (!url) return null;
     return url.startsWith('http:') ? url.replace('http:', 'https:') : url;
+};
+
+const buildOkAudioSource = (
+    audioSrc: string,
+    options?: { videoSrc?: string; blobUrl?: string },
+): { kind: 'ok'; audioSrc: string; videoSrc?: string; blobUrl?: string } => {
+    if (options?.videoSrc) {
+        return {
+            kind: 'ok',
+            audioSrc,
+            videoSrc: options.videoSrc,
+            blobUrl: options.blobUrl,
+        };
+    }
+    return options?.blobUrl
+        ? { kind: 'ok', audioSrc, blobUrl: options.blobUrl }
+        : { kind: 'ok', audioSrc };
+};
+
+/** Resolve muted companion video when audio came from cache/prefetch without videoUrl. */
+const resolveCompanionVideoSrc = async (
+    song: SongResult,
+    audioQuality: string,
+    prefetched: PrefetchedSongData | null,
+): Promise<string | undefined> => {
+    if (!shouldResolveCompanionVideoForSong(song)) {
+        return undefined;
+    }
+
+    const prefetchedVideo = normalizeAudioUrl(prefetched?.videoUrl || null);
+    if (prefetchedVideo) {
+        return prefetchedVideo;
+    }
+
+    const provider = getMusicProviderForSong(song);
+    const audioResult = await provider.getAudioUrl(song, { quality: audioQuality });
+    if (audioResult.kind !== 'ok') {
+        return undefined;
+    }
+    return normalizeAudioUrl(audioResult.videoUrl || null) || undefined;
 };
 
 const extractCloudLyricText = (response: any): string => {
@@ -32,32 +73,47 @@ export async function loadOnlineSongAudioSource(
     prefetched: PrefetchedSongData | null
 ): Promise<
     | { kind: 'ok'; audioSrc: string; videoSrc?: string; blobUrl?: string }
-    | { kind: 'unavailable' }
+    | { kind: 'unavailable'; diagnostic?: string; errorCode?: string }
 > {
+    // Prefer a valid prefetch streaming URL before reading a full Electron blob into memory —
+    // first audible byte beats local IPC for perceived start latency.
+    if (prefetched?.audioUrl && prefetched.audioUrl !== 'CACHED_IN_DB' && isUrlValid(prefetched.audioUrlFetchedAt)) {
+        const prefetchedVideo = normalizeAudioUrl(prefetched.videoUrl || null) || undefined;
+        const videoSrc = prefetchedVideo ?? await resolveCompanionVideoSrc(song, audioQuality, prefetched);
+        return buildOkAudioSource(prefetched.audioUrl, { videoSrc });
+    }
+
     const audioCacheKey = getProviderSongCacheKey('audio', song);
     const cachedAudioBlob = await getCachedAudioBlob(audioCacheKey);
     if (cachedAudioBlob) {
         const blobUrl = URL.createObjectURL(cachedAudioBlob);
-        return { kind: 'ok', audioSrc: blobUrl, blobUrl };
-    }
-
-    if (prefetched?.audioUrl && prefetched.audioUrl !== 'CACHED_IN_DB' && isUrlValid(prefetched.audioUrlFetchedAt)) {
-        return { kind: 'ok', audioSrc: prefetched.audioUrl };
+        const videoSrc = await resolveCompanionVideoSrc(song, audioQuality, prefetched);
+        return buildOkAudioSource(blobUrl, { blobUrl, videoSrc });
     }
 
     const provider = getMusicProviderForSong(song);
-    const audioResult = await provider.getAudioUrl(song, { quality: audioQuality });
-    if (audioResult.kind !== 'ok') {
-        return { kind: 'unavailable' };
-    }
+    try {
+        const audioResult = await provider.getAudioUrl(song, { quality: audioQuality });
+        if (audioResult.kind !== 'ok') {
+            return { kind: 'unavailable' };
+        }
 
-    const url = normalizeAudioUrl(audioResult.audioUrl);
-    if (!url) {
-        return { kind: 'unavailable' };
+        const url = normalizeAudioUrl(audioResult.audioUrl);
+        if (!url) {
+            return { kind: 'unavailable' };
+        }
+        updatePrefetchedAudioUrl(song, url, audioQuality, audioResult.videoUrl || null);
+        const videoSrc = normalizeAudioUrl(audioResult.videoUrl || null) || undefined;
+        return buildOkAudioSource(url, { videoSrc });
+    } catch (error) {
+        const { captureRequestFailure } = await import('../utils/network');
+        const failure = captureRequestFailure(error, `onlinePlayback:audio:${song.name}`);
+        return {
+            kind: 'unavailable',
+            diagnostic: failure.diagnostic,
+            errorCode: failure.code,
+        };
     }
-    updatePrefetchedAudioUrl(song, url, audioQuality);
-    const videoSrc = normalizeAudioUrl(audioResult.videoUrl || null) || undefined;
-    return videoSrc ? { kind: 'ok', audioSrc: url, videoSrc } : { kind: 'ok', audioSrc: url };
 }
 
 export async function loadOnlineSongLyrics(

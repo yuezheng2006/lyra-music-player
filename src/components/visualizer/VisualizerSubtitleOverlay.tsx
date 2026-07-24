@@ -5,6 +5,7 @@ import { Line, LyricWordMode, Theme } from '../../types';
 import { resolveThemeTranslationFontStack } from '../../utils/fontStacks';
 import { resolveUpcomingLyricLines } from '../../utils/lyrics/lyricWordMode';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
+import { colorWithAlpha } from './colorMix';
 import { resolveUpcomingLyricPresentation, resolveVisualizerBottomSubtitlePresentation } from './resolveUpcomingLyricPresentation';
 import { resolveVisualizerSubtitleBottom } from './resolveVisualizerSubtitleBottom';
 import { VISUALIZER_SUBTITLE_PORTAL_ROOT_ID } from './visualizerSubtitlePortal';
@@ -80,6 +81,10 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
     lyricWordMode: lyricWordModeProp,
 }) => {
     const storeLyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const subtitleOverlayBackground = useSettingsUiStore(state => state.subtitleOverlayBackground);
+    const subtitleFontInheritsLyrics = useSettingsUiStore(state => state.subtitleFontInheritsLyrics);
+    const subtitleFontStyle = useSettingsUiStore(state => state.subtitleFontStyle);
+    const subtitleFontFamily = useSettingsUiStore(state => state.subtitleFontFamily);
     const lyricWordMode = lyricWordModeProp ?? storeLyricWordMode;
     const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
     const { shouldRenderOverlay, translationText, upcomingLines } = resolveVisualizerSubtitleOverlayContent({
@@ -97,6 +102,23 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
     const showUpcomingLines = upcomingLines.length > 0;
     const bottomPadding = resolveVisualizerSubtitleBottom(isPlayerChromeHidden);
     const translationCaptionBottom = resolveTranslationCaptionBottom(isPlayerChromeHidden);
+    const translationFontTheme = subtitleFontInheritsLyrics
+        ? theme
+        : {
+            ...theme,
+            fontStyle: subtitleFontStyle,
+            fontFamily: subtitleFontFamily ?? undefined,
+        };
+    const translationFontFamily = resolveThemeTranslationFontStack(translationFontTheme);
+    const translationShellClassName = subtitleOverlayBackground
+        ? 'mx-auto inline-flex max-w-3xl flex-col items-center gap-2.5 rounded-xl px-3 py-2'
+        : 'mx-auto inline-flex max-w-3xl flex-col items-center gap-2.5';
+    const translationShellStyle = subtitleOverlayBackground
+        ? {
+            backgroundColor: colorWithAlpha(theme.backgroundColor, 0.8),
+            boxShadow: `0 0 20px 5px ${colorWithAlpha(theme.backgroundColor, 0.8)}`,
+        }
+        : undefined;
 
     // Mount into the app-level host so rhythm scale / overflow-hidden cannot clip upcoming lines.
     useLayoutEffect(() => {
@@ -124,7 +146,7 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
                             className="absolute inset-x-0 px-5 text-center"
                             style={{ bottom: translationCaptionBottom }}
                         >
-                            <div className="mx-auto inline-flex max-w-3xl flex-col items-center gap-2.5">
+                            <div className={translationShellClassName} style={translationShellStyle}>
                                 <span
                                     aria-hidden="true"
                                     className="h-px w-11 shrink-0 rounded-full"
@@ -136,7 +158,7 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
                                     style={{
                                         color: translationPresentation.color,
                                         fontSize: translationFontSize,
-                                        fontFamily: resolveThemeTranslationFontStack(theme),
+                                        fontFamily: translationFontFamily,
                                         fontWeight: translationPresentation.fontWeight,
                                         letterSpacing: translationPresentation.letterSpacing,
                                         textShadow: translationPresentation.textShadow,

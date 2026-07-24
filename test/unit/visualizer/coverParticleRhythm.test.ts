@@ -34,12 +34,10 @@ describe('coverParticlePresetRuntime', () => {
         expect(voidPreset).toEqual(emily);
     });
 
-    it('keeps legacy box aliases on the quantum cube profile', () => {
-        const quantumCube = resolveCoverParticlePresetRuntime('quantumCube');
-        const starfield = resolveCoverParticlePresetRuntime('starfield');
-        const vinyl = resolveCoverParticlePresetRuntime('vinyl');
-
-        expect(starfield).toEqual(quantumCube);
-        expect(vinyl).toEqual(quantumCube);
+    it('maps retired box aliases to the cover profile', () => {
+        const emily = resolveCoverParticlePresetRuntime('emily');
+        expect(resolveCoverParticlePresetRuntime('quantumCube')).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('starfield')).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('vinyl')).toEqual(emily);
     });
 });

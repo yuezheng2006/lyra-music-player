@@ -4,12 +4,17 @@ import type { RefObject } from 'react';
 import type { MotionValue } from 'framer-motion';
 import type { SongResult } from '../types';
 import type { RemoteControlCommand } from '../types/remoteControl';
-import type { VideoExportPreset, VideoExportState } from '../types/videoExport';
-import { idleVideoExportState } from '../types/videoExport';
+import type { VideoExportPreset, VideoExportStartMode, VideoExportState } from '../types/videoExport';
+import { DEFAULT_VIDEO_EXPORT_PRESET_ID, VIDEO_EXPORT_PRESETS, idleVideoExportState } from '../types/videoExport';
+import { getSongMusicProviderId } from '../services/musicProviders/registry';
+import { useSettingsUiStore } from '../stores/useSettingsUiStore';
+import { resolveVideoExportCaptureMode } from '../utils/playback/resolveVideoExportCapture';
 import {
     buildDefaultVideoExportFileName,
+    combineCaptureStreams,
     getAudioElementCaptureStream,
     getMainWindowVideoCaptureStream,
+    getVideoElementCaptureStream,
     getVideoExportRecorderOptions,
     getSupportedVideoExportFormat,
     installVideoExportCursorGuard,
@@ -22,6 +27,8 @@ import {
 type UseElectronVideoExportControllerOptions = {
     isElectronWindow: boolean;
     audioRef: RefObject<HTMLAudioElement | null>;
+    videoRef: RefObject<HTMLVideoElement | null>;
+    videoSrc: string | null;
     currentTime: MotionValue<number>;
     duration: number;
     currentSong: SongResult | null;
@@ -39,6 +46,8 @@ const toArrayBuffer = (blob: Blob) => blob.arrayBuffer();
 export const useElectronVideoExportController = ({
     isElectronWindow,
     audioRef,
+    videoRef,
+    videoSrc,
     currentTime,
     duration,
     currentSong,
@@ -99,6 +108,14 @@ export const useElectronVideoExportController = ({
         const wasPaused = audioElement.paused;
         const previousLoop = audioElement.loop;
         const previousTime = audioElement.currentTime;
+        const settingsSnapshot = useSettingsUiStore.getState();
+        const hadVideoBackground = settingsSnapshot.enableBilibiliVideoBackground;
+        const useBilibiliElements = resolveVideoExportCaptureMode({
+            isElectronWindow,
+            musicProvider: getSongMusicProviderId(currentSong),
+            videoSrc,
+        }) === 'bilibili-elements';
+        let effectiveBilibiliElements = useBilibiliElements;
 
         try {
             const exportFormat = getSupportedVideoExportFormat();
@@ -137,8 +154,16 @@ export const useElectronVideoExportController = ({
 
             navigateToPlayer();
             setIsPanelOpen(false);
-            setIsPlayerChromeHidden(true);
-            removeCursorGuard = installVideoExportCursorGuard();
+
+            if (useBilibiliElements && !hadVideoBackground) {
+                useSettingsUiStore.getState().handleToggleEnableBilibiliVideoBackground(true);
+            }
+
+            if (!useBilibiliElements) {
+                setIsPlayerChromeHidden(true);
+                removeCursorGuard = installVideoExportCursorGuard();
+            }
+
             pausePlayback();
             audioElement.pause();
             audioElement.loop = false;
@@ -148,17 +173,41 @@ export const useElectronVideoExportController = ({
                 currentTime.set(0);
             }
 
-            const prepared = await electron.prepareVideoExportWindow({ width: preset.width, height: preset.height });
-            if (!prepared) {
-                throw new Error('无法将主播放器窗口调整到导出分辨率。');
+            if (useBilibiliElements) {
+                await wait(350);
+                const videoElement = videoRef.current;
+                if (!videoElement) {
+                    effectiveBilibiliElements = false;
+                } else {
+                    try {
+                        videoStream = getVideoElementCaptureStream(videoElement);
+                        audioStream = getAudioElementCaptureStream(audioElement);
+                        combinedStream = combineCaptureStreams(videoStream, audioStream);
+                    } catch {
+                        stopMediaStream(videoStream);
+                        stopMediaStream(audioStream);
+                        videoStream = null;
+                        audioStream = null;
+                        combinedStream = null;
+                        effectiveBilibiliElements = false;
+                    }
+                }
             }
-            await wait(300);
-            videoStream = await getMainWindowVideoCaptureStream(preset);
-            audioStream = getAudioElementCaptureStream(audioElement);
-            combinedStream = new MediaStream([
-                ...videoStream.getVideoTracks(),
-                ...audioStream.getAudioTracks(),
-            ]);
+
+            if (!effectiveBilibiliElements) {
+                if (useBilibiliElements) {
+                    setIsPlayerChromeHidden(true);
+                    removeCursorGuard = installVideoExportCursorGuard();
+                }
+                const prepared = await electron.prepareVideoExportWindow({ width: preset.width, height: preset.height });
+                if (!prepared) {
+                    throw new Error('无法将主播放器窗口调整到导出分辨率。');
+                }
+                await wait(300);
+                videoStream = await getMainWindowVideoCaptureStream(preset);
+                audioStream = getAudioElementCaptureStream(audioElement);
+                combinedStream = combineCaptureStreams(videoStream, audioStream);
+            }
 
             for (let remaining = COUNTDOWN_SECONDS; remaining > 0; remaining -= 1) {
                 setExportState(prev => ({
@@ -267,13 +316,25 @@ export const useElectronVideoExportController = ({
                 audioElement.currentTime = previousTime;
                 currentTime.set(previousTime);
             }
-            setIsPlayerChromeHidden(false);
+            if (!effectiveBilibiliElements) {
+                setIsPlayerChromeHidden(false);
+            } else if (!hadVideoBackground) {
+                useSettingsUiStore.getState().handleToggleEnableBilibiliVideoBackground(false);
+            }
             removeCursorGuard?.();
-            void electron.restoreVideoExportWindow();
+            if (!effectiveBilibiliElements) {
+                void electron.restoreVideoExportWindow();
+            }
             runningRef.current = false;
             cancelRequestedRef.current = false;
         }
-    }, [audioRef, currentSong, currentTime, duration, isElectronWindow, navigateToPlayer, pausePlayback, resumePlayback, setIsPanelOpen, setIsPlayerChromeHidden]);
+    }, [audioRef, currentSong, currentTime, duration, isElectronWindow, navigateToPlayer, pausePlayback, resumePlayback, setIsPanelOpen, setIsPlayerChromeHidden, videoRef, videoSrc]);
+
+    const startVideoExport = useCallback((startMode: VideoExportStartMode = 'from-start') => {
+        const preset = VIDEO_EXPORT_PRESETS.find(item => item.id === DEFAULT_VIDEO_EXPORT_PRESET_ID)
+            ?? VIDEO_EXPORT_PRESETS[1];
+        void startExport(preset, startMode);
+    }, [startExport]);
 
     const handleExportCommand = useCallback((command: RemoteControlCommand) => {
         if (command.type === 'start-export') {
@@ -317,5 +378,6 @@ export const useElectronVideoExportController = ({
     return {
         exportState,
         handleExportCommand,
+        startVideoExport,
     };
 };

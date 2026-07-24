@@ -58,14 +58,14 @@ describe('deriveAtmosphereThemeHints', () => {
         const next = applyAtmosphereThemeHintsToTuning(
             {
                 ...DEFAULT_INTERACTIVE3D_SCENE_TUNING,
-                visualPreset: 'mineradioVinyl',
+                visualPreset: 'mineradioOrbit',
             },
             {
                 visualPreset: 'mineradioGalaxy',
                 atmosphereSensitivity: 1.1,
             },
         );
-        expect(next?.visualPreset).toBe('mineradioVinyl');
+        expect(next?.visualPreset).toBe('mineradioOrbit');
         expect(next?.atmosphereSensitivity).toBe(1.1);
     });
 

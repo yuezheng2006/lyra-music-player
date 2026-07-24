@@ -1,5 +1,6 @@
 import type { OnlineMusicProviderId, SongResult } from '../types';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
+import { isStableRequestError, type RequestErrorCode } from '../utils/network';
 import { fetchDailyRecommendSongs } from './neteasePodcast';
 import { requestSidecarRecommend } from './musicProviders/sidecarProviderClient';
 import {
@@ -21,6 +22,8 @@ export type DailyRecommendSourceBucket = {
     kind: DailyRecommendKind;
     query?: string;
     error?: string;
+    errorCode?: RequestErrorCode | 'need-login' | 'empty';
+    diagnostic?: string;
 };
 
 export type AggregatedDailyRecommend = {
@@ -139,15 +142,44 @@ const fetchSidecarBucket = async (
 };
 
 const fetchNeteaseBucket = async (): Promise<DailyRecommendSourceBucket> => {
-    const neteaseResult = await fetchDailyRecommendSongs();
-    return {
-        provider: 'netease',
-        songs: dedupeSongsByTitle(neteaseResult.songs),
-        kind: 'personalized',
-        error: neteaseResult.needLogin
-            ? 'need-login'
-            : (neteaseResult.songs.length === 0 ? neteaseResult.message : undefined),
-    };
+    try {
+        const neteaseResult = await fetchDailyRecommendSongs();
+        if (neteaseResult.needLogin) {
+            return {
+                provider: 'netease',
+                songs: [],
+                kind: 'personalized',
+                error: 'need-login',
+                errorCode: 'need-login',
+            };
+        }
+        return {
+            provider: 'netease',
+            songs: dedupeSongsByTitle(neteaseResult.songs),
+            kind: 'personalized',
+            error: neteaseResult.songs.length === 0 ? (neteaseResult.message || undefined) : undefined,
+            errorCode: neteaseResult.songs.length === 0 ? 'empty' : undefined,
+        };
+    } catch (error) {
+        if (isStableRequestError(error)) {
+            return {
+                provider: 'netease',
+                songs: [],
+                kind: 'personalized',
+                error: error.message,
+                errorCode: error.code,
+                diagnostic: error.toDiagnosticSummary(),
+            };
+        }
+        return {
+            provider: 'netease',
+            songs: [],
+            kind: 'personalized',
+            error: error instanceof Error ? error.message : String(error),
+            errorCode: 'unknown',
+            diagnostic: error instanceof Error ? error.message : String(error),
+        };
+    }
 };
 
 const buildAggregate = (
@@ -167,7 +199,9 @@ const buildAggregate = (
 };
 
 /**
- * Fetch personalized daily (Netease/QQ) + hot-chart matched peer picks.
+ * Fetch personalized daily (Netease) + optional peer picks.
+ * Netease is always requested: daily recommend is a Netease surface and must not
+ * go blank when the home library filter disables the Netease playlist chip.
  * Each source is independently timed out so a hung peer cannot block the page.
  */
 export const fetchAggregatedDailyRecommend = async (
@@ -175,7 +209,8 @@ export const fetchAggregatedDailyRecommend = async (
     options: FetchAggregatedDailyRecommendOptions = {},
 ): Promise<AggregatedDailyRecommend> => {
     const timeoutMs = options.timeoutMs ?? DEFAULT_SOURCE_TIMEOUT_MS;
-    const wantNetease = enabledProviders.netease !== false;
+    // Home source toggles filter playlists/search — not this page's only source.
+    const wantNetease = true;
     const sidecarTargets = SIDECAR_RECOMMEND_PROVIDERS.filter(
         id => enabledProviders[id as OnlineLibraryProviderId] !== false,
     );
@@ -209,6 +244,8 @@ export const fetchAggregatedDailyRecommend = async (
                     songs: [],
                     kind: 'personalized',
                     error: 'timeout',
+                    errorCode: 'timeout',
+                    diagnostic: 'source=netease code=timeout endpoint=/recommend/songs',
                 }),
             ).then(publish),
         );
@@ -226,6 +263,8 @@ export const fetchAggregatedDailyRecommend = async (
                     kind: 'picks',
                     query: 'hot-chart',
                     error: 'timeout',
+                    errorCode: 'timeout',
+                    diagnostic: `source=${provider} code=timeout endpoint=/providers/${provider}/recommend`,
                 }),
             ).then(publish),
         );

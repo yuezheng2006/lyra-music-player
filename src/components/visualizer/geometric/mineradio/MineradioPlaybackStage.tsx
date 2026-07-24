@@ -85,7 +85,8 @@ const MineradioPlaybackStage: React.FC<MineradioPlaybackStageProps> = ({
             ref={containerRef}
             className="absolute inset-0 overflow-hidden z-[1] isolate"
             style={{
-                pointerEvents: 'auto',
+                // Camera interaction uses the dedicated overlay; capturing here blocks chrome.
+                pointerEvents: 'none',
                 touchAction: 'none',
                 background:
                     visualPreset === 'emily'

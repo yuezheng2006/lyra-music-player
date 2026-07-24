@@ -37,6 +37,7 @@ import {
     getLyricFontPresetById,
     getLyricLetterSpacingPx,
 } from '../../../utils/lyricFontPresets';
+import { shouldDisableMonetCompositorEffects } from '../../../utils/performance/monetElectronLiteMath';
 
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 
@@ -89,8 +90,8 @@ type MonetLayoutCache = Map<string, MonetMeasuredLineLayout>;
 
 const MONET_RAIL_WIDTH_FALLBACK_PX = 680;
 const MONET_RAIL_HEIGHT_FALLBACK_PX = 340;
-const MONET_ACTIVE_GAP_PX = 18;
-const MONET_INACTIVE_GAP_PX = 14;
+const MONET_ACTIVE_GAP_PX = 26;
+const MONET_INACTIVE_GAP_PX = 18;
 const MONET_SCROLL_IDLE_RESET_MS = 1800;
 const MONET_SCROLL_STEP_PX = 72;
 const MONET_TOUCH_STEP_PX = 52;
@@ -262,7 +263,7 @@ const buildPositionedEntries = (
 ): PositionedMonetLineEntry[] => {
     const railWidth = railSize.width || MONET_RAIL_WIDTH_FALLBACK_PX;
     const railHeight = railSize.height || MONET_RAIL_HEIGHT_FALLBACK_PX;
-    const inactiveScale = clamp(inactiveFontPx / Math.max(lyricFontPx, 1), 0.72, 0.92);
+    const inactiveScale = clamp(inactiveFontPx / Math.max(lyricFontPx, 1), 0.58, 0.78);
     const contentWidthPx = Math.max(railWidth - glowBufferPx * 2, 0);
 
     const measuredEntries: PositionedMonetLineEntry[] = entries.map(entry => {
@@ -292,7 +293,8 @@ const buildPositionedEntries = (
 
     const anchorIndex = Math.max(0, measuredEntries.findIndex(entry => entry.offset === 0));
     // Karaoke keeps the active line higher so more upcoming rows stay in view like a KTV screen.
-    const focusCenterY = railHeight * (presentation === 'karaoke' ? 0.36 : 0.46);
+    // Monet sits a bit lower so the previous line clears the title / top fade instead of clipping.
+    const focusCenterY = railHeight * (presentation === 'karaoke' ? 0.36 : 0.54);
     measuredEntries[anchorIndex].y = focusCenterY - measuredEntries[anchorIndex].scaledHeight / 2;
 
     for (let index = anchorIndex + 1; index < measuredEntries.length; index += 1) {
@@ -620,7 +622,7 @@ const MonetRailLine: React.FC<{
                 zIndex: entry.tone.zIndex,
             }}
         >
-            {entry.line.isChorus && !isKaraoke && (
+            {entry.line.isChorus && !isKaraoke && visualEffectConfig?.enableStroke !== false && (
                 <motion.div
                     className="absolute inset-0 pointer-events-none -z-10 rounded-2xl"
                     initial={{ opacity: 0 }}
@@ -653,7 +655,7 @@ const MonetRailLine: React.FC<{
                     fontSize: lyricFontPx,
                     fontWeight: entry.tone.fontWeight,
                     lineHeight: `${entry.layout.lineHeightPx}px`,
-                    letterSpacing: `${letterSpacingPx}px`,
+                    letterSpacing: `${letterSpacingPx + entry.tone.letterSpacingPx}px`,
                     WebkitMaskImage: textMask,
                     maskImage: textMask,
                     WebkitMaskRepeat: 'no-repeat',
@@ -764,6 +766,11 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
     const resolvedFontStack = currentFontPreset.fontFamily || fontStack;
     const letterSpacingPx = getLyricLetterSpacingPx(currentFontPreset, lyricFontPx);
 
+    const disableCompositorEffects = shouldDisableMonetCompositorEffects({
+        isElectron: typeof window !== 'undefined'
+            && Boolean((window as Window & { electron?: unknown }).electron),
+    });
+
     const visualEffectConfig = useMemo<LyricVisualEffectConfig>(() => ({
         ...getRecommendedEffectConfig(
             immersiveLyrics,
@@ -773,7 +780,9 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
         // Soft glow / 3D muddy CJK on particle backdrops; keep a fine stroke for edge contrast.
         enableIntenseGlow: false,
         enable3D: false,
-    }), [immersiveLyrics, currentFontPreset, visualEffectIntensity]);
+        // Electron software-GL cannot afford stacked drop-shadow outline filters.
+        ...(disableCompositorEffects ? { enableStroke: false } : {}),
+    }), [disableCompositorEffects, immersiveLyrics, currentFontPreset, visualEffectIntensity]);
 
     const visibleEntries = useMemo(
         () => manualScrollAnchorIndex === null
@@ -964,10 +973,10 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
                 WebkitUserSelect: 'none',
                 WebkitMaskImage: isKaraoke
                     ? 'linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%)'
-                    : 'linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%)',
+                    : 'linear-gradient(to bottom, transparent 0%, black 1.5%, black 96%, transparent 100%)',
                 maskImage: isKaraoke
                     ? 'linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%)'
-                    : 'linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%)',
+                    : 'linear-gradient(to bottom, transparent 0%, black 1.5%, black 96%, transparent 100%)',
             }}
         >
             {positionedEntries.length > 0 ? (

@@ -12,6 +12,8 @@ type OnlineProviderBadgeProps = {
     size?: 'sm' | 'md';
     /** solid: brand fill; glass: soft tint that matches home chrome */
     variant?: 'solid' | 'glass';
+    /** When false, text-only badge (avoids repeating logos on every chip). */
+    showIcon?: boolean;
     className?: string;
 };
 
@@ -83,6 +85,7 @@ export const OnlineProviderBadge: React.FC<OnlineProviderBadgeProps & {
     provider,
     size = 'sm',
     variant = 'solid',
+    showIcon = true,
     isDaylight = true,
     className = '',
 }) => {
@@ -101,7 +104,7 @@ export const OnlineProviderBadge: React.FC<OnlineProviderBadgeProps & {
         <span
             className={`inline-flex items-center rounded-full font-semibold tracking-wide backdrop-blur-md ${sizeClass} ${tone} ${className}`}
         >
-            {iconUrl ? (
+            {showIcon && iconUrl ? (
                 <img
                     src={iconUrl}
                     alt=""

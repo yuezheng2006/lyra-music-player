@@ -32,6 +32,7 @@ import { isPeerFreeProviderId } from '../utils/onlinePeerProviders';
 import { SearchClearButton } from './shared/SearchClearButton';
 import { resolveOnlineSearchProvider } from '../utils/onlineSearchRouting';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
+import { resolveHomeSearchPlaceholderKey } from '../utils/home/resolveHomeSearchPlaceholderKey';
 
 // src/components/Grid3D.tsx
 // Peer-provider flat home with sectional playlist grids.
@@ -156,19 +157,9 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         }),
         [hasNeteaseLogin, hasQQLogin, playlistProviders],
     );
-    const homeSearchPlaceholder = useMemo(() => {
-        if (searchableProviders.length > 1) {
-            return t('home.searchMultiSources');
-        }
-        const only = searchableProviders[0] || searchProvider;
-        if (only === 'qq') return t('home.searchQQMusic');
-        if (only === 'qishui') return t('home.searchQishuiMusic');
-        if (only === 'coco') return t('home.searchCocoMusic');
-        if (only === 'kugou') return t('home.searchKugouMusic');
-        if (only === 'bilibili') return t('home.searchBilibiliMusic');
-        if (only === 'kuwo') return t('home.searchKuwoMusic');
-        return t('home.searchDatabase');
-    }, [searchProvider, searchableProviders, t]);
+    const homeSearchPlaceholder = t(
+        resolveHomeSearchPlaceholderKey(searchableProviders),
+    );
 
     const playlistCards = useMemo(() => playlists.map(p => ({
         id: p.id,

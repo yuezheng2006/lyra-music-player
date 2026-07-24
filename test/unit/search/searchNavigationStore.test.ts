@@ -145,6 +145,50 @@ describe('useSearchNavigationStore', () => {
         expect(state.hasMore).toBe(false);
     });
 
+    it('keeps displayQuery in searchQuery while routing with the prefixed query', async () => {
+        const searchMock = vi.fn(async () => ({
+            songs: [{
+                id: 301,
+                name: 'Category Hit',
+                artists: [{ id: 1, name: 'Artist' }],
+                album: { id: 2, name: 'Album' },
+                duration: 180000,
+                musicProvider: 'qishui' as const,
+            }],
+            hasMore: false,
+        }));
+        getMusicProviderMock.mockReturnValue({
+            id: 'qishui',
+            search: searchMock,
+            getAudioUrl: vi.fn(),
+            getLyrics: vi.fn(),
+        });
+
+        useSearchNavigationStore.setState({
+            isSearchOpen: true,
+            searchSourceTab: 'qishui',
+            searchProviders: ['qishui'],
+            searchQuery: '',
+            peerSearchQueries: { coco: '', qishui: '', kugou: '', bilibili: '', kuwo: '' },
+        });
+
+        const didSearch = await useSearchNavigationStore.getState().submitSearch({
+            query: 'cat:周杰伦',
+            displayQuery: '周杰伦',
+            sourceTab: 'qishui',
+            providers: ['qishui'],
+            deps,
+        });
+
+        const state = useSearchNavigationStore.getState();
+
+        expect(didSearch).toBe(true);
+        expect(searchMock).toHaveBeenCalledWith('cat:周杰伦', expect.objectContaining({ limit: 30, offset: 0 }));
+        expect(state.searchQuery).toBe('周杰伦');
+        expect(state.peerSearchQueries.qishui).toBe('cat:周杰伦');
+        expect(state.searchSourceTab).toBe('qishui');
+    });
+
     it('submits a QQ Music provider search', async () => {
         getMusicProviderMock.mockReturnValue({
             id: 'qq',

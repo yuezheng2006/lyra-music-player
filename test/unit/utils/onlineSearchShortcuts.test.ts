@@ -21,13 +21,13 @@ describe('onlineSearchShortcuts', () => {
         expect(groups.every(group => group.queries.length > 0)).toBe(true);
     });
 
-    it('returns distinct placeholder lists for qishui', () => {
+    it('returns category and song placeholder groups for qishui', () => {
         const coco = getOnlineSearchShortcutGroups('coco');
         const qishui = getOnlineSearchShortcutGroups('qishui');
-        expect(qishui.map(group => group.id)).toEqual(['hot', 'common']);
+        expect(qishui.map(group => group.id)).toEqual(['category', 'song']);
         expect(qishui[0].queries).not.toEqual(coco[0].queries);
-        expect(qishui[0].queries.slice(0, 3)).toEqual(['周杰伦', '大头针', 'AI歌曲']);
-        expect(coco[0].queries).toContain('孤勇者');
+        expect(qishui[0].queries.slice(0, 3)).toEqual(['cat:周杰伦', 'cat:大头针', 'cat:AI歌曲']);
+        expect(qishui[1].queries).toContain('周杰伦 晴天');
     });
 
     it('returns Bilibili AI account shortcuts first', () => {

@@ -9,6 +9,8 @@ import { resolvePlaybackDurationSec, resolveSongDurationSec } from '@/utils/appP
 export interface AppAudioElementProps {
     audioRef: RefObject<HTMLAudioElement | null>;
     audioSrc: string | null;
+    /** Remount key after Format-error recovery. */
+    audioElementEpoch?: number;
     effectiveLoopMode: StageLoopMode;
     shouldAutoPlay: MutableRefObject<boolean>;
     currentTime: MotionValue<number>;
@@ -30,6 +32,7 @@ export function AppAudioElement(props: AppAudioElementProps) {
     const {
         audioRef,
         audioSrc,
+        audioElementEpoch = 0,
         effectiveLoopMode,
         shouldAutoPlay,
         currentTime,
@@ -49,18 +52,24 @@ export function AppAudioElement(props: AppAudioElementProps) {
 
     return (
 <audio
+            key={audioElementEpoch}
             ref={audioRef}
             src={audioSrc || undefined}
             preload="auto"
             crossOrigin="anonymous"
             loop={effectiveLoopMode === 'one'}
             onPlay={(e) => {
-                shouldAutoPlay.current = false;
+                // Muted unlock priming must not clear pending autoplay for the next src.
+                if (!e.currentTarget.muted) {
+                    shouldAutoPlay.current = false;
+                }
                 currentTime.set(e.currentTarget.currentTime);
                 setPlayerState(PlayerState.PLAYING);
             }}
             onPlaying={(e) => {
-                shouldAutoPlay.current = false;
+                if (!e.currentTarget.muted) {
+                    shouldAutoPlay.current = false;
+                }
                 currentTime.set(e.currentTarget.currentTime);
                 setupAudioAnalyzer();
                 playbackAutoSkipCountRef.current = 0;
@@ -83,8 +92,12 @@ export function AppAudioElement(props: AppAudioElementProps) {
             onTimeUpdate={(e) => {
                 const audioElement = e.currentTarget;
                 if (!audioElement.paused && !audioElement.ended) {
+                    // Drive the dock/progress clock from the element itself so UI
+                    // can advance even when the visualizer RAF loop is starved.
                     currentTime.set(audioElement.currentTime);
-                    setPlayerState(PlayerState.PLAYING);
+                    if (playerState !== PlayerState.PLAYING) {
+                        setPlayerState(PlayerState.PLAYING);
+                    }
                 }
             }}
             onSeeked={(e) => {

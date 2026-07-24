@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import type { MotionValue } from 'framer-motion';
 import { findLatestActiveLineIndex } from '../utils/appPlaybackHelpers';
+import {
+    resolveLyricLineIndexForTime,
+    resolveLyricPlaybackTimes,
+} from '../utils/playback/syncLyricPlaybackClock';
 import { PlayerState } from '../types';
 import type { LyricData } from '../types';
 
@@ -12,6 +16,8 @@ type UsePlaybackVisualizerBridgeParams = {
     analyserRef: MutableRefObject<AnalyserNode | null>;
     animationFrameRef: MutableRefObject<number>;
     activePlaybackContext: 'main' | 'stage';
+    /** Used to re-bind timeupdate/interval when the loaded track changes. */
+    audioSrc: string | null;
     audioPower: MotionValue<number>;
     audioBands: {
         bass: MotionValue<number>;
@@ -57,6 +63,7 @@ export function usePlaybackVisualizerBridge({
     analyserRef,
     animationFrameRef,
     activePlaybackContext,
+    audioSrc,
     audioPower,
     audioBands,
     currentTime,
@@ -146,18 +153,17 @@ export function usePlaybackVisualizerBridge({
         }
 
         if (isActuallyPlaying && audioElement) {
-            const time = audioElement.currentTime;
-            currentTime.set(time);
+            const { currentTimeSec, lyricTimeSec } = resolveLyricPlaybackTimes({
+                audioCurrentTimeSec: audioElement.currentTime,
+                lyricTimelineOffsetMs,
+            });
+            currentTime.set(currentTimeSec);
+            lyricCurrentTime.set(lyricTimeSec);
 
-            const effectiveLyricTime = time - lyricTimelineOffsetMs / 1000;
-            lyricCurrentTime.set(effectiveLyricTime);
-
-            if (lyrics) {
-                const foundIndex = findLatestActiveLineIndex(lyrics.lines, effectiveLyricTime);
-                if (foundIndex !== currentLineIndexRef.current) {
-                    currentLineIndexRef.current = foundIndex;
-                    setCurrentLineIndex(foundIndex);
-                }
+            const foundIndex = resolveLyricLineIndexForTime(lyrics, lyricTimeSec);
+            if (foundIndex !== currentLineIndexRef.current) {
+                currentLineIndexRef.current = foundIndex;
+                setCurrentLineIndex(foundIndex);
             }
         } else if (isNowPlayingStageActive) {
             const nextTime = getNowPlayingDisplayTime();
@@ -260,4 +266,47 @@ export function usePlaybackVisualizerBridge({
             }
         };
     }, [animationFrameRef, updateLoop]);
+
+    // Backup when compositor/RAF stalls (GPU thrash): timeupdate + interval still advance lyrics.
+    // Re-bind on audioSrc swaps — audioRef.current alone is not a React dependency.
+    useEffect(() => {
+        void audioSrc;
+        const audioElement = audioRef.current;
+        if (!audioElement) return undefined;
+
+        const syncFromAudio = () => {
+            if (audioElement.paused || audioElement.ended) return;
+            if (activePlaybackContext !== 'main') return;
+            if (isNowPlayingStageActive) return;
+            const { currentTimeSec, lyricTimeSec } = resolveLyricPlaybackTimes({
+                audioCurrentTimeSec: audioElement.currentTime,
+                lyricTimelineOffsetMs,
+            });
+            currentTime.set(currentTimeSec);
+            lyricCurrentTime.set(lyricTimeSec);
+            const foundIndex = resolveLyricLineIndexForTime(lyrics, lyricTimeSec);
+            if (foundIndex !== currentLineIndexRef.current) {
+                currentLineIndexRef.current = foundIndex;
+                setCurrentLineIndex(foundIndex);
+            }
+        };
+
+        audioElement.addEventListener('timeupdate', syncFromAudio);
+        // ~4Hz poll: survives RAF starvation better than timeupdate alone under soft GL.
+        const intervalId = window.setInterval(syncFromAudio, 250);
+        return () => {
+            audioElement.removeEventListener('timeupdate', syncFromAudio);
+            window.clearInterval(intervalId);
+        };
+    }, [
+        activePlaybackContext,
+        audioRef,
+        audioSrc,
+        currentTime,
+        isNowPlayingStageActive,
+        lyrics,
+        lyricCurrentTime,
+        lyricTimelineOffsetMs,
+        setCurrentLineIndex,
+    ]);
 }

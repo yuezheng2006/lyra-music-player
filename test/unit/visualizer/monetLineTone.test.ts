@@ -36,15 +36,18 @@ const readAlpha = (color: string) => {
 };
 
 describe('resolveMonetLineTone', () => {
-    it('keeps waiting clearly dimmer than the active unsung underlay', () => {
-        const waiting = resolveMonetLineTone(entry('waiting', 1), THEME as never, 0.88, 'monet');
-        const active = resolveMonetLineTone(entry('active', 0), THEME as never, 0.88, 'monet');
+    it('keeps waiting clearly dimmer / smaller / lighter than the active row', () => {
+        const waiting = resolveMonetLineTone(entry('waiting', 1), THEME as never, 0.72, 'monet');
+        const active = resolveMonetLineTone(entry('active', 0), THEME as never, 0.72, 'monet');
 
         expect(waiting.blurPx).toBe(0);
         expect(waiting.baseColor).toContain('255, 0, 110');
         expect(active.baseColor).toContain('255, 0, 110');
         expect(readAlpha(waiting.baseColor)).toBeLessThan(readAlpha(active.baseColor));
         expect(waiting.fontWeight).toBeLessThan(active.fontWeight);
+        expect(waiting.scale).toBeLessThan(active.scale);
+        expect(active.scale).toBeGreaterThanOrEqual(1.08);
+        expect(waiting.letterSpacingPx).toBeGreaterThan(active.letterSpacingPx);
     });
 
     it('never swaps inactive fills to secondary gray', () => {
@@ -57,11 +60,13 @@ describe('resolveMonetLineTone', () => {
     });
 
     it('keeps the nearest passed line free of heavy blur and still readable', () => {
-        const tone = resolveMonetLineTone(entry('passed', -1), THEME as never, 0.88, 'monet');
+        const tone = resolveMonetLineTone(entry('passed', -1), THEME as never, 0.72, 'monet');
 
         expect(tone.blurPx).toBe(0);
         expect(readAlpha(tone.baseColor)).toBeGreaterThanOrEqual(0.28);
-        expect(readAlpha(tone.baseColor)).toBeLessThanOrEqual(0.45);
+        expect(readAlpha(tone.baseColor)).toBeLessThanOrEqual(0.42);
+        expect(tone.scale).toBeLessThanOrEqual(0.8);
+        expect(tone.fontWeight).toBeLessThanOrEqual(500);
     });
 
     it('dims the active underlay so the same-hue wipe can read', () => {
@@ -74,15 +79,16 @@ describe('resolveMonetLineTone', () => {
         expect(tone.baseColor).toContain('255, 0, 110');
     });
 
-    it('steps waiting opacity down with distance like the reference list', () => {
-        const near = resolveMonetLineTone(entry('waiting', 1), THEME as never, 0.88, 'monet');
-        const mid = resolveMonetLineTone(entry('waiting', 2), THEME as never, 0.88, 'monet');
-        const far = resolveMonetLineTone(entry('waiting', 4), THEME as never, 0.88, 'monet');
+    it('steps waiting opacity and scale down with distance', () => {
+        const near = resolveMonetLineTone(entry('waiting', 1), THEME as never, 0.72, 'monet');
+        const mid = resolveMonetLineTone(entry('waiting', 2), THEME as never, 0.72, 'monet');
+        const far = resolveMonetLineTone(entry('waiting', 4), THEME as never, 0.72, 'monet');
         expect(near.blurPx).toBe(0);
         expect(far.blurPx).toBe(0);
         expect(readAlpha(mid.baseColor)).toBeLessThan(readAlpha(near.baseColor));
         expect(readAlpha(far.baseColor)).toBeLessThan(readAlpha(mid.baseColor));
-        expect(readAlpha(near.baseColor)).toBeGreaterThanOrEqual(0.4);
+        expect(mid.scale).toBeLessThan(near.scale);
+        expect(readAlpha(near.baseColor)).toBeGreaterThanOrEqual(0.35);
     });
 
     it('dims karaoke unsung base with the same brand hue', () => {
@@ -94,8 +100,8 @@ describe('resolveMonetLineTone', () => {
     });
 
     it('keeps a clear gap between full active wipe and nearby waiting', () => {
-        const waiting = resolveMonetLineTone(entry('waiting', 1), THEME as never, 0.88, 'monet');
+        const waiting = resolveMonetLineTone(entry('waiting', 1), THEME as never, 0.72, 'monet');
         expect(1 - readAlpha(waiting.baseColor)).toBeGreaterThanOrEqual(0.45);
-        expect(readAlpha(waiting.baseColor)).toBeGreaterThanOrEqual(0.4);
+        expect(readAlpha(waiting.baseColor)).toBeGreaterThanOrEqual(0.35);
     });
 });

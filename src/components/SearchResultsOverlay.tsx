@@ -14,11 +14,14 @@ import { SearchClearButton } from './shared/SearchClearButton';
 import { SearchShortcutChips } from './shared/SearchShortcutChips';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
 import LazyCoverImage from './shared/LazyCoverImage';
+import RemoteLoadState from './shared/RemoteLoadState';
 import {
     getOnlineSearchShortcutGroups,
     isSearchShortcutProvider,
+    stripShortcutDisplayLabel,
 } from '../utils/onlineSearchShortcuts';
 import { isOnlineMusicProviderId } from '../utils/onlinePeerProviders';
+import { resolveRemoteLoadMessageKey } from '../utils/ui/remoteLoadStatus';
 import {
     APP_CONTENT_BOTTOM_PADDING_CLASS,
     APP_CONTENT_TOP_PADDING_CLASS,
@@ -47,7 +50,7 @@ interface SearchResultsOverlayProps {
     theme: Theme;
     isDaylight: boolean;
     onClose: () => void;
-    onSubmitSearch: (query?: string) => void;
+    onSubmitSearch: (query?: string, options?: { displayQuery?: string }) => void;
     onLoadMore: () => void;
     onPlayTrack: (track: UnifiedSong) => void;
     onAddSongToQueue: (track: UnifiedSong) => void;
@@ -114,6 +117,9 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         isSearchOpen,
         isSearching,
         isLoadingMore,
+        searchError,
+        searchErrorCode,
+        searchDiagnostic,
         hasMore,
         scrollTop,
         setSearchQuery,
@@ -127,6 +133,9 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         isSearchOpen: state.isSearchOpen,
         isSearching: state.isSearching,
         isLoadingMore: state.isLoadingMore,
+        searchError: state.searchError,
+        searchErrorCode: state.searchErrorCode,
+        searchDiagnostic: state.searchDiagnostic,
         hasMore: state.hasMore,
         scrollTop: state.scrollTop,
         setSearchQuery: state.setSearchQuery,
@@ -219,8 +228,7 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
     const visibleResultCount = visibleResults?.length ?? 0;
 
     const handleShortcutSelect = (query: string) => {
-        setSearchQuery(query);
-        onSubmitSearch(query);
+        onSubmitSearch(query, { displayQuery: stripShortcutDisplayLabel(query) });
     };
 
     return (
@@ -464,6 +472,15 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                         </div>
                                     )}
                                 </>
+                            ) : searchQuery.trim() && !isSearching && searchError ? (
+                                <RemoteLoadState
+                                    status="error"
+                                    isDaylight={isDaylight}
+                                    errorLabel={t(resolveRemoteLoadMessageKey('error', searchErrorCode))}
+                                    onRetry={() => void onSubmitSearch()}
+                                    diagnostic={searchDiagnostic}
+                                    className="min-h-[240px]"
+                                />
                             ) : searchQuery.trim() && !isSearching ? (
                                 <div className={`text-center py-16 text-sm ${mutedText}`}>{t('home.noResults')}</div>
                             ) : shortcutGroups.length > 0 ? (
@@ -474,12 +491,16 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                     hintKey={
                                         activeProvider === 'bilibili'
                                             ? 'search.bilibiliShortcutsHint'
-                                            : 'search.shortcutsHint'
+                                            : activeProvider === 'qishui'
+                                                ? 'search.qishuiShortcutsHint'
+                                                : 'search.shortcutsHint'
                                     }
                                     hintFallback={
                                         activeProvider === 'bilibili'
                                             ? 'Tap an account to search that UP; or use up:name / a keyword'
-                                            : 'Placeholder suggestions — tap to search'
+                                            : activeProvider === 'qishui'
+                                                ? 'Category chips search playlists; song chips search tracks'
+                                                : 'Placeholder suggestions — tap to search'
                                     }
                                     onSelect={handleShortcutSelect}
                                 />

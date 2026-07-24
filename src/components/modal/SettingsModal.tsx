@@ -120,6 +120,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         disableHomeDynamicBackground,
         hidePlayerTranslationSubtitle,
         showSubtitleTranslation,
+        subtitleOverlayBackground,
+        subtitleFontInheritsLyrics,
+        subtitleFontStyle,
         hidePlayerRightPanelButton,
         transparentPlayerBackground,
         autoHidePlayerChrome,
@@ -146,6 +149,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         cappellaTuning,
         tiltTuning,
         monetBackgroundTuning,
+        latentBackgroundTuning,
         interactive3dSceneTuning,
         monetTuning,
         cappellaCustomEmojiImages,
@@ -170,6 +174,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         handleToggleDisableHomeDynamicBackground: onToggleDisableHomeDynamicBackground,
         handleToggleHidePlayerTranslationSubtitle: onToggleHidePlayerTranslationSubtitle,
         handleToggleShowSubtitleTranslation: onToggleShowSubtitleTranslation,
+        handleToggleSubtitleOverlayBackground: onToggleSubtitleOverlayBackground,
+        handleSetSubtitleFontInheritsLyrics: onSubtitleFontInheritsLyricsChange,
+        handleSetSubtitleFontStyle: onSubtitleFontStyleChange,
         handleToggleHidePlayerRightPanelButton: onToggleHidePlayerRightPanelButton,
         handleToggleTransparentPlayerBackground: onToggleTransparentPlayerBackgroundFromStore,
         handleToggleAutoHidePlayerChrome: onToggleAutoHidePlayerChrome,
@@ -200,6 +207,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         handleResetTiltTuning: onResetTiltTuning,
         handleSetMonetBackgroundTuning: onMonetBackgroundTuningChange,
         handleResetMonetBackgroundTuning: onResetMonetBackgroundTuning,
+        handleSetLatentBackgroundTuning: onLatentBackgroundTuningChange,
+        handleResetLatentBackgroundTuning: onResetLatentBackgroundTuning,
         handleSetInteractive3dSceneTuning: onInteractive3dSceneTuningChange,
         handleResetInteractive3dSceneTuning: onResetInteractive3dSceneTuning,
         handleSetMonetTuning: onMonetTuningChange,
@@ -1549,6 +1558,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         enable3dInteractiveBackground={enable3dInteractiveBackground}
                         hideTranslationSubtitle={hidePlayerTranslationSubtitle}
                         showSubtitleTranslation={showSubtitleTranslation}
+                        subtitleOverlayBackground={subtitleOverlayBackground}
+                        subtitleFontInheritsLyrics={subtitleFontInheritsLyrics}
+                        subtitleFontStyle={subtitleFontStyle}
                         subtitleOverlayOpacity={subtitleOverlayOpacity}
                         classicTuning={classicTuning}
                         cadenzaTuning={cadenzaTuning}
@@ -1558,6 +1570,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         cappellaTuning={cappellaTuning}
                         tiltTuning={tiltTuning}
                         monetBackgroundTuning={monetBackgroundTuning}
+                        latentBackgroundTuning={latentBackgroundTuning}
                         interactive3dSceneTuning={interactive3dSceneTuning}
                         monetTuning={monetTuning}
                         cappellaCustomEmojiImages={cappellaCustomEmojiImages}
@@ -1583,6 +1596,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         onResetVisualizerBackgroundMode={onResetVisualizerBackgroundMode}
                         onToggleHideTranslationSubtitle={onToggleHidePlayerTranslationSubtitle}
                         onToggleShowSubtitleTranslation={onToggleShowSubtitleTranslation}
+                        onToggleSubtitleOverlayBackground={onToggleSubtitleOverlayBackground}
+                        onSubtitleFontInheritsLyricsChange={onSubtitleFontInheritsLyricsChange}
+                        onSubtitleFontStyleChange={onSubtitleFontStyleChange}
                         onSubtitleOverlayOpacityChange={setSubtitleOverlayOpacity}
                         onClassicTuningChange={onClassicTuningChange}
                         onResetClassicTuning={onResetClassicTuning}
@@ -1598,6 +1614,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         onResetTiltTuning={onResetTiltTuning}
                         onMonetBackgroundTuningChange={onMonetBackgroundTuningChange}
                         onResetMonetBackgroundTuning={onResetMonetBackgroundTuning}
+                        onLatentBackgroundTuningChange={onLatentBackgroundTuningChange}
+                        onResetLatentBackgroundTuning={onResetLatentBackgroundTuning}
                         onInteractive3dSceneTuningChange={onInteractive3dSceneTuningChange}
                         onResetInteractive3dSceneTuning={onResetInteractive3dSceneTuning}
                         onMonetTuningChange={onMonetTuningChange}

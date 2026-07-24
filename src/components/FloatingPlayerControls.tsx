@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Download, Maximize, Minimize, Maximize2 } from 'lucide-react';
+import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Download, Maximize, Minimize, Maximize2, Minimize2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { MotionValue } from 'framer-motion';
 import ProgressBar from './ProgressBar';
 import FloatingPlayerBackgroundMenu from './FloatingPlayerBackgroundMenu';
@@ -168,8 +169,8 @@ interface FloatingPlayerControlsProps {
     onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
     visualizerMode?: VisualizerMode;
     onVisualizerModeChange?: (mode: VisualizerMode) => void;
-    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
+    onOpenSongSettings?: () => void;
     backgroundMenuLabel?: string;
     backgroundModeInteractive3dLabel?: string;
     backgroundModeCommonLabel?: string;
@@ -177,6 +178,7 @@ interface FloatingPlayerControlsProps {
     backgroundPresetSectionLabel?: string;
     lyricsStyleSectionLabel?: string;
     lyricColorSectionLabel?: string;
+    openSongSettingsLabel?: string;
     getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
     getVisualizerModeLabel?: (mode: VisualizerMode) => string;
     /** True while a dock popover (background / quality) is open — pauses idle auto-hide. */
@@ -243,8 +245,8 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     onInteractive3dSceneTuningChange,
     visualizerMode = 'classic',
     onVisualizerModeChange,
-    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
+    onOpenSongSettings,
     backgroundMenuLabel = 'Background',
     backgroundModeInteractive3dLabel = '3D',
     backgroundModeCommonLabel = 'Common',
@@ -252,6 +254,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     backgroundPresetSectionLabel = '3D style',
     lyricsStyleSectionLabel = 'Lyric style',
     lyricColorSectionLabel = 'Lyric colors',
+    openSongSettingsLabel = 'Song settings',
     getBackgroundPresetLabel,
     getVisualizerModeLabel,
     onDockPopoverOpenChange,
@@ -383,8 +386,8 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         visualizerMode={visualizerMode}
                         onVisualizerModeChange={onVisualizerModeChange}
                         theme={theme}
-                        onApplyLyricBodyColor={onApplyLyricBodyColor}
                         onApplyLyricColorPreset={onApplyLyricColorPreset}
+                        onOpenSongSettings={onOpenSongSettings}
                         backgroundMenuLabel={backgroundMenuLabel}
                         backgroundModeInteractive3dLabel={backgroundModeInteractive3dLabel}
                         backgroundModeCommonLabel={backgroundModeCommonLabel}
@@ -392,6 +395,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         backgroundPresetSectionLabel={backgroundPresetSectionLabel}
                         lyricsStyleSectionLabel={lyricsStyleSectionLabel}
                         lyricColorSectionLabel={lyricColorSectionLabel}
+                        openSongSettingsLabel={openSongSettingsLabel}
                         getBackgroundPresetLabel={getBackgroundPresetLabel}
                         getVisualizerModeLabel={getVisualizerModeLabel}
                         onDockPopoverOpenChange={onDockPopoverOpenChange}
@@ -476,8 +480,8 @@ type DockedBarProps = {
     visualizerMode: VisualizerMode;
     onVisualizerModeChange?: (mode: VisualizerMode) => void;
     theme?: Theme;
-    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
+    onOpenSongSettings?: () => void;
     backgroundMenuLabel: string;
     backgroundModeInteractive3dLabel: string;
     backgroundModeCommonLabel: string;
@@ -485,6 +489,7 @@ type DockedBarProps = {
     backgroundPresetSectionLabel: string;
     lyricsStyleSectionLabel: string;
     lyricColorSectionLabel: string;
+    openSongSettingsLabel: string;
     getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
     getVisualizerModeLabel?: (mode: VisualizerMode) => string;
     onDockPopoverOpenChange?: (open: boolean) => void;
@@ -546,8 +551,8 @@ const DockedBar: React.FC<DockedBarProps> = ({
     visualizerMode,
     onVisualizerModeChange,
     theme,
-    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
+    onOpenSongSettings,
     backgroundMenuLabel,
     backgroundModeInteractive3dLabel,
     backgroundModeCommonLabel,
@@ -555,10 +560,12 @@ const DockedBar: React.FC<DockedBarProps> = ({
     backgroundPresetSectionLabel,
     lyricsStyleSectionLabel,
     lyricColorSectionLabel,
+    openSongSettingsLabel,
     getBackgroundPresetLabel,
     getVisualizerModeLabel,
     onDockPopoverOpenChange,
 }) => {
+    const { t } = useTranslation();
     const skipDisabled = controlsDisabled || !canSkipTracks;
     const lyricsToggleDisabled = controlsDisabled || !onTogglePlayerLyricsVisible;
     const qualityDisabled = controlsDisabled || !canChangeAudioQuality || !onAudioQualityChange;
@@ -620,7 +627,57 @@ const DockedBar: React.FC<DockedBarProps> = ({
             {/* Mineradio order: cover · quality · loop · prev/play/next · bg · 词 · queue · fullscreen · time */}
             <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-5 pt-2.5 sm:gap-3 sm:px-6 md:px-7">
                 <div className="flex min-w-0 items-center gap-2 text-left sm:gap-2.5">
-                    {effectsModeActive || !onToggleEffectsMode ? (
+                    {onToggleEffectsMode ? (
+                        <button
+                            type="button"
+                            onClick={onToggleEffectsMode}
+                            disabled={controlsDisabled}
+                            className={`group relative h-[48px] w-[48px] shrink-0 overflow-hidden rounded-[14px] transition-transform duration-180 ${
+                                controlsDisabled ? 'opacity-45 cursor-not-allowed' : 'hover:scale-[1.04] active:scale-95'
+                            }`}
+                            style={{
+                                boxShadow: isDaylight
+                                    ? '0 8px 20px rgba(0,0,0,0.14)'
+                                    : '0 10px 24px rgba(0,0,0,0.32)',
+                                background: coverArtUrl
+                                    ? 'transparent'
+                                    : (isDaylight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.07)'),
+                            }}
+                            title={effectsModeActive
+                                ? (t('ui.backToHome') || '返回主页')
+                                : listeningModeLabel}
+                            aria-label={effectsModeActive
+                                ? (t('ui.backToHome') || '返回主页')
+                                : listeningModeLabel}
+                            data-testid={effectsModeActive
+                                ? 'floating-player-cover-exit-effects'
+                                : 'floating-player-cover-enter-effects'}
+                        >
+                            {coverArtUrl ? (
+                                <img
+                                    src={coverArtUrl}
+                                    alt=""
+                                    className="absolute inset-0 block h-full w-full scale-[1.02] object-cover"
+                                    draggable={false}
+                                />
+                            ) : (
+                                <div className="flex h-full w-full items-center justify-center opacity-45" style={{ color: titleColor }}>
+                                    <Disc3 size={18} strokeWidth={1.75} />
+                                </div>
+                            )}
+                            {/* Home: shrink cue; library dock: expand into immersive player. */}
+                            <span
+                                aria-hidden
+                                className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 opacity-70 transition-opacity duration-180 group-hover:opacity-100"
+                            >
+                                {effectsModeActive ? (
+                                    <Minimize2 size={16} strokeWidth={2.2} className="text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)]" />
+                                ) : (
+                                    <Maximize2 size={16} strokeWidth={2.2} className="text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)]" />
+                                )}
+                            </span>
+                        </button>
+                    ) : (
                         <div
                             className="relative h-[48px] w-[48px] shrink-0 overflow-hidden rounded-[14px]"
                             style={{
@@ -645,46 +702,6 @@ const DockedBar: React.FC<DockedBarProps> = ({
                                 </div>
                             )}
                         </div>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={onToggleEffectsMode}
-                            disabled={controlsDisabled}
-                            className={`group relative h-[48px] w-[48px] shrink-0 overflow-hidden rounded-[14px] transition-transform duration-180 ${
-                                controlsDisabled ? 'opacity-45 cursor-not-allowed' : 'hover:scale-[1.04] active:scale-95'
-                            }`}
-                            style={{
-                                boxShadow: isDaylight
-                                    ? '0 8px 20px rgba(0,0,0,0.14)'
-                                    : '0 10px 24px rgba(0,0,0,0.32)',
-                                background: coverArtUrl
-                                    ? 'transparent'
-                                    : (isDaylight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.07)'),
-                            }}
-                            title={listeningModeLabel}
-                            aria-label={listeningModeLabel}
-                            data-testid="floating-player-cover-enter-effects"
-                        >
-                            {coverArtUrl ? (
-                                <img
-                                    src={coverArtUrl}
-                                    alt=""
-                                    className="absolute inset-0 block h-full w-full scale-[1.02] object-cover"
-                                    draggable={false}
-                                />
-                            ) : (
-                                <div className="flex h-full w-full items-center justify-center opacity-45" style={{ color: titleColor }}>
-                                    <Disc3 size={18} strokeWidth={1.75} />
-                                </div>
-                            )}
-                            {/* Qishui-style expand cue: tap cover to enter effects mode. */}
-                            <span
-                                aria-hidden
-                                className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 opacity-70 transition-opacity duration-180 group-hover:opacity-100"
-                            >
-                                <Maximize2 size={16} strokeWidth={2.2} className="text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)]" />
-                            </span>
-                        </button>
                     )}
                     <div className="min-w-0 max-w-[120px] sm:max-w-[180px] md:max-w-[220px]">
                         <div className="truncate text-[13px] font-bold leading-snug tracking-tight" style={{ color: titleColor }}>
@@ -820,7 +837,6 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         && onVisualizerModeChange ? (
                         <FloatingPlayerBackgroundMenu
                             isDaylight={isDaylight}
-                            primaryColor={titleColor}
                             disabled={controlsDisabled}
                             visualizerBackgroundMode={visualizerBackgroundMode}
                             interactive3dSceneTuning={interactive3dSceneTuning}
@@ -829,16 +845,14 @@ const DockedBar: React.FC<DockedBarProps> = ({
                             visualizerMode={visualizerMode}
                             onVisualizerModeChange={onVisualizerModeChange}
                             theme={theme}
-                            onApplyLyricBodyColor={onApplyLyricBodyColor}
                             onApplyLyricColorPreset={onApplyLyricColorPreset}
+                            onOpenSongSettings={onOpenSongSettings}
                             onOpenChange={setBackgroundMenuOpen}
                             backgroundMenuLabel={backgroundMenuLabel}
-                            modeInteractive3dLabel={backgroundModeInteractive3dLabel}
-                            modeCommonLabel={backgroundModeCommonLabel}
-                            modeMonetLabel={backgroundModeMonetLabel}
                             presetSectionLabel={backgroundPresetSectionLabel}
                             lyricsStyleSectionLabel={lyricsStyleSectionLabel}
                             lyricColorSectionLabel={lyricColorSectionLabel}
+                            openSongSettingsLabel={openSongSettingsLabel}
                             getPresetLabel={(preset) => getBackgroundPresetLabel?.(preset) || getMineradioPresetLabelFallback(preset)}
                             getVisualizerLabel={(mode) => getVisualizerModeLabel?.(mode) || mode}
                             buildToolButtonClass={(disabled, active) => buildToolButtonClass(isDaylight, disabled, active)}

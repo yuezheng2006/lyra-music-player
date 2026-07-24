@@ -91,6 +91,7 @@ export function useAppControllerPresentationShell(
     const usesCustomWindowChrome = isElectronWindow;
     const isPlayerPageTransparent = transparentPlayerBackground || enablePlayerPageNativeBlur;
     const shouldUseTransparentAppBackground = currentView === 'player' && isPlayerPageTransparent;
+    // Dual mode: AI lyric theme owns --lyric-*; atmosphere --bg-color stays chrome/cover, not AI wash.
     const appStyle = useMemo(() => buildAppStyle({
         bgMode,
         isDaylight,
@@ -371,9 +372,11 @@ export function useAppControllerPresentationShell(
         stageActiveEntryKind,
         audioSrc: core.audioSrc,
         duration,
+        hasCurrentSong: Boolean(core.currentSong),
     }), [
         activePlaybackContext,
         core.audioSrc,
+        core.currentSong,
         currentView,
         disableHomeDynamicBackground,
         duration,

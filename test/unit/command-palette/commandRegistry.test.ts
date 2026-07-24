@@ -30,6 +30,7 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     setLyricWordMode: vi.fn(),
     setVisualizerBackgroundMode: vi.fn(),
     setMonetBackgroundTuning: vi.fn(),
+    setLatentBackgroundTuning: vi.fn(),
     toggleTransparentBackground: vi.fn(),
     hideBottomSubtitleOverlay: false,
     toggleBottomSubtitleOverlay: vi.fn(),
@@ -54,7 +55,11 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     desktopLyricsEnabled: false,
     desktopLyricsLocked: true,
     downloadCurrentSong: vi.fn(async () => true),
+    startVideoExport: vi.fn(),
+    isElectronWindow: false,
     setLyricEffectPackId: vi.fn(),
+    enableBilibiliVideoBackground: true,
+    toggleBilibiliVideoBackground: vi.fn(),
     ...overrides,
 });
 
@@ -310,6 +315,20 @@ describe('command palette registry', () => {
         expect(context.shuffleQueue).toHaveBeenCalled();
     });
 
+    it('starts video export from command palette in electron only', () => {
+        const webContext = createContext({ isElectronWindow: false });
+        const [webMatch] = getCommandPaletteMatches('录制');
+        expect(webMatch.command.id).toBe('record-current-playback');
+        expect(webMatch.command.execute('', webContext)).toBe(false);
+        expect(webContext.startVideoExport).not.toHaveBeenCalled();
+
+        const electronContext = createContext({ isElectronWindow: true });
+        const [electronMatch] = getCommandPaletteMatches('luping');
+        expect(electronMatch.command.id).toBe('record-current-playback');
+        expect(electronMatch.command.execute('', electronContext)).toBe(true);
+        expect(electronContext.startVideoExport).toHaveBeenCalledWith('from-start');
+    });
+
     it('shows best lyric auto-match command only when alternative lyric sources are enabled', async () => {
         const disabledContext = createContext({ enableAlternativeLyricSources: false });
         expect(getCommandPaletteMatches('最佳歌词', disabledContext).some(match => match.command.id === 'playback-auto-match-best-lyric')).toBe(false);
@@ -391,5 +410,15 @@ describe('command palette registry', () => {
         expect(matchCommon.command.id).toBe('background-common');
         matchCommon.command.execute('', context);
         expect(context.setVisualizerBackgroundMode).toHaveBeenCalledWith('common');
+
+        const [matchLatent] = getCommandPaletteMatches('隐现');
+        expect(matchLatent.command.id).toBe('background-latent');
+        matchLatent.command.execute('', context);
+        expect(context.setVisualizerBackgroundMode).toHaveBeenCalledWith('latent');
+
+        const [matchLatentPixel] = getCommandPaletteMatches('隐现像素');
+        expect(matchLatentPixel.command.id).toBe('background-latent-dithering');
+        matchLatentPixel.command.execute('', context);
+        expect(context.setLatentBackgroundTuning).toHaveBeenCalledWith({ displayMode: 'dithering' });
     });
 });

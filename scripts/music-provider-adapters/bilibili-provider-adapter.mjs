@@ -113,43 +113,170 @@ const pickDashAudioUrl = (dash) => {
   return ensureHttps(best?.baseUrl || best?.base_url || best?.backupUrl?.[0] || best?.backup_url?.[0] || '');
 };
 
-/** Prefer a light AVC stream (360p, max 480p) so muted video + audio stays CPU-friendly. */
+/** Prefer a light AVC stream (360p/480p); if only higher qn exists, still pick the lightest video. */
 const pickDashVideoUrl = (dash) => {
   const videos = Array.isArray(dash?.video) ? [...dash.video] : [];
   if (videos.length === 0) return '';
-  // Bilibili qn ids: 16=360p, 32=480p, 64=720p+. Cap at 480p and prefer AVC over HEVC/AV1.
-  const ranked = videos
+  // Bilibili qn ids: 16=360p, 32=480p, 64=720p+. Prefer <=480p AVC, else lowest available.
+  const mapped = videos
     .map((item) => ({
       item,
       id: Number(item?.id || 0),
       bandwidth: Number(item?.bandwidth || 0),
       codecs: String(item?.codecs || '').toLowerCase(),
     }))
-    .filter((entry) => entry.id > 0 && entry.id <= 32)
-    .sort((a, b) => {
-      const score = (entry) => {
-        const codecBonus = entry.codecs.includes('avc') ? 1_000_000 : 0;
-        // Prefer 360p, then 480p; within a tier pick lower bandwidth.
-        if (entry.id === 16) return codecBonus + 200_000 - entry.bandwidth;
-        if (entry.id === 32) return codecBonus + 100_000 - entry.bandwidth;
-        return codecBonus - entry.bandwidth;
-      };
-      return score(b) - score(a);
-    });
+    .filter((entry) => entry.id > 0);
+  const score = (entry, preferLowQn) => {
+    const codecBonus = entry.codecs.includes('avc') ? 1_000_000 : 0;
+    if (preferLowQn) {
+      if (entry.id === 16) return codecBonus + 200_000 - entry.bandwidth;
+      if (entry.id === 32) return codecBonus + 100_000 - entry.bandwidth;
+      return codecBonus - entry.bandwidth;
+    }
+    // Fallback: lowest qn, then lowest bandwidth, AVC preferred.
+    return codecBonus - entry.id * 10_000 - entry.bandwidth;
+  };
+  const preferred = mapped
+    .filter((entry) => entry.id <= 32)
+    .sort((a, b) => score(b, true) - score(a, true));
+  const ranked = preferred.length > 0
+    ? preferred
+    : [...mapped].sort((a, b) => score(b, false) - score(a, false));
   const best = ranked[0]?.item;
   return ensureHttps(best?.baseUrl || best?.base_url || best?.backupUrl?.[0] || best?.backup_url?.[0] || '');
 };
 
-const resolveViewMeta = async (bvid) => {
-  const payload = await fetchJson(`https://api.bilibili.com/x/web-interface/view?bvid=${encodeURIComponent(bvid)}`);
+const BVID_RE = /^BV1[a-zA-Z0-9]{9}$/i;
+const BILIBILI_VIDEO_URL_RE = /^https?:\/\/(?:www\.)?bilibili\.com\/video\//i;
+const B23_URL_RE = /^https?:\/\/(?:www\.)?b23\.tv\//i;
+const BILIBILI_SHORT_URL_RE = /^https?:\/\/(?:www\.)?bilibili\.com\/s\//i;
+
+/** Sync detector for pasted BV ids / bilibili.com / b23.tv share inputs. */
+export const isBilibiliShareInput = (value) => {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return false;
+  return BVID_RE.test(trimmed)
+    || B23_URL_RE.test(trimmed)
+    || BILIBILI_SHORT_URL_RE.test(trimmed)
+    || BILIBILI_VIDEO_URL_RE.test(trimmed);
+};
+
+const parsePageIndex = (value) => {
+  const page = Number(value || 1);
+  return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+};
+
+const parseShareUrlTarget = (urlText) => {
+  try {
+    const url = new URL(urlText);
+    const bvidMatch = url.pathname.match(/\/video\/(BV1[a-zA-Z0-9]{9})/i);
+    if (bvidMatch) {
+      return { bvid: bvidMatch[1], page: parsePageIndex(url.searchParams.get('p')) };
+    }
+    const avidMatch = url.pathname.match(/\/video\/av(\d+)/i);
+    if (avidMatch) {
+      return { avid: Number(avidMatch[1]), page: parsePageIndex(url.searchParams.get('p')) };
+    }
+  } catch {
+    // Ignore malformed URLs.
+  }
+  return null;
+};
+
+const resolveShareRedirectUrl = async (shareUrl) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await fetch(shareUrl, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: BASE_HEADERS,
+      signal: controller.signal,
+    });
+    return response.url || shareUrl;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+/** Resolve b23 / bilibili.com share links to { bvid | avid, page }. */
+export const resolveBilibiliShareTarget = async (rawInput) => {
+  const trimmed = String(rawInput || '').trim();
+  if (!trimmed || !isBilibiliShareInput(trimmed)) {
+    return null;
+  }
+
+  if (BVID_RE.test(trimmed)) {
+    return { bvid: trimmed, page: 1 };
+  }
+
+  let resolvedUrl = trimmed;
+  if (B23_URL_RE.test(trimmed) || BILIBILI_SHORT_URL_RE.test(trimmed)) {
+    resolvedUrl = await resolveShareRedirectUrl(trimmed);
+  }
+
+  return parseShareUrlTarget(resolvedUrl);
+};
+
+const resolveViewMeta = async (ref, pageIndex = 1) => {
+  const bvid = typeof ref === 'string' ? ref : String(ref?.bvid || '').trim();
+  const aid = typeof ref === 'object' ? Number(ref?.avid || 0) : 0;
+  const query = bvid
+    ? `bvid=${encodeURIComponent(bvid)}`
+    : aid > 0
+      ? `aid=${encodeURIComponent(String(aid))}`
+      : '';
+  if (!query) {
+    return {
+      bvid: '',
+      cid: '',
+      durationSec: 0,
+      title: '',
+      artist: '',
+      coverUrl: '',
+    };
+  }
+
+  const payload = await fetchJson(`https://api.bilibili.com/x/web-interface/view?${query}`);
   const data = payload?.data;
-  const page = Array.isArray(data?.pages) ? data.pages[0] : null;
+  const pages = Array.isArray(data?.pages) ? data.pages : [];
+  const safePageIndex = Math.min(Math.max(parsePageIndex(pageIndex), 1), Math.max(pages.length, 1));
+  const page = pages[safePageIndex - 1] || pages[0] || null;
+  const baseTitle = stripHtml(data?.title || '');
+  const partTitle = stripHtml(page?.part || '');
+  const title = partTitle && safePageIndex > 1 && pages.length > 1
+    ? `${baseTitle} - ${partTitle}`
+    : baseTitle;
+
   return {
+    bvid: String(data?.bvid || bvid || ''),
     cid: page?.cid ? String(page.cid) : '',
     durationSec: Number(page?.duration || data?.duration || 0),
-    title: stripHtml(data?.title || ''),
+    title,
     artist: stripHtml(data?.owner?.name || ''),
     coverUrl: ensureHttps(data?.pic || ''),
+  };
+};
+
+const buildSongFromShareTarget = async (target) => {
+  const meta = await resolveViewMeta(
+    target.bvid ? { bvid: target.bvid } : { avid: target.avid },
+    target.page || 1,
+  );
+  if (!meta.bvid || !meta.cid) {
+    return null;
+  }
+  const durationMs = Number.isFinite(meta.durationSec) ? meta.durationSec * 1000 : 0;
+  return {
+    id: encodeId(meta.bvid, meta.cid),
+    title: meta.title || meta.bvid,
+    artists: [meta.artist || 'Bilibili'].filter(Boolean),
+    album: meta.bvid,
+    durationMs,
+    coverUrl: meta.coverUrl,
+    source: 'bilibili',
+    bvid: meta.bvid,
+    cid: meta.cid,
   };
 };
 
@@ -420,6 +547,26 @@ const searchVideos = async ({ keyword, page, pageSize }) => {
 };
 
 export async function search({ query, limit = 30, offset = 0 }) {
+  const trimmed = String(query || '').trim();
+  if (offset === 0 && isBilibiliShareInput(trimmed)) {
+    try {
+      const target = await resolveBilibiliShareTarget(trimmed);
+      if (target) {
+        const song = await buildSongFromShareTarget(target);
+        if (song) {
+          return {
+            songs: [song],
+            total: 1,
+            hasMore: false,
+            searchMode: 'video',
+          };
+        }
+      }
+    } catch (error) {
+      console.warn('[bilibili-provider-adapter] share link resolve failed', error);
+    }
+  }
+
   const intent = parseBilibiliSearchIntent(query);
   if (!intent.query && !intent.mid) {
     return { songs: [], total: 0, hasMore: false, searchMode: 'video' };
@@ -516,13 +663,13 @@ export async function audio({ id, song }) {
   }
 
   if (bestAudio) {
-    // Do not attach muxed progressive as a second decoder alongside DASH audio.
-    return { audioUrl: bestAudio, videoUrl: null };
+    // Prefer showing picture when DASH video is missing: mute-sync progressive (or leave null).
+    return { audioUrl: bestAudio, videoUrl: progressive || null };
   }
 
   if (progressive) {
-    // Muxed MP4 would double-decode if attached to both <audio> and <video>; keep audio only.
-    return { audioUrl: progressive, videoUrl: null };
+    // Muxed MP4: same URL on <audio> (master clock) + muted <video> (picture). Costs a second decoder.
+    return { audioUrl: progressive, videoUrl: progressive };
   }
 
   return { audioUrl: null, videoUrl: null };

@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { getNavidromeConfig, navidromeApi } from '../services/navidromeService';
 import { getMusicProvider } from '../services/musicProviders/registry';
-import { isQishuiShareUrl, resolveOnlineSearchProvider } from '../utils/onlineSearchRouting';
+import { isBilibiliShareUrl, isQishuiShareUrl, resolveOnlineSearchProvider } from '../utils/onlineSearchRouting';
 import { isOnlineMusicProviderId, isPeerFreeProviderId, type PeerFreeProviderId } from '../utils/onlinePeerProviders';
 import type { HomeViewTab, LocalSong, OnlineMusicProviderId, SearchSourceId, UnifiedSong } from '../types';
+import { captureRequestFailure, type RequestErrorCode } from '../utils/network';
 
 const LAST_HOME_VIEW_TAB_KEY = 'last_home_view_tab';
 const DEFAULT_SEARCH_LIMIT = 30;
@@ -28,6 +29,11 @@ type SearchExecutionResult = {
 
 type SubmitSearchPayload = {
     query?: string;
+    /**
+     * Optional UI label for the overlay input. Routing / execute / peer persistence
+     * still use `query`; when omitted, `searchQuery` matches the routing query.
+     */
+    displayQuery?: string;
     sourceTab: SearchSourceId;
     /** When set, keyword search fans out across these online providers. */
     providers?: OnlineMusicProviderId[];
@@ -50,6 +56,9 @@ interface SearchNavigationState {
     isSearchOpen: boolean;
     isSearching: boolean;
     isLoadingMore: boolean;
+    searchError: string | null;
+    searchErrorCode: RequestErrorCode | null;
+    searchDiagnostic: string | null;
     offset: number;
     limit: number;
     hasMore: boolean;
@@ -291,6 +300,9 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
     isSearchOpen: false,
     isSearching: false,
     isLoadingMore: false,
+    searchError: null,
+    searchErrorCode: null,
+    searchDiagnostic: null,
     offset: 0,
     limit: DEFAULT_SEARCH_LIMIT,
     hasMore: false,
@@ -327,6 +339,9 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             hasMore: false,
             isSearching: false,
             isLoadingMore: false,
+            searchError: null,
+            searchErrorCode: null,
+            searchDiagnostic: null,
         });
     },
     setSearchScrollTop: (scrollTop) => set({ scrollTop }),
@@ -429,11 +444,13 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
                 : {}),
         });
     },
-    submitSearch: async ({ query, sourceTab, providers, deps, returnView = 'home' }) => {
+    submitSearch: async ({ query, displayQuery, sourceTab, providers, deps, returnView = 'home' }) => {
         const trimmedQuery = (query ?? get().searchQuery).trim();
         if (!trimmedQuery) {
             return false;
         }
+        // Overlay input may strip routing prefixes (cat:/up:) while execute still uses trimmedQuery.
+        const nextSearchQuery = (displayQuery ?? trimmedQuery).trim() || trimmedQuery;
 
         const resolvedSourceTab = sourceTab === 'local' || sourceTab === 'navidrome'
             ? sourceTab
@@ -446,6 +463,9 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             }
             if (isQishuiShareUrl(trimmedQuery)) {
                 return ['qishui'];
+            }
+            if (isBilibiliShareUrl(trimmedQuery)) {
+                return ['bilibili'];
             }
             if (providers && providers.length > 0) {
                 const filtered = providers.filter(isOnlineMusicProviderId);
@@ -466,7 +486,7 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             && isPeerSearchProviderId(prev.searchSourceTab)
             && prev.searchSourceTab === nextSourceTab;
         set({
-            searchQuery: trimmedQuery,
+            searchQuery: nextSearchQuery,
             ...(shouldPersistPeer
                 ? {
                     peerSearchQueries: withPersistedPeerQuery(
@@ -483,6 +503,9 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             isSearching: true,
             isLoadingMore: false,
             searchResults: null,
+            searchError: null,
+            searchErrorCode: null,
+            searchDiagnostic: null,
             offset: 0,
             hasMore: false,
             scrollTop: 0,
@@ -505,18 +528,24 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
                 hasMore: result.hasMore,
                 offset: result.nextOffset,
                 isSearching: false,
+                searchError: null,
+                searchErrorCode: null,
+                searchDiagnostic: null,
             });
             return true;
         } catch (error) {
             if (requestEpoch !== searchRequestEpoch) {
                 return false;
             }
-            console.error('[SearchStore] submitSearch failed:', error);
+            const failure = captureRequestFailure(error, 'search:submit');
             set({
                 searchResults: [],
                 hasMore: false,
                 offset: 0,
                 isSearching: false,
+                searchError: failure.message,
+                searchErrorCode: failure.code,
+                searchDiagnostic: failure.diagnostic,
             });
             return true;
         }
@@ -570,8 +599,13 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             if (requestEpoch !== searchRequestEpoch) {
                 return;
             }
-            console.error('[SearchStore] loadMoreSearchResults failed:', error);
-            set({ isLoadingMore: false });
+            const failure = captureRequestFailure(error, 'search:loadMore');
+            set({
+                isLoadingMore: false,
+                searchError: failure.message,
+                searchErrorCode: failure.code,
+                searchDiagnostic: failure.diagnostic,
+            });
         }
     },
 }));

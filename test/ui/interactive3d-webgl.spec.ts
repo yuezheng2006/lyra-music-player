@@ -20,7 +20,7 @@ const BASE_INTERACTIVE3D_TUNING = {
     cameraControl: 'auto',
 };
 
-const WEBGL_VISUAL_PRESETS = ['emily', 'quantumCube', 'mineradioVinyl', 'mineradioGalaxy'] as const;
+const WEBGL_VISUAL_PRESETS = ['emily', 'mineradioTunnel', 'mineradioOrbit', 'mineradioGalaxy'] as const;
 const TEST_COVER_URL = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22256%22 height=%22256%22 viewBox=%220 0 256 256%22%3E%3Crect width=%22256%22 height=%22256%22 fill=%22%2309172f%22/%3E%3Ccircle cx=%22128%22 cy=%22128%22 r=%2276%22 fill=%22%23ff2d55%22/%3E%3Cpath d=%22M42 186L214 70v116z%22 fill=%22%2300f5d4%22 opacity=%220.82%22/%3E%3C/svg%3E';
 
 async function openVisPlaygroundWithInteractive3d(
@@ -141,9 +141,9 @@ test.describe('interactive3d WebGL cover particles', () => {
         });
     }
 
-    test('honors stored Mineradio vinyl preset on the mounted WebGL stage', async ({ page }) => {
+    test('normalizes retired vinyl preset to cover on the mounted WebGL stage', async ({ page }) => {
         await openVisPlaygroundWithInteractive3d(page, 'mineradioVinyl');
-        await expectWebGLStageMounted(page, 'mineradioVinyl');
+        await expectWebGLStageMounted(page, 'emily');
     });
 
     test('normalizes removed visual presets to cover on the mounted WebGL stage', async ({ page }) => {

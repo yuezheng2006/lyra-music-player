@@ -15,6 +15,11 @@ import {
 } from '../../../stores/useDailyRecommendStore';
 import { ProviderIconBadge } from './ProviderIconBadge';
 import LazyCoverImage from '../../shared/LazyCoverImage';
+import RemoteLoadState from '../../shared/RemoteLoadState';
+import {
+    resolveRemoteLoadMessageKey,
+    resolveRemoteLoadStatus,
+} from '../../../utils/ui/remoteLoadStatus';
 import { resolveBrowseListRowClass, resolveHomeContentBottomPaddingClass } from './homeSurfaceStyles';
 
 // src/components/app/home/DailyRecommendSurface.tsx
@@ -50,6 +55,9 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
         loading,
         settled,
         error,
+        errorCode,
+        diagnostic,
+        needsAuth,
         ensureLoaded,
     } = useDailyRecommendStore(useShallow(state => ({
         sources: state.sources,
@@ -57,6 +65,9 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
         loading: state.loading,
         settled: state.settled,
         error: state.error,
+        errorCode: state.errorCode,
+        diagnostic: state.diagnostic,
+        needsAuth: state.needsAuth,
         ensureLoaded: state.ensureLoaded,
     })));
     const storeProviderKey = useDailyRecommendStore(state => state.providerKey);
@@ -103,40 +114,43 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
         ? 'bg-white text-black shadow-sm ring-1 ring-black/10'
         : 'bg-white text-zinc-950 shadow-sm ring-1 ring-white/30';
 
-    const neteaseNeedLogin = sources.some(s => s.provider === 'netease' && s.error === 'need-login');
+    const neteaseNeedLogin = needsAuth
+        || sources.some(s => s.provider === 'netease' && s.error === 'need-login');
     const playQueue = filteredSongs.length > 0 ? filteredSongs : songs;
     const showSourceChips = attemptedProviders.length > 1 || availableFilters.length > 1;
     const cacheMatches = storeProviderKey === providerKey;
     const stillHydrating = (!cacheMatches || (loading && songs.length === 0));
     const isSyncing = cacheMatches && !settled && songs.length > 0;
+    const loadStatus = stillHydrating
+        ? 'loading' as const
+        : resolveRemoteLoadStatus({
+            loading,
+            settled,
+            itemCount: songs.length,
+            error,
+            needsAuth: neteaseNeedLogin && songs.length === 0,
+        });
 
-    if (stillHydrating) {
-        return (
-            <div className={`flex h-full items-center justify-center gap-2 text-sm ${muted}`}>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t('home.dailyRecommendLoading')}
-            </div>
+    if (loadStatus !== 'ready') {
+        const messageKey = resolveRemoteLoadMessageKey(
+            loadStatus,
+            errorCode === 'need-login' || errorCode === 'empty' ? null : errorCode,
         );
-    }
-
-    if (settled && songs.length === 0) {
         return (
-            <div className={`flex h-full flex-col items-center justify-center gap-3 px-6 text-sm ${muted}`}>
-                <div>
-                    {neteaseNeedLogin && availableFilters.length === 0
-                        ? t('home.dailyRecommendLoginRequired')
-                        : (error || t('home.dailyRecommendEmpty'))}
-                </div>
-                <button
-                    type="button"
-                    onClick={() => void ensureLoaded({ force: true })}
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium ${
-                        isDaylight ? 'bg-black/10 text-black hover:bg-black/15' : 'bg-white/12 text-white hover:bg-white/18'
-                    }`}
-                >
-                    {t('home.dailyRecommendRetry')}
-                </button>
-            </div>
+            <RemoteLoadState
+                status={loadStatus}
+                isDaylight={isDaylight}
+                loadingLabel={t('home.dailyRecommendLoading')}
+                emptyLabel={t('home.dailyRecommendEmpty')}
+                authLabel={t('home.dailyRecommendLoginRequired')}
+                errorLabel={
+                    errorCode && errorCode !== 'empty' && errorCode !== 'need-login'
+                        ? t(messageKey)
+                        : (error || t('home.dailyRecommendLoadFailed'))
+                }
+                onRetry={() => void ensureLoaded({ force: true })}
+                diagnostic={diagnostic}
+            />
         );
     }
 

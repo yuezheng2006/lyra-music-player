@@ -11,7 +11,6 @@ import {
 } from '../../stores/useOnlineLibraryFilterStore';
 import { useNeteaseQrLogin } from '../../hooks/useNeteaseQrLogin';
 import { useQQMusicLogin } from '../../hooks/useQQMusicLogin';
-import { resolveOnlineProviderIconUrl } from '../../utils/onlineProviderAssets';
 
 // src/components/shared/OnlineProviderFilterBar.tsx
 // Peer library sources: Netease / QQ / Qishui / Coco / Kugou / Bilibili.
@@ -169,7 +168,6 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
                 {ONLINE_LIBRARY_PROVIDER_IDS.map(id => {
                     const connected = isConnected(id);
                     const enabled = connected && playlistProviders[id];
-                    const iconUrl = resolveOnlineProviderIconUrl(id);
                     return (
                         <button
                             key={id}
@@ -191,14 +189,6 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
                             {connected && enabled && (
                                 <Check size={14} strokeWidth={2.5} className="opacity-80 shrink-0" />
                             )}
-                            {iconUrl ? (
-                                <img
-                                    src={iconUrl}
-                                    alt=""
-                                    aria-hidden="true"
-                                    className="h-4 w-4 rounded-[4px] object-cover shrink-0"
-                                />
-                            ) : null}
                             <span>{providerLabels[id]}</span>
                             {!connected && (
                                 <span className="opacity-70">{t('home.connectShort')}</span>

@@ -47,7 +47,7 @@ type BuildAppOverlaysModelParams = {
     theme: any;
     isDaylight: boolean;
     closeSearchView: () => void;
-    handleSearchOverlaySubmit: (query?: string) => Promise<void>;
+    handleSearchOverlaySubmit: (query?: string, options?: { displayQuery?: string }) => Promise<void>;
     handleSearchLoadMore: () => Promise<void>;
     handleSearchResultPlay: (track: UnifiedSong) => void;
     handleSearchResultArtistSelect: (track: UnifiedSong, artistName: string, artistId?: number) => void;
@@ -139,8 +139,8 @@ type BuildAppOverlaysModelParams = {
     onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
     visualizerMode?: VisualizerMode;
     onVisualizerModeChange?: (mode: VisualizerMode) => void;
-    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
+    onOpenSongSettings?: () => void;
     backgroundMenuLabel?: string;
     backgroundModeInteractive3dLabel?: string;
     backgroundModeCommonLabel?: string;
@@ -148,6 +148,7 @@ type BuildAppOverlaysModelParams = {
     backgroundPresetSectionLabel?: string;
     lyricsStyleSectionLabel?: string;
     lyricColorSectionLabel?: string;
+    openSongSettingsLabel?: string;
     getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
     getVisualizerModeLabel?: (mode: VisualizerMode) => string;
 };
@@ -246,8 +247,8 @@ export const buildAppOverlaysModel = ({
     onInteractive3dSceneTuningChange,
     visualizerMode = 'classic',
     onVisualizerModeChange,
-    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
+    onOpenSongSettings,
     backgroundMenuLabel,
     backgroundModeInteractive3dLabel,
     backgroundModeCommonLabel,
@@ -255,6 +256,7 @@ export const buildAppOverlaysModel = ({
     backgroundPresetSectionLabel,
     lyricsStyleSectionLabel,
     lyricColorSectionLabel,
+    openSongSettingsLabel,
     getBackgroundPresetLabel,
     getVisualizerModeLabel,
 }: BuildAppOverlaysModelParams): AppOverlaysModel => ({
@@ -424,8 +426,8 @@ export const buildAppOverlaysModel = ({
             onInteractive3dSceneTuningChange,
             visualizerMode,
             onVisualizerModeChange,
-            onApplyLyricBodyColor,
             onApplyLyricColorPreset,
+            onOpenSongSettings,
             onDockPopoverOpenChange,
             backgroundMenuLabel,
             backgroundModeInteractive3dLabel,
@@ -434,6 +436,7 @@ export const buildAppOverlaysModel = ({
             backgroundPresetSectionLabel,
             lyricsStyleSectionLabel,
             lyricColorSectionLabel,
+            openSongSettingsLabel,
             getBackgroundPresetLabel,
             getVisualizerModeLabel,
             onDownloadSong: onDownloadSong && canDownloadSong?.(currentSong)

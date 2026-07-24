@@ -249,6 +249,16 @@ export const restorePlaybackSourceForSong = async (
         replaceBlobUrl(blobUrlRef, blobUrl);
         currentOnlineAudioUrlFetchedAtRef.current = null;
         setAudioSrc(blobUrl);
+        if (!isNeteaseOnlineSong(song)) {
+            const audioResult = await getMusicProviderForSong(song).getAudioUrl(song, { quality: audioQuality });
+            setVideoSrc?.(
+                audioResult.kind === 'ok'
+                    ? normalizePlaybackVideoSrc(audioResult.videoUrl)
+                    : null,
+            );
+        } else {
+            setVideoSrc?.(null);
+        }
     } else if (!isNeteaseOnlineSong(song)) {
         const audioResult = await getMusicProviderForSong(song).getAudioUrl(song, { quality: audioQuality });
         if (audioResult.kind === 'ok') {

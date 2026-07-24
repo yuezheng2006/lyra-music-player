@@ -29,6 +29,18 @@ export const parseLyricVisualEffectIntensity = (value: unknown): LyricVisualEffe
     isLyricVisualEffectIntensity(value) ? value : DEFAULT_LYRIC_VISUAL_EFFECT_INTENSITY
 );
 
+/** Scalar for renderers that only need to scale an existing glow radius / blur. */
+const LYRIC_VISUAL_EFFECT_INTENSITY_SCALE: Record<LyricVisualEffectIntensity, number> = {
+    subtle: 0.45,
+    normal: 0.72,
+    strong: 1,
+    extreme: 1.28,
+};
+
+export const resolveLyricVisualEffectIntensityScale = (
+    intensity: LyricVisualEffectIntensity | unknown = DEFAULT_LYRIC_VISUAL_EFFECT_INTENSITY,
+): number => LYRIC_VISUAL_EFFECT_INTENSITY_SCALE[parseLyricVisualEffectIntensity(intensity)];
+
 /** Rebuild rgba() with a new alpha so hex / existing rgba inputs stay valid CSS. */
 const withAlpha = (color: string, alpha: number): string => {
     const clamped = Math.max(0, Math.min(1, alpha));

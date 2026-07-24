@@ -1583,7 +1583,13 @@ export async function ensureLocalSongEmbeddedCover(song: LocalSong): Promise<Loc
                 return updatedSong;
             } catch (error) {
                 console.warn(`[LocalMusic] Failed to ensure embedded cover for ${song.fileName}:`, error);
-                fileHandleMap.delete(song.id);
+                // Only drop the live handle when the file itself is gone / inaccessible.
+                // Metadata parse failures (worker errors, corrupt tags) must not wipe playback access.
+                const isAccessError = error instanceof DOMException
+                    && (error.name === 'NotFoundError' || error.name === 'NotAllowedError' || error.name === 'SecurityError');
+                if (isAccessError) {
+                    fileHandleMap.delete(song.id);
+                }
 
                 try {
                     const recoveredHandle = await recoverFileHandleFromPersistedDirectory(song);

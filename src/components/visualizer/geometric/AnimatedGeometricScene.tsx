@@ -142,6 +142,7 @@ const AnimatedGeometricScene: React.FC<AnimatedGeometricSceneProps> = ({
                 pointerY={pointerY}
                 paused={paused}
                 cameraSnapshotRef={cameraControlState?.snapshotRef}
+                shellBackgroundColor={theme.backgroundColor}
             />
 
             {minimalMotion ? (

@@ -1,6 +1,7 @@
 import type { LyricData, OnlineMusicProviderId, SongResult } from '../../types';
 import { detectTimedLyricFormat } from '../../utils/lyrics/formatDetection';
 import { parseLyricsAsync } from '../../utils/lyrics/workerClient';
+import { requestWithStability } from '../../utils/network';
 import { getQQMusicAuth } from './qqMusicAuth';
 import type { MusicProviderSearchResult, ProviderAudioResult } from './types';
 
@@ -178,7 +179,11 @@ export const requestSidecarSearch = async (
         limit: String(options.limit),
         offset: String(options.offset),
     });
-    const response = await fetch(`${base}/providers/${providerId}/search?${params.toString()}`);
+    const { response } = await requestWithStability(
+        `${base}/providers/${providerId}/search?${params.toString()}`,
+        {},
+        { source: 'sidecar', endpoint: `/providers/${providerId}/search` },
+    );
     if (!response.ok) {
         throw new Error(`${providerId} sidecar search failed: ${response.status}`);
     }
@@ -216,16 +221,20 @@ export const requestSidecarAudioUrl = async (
             return { kind: 'unavailable' };
         }
 
-        const response = await fetch(`${base}/providers/${providerId}/song-url`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                id: song.providerSongId ?? song.id,
-                song,
-                quality: options.quality,
-                ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
-            }),
-        });
+        const { response } = await requestWithStability(
+            `${base}/providers/${providerId}/song-url`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: song.providerSongId ?? song.id,
+                    song,
+                    quality: options.quality,
+                    ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
+                }),
+            },
+            { source: 'sidecar', endpoint: `/providers/${providerId}/song-url` },
+        );
         // 5xx is a sidecar/transport failure — let callers fall back to local providers.
         // 4xx means the provider resolved "no playable URL" for this song.
         if (!response.ok) {
@@ -265,15 +274,24 @@ export const requestSidecarLyrics = async (
         return null;
     }
 
-    const response = await fetch(`${base}/providers/${providerId}/lyrics`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            id: String(song.providerSongId ?? song.id),
-            song,
-            ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
-        }),
-    });
+    let response: Response;
+    try {
+        ({ response } = await requestWithStability(
+            `${base}/providers/${providerId}/lyrics`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: String(song.providerSongId ?? song.id),
+                    song,
+                    ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
+                }),
+            },
+            { source: 'sidecar', endpoint: `/providers/${providerId}/lyrics` },
+        ));
+    } catch {
+        return null;
+    }
     if (!response.ok) {
         return null;
     }
@@ -304,14 +322,18 @@ export const requestSidecarRecommend = async (
     }
 
     const limit = Math.max(1, Math.min(options.limit ?? 20, 40));
-    const response = await fetch(`${base}/providers/${providerId}/recommend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            limit,
-            ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
-        }),
-    });
+    const { response } = await requestWithStability(
+        `${base}/providers/${providerId}/recommend`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                limit,
+                ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
+            }),
+        },
+        { source: 'sidecar', endpoint: `/providers/${providerId}/recommend` },
+    );
     if (!response.ok) {
         throw new Error(`${providerId} sidecar recommend failed: ${response.status}`);
     }

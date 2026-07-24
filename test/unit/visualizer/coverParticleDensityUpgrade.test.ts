@@ -8,11 +8,14 @@ import { CoverParticleCinemaCamera } from '@/components/visualizer/geometric/web
 import { resolveCoverParticlePresetRuntime } from '@/components/visualizer/geometric/webgl/coverParticlePresetRuntime';
 
 describe('cover particle density upgrade', () => {
-    it('matches Mineradio grid curve up to 183x183', () => {
+    it('uses performance-first grids under the Mineradio curve', () => {
         expect(coverParticleGridForResolution(1.55)).toBe(183);
         expect(coverParticleGridForResolution(1.0)).toBe(119);
-        expect(coverParticleGridForQualityTier('high')).toBe(183);
-        expect(coverParticleGridForQualityTier('lite')).toBeGreaterThan(80);
+        expect(coverParticleGridForResolution(0.55)).toBe(65);
+        // Tier grids stay below prior emily budgets (Electron GPU helper thrash).
+        expect(coverParticleGridForQualityTier('high')).toBe(101);
+        expect(coverParticleGridForQualityTier('balanced')).toBe(89);
+        expect(coverParticleGridForQualityTier('lite')).toBe(65);
     });
 
     it('supports preset burst trigger and cinema drift', () => {
@@ -27,13 +30,12 @@ describe('cover particle density upgrade', () => {
         ).toBeGreaterThan(0);
     });
 
-    it('keeps active tunnel/starfield motion profiles stronger than cover', () => {
+    it('keeps active tunnel motion punch stronger than cover', () => {
         const cover = resolveCoverParticlePresetRuntime('emily');
         const tunnel = resolveCoverParticlePresetRuntime('mineradioTunnel');
-        const starfield = resolveCoverParticlePresetRuntime('starfield');
         expect(cover.cameraZ).toBe(6.6);
         expect(cover.fov).toBe(45);
-        expect(tunnel.bassCameraPunch).toBeGreaterThan(starfield.bassCameraPunch);
+        expect(tunnel.bassCameraPunch).toBeGreaterThan(cover.bassCameraPunch);
     });
 
     it('keeps Mineradio original presets at source camera defaults', () => {
@@ -49,13 +51,10 @@ describe('cover particle density upgrade', () => {
         }
     });
 
-    it('gives the vinyl preset a dedicated immersive camera profile', () => {
+    it('maps the retired vinyl preset to the cover runtime profile', () => {
         const vinyl = resolveCoverParticlePresetRuntime('mineradioVinyl');
+        const emily = resolveCoverParticlePresetRuntime('emily');
 
-        expect(vinyl.fov).toBe(43);
-        expect(vinyl.bassCameraPunch).toBe(0.28);
-        expect(vinyl.immersivePhiOffset).toBe(0.06);
-        expect(vinyl.immersiveRadiusOffset).toBe(-0.48);
-        expect(vinyl.immersiveFovOffset).toBe(2.4);
+        expect(vinyl).toEqual(emily);
     });
 });

@@ -69,8 +69,9 @@ const PRESET_META: Record<MineradioVisualPresetId, PresetMeta> = {
         subtitle: 'Minimal void',
         testId: 'interactive3d-preset-mineradio-void',
     },
+    /** Retired — kept for type completeness; normalize maps to emily. */
     mineradioVinyl: {
-        subtitle: 'Mineradio vinyl',
+        subtitle: 'Retired vinyl',
         testId: 'interactive3d-preset-mineradio-vinyl',
     },
     mineradioGalaxy: {
@@ -150,16 +151,6 @@ const renderPresetPreview = (
                 <span className="absolute left-1/2 top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border" style={{ borderColor: glow, boxShadow: `0 0 20px ${glow}` }} />
                 <span className="absolute left-[24%] right-[24%] top-1/2 h-px rounded-full" style={{ backgroundColor: colorWithAlpha(theme.primaryColor, active ? 0.52 : 0.2), transform: 'rotate(-16deg)' }} />
                 <span className="absolute left-[20%] right-[20%] top-1/2 h-px rounded-full" style={{ backgroundColor: colorWithAlpha(theme.secondaryColor, active ? 0.44 : 0.18), transform: 'rotate(18deg)' }} />
-            </div>
-        );
-    }
-
-    if (preset === 'mineradioVinyl') {
-        return (
-            <div className="relative h-14 overflow-hidden rounded-xl" style={{ backgroundColor: colorWithAlpha(theme.backgroundColor, 0.28) }}>
-                <span className="absolute left-1/2 top-1/2 h-11 w-11 -translate-x-1/2 -translate-y-1/2 rounded-full border" style={{ borderColor: colorWithAlpha(theme.secondaryColor, active ? 0.5 : 0.2), boxShadow: `0 0 18px ${glow}` }} />
-                <span className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ backgroundColor: colorWithAlpha(theme.primaryColor, active ? 0.38 : 0.16) }} />
-                <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ backgroundColor: colorWithAlpha(theme.secondaryColor, active ? 0.7 : 0.3) }} />
             </div>
         );
     }

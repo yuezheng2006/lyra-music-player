@@ -113,6 +113,26 @@ export const getAudioElementCaptureStream = (audioElement: HTMLAudioElement) => 
     return stream;
 };
 
+/** Capture the muted Bilibili <video> track directly (no visualizer / lyric overlay). */
+export const getVideoElementCaptureStream = (videoElement: HTMLVideoElement) => {
+    const capturableVideo = videoElement as HTMLVideoElement & {
+        captureStream?: () => MediaStream;
+        mozCaptureStream?: () => MediaStream;
+    };
+    const stream = capturableVideo.captureStream?.() ?? capturableVideo.mozCaptureStream?.();
+
+    if (!stream || stream.getVideoTracks().length === 0) {
+        throw new Error('当前视频元素无法提供录制画面。');
+    }
+
+    return stream;
+};
+
+export const combineCaptureStreams = (videoStream: MediaStream, audioStream: MediaStream) => new MediaStream([
+    ...videoStream.getVideoTracks(),
+    ...audioStream.getAudioTracks(),
+]);
+
 export const getMainWindowVideoCaptureStream = async (preset: VideoExportPreset) => {
     const source = await window.electron?.getMainWindowCaptureSource?.();
     if (!source) {

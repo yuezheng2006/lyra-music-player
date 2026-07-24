@@ -248,20 +248,22 @@ async function installBaseState(
       return;
     }
 
+    // Avoid `#private` fields: Playwright init-script transforms can emit
+    // `_classPrivateFieldInitSpec` without defining the helper.
     class MockAudio extends EventTarget {
       duration = 126;
-      #src = '';
+      _src = '';
 
       set src(value: string) {
-        this.#src = value;
-        void this.#src;
+        this._src = value;
+        void this._src;
         setTimeout(() => {
           this.dispatchEvent(new Event('loadedmetadata'));
         }, 0);
       }
 
       get src() {
-        return this.#src;
+        return this._src;
       }
     }
 
@@ -269,18 +271,18 @@ async function installBaseState(
     class MockWorker {
       onmessage: ((event: MessageEvent) => void) | null = null;
       onerror: ((event: Event) => void) | null = null;
-      readonly #url: string;
+      url: string;
 
       constructor(url: string | URL) {
-        this.#url = String(url);
+        this.url = String(url);
 
-        if (!this.#url.includes('metadataParser.worker')) {
+        if (!this.url.includes('metadataParser.worker')) {
           return new OriginalWorker(url as string, { type: 'module' }) as unknown as MockWorker;
         }
       }
 
       postMessage(message: { type: string; requestId: string; file: File; }) {
-        if (!this.#url.includes('metadataParser.worker')) {
+        if (!this.url.includes('metadataParser.worker')) {
           return;
         }
 

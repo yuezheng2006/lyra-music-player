@@ -1,16 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Repeat, Repeat1, RepeatOff, Heart, Sparkles, Volume2, Volume1, VolumeX } from 'lucide-react';
+import { Repeat, Repeat1, RepeatOff, Heart, Sparkles, Volume2, Volume1, VolumeX, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Theme, ThemeMode, VisualizerMode, type Interactive3dSceneTuning, type VisualizerBackgroundMode } from '../../types';
 import type { ThemeSourceModel } from '../../hooks/themeControllerState';
-import { getVisualizerModeLabel, VISUALIZER_REGISTRY } from '../visualizer/registry';
 import {
     applyMineradioVisualPreset,
     getMineradioPresetLabelFallback,
     INTERACTIVE3D_VISUAL_PRESET_OPTIONS,
 } from '../visualizer/geometric/mineradioVisualPresets';
 import { getControlsTabOptionButtonClass, getControlsTabOptionStyles } from './controlsTabOptionStyles';
+import ControlsTabThemeSection from './ControlsTabThemeSection';
 import LyricColorPicker from '../shared/LyricColorPicker';
 import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
 import LyricFontPresetSelector from '../shared/LyricFontPresetSelector';
@@ -24,7 +24,7 @@ import {
     type LyricColorPresetId,
 } from '../../utils/theme/lyricColorPresets';
 
-// Controls tab: high-frequency player shortcuts only. Theme/background/intensity live in Settings.
+// Controls tab: song settings — high-frequency shortcuts; advanced lyric editors stay collapsed.
 
 interface ControlsTabProps {
     loopMode: 'off' | 'all' | 'one';
@@ -78,15 +78,23 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
     isGeneratingTheme,
     canGenerateAITheme,
     theme,
+    onThemeChange,
+    onBgModeChange,
+    hasCustomTheme,
+    themeSourceModel,
+    defaultTheme,
+    daylightTheme,
     visualizerMode,
     onVisualizerModeChange,
     isDaylight,
+    onToggleDaylight,
     volume,
     isMuted,
     onVolumePreview,
     onVolumeChange,
     onToggleMute,
     loopToggleDisabled = false,
+    visualizerBackgroundMode,
     interactive3dSceneTuning,
     onVisualizerBackgroundModeChange,
     onInteractive3dSceneTuningChange,
@@ -105,10 +113,12 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
     const handleSetVisualEffectIntensity = useSettingsUiStore(state => state.handleSetVisualEffectIntensity);
     const handleSetLyricEffectPackId = useSettingsUiStore(state => state.handleSetLyricEffectPackId);
     const [sliderVolume, setSliderVolume] = useState(isMuted ? 0 : volume);
+    const [lyricsAdvancedOpen, setLyricsAdvancedOpen] = useState(false);
     const isDraggingRef = useRef(false);
     const pendingVolumeRef = useRef(sliderVolume);
     const optionStyles = getControlsTabOptionStyles(isDaylight);
     const { wellBg, sectionHintClass } = optionStyles;
+    const hasLyricColorControls = Boolean(onApplyLyricBodyColor || onApplyLyricColorPreset);
 
     useEffect(() => {
         if (!isDraggingRef.current) {
@@ -206,27 +216,22 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                         </span>
                     </div>
 
-                    <div className="space-y-1" data-testid="controls-lyrics-animation-section">
-                        <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                            {t('ui.lyricsAnimationStyle') || t('ui.visualizer') || '歌词样式'}
-                        </label>
-                        <div className={`grid grid-cols-4 gap-0.5 ${wellBg} p-0.5 rounded-lg`} data-testid="controls-visualizer-mode-group">
-                            {VISUALIZER_REGISTRY.map((entry) => {
-                                const isActive = entry.mode === visualizerMode;
-                                return (
-                                    <button
-                                        key={entry.mode}
-                                        type="button"
-                                        data-testid={`controls-visualizer-mode-${entry.mode}`}
-                                        onClick={() => onVisualizerModeChange(entry.mode)}
-                                        className={`px-0.5 py-1 ${getControlsTabOptionButtonClass(isActive, optionStyles)}`}
-                                    >
-                                        {getVisualizerModeLabel(entry.mode, t)}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
+                    <ControlsTabThemeSection
+                        theme={theme}
+                        onThemeChange={onThemeChange}
+                        onBgModeChange={onBgModeChange}
+                        hasCustomTheme={hasCustomTheme}
+                        themeSourceModel={themeSourceModel}
+                        defaultTheme={defaultTheme}
+                        daylightTheme={daylightTheme}
+                        visualizerMode={visualizerMode}
+                        onVisualizerModeChange={onVisualizerModeChange}
+                        visualizerBackgroundMode={visualizerBackgroundMode}
+                        onVisualizerBackgroundModeChange={onVisualizerBackgroundModeChange}
+                        isDaylight={isDaylight}
+                        onToggleDaylight={onToggleDaylight}
+                        optionStyles={optionStyles}
+                    />
 
                     <LyricWordModeToggle
                         value={lyricWordMode}
@@ -239,97 +244,129 @@ const ControlsTab: React.FC<ControlsTabProps> = ({
                         testIdPrefix="controls-lyric-word-mode"
                     />
 
-                    {(onApplyLyricBodyColor || onApplyLyricColorPreset) && (
-                        <div className="space-y-1" data-testid="controls-lyric-color-section">
-                            <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                                {t('options.lyricColorPresetTitle') || '歌词颜色'}
-                            </label>
+                    {hasLyricColorControls ? (
+                        <div className="space-y-1.5" data-testid="controls-lyric-color-section">
+                            <div className="flex items-center justify-between gap-2">
+                                <label className="text-[10px] font-bold uppercase tracking-widest opacity-40">
+                                    {t('options.lyricColorPresetTitle') || '歌词颜色'}
+                                </label>
+                                <button
+                                    type="button"
+                                    data-testid="controls-toggle-lyrics-advanced"
+                                    aria-expanded={lyricsAdvancedOpen}
+                                    onClick={() => setLyricsAdvancedOpen(open => !open)}
+                                    className={`inline-flex items-center gap-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80 ${sectionHintClass}`}
+                                >
+                                    {lyricsAdvancedOpen
+                                        ? (t('options.advancedSettingsHide') || '收起')
+                                        : (t('options.moreLyricStyleSettings') || '取色 / 字体 / 特效')}
+                                    <ChevronDown
+                                        size={12}
+                                        className={`transition-transform ${lyricsAdvancedOpen ? 'rotate-180' : ''}`}
+                                    />
+                                </button>
+                            </div>
                             {onApplyLyricColorPreset ? (
-                                <div className={`${wellBg} p-0.5 rounded-lg`} data-testid="controls-lyric-color-presets">
+                                <div
+                                    className={`${wellBg} flex items-center gap-2 rounded-lg px-2 py-1.5`}
+                                    data-testid="controls-lyric-color-presets"
+                                >
                                     <LyricColorPresetGrid
-                                        compact
+                                        dotsOnly
                                         onSelect={onApplyLyricColorPreset}
                                         activePresetId={resolveActiveLyricColorPresetId(
                                             theme,
                                             isDaylight ? 'light' : 'dark',
                                         )}
                                         isDaylight={isDaylight}
-                                        className="!grid-cols-3 gap-0.5"
-                                        inactiveButtonClassName={isDaylight
-                                            ? 'text-stone-800 hover:bg-black/[0.05]'
-                                            : 'text-white/88 hover:bg-white/[0.08]'}
-                                        activeButtonClassName={optionStyles.activeOptionClass}
-                                        buttonClassName="w-full"
+                                        className="min-w-0 flex-1"
                                     />
+                                    {onApplyLyricBodyColor ? (
+                                        <button
+                                            type="button"
+                                            data-testid="controls-open-lyric-color-picker"
+                                            onClick={() => setLyricsAdvancedOpen(true)}
+                                            className={`h-7 w-7 shrink-0 rounded-md border ${
+                                                isDaylight ? 'border-black/15' : 'border-white/20'
+                                            }`}
+                                            style={{ backgroundColor: theme.primaryColor }}
+                                            title={t('options.moreLyricStyleSettings') || '取色 / 字体 / 特效'}
+                                            aria-label={t('options.moreLyricStyleSettings') || '取色 / 字体 / 特效'}
+                                        />
+                                    ) : null}
                                 </div>
                             ) : null}
-                            {onApplyLyricBodyColor ? (
-                                <div className={`${wellBg} p-1.5 rounded-lg ${onApplyLyricColorPreset ? 'mt-1' : ''}`}>
-                                    <LyricColorPicker
-                                        compact
-                                        color={theme.primaryColor}
-                                        onChange={onApplyLyricBodyColor}
-                                        isDaylight={isDaylight}
-                                    />
+
+                            {lyricsAdvancedOpen ? (
+                                <div
+                                    className={`space-y-2 border-t pt-2 ${
+                                        isDaylight ? 'border-black/10' : 'border-white/10'
+                                    }`}
+                                    data-testid="controls-lyrics-advanced-section"
+                                >
+                                    {onApplyLyricBodyColor ? (
+                                        <div className={`${wellBg} p-1.5 rounded-lg`}>
+                                            <LyricColorPicker
+                                                compact
+                                                color={theme.primaryColor}
+                                                onChange={onApplyLyricBodyColor}
+                                                isDaylight={isDaylight}
+                                            />
+                                        </div>
+                                    ) : null}
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest opacity-40">
+                                            {t('options.lyricFontPreset') || '歌词字体'}
+                                        </label>
+                                        <div className={`${wellBg} p-0.5 rounded-lg`}>
+                                            <LyricFontPresetSelector
+                                                selectedPresetId={lyricFontPresetId}
+                                                onPresetChange={(presetId) => {
+                                                    handleSetLyricsCustomFont(null);
+                                                    handleSetLyricFontPresetId(presetId);
+                                                }}
+                                                isDaylight={isDaylight}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest opacity-40">
+                                            {t('options.visualEffectIntensity') || '效果强度'}
+                                        </label>
+                                        <div className={`${wellBg} p-0.5 rounded-lg`}>
+                                            <LyricVisualEffectSelector
+                                                selectedIntensity={visualEffectIntensity}
+                                                onIntensityChange={handleSetVisualEffectIntensity}
+                                                isDaylight={isDaylight}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest opacity-40">
+                                            {t('options.lyricEffectPack') || '歌词特效'}
+                                        </label>
+                                        <div className={`${wellBg} p-0.5 rounded-lg`}>
+                                            <LyricEffectPackSelector
+                                                selectedPackId={lyricEffectPackId}
+                                                onPackChange={handleSetLyricEffectPackId}
+                                                isDaylight={isDaylight}
+                                                onApplySuggestion={(packId) => {
+                                                    const suggestion = getLyricEffectPackSuggestion(packId);
+                                                    if (suggestion.fontPresetId) {
+                                                        handleSetLyricsCustomFont(null);
+                                                        handleSetLyricFontPresetId(suggestion.fontPresetId);
+                                                    }
+                                                    if (suggestion.colorPresetId && onApplyLyricColorPreset) {
+                                                        onApplyLyricColorPreset(suggestion.colorPresetId as Parameters<NonNullable<typeof onApplyLyricColorPreset>>[0]);
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             ) : null}
-                            <div className={`mt-2 space-y-1 border-t pt-2 ${
-                                isDaylight ? 'border-black/10' : 'border-white/10'
-                            }`}>
-                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                                    {t('options.lyricFontPreset') || '歌词字体'}
-                                </label>
-                                <div className={`${wellBg} p-0.5 rounded-lg`}>
-                                    <LyricFontPresetSelector
-                                        selectedPresetId={lyricFontPresetId}
-                                        onPresetChange={(presetId) => {
-                                            handleSetLyricsCustomFont(null);
-                                            handleSetLyricFontPresetId(presetId);
-                                        }}
-                                        isDaylight={isDaylight}
-                                    />
-                                </div>
-                            </div>
-                            <div className={`mt-2 space-y-1 border-t pt-2 ${
-                                isDaylight ? 'border-black/10' : 'border-white/10'
-                            }`}>
-                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                                    {t('options.visualEffectIntensity') || '效果强度'}
-                                </label>
-                                <div className={`${wellBg} p-0.5 rounded-lg`}>
-                                    <LyricVisualEffectSelector
-                                        selectedIntensity={visualEffectIntensity}
-                                        onIntensityChange={handleSetVisualEffectIntensity}
-                                        isDaylight={isDaylight}
-                                    />
-                                </div>
-                            </div>
-                            <div className={`mt-2 space-y-1 border-t pt-2 ${
-                                isDaylight ? 'border-black/10' : 'border-white/10'
-                            }`}>
-                                <label className="text-[10px] font-bold opacity-40 uppercase tracking-widest">
-                                    {t('options.lyricEffectPack') || '歌词特效'}
-                                </label>
-                                <div className={`${wellBg} p-0.5 rounded-lg`}>
-                                    <LyricEffectPackSelector
-                                        selectedPackId={lyricEffectPackId}
-                                        onPackChange={handleSetLyricEffectPackId}
-                                        isDaylight={isDaylight}
-                                        onApplySuggestion={(packId) => {
-                                            const suggestion = getLyricEffectPackSuggestion(packId);
-                                            if (suggestion.fontPresetId) {
-                                                handleSetLyricsCustomFont(null);
-                                                handleSetLyricFontPresetId(suggestion.fontPresetId);
-                                            }
-                                            if (suggestion.colorPresetId && onApplyLyricColorPreset) {
-                                                onApplyLyricColorPreset(suggestion.colorPresetId as Parameters<NonNullable<typeof onApplyLyricColorPreset>>[0]);
-                                            }
-                                        }}
-                                    />
-                                </div>
-                            </div>
                         </div>
-                    )}
+                    ) : null}
 
                     {interactive3dSceneTuning && onInteractive3dSceneTuningChange && (
                         <div className="space-y-1" data-testid="controls-interactive3d-presets-section">

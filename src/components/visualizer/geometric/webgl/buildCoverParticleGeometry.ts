@@ -6,24 +6,29 @@ import type { GeometricQualityTier } from '../geometricQuality';
 
 export const PLANE_SIZE = 4.8;
 
-/** Mineradio: grid = round(118 * resolution), clamped 88–183. */
+/** Mineradio: grid = round(118 * resolution), clamped 64–183. */
 export const coverParticleGridForResolution = (resolution: number): number => {
-    const clamped = Math.max(0.75, Math.min(1.55, resolution));
+    const clamped = Math.max(0.55, Math.min(1.55, resolution));
     let grid = Math.round(118 * clamped);
-    grid = Math.max(88, Math.min(183, grid));
+    grid = Math.max(64, Math.min(183, grid));
     return grid % 2 === 0 ? grid + 1 : grid;
 };
 
+/**
+ * Performance-first grids (approx counts):
+ * high ≈ 101², balanced ≈ 89², lite ≈ 65².
+ * Kept deliberately below prior emily budgets — Electron GPU helper thrash.
+ */
 export const coverParticleGridForQualityTier = (tier: GeometricQualityTier): number => {
     switch (tier) {
         case 'high':
-            return coverParticleGridForResolution(1.55);
-        case 'balanced':
-            return coverParticleGridForResolution(1.15);
-        case 'lite':
             return coverParticleGridForResolution(0.85);
+        case 'balanced':
+            return coverParticleGridForResolution(0.75);
+        case 'lite':
+            return coverParticleGridForResolution(0.55);
         default:
-            return coverParticleGridForResolution(1.0);
+            return coverParticleGridForResolution(0.75);
     }
 };
 

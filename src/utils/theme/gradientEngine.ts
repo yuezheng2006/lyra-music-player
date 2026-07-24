@@ -189,44 +189,30 @@ export const applyAudioReactiveGradient = (
  * 汽水中性 + 舞台撞色歌词的轻量渐变配置
  */
 export const ENHANCED_LYRIC_GRADIENTS: Record<string, AudioReactiveGradientConfig> = {
-    'soda-gray': {
-        type: 'linear',
-        colors: ['#a1a1aa', '#d4d4d8', '#71717a'],
-        angle: 90,
-        animated: false,
-        audioReactive: false,
-    },
     'soda-white': {
         type: 'linear',
-        colors: ['#f4f4f5', '#ffffff', '#a1a1aa'],
+        colors: ['#ffffff', '#f4f4f5', '#d4d4d8'],
         angle: 90,
         animated: false,
-        audioReactive: false,
-    },
-    'douyin-yellow': {
-        type: 'linear',
-        colors: ['#ffd84d', '#ffcc00', '#f59e0b'],
-        angle: 90,
-        animated: true,
         audioReactive: false,
     },
     'foil-gold': {
         type: 'linear',
-        colors: ['#f2d06b', '#d4af37', '#a67c00'],
+        colors: ['#ffe9a0', '#f5d76e', '#c9a227'],
         angle: 90,
         animated: false,
         audioReactive: false,
     },
-    'xhs-hot-pink': {
+    'stage-blue': {
         type: 'linear',
-        colors: ['#ff6b9d', '#ff3d7a', '#be123c'],
+        colors: ['#9ad9ff', '#6ec8ff', '#3b82f6'],
         angle: 90,
-        animated: true,
+        animated: false,
         audioReactive: false,
     },
     'dazibao-red': {
         type: 'linear',
-        colors: ['#ff5a45', '#ef4444', '#b91c1c'],
+        colors: ['#ff7a62', '#ff5a45', '#b91c1c'],
         angle: 90,
         animated: true,
         audioReactive: false,

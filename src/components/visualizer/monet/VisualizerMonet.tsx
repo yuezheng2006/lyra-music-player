@@ -16,6 +16,12 @@ import MonetLyricsRail from './MonetLyricsRail';
 import { buildMonetVisibleLineEntries, resolveClampFontPx } from './monetLyricsModel';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { resolveLyricRailAfterCount } from '../../../utils/lyrics/lyricWordMode';
+import { readGpuUnstableFlag } from '../../../utils/performance/electronInteractive3dGuardMath';
+import {
+    shouldForceMonetAudioStatic,
+    shouldUseMonetStaticDecor,
+} from '../../../utils/performance/monetElectronLiteMath';
+import { shouldPreferMonetTitleNowrap } from '../../../utils/visualizer/monetTitleLayoutMath';
 
 // src/components/visualizer/monet/VisualizerMonet.tsx
 // Monet keeps the poster layout here while its lyric rail owns measured scrolling and line states.
@@ -58,6 +64,20 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
     const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
     const lyricFontPresetId = useSettingsUiStore(state => state.lyricFontPresetId);
     const visualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
+    const isElectron = typeof window !== 'undefined'
+        && Boolean((window as Window & { electron?: unknown }).electron);
+    const gpuUnstable = typeof window !== 'undefined'
+        ? readGpuUnstableFlag(localStorage)
+        : false;
+    const decorStaticMode = shouldUseMonetStaticDecor({
+        staticMode,
+        isElectron,
+        gpuUnstable,
+    });
+    const audioStaticMode = shouldForceMonetAudioStatic({
+        staticMode,
+        isElectron,
+    });
 
     const handleSetMonetTuning = onMonetTuningChange;
 
@@ -148,8 +168,9 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
     const fontScale = monetTuning.fontScale;
     // Prefer measured lyric-column width so fonts stay inside the stage (not window/vw).
     // Bias larger than the previous stage so lyrics read as a hero atmosphere layer.
-    const lyricFontPx = resolveClampFontPx(1.45, 6.5, 2.75, lyricColumnWidth || undefined) * fontScale;
-    const inactiveFontPx = resolveClampFontPx(1.15, 4.7, 1.95, lyricColumnWidth || undefined) * fontScale;
+    const lyricFontPx = resolveClampFontPx(1.55, 7.0, 3.0, lyricColumnWidth || undefined) * fontScale;
+    // Keep non-current rows clearly smaller so active size contrast reads immediately.
+    const inactiveFontPx = resolveClampFontPx(0.95, 3.8, 1.55, lyricColumnWidth || undefined) * fontScale;
     const translationFontPx = resolveClampFontPx(1.0, 3.5, 1.45, lyricColumnWidth || undefined) * fontScale;
     const titleFontPx = resolveClampFontPx(1.65, 7.6, 3.1, lyricColumnWidth || undefined) * fontScale;
     const artistFontPx = resolveClampFontPx(1.12, 4.2, 1.9, lyricColumnWidth || undefined) * fontScale;
@@ -175,7 +196,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                     animate={{ opacity: 1 }}
                     transition={{ duration: 2.2, ease: 'easeOut' }}
                 >
-                    <MonetFloatingDecor theme={theme} staticMode={staticMode} />
+                    <MonetFloatingDecor theme={theme} staticMode={decorStaticMode} />
                 </motion.div>
             )}
 
@@ -185,7 +206,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                         <div
                             ref={lyricColumnRef}
                             data-monet-lyric-column="true"
-                            className="relative z-10 flex h-full min-h-0 w-full max-w-[min(820px,58%)] flex-col justify-center overflow-hidden pl-[max(1.25rem,3.5rem)] pr-5 pb-5 pt-16 sm:pr-8 sm:pb-6 sm:pt-[4.5rem] lg:pr-14 lg:pb-8 lg:pt-20"
+                            className="relative z-10 flex h-full min-h-0 w-full max-w-[min(1100px,74%)] flex-col justify-start overflow-hidden pl-[max(1.25rem,3.5rem)] pr-5 pb-5 pt-[clamp(4.5rem,10vh,6.5rem)] sm:pr-8 sm:pb-6 lg:pr-14 lg:pb-8"
                         >
                             {/* Keep left lyric column readable when interactive3d stage fills the canvas. */}
                             {!suppressOpaqueLyricScrim ? (
@@ -208,7 +229,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                                         color: colorWithAlpha(hintColor, 0.96),
                                         letterSpacing: 0,
                                         fontSize: `${artistFontPx}px`,
-                                        textShadow: `0 10px 28px ${colorWithAlpha(theme.backgroundColor, 0.35)}`,
+                                        textShadow: 'none',
                                     }}
                                 >
                                     {primaryMetaLabel}
@@ -232,14 +253,18 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ duration: 1.3, ease: [0.25, 1, 0.5, 1], delay: 0.3 }}
                             >
-                                <div className="mb-6 space-y-1">
+                                <div className="mb-8 space-y-1">
                                     <div
-                                        className="min-w-0 font-semibold leading-[1.04] break-words"
+                                        className={`min-w-0 font-semibold leading-[1.04] ${
+                                            shouldPreferMonetTitleNowrap(songTitle)
+                                                ? 'whitespace-nowrap'
+                                                : 'break-words'
+                                        }`}
                                         style={{
                                             color: titleColor,
                                             fontSize: `${titleFontPx}px`,
                                             letterSpacing: 0,
-                                            textShadow: `0 18px 48px ${colorWithAlpha(theme.backgroundColor, 0.42)}, 0 0 36px ${colorWithAlpha(activeColor, 0.18)}`,
+                                            textShadow: 'none',
                                         }}
                                     >
                                         {songTitle || 'Monet'}
@@ -528,7 +553,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                             theme={theme}
                             mode={monetTuning.audioStyle}
                             beatPulse={beatPulse}
-                            staticMode={staticMode}
+                            staticMode={audioStaticMode}
                             isPreviewMode={isPreviewMode}
                         />
                     </div>

@@ -6,9 +6,11 @@ import { orbitToCameraPosition, resolveOrbitFitCameraRadius } from '../interacti
 import { resolveVisiblePaneLookAtX } from '../resolveInteractive3dStageContainment';
 import {
     buildCoverParticleGeometry,
-    coverParticleGridForQualityTier,
-    coverParticleGridForResolution,
 } from './buildCoverParticleGeometry';
+import {
+    resolveCoverParticleGridForPreset,
+    shouldEnableCoverParticleBloom,
+} from '../../../../utils/performance/interactive3dFrameCostMath';
 import {
     applyCoverParticleCinemaOffset,
     CoverParticleCinemaCamera,
@@ -34,6 +36,10 @@ import {
 } from './coverParticleDisplayTuning';
 import { resolveCoverParticlePresetRuntime } from './coverParticlePresetRuntime';
 import { CoverParticleRippleField } from './coverParticleRipples';
+import {
+    parseCssColorToCoverParticleRgb,
+    resolveCoverParticleContrastLift,
+} from '../../../../utils/visualizer/coverParticleContrastMath';
 import { LyricStageRuntime, type LyricStageTickInput } from '../mineradio/lyrics/LyricStageRuntime';
 import { drawCoverToSquareCanvas } from './prepareCoverParticleTexture';
 import {
@@ -82,7 +88,6 @@ const MINERADIO_ORBIT_BASELINES: Partial<Record<
     mineradioTunnel: { theta: 0, phi: 0.03, radius: 6.2 },
     mineradioOrbit: { theta: 0, phi: 0.12, radius: 8.8 },
     mineradioVoid: { theta: 0, phi: 0.05, radius: 8.0 },
-    mineradioVinyl: { theta: 0, phi: 0.11, radius: 6.15 },
     mineradioGalaxy: { theta: -0.52, phi: 0.34, radius: 9.4 },
 };
 
@@ -249,6 +254,9 @@ export class CoverParticleRuntime {
 
     private rippleField = new CoverParticleRippleField();
 
+    /** Extra emission scale so dark cover samples stay readable on near-black shells. */
+    private contrastLift = 1;
+
     private lyricStageEnabled = true;
 
     private lyricImmersive = false;
@@ -304,8 +312,7 @@ export class CoverParticleRuntime {
             }
         };
 
-        const immersiveVinyl = preset === 'mineradioVinyl' && this.lyricImmersive;
-        const immersiveStrength = immersiveVinyl ? 1 : 0;
+        const immersiveStrength = 0;
         const responsiveBassPulse = bassPulse * (1 + immersiveStrength * 0.45);
         const baseZ = presetProfile.cameraZ - responsiveBassPulse * presetProfile.bassCameraPunch;
         const cinemaOffset = this.cinemaCamera.tick(
@@ -446,7 +453,9 @@ export class CoverParticleRuntime {
         this.renderer = new THREE.WebGLRenderer({
             alpha: true,
             antialias: false,
-            powerPreference: 'high-performance',
+            powerPreference: Boolean((window as Window & { electron?: unknown }).electron)
+                ? 'low-power'
+                : 'high-performance',
             preserveDrawingBuffer: captureBridge,
         });
         this.renderer.setPixelRatio(1);
@@ -460,14 +469,14 @@ export class CoverParticleRuntime {
         canvas.style.inset = '0';
         canvas.style.width = '100%';
         canvas.style.height = '100%';
-        canvas.style.pointerEvents = 'auto';
+        canvas.style.pointerEvents = 'none';
         canvas.style.touchAction = 'none';
         canvas.style.zIndex = '0';
         this.camera.position.set(0, 0, 6.6);
         this.camera.fov = 45;
         this.camera.updateProjectionMatrix();
         this.camera.lookAt(0, 0, 0);
-        this.mountQuantumCubePass();
+        // Quantum cube pass retired with the preset; keep shaders for a possible future remap.
         this.uniforms.uRippleTex.value = this.rippleField.texture;
         this.uniforms.uPrevCoverTex.value = this.prevCoverTexture;
         this.uniforms.uEdgeTex.value = this.fallbackCoverTexture;
@@ -733,7 +742,13 @@ export class CoverParticleRuntime {
 
     resize(width: number, height: number) {
         if (!this.renderer || width <= 0 || height <= 0) return;
-        const dpr = Math.min(window.devicePixelRatio || 1, this.qualityProfile?.devicePixelRatioCap ?? 1.25);
+        const profileCap = this.qualityProfile?.devicePixelRatioCap ?? 1;
+        // Electron Retina: never upsample the particle pass — compositor freeze risk.
+        const electronCap = Boolean((window as Window & { electron?: unknown }).electron);
+        const dpr = Math.min(
+            window.devicePixelRatio || 1,
+            electronCap ? Math.min(profileCap, 1) : profileCap,
+        );
         this.renderer.setPixelRatio(dpr);
         this.renderer.setSize(width, height, false);
         this.camera.aspect = width / height;
@@ -753,14 +768,24 @@ export class CoverParticleRuntime {
         this.lyricStage.syncScreenLock(this.camera);
     }
 
+    /** Recompute particle dim lift from the shell background CSS color. */
+    setShellBackgroundColor(cssColor: string | null | undefined) {
+        const rgb = parseCssColorToCoverParticleRgb(cssColor);
+        this.contrastLift = rgb ? resolveCoverParticleContrastLift(rgb) : 1;
+    }
+
     configure(
         coverUrl: string | null | undefined,
         tuning: Interactive3dSceneTuning | undefined,
         qualityProfile: GeometricQualityProfile,
+        shellBackgroundColor?: string | null,
     ) {
         this.tuning = tuning;
         this.qualityProfile = qualityProfile;
         this.coverUrl = coverUrl ?? null;
+        if (shellBackgroundColor !== undefined) {
+            this.setShellBackgroundColor(shellBackgroundColor);
+        }
         const preset = normalizeInteractive3dVisualPreset(tuning?.visualPreset);
         const enabled = tuning?.enableCoverParticles ?? true;
         const nextMode = !enabled || !shouldRenderMineradioWebGL(preset, enabled)
@@ -775,7 +800,7 @@ export class CoverParticleRuntime {
             if (this.loadedVisualPreset !== preset) {
                 const presetBurst = preset === 'mineradioTunnel'
                     ? 0.30
-                    : preset === 'quantumCube' || preset === 'mineradioOrbit' || preset === 'mineradioVinyl'
+                    : preset === 'mineradioOrbit'
                         ? 0.24
                         : preset === 'mineradioGalaxy'
                             ? 0.16
@@ -827,12 +852,21 @@ export class CoverParticleRuntime {
 
     start() {
         this.frameUnsubscribe?.();
-        this.frameUnsubscribe = subscribeGeometricCanvasFrame(({ hidden }) => {
+        this.frameUnsubscribe = subscribeGeometricCanvasFrame(({ hidden, frameIndex }) => {
             if (hidden) return;
             if (this.inputProvider) {
                 this.latestInputs = this.inputProvider();
             }
-            this.renderFrame();
+            const frameSkip = Math.max(1, this.qualityProfile?.frameSkip ?? 1);
+            const paused = this.latestInputs.paused;
+            const electronCap = Boolean((window as Window & { electron?: unknown }).electron);
+            // Paused: slow refresh. Playing on Electron: never denser than every other frame.
+            // Never skip lyric ticks — karaoke must stay locked to the audio clock.
+            const effectiveSkip = paused
+                ? Math.max(frameSkip, 3)
+                : Math.max(frameSkip, electronCap ? 2 : 1);
+            const skipParticles = effectiveSkip > 1 && frameIndex % effectiveSkip !== 0;
+            this.renderFrame({ skipParticles });
         });
     }
 
@@ -879,9 +913,7 @@ export class CoverParticleRuntime {
     private rebuildCoverGeometry(profile: GeometricQualityProfile) {
         if (this.mode !== 'cover') return;
         const preset = normalizeInteractive3dVisualPreset(this.tuning?.visualPreset);
-        const grid = preset === 'emily'
-            ? coverParticleGridForResolution(1.55)
-            : coverParticleGridForQualityTier(profile.tier);
+        const grid = resolveCoverParticleGridForPreset(preset, profile.tier);
         if (this.coverPoints && this.coverPoints.geometry.userData.grid === grid) return;
         if (this.bloomPoints) {
             this.scene.remove(this.bloomPoints);
@@ -1165,8 +1197,9 @@ export class CoverParticleRuntime {
         });
     }
 
-    private renderFrame() {
+    private renderFrame(options?: { skipParticles?: boolean }) {
         if (!this.renderer || !this.container) return;
+        const skipParticles = Boolean(options?.skipParticles);
 
         const { audioBands, beat, atmosphereEnergy, smartAtmosphereEnabled = true, musicActive, pointerX, pointerY, pointerActive, paused } = this.latestInputs;
         const baseIntensity = this.tuning?.rhythmIntensity ?? 0.85;
@@ -1188,7 +1221,11 @@ export class CoverParticleRuntime {
         // Lyrics may still need a frame even when particles are off.
         const willTickLyrics = this.lyricStageEnabled;
 
-        if (this.mode === 'cover') {
+        if (skipParticles && !willTickLyrics) {
+            return;
+        }
+
+        if (this.mode === 'cover' && !skipParticles) {
             const uniforms = this.uniforms;
             const preset = normalizeInteractive3dVisualPreset(this.tuning?.visualPreset);
             const quantumCubeActive = preset === 'quantumCube';
@@ -1208,10 +1245,18 @@ export class CoverParticleRuntime {
                 dt,
                 elapsed,
                 audioUniforms.bass,
-                smartAtmosphereEnabled && coverRipplePreset && (this.tuning?.enableBassRipples ?? true),
+                audioUniforms.mid,
+                audioUniforms.treble,
+                smartAtmosphereEnabled
+                    && coverRipplePreset
+                    && (this.tuning?.enableBassRipples ?? true)
+                    && (this.qualityProfile?.enableRipples ?? true),
                 !musicActive,
             );
-            const bloomEnabled = this.tuning?.enableBloomParticles ?? false;
+            const bloomEnabled = shouldEnableCoverParticleBloom(
+                this.tuning?.enableBloomParticles,
+                this.qualityProfile?.tier ?? 'balanced',
+            );
             const bloomStrength = bloomEnabled
                 ? Math.min((this.tuning?.bloomStrength ?? 0.62) * 1.22, 1.6) * (smartAtmosphereEnabled ? 1 : 0.38)
                 : 0;
@@ -1234,7 +1279,7 @@ export class CoverParticleRuntime {
             uniforms.uEnergy.value = audioUniforms.energy;
             uniforms.uBurstAmt.value = burstAmt;
             uniforms.uPointScale.value = resolveCoverParticlePointScale(presetProfile.pointScale);
-            uniforms.uImmersion.value = preset === 'mineradioVinyl' && this.lyricImmersive ? 1 : 0;
+            uniforms.uImmersion.value = 0;
             this.vinylSpin = (this.vinylSpin + dt * (0.40 + audioUniforms.bass * 0.09) * uniforms.uSpeed.value) % (Math.PI * 2);
             uniforms.uVinylSpin.value = this.vinylSpin;
             if (this.interactivePointer.active) {
@@ -1244,7 +1289,7 @@ export class CoverParticleRuntime {
                 uniforms.uMouseXY.value.set(pointerX * 2.1, pointerY * 2.1);
                 uniforms.uMouseActive.value = pointerActive ? 1 : 0;
             }
-            uniforms.uParticleDim.value = smartAtmosphereEnabled ? 1 : 0.68;
+            uniforms.uParticleDim.value = (smartAtmosphereEnabled ? 1 : 0.68) * this.contrastLift;
             this.updateQuantumCubePass(elapsed, audioUniforms, quantumCubeActive);
 
             const bassPulse = smartAtmosphereEnabled

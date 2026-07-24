@@ -19,8 +19,17 @@ import {
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { resolveWaitingWordPresentation, resolveLyricWordAnimateKey } from '../../../utils/lyrics/lyricWordMode';
 import { LYRIC_MOTION_BLUR_PX, lyricBlurFilter } from '../../../utils/lyrics/lyricMotionClarity';
-import { buildLyricKaraokeOutlineLayers } from '../../../utils/lyricVisualEffects';
+import {
+    buildLyricKaraokeOutlineLayers,
+    type LyricVisualEffectIntensity,
+} from '../../../utils/lyricVisualEffects';
+import {
+    resolveLyricEffectPack,
+    type ResolvedLyricEffectPack,
+} from '../../../utils/lyricEffectPacks';
 import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
+import { useLyricEffectPackBeatVars } from '../../../hooks/useLyricEffectPackBeatVars';
+import LyricEffectPackLayers, { isLyricEffectPackNeonActive } from '../LyricEffectPackLayers';
 
 // This one is still word-driven, but unlike Classic it needs to pre-build a column/chunk structure first.
 // The flow is basically: ask runtime for the active line, optionally preheat the upcoming line,
@@ -396,17 +405,37 @@ const PartitaWord: React.FC<{
     isChorus?: boolean;
     fontSize: string;
     lyricWordMode: 'default' | 'karaoke';
-}> = ({ word, config, currentTime, theme, layoutVariants, bodyVariants, glowVariants, baseColor, activeColor, renderProfile, isChorus, fontSize, lyricWordMode }) => {
+    visualEffectIntensity: LyricVisualEffectIntensity;
+    effectPack: ResolvedLyricEffectPack;
+}> = ({
+    word,
+    config,
+    currentTime,
+    theme,
+    layoutVariants,
+    bodyVariants,
+    glowVariants,
+    baseColor,
+    activeColor,
+    renderProfile,
+    isChorus,
+    fontSize,
+    lyricWordMode,
+    visualEffectIntensity,
+    effectPack,
+}) => {
     const [status, setStatus] = useState<'waiting' | 'active' | 'passed'>('waiting');
     const rippleScale = useMemo(() => 1.5 + Math.random() * 2, []);
     const duration = getPartitaWordDisplayDuration(word, renderProfile);
     const activeEndTime = getPartitaWordActiveEndTime(word, renderProfile);
     const graphemeTimings = useMemo(() => buildWordGraphemeTimings(word), [word]);
     const animateKey = resolveLyricWordAnimateKey(status, lyricWordMode);
-    const outlineLayers = useMemo(() => {
-        const fontPx = Number.parseFloat(String(fontSize)) || 48;
-        return buildLyricKaraokeOutlineLayers(activeColor, fontPx, 'strong');
-    }, [activeColor, fontSize]);
+    const fontPx = Number.parseFloat(String(fontSize)) || 48;
+    const outlineLayers = useMemo(
+        () => buildLyricKaraokeOutlineLayers(activeColor, fontPx, visualEffectIntensity),
+        [activeColor, fontPx, visualEffectIntensity],
+    );
+    const neonActive = isLyricEffectPackNeonActive(effectPack, status);
 
     useMotionValueEvent(currentTime, 'change', (latest: number) => {
         let newStatus: 'waiting' | 'active' | 'passed' = 'waiting';
@@ -476,6 +505,13 @@ const PartitaWord: React.FC<{
 
             {/* Body Layer — karaoke 色字白边: scaled solid rim */}
             <span className="relative z-10 block">
+                <LyricEffectPackLayers
+                    glyph={word.text}
+                    status={status}
+                    effectPack={effectPack}
+                    glowColor={activeColor}
+                    fontPx={fontPx}
+                />
                 {status === 'active' ? (
                     <span
                         aria-hidden
@@ -493,7 +529,7 @@ const PartitaWord: React.FC<{
                 <motion.span
                     variants={bodyVariants}
                     custom={{ config, activeColor, baseColor, duration, wordRevealMode: renderProfile.wordRevealMode }}
-                    className="relative block"
+                    className={`relative block${neonActive ? ' lyric-effect-neon-scan' : ''}`}
                 >
                     {word.text}
                 </motion.span>
@@ -535,7 +571,27 @@ const PartitaChunk: React.FC<{
     showGuideLines: boolean;
     fontSize: string;
     lyricWordMode: 'default' | 'karaoke';
-}> = ({ chunkWords, displayWords, config, guideIndex, currentTime, theme, layoutVariants, bodyVariants, glowVariants, baseColor, renderProfile, isChorus, showGuideLines, fontSize, lyricWordMode }) => {
+    visualEffectIntensity: LyricVisualEffectIntensity;
+    effectPack: ResolvedLyricEffectPack;
+}> = ({
+    chunkWords,
+    displayWords,
+    config,
+    guideIndex,
+    currentTime,
+    theme,
+    layoutVariants,
+    bodyVariants,
+    glowVariants,
+    baseColor,
+    renderProfile,
+    isChorus,
+    showGuideLines,
+    fontSize,
+    lyricWordMode,
+    visualEffectIntensity,
+    effectPack,
+}) => {
     const [chunkStatus, setChunkStatus] = useState<'waiting' | 'active' | 'passed'>('waiting');
     const waitingWordPresentation = resolveWaitingWordPresentation(lyricWordMode);
 
@@ -716,6 +772,8 @@ const PartitaChunk: React.FC<{
                         isChorus={isChorus}
                         fontSize={fontSize}
                         lyricWordMode={lyricWordMode}
+                        visualEffectIntensity={visualEffectIntensity}
+                        effectPack={effectPack}
                     />
                 );
             })}
@@ -738,10 +796,17 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
         isPlayerChromeHidden = false,
         hideTranslationSubtitle = false,
         showSubtitleTranslation = true,
+        beatPulse,
     } = props;
     const { t } = useTranslation();
     const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const lyricEffectPackId = useSettingsUiStore(state => state.lyricEffectPackId);
+    const visualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
     const waitingWordPresentation = resolveWaitingWordPresentation(lyricWordMode);
+    const effectPack = useMemo(
+        () => resolveLyricEffectPack(lyricEffectPackId, visualEffectIntensity),
+        [lyricEffectPackId, visualEffectIntensity],
+    );
     const stageRef = useRef<HTMLDivElement | null>(null);
     const [windowHeight, setWindowHeight] = useState(800);
     const [stageWidth, setStageWidth] = useState(() => (
@@ -792,6 +857,13 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
     });
     const activeLineRenderProfile = activeLine ? resolvePartitaLineRenderProfile(activeLine) : null;
     const activeLineContainerMotion = getPartitaLineContainerMotion(activeLineRenderProfile);
+    useLyricEffectPackBeatVars({
+        hostRef: stageRef,
+        packId: effectPack.id,
+        intensity: visualEffectIntensity,
+        beatPulse,
+        isChorus: Boolean(activeLine?.isChorus),
+    });
 
     const sequentialLayout = useMemo(() => {
         if (!activeLine) {
@@ -1115,6 +1187,8 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
                                                     showGuideLines={resolvedPartitaTuning.showGuideLines}
                                                     fontSize={mainFontSize}
                                                     lyricWordMode={lyricWordMode}
+                                                    visualEffectIntensity={visualEffectIntensity}
+                                                    effectPack={effectPack}
                                                 />
                                             ))}
                                         </div>

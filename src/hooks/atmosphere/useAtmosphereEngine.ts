@@ -30,6 +30,7 @@ import type { AtmosphereEngine, UseAtmosphereEngineParams } from './types';
 
 export function useAtmosphereEngine({
     enabled = true,
+    isPlaying = false,
     audioSrc,
     songKey,
     audioContextRef,
@@ -92,6 +93,7 @@ export function useAtmosphereEngine({
 
     useAtmosphereBeatMapLoader({
         enabled,
+        isPlaying,
         audioSrc,
         songKey,
         audioContextRef,

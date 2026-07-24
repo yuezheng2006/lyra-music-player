@@ -43,6 +43,8 @@ type UsePlaybackInteractionBridgeParams = {
     handleToggleLoopMode: () => void;
     pausePlayback: () => void;
     resumePlayback: () => Promise<void>;
+    /** Re-arm audio when session restore left currentSong without audioSrc. */
+    replayCurrentSong?: () => void;
     syncStageLyricsClock: (timeSec: number, endTimeSec: number, nextPlayerState: PlayerState, startTimeSec?: number) => void;
 };
 
@@ -74,6 +76,7 @@ export function usePlaybackInteractionBridge({
     handleToggleLoopMode,
     pausePlayback,
     resumePlayback,
+    replayCurrentSong,
     syncStageLyricsClock,
 }: UsePlaybackInteractionBridgeParams) {
     const togglePlay = useCallback((event?: React.MouseEvent | KeyboardEvent) => {
@@ -92,6 +95,12 @@ export function usePlaybackInteractionBridge({
             return;
         }
 
+        // After GPU relaunch / failed restore: song metadata may exist with empty audio src.
+        if (!audioSrc && currentSong && replayCurrentSong) {
+            replayCurrentSong();
+            return;
+        }
+
         if (audioRef.current) {
             if (!audioRef.current.paused && !audioRef.current.ended) {
                 pausePlayback();
@@ -99,7 +108,7 @@ export function usePlaybackInteractionBridge({
                 void resumePlayback();
             }
         }
-    }, [activePlaybackContext, audioRef, audioSrc, isNowPlayingStageActive, pausePlayback, playerState, resumePlayback, stageActiveEntryKind]);
+    }, [activePlaybackContext, audioRef, audioSrc, currentSong, isNowPlayingStageActive, pausePlayback, playerState, replayCurrentSong, resumePlayback, stageActiveEntryKind]);
 
     const toggleLoop = useCallback((event?: React.MouseEvent) => {
         event?.stopPropagation();

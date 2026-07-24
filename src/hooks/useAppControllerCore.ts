@@ -232,6 +232,11 @@ export function useAppControllerCore() {
     const onlinePlaybackRecoveryRef = useRef<Promise<boolean> | null>(null);
     const lastAudioRecoverySourceRef = useRef<string | null>(null);
     const currentOnlineAudioUrlFetchedAtRef = useRef<number | null>(null);
+    /** Bumped to remount <audio> after Format-error recovery (poisoned media element). */
+    const [audioElementEpoch, setAudioElementEpoch] = useState(0);
+    const remountAudioElement = useCallback(() => {
+        setAudioElementEpoch((epoch) => epoch + 1);
+    }, []);
     // Buffer progress debug helper. Uncomment this ref, the reset effect below,
     // and the audio `onProgress` handler to log buffered percent again.
     // const lastBufferedPercentLogRef = useRef<number | null>(null);
@@ -273,6 +278,7 @@ export function useAppControllerCore() {
         autoHidePlayerChrome,
         disableVisualizerVignette,
         enableSmartAtmosphere,
+        enableBilibiliVideoBackground,
         enable3dInteractiveBackground,
         minimizeToTray,
         hideTaskbarIcon,
@@ -292,6 +298,7 @@ export function useAppControllerCore() {
         cappellaTuning,
         tiltTuning,
         monetBackgroundTuning,
+        latentBackgroundTuning,
         interactive3dSceneTuning,
         monetTuning,
         cappellaCustomEmojiImages,
@@ -321,6 +328,7 @@ export function useAppControllerCore() {
         handleToggleTransparentPlayerBackground,
         handleToggleDisableVisualizerVignette,
         handleToggleEnableSmartAtmosphere,
+        handleToggleEnableBilibiliVideoBackground,
         handleToggleEnable3dInteractiveBackground,
         handleToggleMinimizeToTray,
         handleToggleHideTaskbarIcon,
@@ -332,6 +340,8 @@ export function useAppControllerCore() {
         handleSetLyricWordMode,
         handleSetVisualizerBackgroundMode,
         handleSetMonetBackgroundTuning,
+        handleSetLatentBackgroundTuning,
+        handleResetLatentBackgroundTuning,
         handleSetInteractive3dSceneTuning,
         handleSetMonetTuning,
         handleSetCadenzaTuning,
@@ -420,9 +430,11 @@ export function useAppControllerCore() {
         lastAudioRecoverySourceRef,
         currentOnlineAudioUrlFetchedAtRef,
         setAudioSrc,
+        setVideoSrc,
+        remountAudioElement,
         onlineAudioUrlTtlMs: ONLINE_AUDIO_URL_TTL_MS,
         onlineAudioUrlRefreshBufferMs: ONLINE_AUDIO_URL_REFRESH_BUFFER_MS,
-    }), [audioQuality, audioSrc, audioRef, blobUrlRef, currentOnlineAudioUrlFetchedAtRef, currentSong, currentSongRef, lastAudioRecoverySourceRef, onlinePlaybackRecoveryRef, pendingResumeTimeRef, setAudioSrc, shouldAutoPlay]);
+    }), [audioQuality, audioSrc, audioRef, blobUrlRef, currentOnlineAudioUrlFetchedAtRef, currentSong, currentSongRef, lastAudioRecoverySourceRef, onlinePlaybackRecoveryRef, pendingResumeTimeRef, remountAudioElement, setAudioSrc, setVideoSrc, shouldAutoPlay]);
 
     const getCoverUrl = useMemo(
         () => createCoverUrlResolver(cachedCoverUrl, currentSong),
@@ -585,6 +597,7 @@ export function useAppControllerCore() {
         audioPower,
         audioQuality,
         audioRef,
+        audioElementEpoch,
         audioSrc,
         videoRef,
         videoSrc,
@@ -623,6 +636,7 @@ export function useAppControllerCore() {
         enableNowPlayingStage,
         enablePlayerPageNativeBlur,
         enableSmartAtmosphere,
+        enableBilibiliVideoBackground,
         fumeTuning,
         gainNodeRef,
         activateSmartTheme,
@@ -639,6 +653,8 @@ export function useAppControllerCore() {
         handleSetLyricFilterPattern,
         handleSetInteractive3dSceneTuning,
         handleSetMonetBackgroundTuning,
+        handleSetLatentBackgroundTuning,
+        handleResetLatentBackgroundTuning,
         handleSetMonetTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
@@ -651,6 +667,7 @@ export function useAppControllerCore() {
         handleToggleDaylight,
         handleToggleDisableVisualizerVignette,
         handleToggleEnableSmartAtmosphere,
+        handleToggleEnableBilibiliVideoBackground,
         handleToggleHidePlayerTranslationSubtitle,
         handleToggleLoopMode,
         handleToggleMute,
@@ -697,6 +714,7 @@ export function useAppControllerCore() {
         mid,
         monetBackgroundImage,
         monetBackgroundTuning,
+        latentBackgroundTuning,
         monetPortraitImage,
         monetTuning,
         navidromeEnabled,

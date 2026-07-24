@@ -84,8 +84,9 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         handleSetInteractive3dSceneTuning,
         visualizerMode,
         handleSetVisualizerMode,
-        onApplyLyricBodyColor,
         onApplyLyricColorPreset,
+        setIsPanelOpen,
+        setPanelTab,
         t,
         settingsModalState,
         closeSettings,
@@ -242,8 +243,11 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         onInteractive3dSceneTuningChange: handleSetInteractive3dSceneTuning,
         visualizerMode,
         onVisualizerModeChange: handleSetVisualizerMode,
-        onApplyLyricBodyColor,
         onApplyLyricColorPreset,
+        onOpenSongSettings: () => {
+            setPanelTab('controls');
+            setIsPanelOpen(true);
+        },
         backgroundMenuLabel: t('player.backgroundMenu') || t('ui.playerPageBackground') || 'Background',
         backgroundModeInteractive3dLabel: t('options.visualizerBackgroundModeInteractive3d') || '3D',
         backgroundModeCommonLabel: t('options.visualizerBackgroundModeCommon') || 'Common',
@@ -251,6 +255,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         backgroundPresetSectionLabel: t('options.mineradioVisualPreset') || '3D style',
         lyricsStyleSectionLabel: t('player.lyricsStyleSection') || t('ui.lyricsAnimationStyle') || 'Lyric style',
         lyricColorSectionLabel: t('player.lyricColorSection') || t('options.lyricColorPresetTitle') || 'Lyric colors',
+        openSongSettingsLabel: t('player.openSongSettings') || t('ui.songSettings') || 'Song settings',
         getBackgroundPresetLabel: (preset) => t(`options.mineradioPreset.${preset}`),
         getVisualizerModeLabel: (mode) => resolveVisualizerModeLabel(mode, t),
     }), [
@@ -328,8 +333,9 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         handleSetInteractive3dSceneTuning,
         visualizerMode,
         handleSetVisualizerMode,
-        onApplyLyricBodyColor,
         onApplyLyricColorPreset,
+        setIsPanelOpen,
+        setPanelTab,
     ]);
 
     const settingsDialog = useMemo(() => buildSettingsDialogModel({

@@ -96,6 +96,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
         audioBands,
         audioPower,
         audioRef,
+        audioElementEpoch,
         audioSrc,
         videoRef,
         videoSrc,
@@ -119,6 +120,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
         duration,
         effectiveLoopMode,
         enableSmartAtmosphere,
+        enableBilibiliVideoBackground,
         fumeTuning,
         getCoverUrl,
         handleContainerClick,
@@ -144,6 +146,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
         lyricsFontScale,
         monetBackgroundImage,
         monetBackgroundTuning,
+        latentBackgroundTuning,
         monetPortraitImage,
         monetTuning,
         navigateToHome,
@@ -194,7 +197,8 @@ export function AppRootView({ controller }: AppRootViewProps) {
     } = controller;
     const shellTheme = useCoverShellTheme(getCoverUrl(), isDaylight);
 
-    const videoStageActive = isVideoPlaybackStageActive(currentView, videoSrc);
+    const videoStageActive = isVideoPlaybackStageActive(currentView, videoSrc)
+        && enableBilibiliVideoBackground;
 
     useEffect(() => {
         if (!currentSong && videoSrc) {
@@ -269,6 +273,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
             audioElement={<AppAudioElement
                 audioRef={audioRef}
                 audioSrc={audioSrc}
+                audioElementEpoch={audioElementEpoch}
                 effectiveLoopMode={effectiveLoopMode}
                 shouldAutoPlay={shouldAutoPlay}
                 currentTime={currentTime}
@@ -363,6 +368,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                     videoSrc={videoSrc || ''}
                     visible={videoStageActive}
                 />
+                <div className="relative z-10 h-full w-full">
                 {!isObsBrowserSourceRendering && (
                     <VisualizerRenderer
                         mode={visualizerMode}
@@ -423,6 +429,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         cappellaTuning={cappellaTuning}
                         tiltTuning={tiltTuning}
                         monetBackgroundTuning={monetBackgroundTuning}
+                        latentBackgroundTuning={latentBackgroundTuning}
                         interactive3dSceneTuning={interactive3dSceneTuning}
                         playlistShelfItems={playlistShelfItems}
                         monetTuning={monetTuning}
@@ -437,6 +444,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         onBack={navigateToHome}
                     />
                 )}
+                </div>
             </div>
 
             {currentView === 'player' && isObsBrowserSourceRendering && (

@@ -372,6 +372,36 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         ],
         execute: async (_input, context) => context.downloadCurrentSong(),
     },
+    {
+        id: 'record-current-playback',
+        group: 'playback',
+        title: 'Record current playback',
+        description: 'Export the current player view or Bilibili video stream to a video file (Electron only)',
+        keywords: [
+            'record',
+            'video export',
+            'export video',
+            'screen record',
+            'bilibili record',
+            '录制',
+            '录屏',
+            '导出视频',
+            'B站录制',
+            'bilibili',
+            'luzhi',
+            'luping',
+            'daochu',
+            'lz',
+            'lp',
+        ],
+        execute: (_input, context) => {
+            if (!context.isElectronWindow) {
+                return false;
+            }
+            context.startVideoExport('from-start');
+            return true;
+        },
+    },
     createSettingsCommand('settings-desktop', 'Desktop settings', 'Open desktop app settings', ['desktop', 'electron', '桌面', '桌面端', 'zhuomian', 'zhuomianduan', 'zm', 'zmd'], 'options', 'desktop'),
     {
         id: 'desktop-lyrics-toggle',
@@ -827,6 +857,53 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         },
     },
     {
+        id: 'background-latent',
+        group: 'visualizer',
+        title: 'Background: Latent',
+        description: 'Switch background to cover-colored audio-reactive shaders',
+        keywords: ['latent', 'shader', 'mesh', 'dithering', '隐现', '着色器', 'yx', '背景切换到隐现', '背景切换到 Latent'],
+        execute: (_input, context) => {
+            context.setVisualizerBackgroundMode('latent');
+            return true;
+        },
+    },
+    {
+        id: 'background-latent-dithering',
+        group: 'visualizer',
+        title: 'Latent: Pixel',
+        description: 'Show only the Dithering layer',
+        keywords: ['latent dithering', 'latent pixel', '隐现像素', '像素层', 'yxss', '背景切换到隐现：像素'],
+        execute: (_input, context) => {
+            context.setVisualizerBackgroundMode('latent');
+            context.setLatentBackgroundTuning({ displayMode: 'dithering' });
+            return true;
+        },
+    },
+    {
+        id: 'background-latent-mesh',
+        group: 'visualizer',
+        title: 'Latent: Fluid',
+        description: 'Show only the MeshGradient layer',
+        keywords: ['latent mesh', 'latent fluid', '隐现流体', '流体层', 'yxlt', '背景切换到隐现：流体'],
+        execute: (_input, context) => {
+            context.setVisualizerBackgroundMode('latent');
+            context.setLatentBackgroundTuning({ displayMode: 'mesh' });
+            return true;
+        },
+    },
+    {
+        id: 'background-latent-both',
+        group: 'visualizer',
+        title: 'Latent: Mixed',
+        description: 'Show both shader layers',
+        keywords: ['latent both', 'latent mixed', '隐现混合', '混合层', 'yxhh', '背景切换到隐现：混合'],
+        execute: (_input, context) => {
+            context.setVisualizerBackgroundMode('latent');
+            context.setLatentBackgroundTuning({ displayMode: 'both' });
+            return true;
+        },
+    },
+    {
         id: 'background-interactive3d',
         group: 'visualizer',
         title: 'Background: 3D Interactive',
@@ -855,6 +932,28 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         ],
         execute: (_input, context) => {
             context.toggleSmartAtmosphere();
+            return true;
+        },
+    },
+    {
+        id: 'settings-toggle-bilibili-video-background',
+        group: 'playback',
+        title: 'Toggle Bilibili video background',
+        description: 'Show or hide muted Bilibili video under lyrics while playing',
+        keywords: [
+            'bilibili video',
+            'bilibili background',
+            'video background',
+            'B站视频',
+            'B站背景',
+            '视频背景',
+            'bizhan',
+            'bizhanshipin',
+            'b站视频',
+            'bilibili',
+        ],
+        execute: (_input, context) => {
+            context.toggleBilibiliVideoBackground();
             return true;
         },
     },

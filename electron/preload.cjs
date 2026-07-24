@@ -42,6 +42,11 @@ contextBridge.exposeInMainWorld('electron', {
         ipcRenderer.on('netease-api-status-changed', listener);
         return () => ipcRenderer.removeListener('netease-api-status-changed', listener);
     },
+    onGpuProcessGone: (callback) => {
+        const listener = (_event, payload) => callback(payload);
+        ipcRenderer.on('gpu-process-gone', listener);
+        return () => ipcRenderer.removeListener('gpu-process-gone', listener);
+    },
     minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
     toggleMaximizeWindow: () => ipcRenderer.invoke('window-toggle-maximize'),
     toggleFullscreenWindow: () => ipcRenderer.invoke('window-toggle-fullscreen'),

@@ -4,6 +4,7 @@ import { markProviderAudioUnavailable } from '../../../services/musicProviders/s
 import { getSongMusicProviderId } from '../../../services/musicProviders/registry';
 import type { SongResult } from '../../../types';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong } from '../../../utils/appPlaybackGuards';
+import { normalizePlaybackVideoSrc } from '../../../utils/playback/resolveVideoPlaybackStage';
 
 // src/components/app/playback/createOnlineRecoveryController.ts
 
@@ -35,6 +36,9 @@ type RecoveryControllerParams = {
     lastAudioRecoverySourceRef: MutableRefObject<string | null>;
     currentOnlineAudioUrlFetchedAtRef: MutableRefObject<number | null>;
     setAudioSrc: Dispatch<SetStateAction<string | null>>;
+    setVideoSrc?: Dispatch<SetStateAction<string | null>>;
+    /** Remount <audio> so a poisoned element can load again after Format error. */
+    remountAudioElement?: () => void;
     onlineAudioUrlTtlMs: number;
     onlineAudioUrlRefreshBufferMs: number;
 };
@@ -53,6 +57,8 @@ export const createOnlineRecoveryController = ({
     lastAudioRecoverySourceRef,
     currentOnlineAudioUrlFetchedAtRef,
     setAudioSrc,
+    setVideoSrc,
+    remountAudioElement,
     onlineAudioUrlTtlMs,
     onlineAudioUrlRefreshBufferMs,
 }: RecoveryControllerParams) => {
@@ -131,11 +137,15 @@ export const createOnlineRecoveryController = ({
                 }
 
                 const nextSrc = audioResult.audioSrc;
-                if (
-                    !nextSrc
-                    || nextSrc === normalizedFailedSrc
-                    || failedSrcs.has(nextSrc)
-                ) {
+                if (!nextSrc) {
+                    markProviderAudioUnavailable(getSongMusicProviderId(song), song, audioQuality);
+                    return false;
+                }
+
+                // Same CDN URL often still plays after remount — HTMLAudioElement can stay
+                // stuck on MEDIA_ERR_SRC_NOT_SUPPORTED ("Format error") even when the URL is fine.
+                const isSameSrcHeal = Boolean(normalizedFailedSrc && nextSrc === normalizedFailedSrc);
+                if (!isSameSrcHeal && failedSrcs.has(nextSrc)) {
                     markProviderAudioUnavailable(getSongMusicProviderId(song), song, audioQuality);
                     return false;
                 }
@@ -154,7 +164,10 @@ export const createOnlineRecoveryController = ({
                 currentOnlineAudioUrlFetchedAtRef.current = audioResult.audioSrc.startsWith('blob:')
                     ? null
                     : Date.now();
+                // Always remount: a poisoned <audio> may not load a new src either.
+                remountAudioElement?.();
                 setAudioSrc(audioResult.audioSrc);
+                setVideoSrc?.(normalizePlaybackVideoSrc(audioResult.videoSrc));
                 return true;
             } catch (error) {
                 console.error('[App] Failed to recover online playback source', error);

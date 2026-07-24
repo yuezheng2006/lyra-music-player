@@ -10,10 +10,13 @@ import { DEFAULT_AMBIENT_TRANSITION_DURATION } from '../utils/atmosphere/ambient
 
 export const AMBIENT_VISUAL_ENABLED_STORAGE_KEY = 'lyra_ambient_visual_enabled';
 
+/** Opt-in ambient WebGL; off for new installs to avoid dual-WebGL with cover particles. */
+export const DEFAULT_AMBIENT_VISUAL_ENABLED = false;
+
 const readStoredEnabled = (): boolean => {
-  if (typeof window === 'undefined') return true;
+  if (typeof window === 'undefined') return DEFAULT_AMBIENT_VISUAL_ENABLED;
   const raw = localStorage.getItem(AMBIENT_VISUAL_ENABLED_STORAGE_KEY);
-  if (raw === null) return true;
+  if (raw === null) return DEFAULT_AMBIENT_VISUAL_ENABLED;
   return raw === '1' || raw === 'true';
 };
 

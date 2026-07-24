@@ -1,5 +1,6 @@
 import { colorWithAlpha, parseColorChannels } from '../colorMix';
 import type { MonetBackgroundImage, MonetBackgroundTuning, Theme } from '../../../types';
+import { fetchCoverViaProxy } from '../../../utils/fetchCoverViaProxy';
 
 // src/components/visualizer/monet/monetBackgroundPipeline.ts
 // Builds and caches the static Monet poster background so the visualizer only recomputes when inputs change.
@@ -49,14 +50,19 @@ const resolveSourceUrl = ({
         : coverUrl ?? monetBackgroundImage?.url ?? null
 );
 
-const loadImage = async (src: string): Promise<HTMLImageElement> => {
+type LoadedMonetImage = {
+    image: HTMLImageElement;
+    /** Revoke blob: object URLs created for CORS-safe canvas readback. */
+    release: () => void;
+};
+
+const loadHtmlImage = async (src: string, crossOrigin: boolean): Promise<HTMLImageElement> => {
     const image = new Image();
-    if (src.startsWith('http://') || src.startsWith('https://')) {
+    if (crossOrigin) {
         image.crossOrigin = 'anonymous';
     }
     image.decoding = 'async';
-    
-    // Create a promise for the fallback load event
+
     const loadPromise = new Promise<void>((resolve, reject) => {
         image.onload = () => resolve();
         image.onerror = () => reject(new Error(`Failed to load image: ${src}`));
@@ -66,12 +72,64 @@ const loadImage = async (src: string): Promise<HTMLImageElement> => {
 
     try {
         await image.decode();
-    } catch (e) {
+    } catch {
         // Fallback to waiting for onload if decode() fails or is unsupported
         await loadPromise;
     }
-    
+
     return image;
+};
+
+/** Resolve a canvas-safe image URL (proxy Douyin/Netease CDN when browser CORS blocks). */
+export const resolveMonetCanvasSafeImageSource = async (
+    src: string,
+): Promise<{ url: string; revoke: () => void }> => {
+    if (src.startsWith('blob:') || src.startsWith('data:') || src.startsWith('file:')) {
+        return { url: src, revoke: () => undefined };
+    }
+
+    const toObjectUrl = async (response: Response) => {
+        if (!response.ok) {
+            throw new Error(`cover fetch failed: ${response.status}`);
+        }
+        const blob = await response.blob();
+        if (!blob.size) {
+            throw new Error('cover fetch returned empty body');
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        return {
+            url: objectUrl,
+            revoke: () => URL.revokeObjectURL(objectUrl),
+        };
+    };
+
+    try {
+        const response = await fetch(src, { mode: 'cors', credentials: 'omit' });
+        return await toObjectUrl(response);
+    } catch {
+        const proxied = await fetchCoverViaProxy(src);
+        return toObjectUrl(proxied);
+    }
+};
+
+const loadImage = async (src: string): Promise<LoadedMonetImage> => {
+    if (src.startsWith('blob:') || src.startsWith('data:') || src.startsWith('file:')) {
+        return {
+            image: await loadHtmlImage(src, false),
+            release: () => undefined,
+        };
+    }
+
+    const { url, revoke } = await resolveMonetCanvasSafeImageSource(src);
+    try {
+        return {
+            image: await loadHtmlImage(url, true),
+            release: revoke,
+        };
+    } catch (error) {
+        revoke();
+        throw error;
+    }
 };
 
 const resolveCanvasImageDimension = (
@@ -319,29 +377,33 @@ export const buildMonetBackgroundDataUrl = async ({
         return null;
     }
 
-    const image = await loadImage(sourceUrl);
-    const canvas = document.createElement('canvas');
-    canvas.width = MONET_BACKGROUND_WIDTH;
-    canvas.height = MONET_BACKGROUND_HEIGHT;
-    const context = canvas.getContext('2d');
-    if (!context) {
-        return null;
+    const { image, release } = await loadImage(sourceUrl);
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = MONET_BACKGROUND_WIDTH;
+        canvas.height = MONET_BACKGROUND_HEIGHT;
+        const context = canvas.getContext('2d');
+        if (!context) {
+            return null;
+        }
+
+        context.fillStyle = theme.backgroundColor;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        context.save();
+        if (checkCanvasFilterSupport()) {
+            context.filter = `blur(${clamp(tuning.backgroundBlurPx, 0, 60)}px)`;
+        }
+        drawCoverCropped(context, image, canvas.width, canvas.height);
+        context.restore();
+
+        applyBackgroundPostProcessing(context, canvas.width, canvas.height, theme, tuning);
+        paintMonetOverlay(context, canvas.width, canvas.height, theme, tuning);
+
+        return canvas.toDataURL('image/jpeg', 0.92);
+    } finally {
+        release();
     }
-
-    context.fillStyle = theme.backgroundColor;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
-    context.save();
-    if (checkCanvasFilterSupport()) {
-        context.filter = `blur(${clamp(tuning.backgroundBlurPx, 0, 60)}px)`;
-    }
-    drawCoverCropped(context, image, canvas.width, canvas.height);
-    context.restore();
-
-    applyBackgroundPostProcessing(context, canvas.width, canvas.height, theme, tuning);
-    paintMonetOverlay(context, canvas.width, canvas.height, theme, tuning);
-
-    return canvas.toDataURL('image/jpeg', 0.92);
 };
 
 export const resolveMonetBackgroundDataUrl = (options: BuildMonetBackgroundOptions) => {

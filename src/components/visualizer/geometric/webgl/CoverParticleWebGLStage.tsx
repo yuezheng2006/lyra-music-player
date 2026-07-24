@@ -21,6 +21,7 @@ interface CoverParticleWebGLStageProps {
     pointerY: MotionValue<number>;
     paused?: boolean;
     cameraSnapshotRef?: React.RefObject<InteractiveCameraSnapshot>;
+    shellBackgroundColor?: string | null;
 }
 
 export const shouldShowCoverParticleWebGL = (tuning?: Interactive3dSceneTuning): boolean => {
@@ -53,7 +54,9 @@ const CoverParticleWebGLStage: React.FC<CoverParticleWebGLStageProps> = (props) 
         <div
             ref={handleContainerRef}
             className="absolute inset-0 overflow-hidden z-0 isolate"
-            style={{ pointerEvents: 'auto', touchAction: 'none' }}
+            // Never capture clicks — camera interaction uses the dedicated overlay.
+            // Full-stage pointer-events here blocks home/sidebar/player chrome.
+            style={{ pointerEvents: 'none', touchAction: 'none' }}
             data-testid="interactive3d-cover-webgl-stage"
             data-visual-preset={visualPreset}
             aria-hidden

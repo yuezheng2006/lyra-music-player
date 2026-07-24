@@ -22,11 +22,18 @@ import {
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { resolveWaitingWordPresentation, resolveLyricWordAnimateKey } from '../../../utils/lyrics/lyricWordMode';
 import { LYRIC_MOTION_BLUR_PX, lyricBlurFilter } from '../../../utils/lyrics/lyricMotionClarity';
-import { buildLyricKaraokeOutlineLayers } from '../../../utils/lyricVisualEffects';
-import { resolveLyricEffectPack } from '../../../utils/lyricEffectPacks';
+import {
+    buildLyricKaraokeOutlineLayers,
+    type LyricVisualEffectIntensity,
+} from '../../../utils/lyricVisualEffects';
+import {
+    resolveLyricEffectPack,
+    type ResolvedLyricEffectPack,
+} from '../../../utils/lyricEffectPacks';
 import { resolveLyricPhrasePresentation } from '../../../utils/lyrics/lyricPhrasePresentationMath';
 import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
 import { useLyricEffectPackBeatVars } from '../../../hooks/useLyricEffectPackBeatVars';
+import LyricEffectPackLayers, { isLyricEffectPackNeonActive } from '../LyricEffectPackLayers';
 
 // This mode is the most straightforward lyric pipeline in the folder.
 // First we ask runtime which line is active right now, then read renderHints from that line,
@@ -201,19 +208,38 @@ const Word: React.FC<{
     isChorus?: boolean;
     fontSize: string;
     lyricWordMode: 'default' | 'karaoke';
-    /** Neon pack only: soft scan garnish on the active glyph face. */
-    neonScan?: boolean;
-}> = ({ word, config, currentTime, theme, isChaotic, layoutVariants, bodyVariants, glowVariants, baseColor, activeColor, renderProfile, isChorus, fontSize, lyricWordMode, neonScan = false }) => {
+    visualEffectIntensity: LyricVisualEffectIntensity;
+    effectPack: ResolvedLyricEffectPack;
+}> = ({
+    word,
+    config,
+    currentTime,
+    theme,
+    isChaotic,
+    layoutVariants,
+    bodyVariants,
+    glowVariants,
+    baseColor,
+    activeColor,
+    renderProfile,
+    isChorus,
+    fontSize,
+    lyricWordMode,
+    visualEffectIntensity,
+    effectPack,
+}) => {
     const [status, setStatus] = useState<"waiting" | "active" | "passed">("waiting");
     const rippleScale = useMemo(() => 1.5 + Math.random() * 2, []);
     const duration = getClassicWordDisplayDuration(word, renderProfile);
     const activeEndTime = getClassicWordActiveEndTime(word, renderProfile);
     const graphemeTimings = useMemo(() => buildWordGraphemeTimings(word), [word]);
-    const outlineLayers = useMemo(() => {
-        const fontPx = Number.parseFloat(String(fontSize)) || 48;
-        return buildLyricKaraokeOutlineLayers(activeColor, fontPx, 'strong');
-    }, [activeColor, fontSize]);
+    const fontPx = Number.parseFloat(String(fontSize)) || 48;
+    const outlineLayers = useMemo(
+        () => buildLyricKaraokeOutlineLayers(activeColor, fontPx, visualEffectIntensity),
+        [activeColor, fontPx, visualEffectIntensity],
+    );
     const animateKey = resolveLyricWordAnimateKey(status, lyricWordMode);
+    const neonActive = isLyricEffectPackNeonActive(effectPack, status);
 
     useMotionValueEvent(currentTime, "change", (latest: number) => {
         let newStatus: "waiting" | "active" | "passed" = "waiting";
@@ -226,9 +252,7 @@ const Word: React.FC<{
             newStatus = "waiting";
         }
 
-        if (newStatus !== status) {
-            setStatus(newStatus);
-        }
+        setStatus((prev) => (prev === newStatus ? prev : newStatus));
     });
 
     return (
@@ -291,6 +315,13 @@ const Word: React.FC<{
 
             {/* Body Layer — karaoke 色字白边: scaled solid rim (Classic body filter:none kills drop-shadow) */}
             <span className="relative z-10 block">
+                <LyricEffectPackLayers
+                    glyph={word.text}
+                    status={status}
+                    effectPack={effectPack}
+                    glowColor={activeColor}
+                    fontPx={fontPx}
+                />
                 {status === 'active' ? (
                     <span
                         aria-hidden
@@ -314,7 +345,7 @@ const Word: React.FC<{
                         duration,
                         wordRevealMode: renderProfile.wordRevealMode,
                     }}
-                    className={`relative block${neonScan && status === 'active' ? ' lyric-effect-neon-scan' : ''}`}
+                    className={`relative block${neonActive ? ' lyric-effect-neon-scan' : ''}`}
                 >
                     {word.text}
                 </motion.span>
@@ -810,7 +841,8 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
                                         isChorus={activeLine.isChorus}
                                         fontSize={mainFontSize}
                                         lyricWordMode={lyricWordMode}
-                                        neonScan={effectPack.neonScan}
+                                        visualEffectIntensity={visualEffectIntensity}
+                                        effectPack={effectPack}
                                     />
                                 );
                             })}

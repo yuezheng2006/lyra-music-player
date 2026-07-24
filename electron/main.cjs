@@ -61,6 +61,38 @@ if (process.platform === 'darwin' && process.arch === 'x64') {
 
 const store = new Store({ projectName: 'Lyra' });
 let mainWindow = null;
+
+// interactive3d / WebGL / heavy backgrounds can crash the GPU helper (exit_code=512)
+// and freeze the UI. Notify the renderer so it can drop to a safer background.
+let gpuProcessGoneCount = 0;
+let gpuCrashReloadTimer = null;
+let gpuCrashRelaunchArmed = false;
+app.on('child-process-gone', (_event, details) => {
+  if (!details || details.type !== 'GPU') return;
+  gpuProcessGoneCount += 1;
+  const payload = {
+    reason: details.reason || 'unknown',
+    exitCode: details.exitCode ?? null,
+    count: gpuProcessGoneCount,
+  };
+  console.error('[gpu] process gone', payload);
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('gpu-process-gone', payload);
+  // Chromium falls back to --use-gl=disabled after GPU deaths; window reload
+  // cannot restore HW GL and leaves the renderer wedged at 100% CPU. Relaunch.
+  if (gpuProcessGoneCount >= 2 && !gpuCrashRelaunchArmed) {
+    gpuCrashRelaunchArmed = true;
+    if (gpuCrashReloadTimer) {
+      clearTimeout(gpuCrashReloadTimer);
+      gpuCrashReloadTimer = null;
+    }
+    setTimeout(() => {
+      console.warn('[gpu] relaunching app to escape software-GL fallback after GPU deaths');
+      app.relaunch();
+      app.exit(0);
+    }, 500);
+  }
+});
 let remoteControlWindow = null;
 let appTray = null;
 let latestRemoteControlSnapshot = null;
@@ -2590,21 +2622,48 @@ async function ensurePackagedUiServer() {
 }
 
 async function loadAppEntry(win, query = {}) {
-  if (isElectronDevRuntime()) {
-    const url = new URL('http://localhost:3000');
+  const applyQuery = (url) => {
     Object.entries(query).forEach(([key, value]) => {
       url.searchParams.set(key, String(value));
     });
-    win.loadURL(url.toString());
+    return url;
+  };
+
+  if (isElectronDevRuntime()) {
+    const url = applyQuery(new URL('http://localhost:3000'));
+    // wait-on can race Vite bind; retry so we don't leave a blank unclickable window.
+    const target = url.toString();
+    let attempt = 0;
+    const maxAttempts = 40;
+    const tryLoad = () => {
+      if (win.isDestroyed()) return;
+      attempt += 1;
+      win.loadURL(target).catch((error) => {
+        console.warn(`[Dev] loadURL failed (${attempt}/${maxAttempts}):`, error?.message || error);
+      });
+    };
+    const onFail = (_event, errorCode, errorDescription, validatedURL) => {
+      if (win.isDestroyed()) return;
+      if (!String(validatedURL || '').startsWith('http://localhost:3000')) return;
+      if (errorCode !== -102 && errorCode !== -105) return; // CONNECTION_REFUSED / NAME_NOT_RESOLVED
+      if (attempt >= maxAttempts) {
+        win.webContents.removeListener('did-fail-load', onFail);
+        console.error('[Dev] Vite still unreachable after retries:', errorDescription);
+        return;
+      }
+      setTimeout(tryLoad, 250);
+    };
+    win.webContents.on('did-fail-load', onFail);
+    win.webContents.once('did-finish-load', () => {
+      win.webContents.removeListener('did-fail-load', onFail);
+    });
+    tryLoad();
     return;
   }
 
   // Never use file:// for the main UI: IndexedDB is broken there and blocks playSong.
   const port = await ensurePackagedUiServer();
-  const url = new URL(`http://127.0.0.1:${port}/index.html`);
-  Object.entries(query).forEach(([key, value]) => {
-    url.searchParams.set(key, String(value));
-  });
+  const url = applyQuery(new URL(`http://127.0.0.1:${port}/index.html`));
   win.loadURL(url.toString());
 }
 

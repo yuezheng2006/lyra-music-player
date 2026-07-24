@@ -451,9 +451,11 @@ export interface CladdaghTuning {
 }
 
 export const DEFAULT_CLADDAGH_TUNING: CladdaghTuning = {
-  focusScaleRatio: 0.65,
+  // Stronger front punch for face-on depth (still softer than the old 0.9 handoff jump).
+  focusScaleRatio: 0.62,
   radiusScale: 1.0,
-  ellipseTiltDeg: 45,
+  // Face-on parallel ring (major axis horizontal).
+  ellipseTiltDeg: 0,
 };
 
 export type CappellaEmojiPackSource = 'builtin' | 'custom';
@@ -490,13 +492,50 @@ export type MonetBackgroundLayout = 'full-overlay' | 'half-pane-gradient';
 export type MonetBackgroundWashColorMode = 'theme' | 'custom';
 export type MonetAudioStyle = 'bar' | 'line';
 export type MonetPortraitSource = 'cover' | 'custom';
-export type VisualizerBackgroundMode = 'common' | 'interactive3d' | 'monet' | 'url' | 'sora';
+export type VisualizerBackgroundMode = 'common' | 'interactive3d' | 'monet' | 'url' | 'sora' | 'latent';
+export type LatentBackgroundDisplayMode = 'dithering' | 'mesh' | 'both';
+export type LatentBackgroundColorSource = 'cover-theme' | 'cover-only';
 
 export interface UrlBackgroundItem {
   id: string;
   url: string;
   note: string;
 }
+
+export interface LatentBackgroundTuning {
+  displayMode: LatentBackgroundDisplayMode;
+  colorSource: LatentBackgroundColorSource;
+  dynamicOnlyInPlayer: boolean;
+  enhancedBeatResponse: boolean;
+  ditheringSpeed: number;
+  ditheringAudioSpeed: number;
+  ditheringSize: number;
+  ditheringOpacity: number;
+  meshSpeed: number;
+  meshAudioSpeed: number;
+  meshDistortion: number;
+  meshSwirl: number;
+  overlayEnabled: boolean;
+  overlayOpacity: number;
+}
+
+export const DEFAULT_LATENT_BACKGROUND_TUNING: LatentBackgroundTuning = {
+  displayMode: 'both',
+  colorSource: 'cover-theme',
+  dynamicOnlyInPlayer: true,
+  enhancedBeatResponse: true,
+  ditheringSpeed: 0.1,
+  ditheringAudioSpeed: 1.2,
+  ditheringSize: 2.5,
+  ditheringOpacity: 0.55,
+  meshSpeed: 0.3,
+  meshAudioSpeed: 2,
+  meshDistortion: 0.8,
+  meshSwirl: 0.1,
+  overlayEnabled: true,
+  // Stronger default wash so lyrics stay readable on busy shader stacks.
+  overlayOpacity: 0.48,
+};
 
 export interface MonetBackgroundTuning {
   backgroundSource: MonetBackgroundSource;
@@ -609,8 +648,8 @@ export const DEFAULT_INTERACTIVE3D_SCENE_TUNING: Interactive3dSceneTuning = {
   enableBeatBursts: true,
   enableLyricFocusAura: true,
   enableDomShapes: false,
-  enableBloomParticles: true,
-  enableFloatingParticles: true,
+  enableBloomParticles: false,
+  enableFloatingParticles: false,
   enableCoverParticles: true,
   cameraControl: 'auto',
 };

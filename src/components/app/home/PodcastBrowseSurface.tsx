@@ -11,6 +11,12 @@ import {
 import { ProviderIconBadge } from './ProviderIconBadge';
 import { SearchClearButton } from '../../shared/SearchClearButton';
 import LazyCoverImage from '../../shared/LazyCoverImage';
+import RemoteLoadState from '../../shared/RemoteLoadState';
+import { captureRequestFailure } from '../../../utils/network';
+import {
+    resolveRemoteLoadMessageKey,
+    resolveRemoteLoadStatus,
+} from '../../../utils/ui/remoteLoadStatus';
 import { resolveBrowseListRowClass, resolveHomeContentBottomPaddingClass } from './homeSurfaceStyles';
 
 // src/components/app/home/PodcastBrowseSurface.tsx
@@ -62,6 +68,8 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
     const [programs, setPrograms] = useState<SongResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [diagnostic, setDiagnostic] = useState<string | null>(null);
+    const [errorCode, setErrorCode] = useState<string | null>(null);
 
     const muted = isDaylight ? 'text-black/45' : 'text-white/45';
     const inputBg = isDaylight ? 'bg-black/5 focus:bg-black/10' : 'bg-white/5 focus:bg-white/10';
@@ -73,11 +81,16 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
     const loadHot = async () => {
         setLoading(true);
         setError(null);
+        setDiagnostic(null);
+        setErrorCode(null);
         try {
             const list = await fetchHotPodcasts(36, 0);
             setRadios(list);
         } catch (err) {
-            setError(err instanceof Error ? err.message : t('home.podcastLoadFailed'));
+            const failure = captureRequestFailure(err, 'podcast:hot');
+            setError(failure.message || t('home.podcastLoadFailed'));
+            setDiagnostic(failure.diagnostic);
+            setErrorCode(failure.code);
             setRadios([]);
         } finally {
             setLoading(false);
@@ -97,13 +110,18 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
         }
         setLoading(true);
         setError(null);
+        setDiagnostic(null);
+        setErrorCode(null);
         setActiveRadio(null);
         setPrograms([]);
         try {
             const list = await searchPodcasts(q, 36);
             setRadios(list);
         } catch (err) {
-            setError(err instanceof Error ? err.message : t('home.podcastLoadFailed'));
+            const failure = captureRequestFailure(err, 'podcast:search');
+            setError(failure.message || t('home.podcastLoadFailed'));
+            setDiagnostic(failure.diagnostic);
+            setErrorCode(failure.code);
             setRadios([]);
         } finally {
             setLoading(false);
@@ -114,17 +132,30 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
         setActiveRadio(radio);
         setLoading(true);
         setError(null);
+        setDiagnostic(null);
+        setErrorCode(null);
         try {
             const { programs: list, radio: detail } = await fetchPodcastPrograms(radio.id, 40, 0);
             if (detail?.name) setActiveRadio({ ...radio, ...detail });
             setPrograms(list);
         } catch (err) {
-            setError(err instanceof Error ? err.message : t('home.podcastLoadFailed'));
+            const failure = captureRequestFailure(err, 'podcast:programs');
+            setError(failure.message || t('home.podcastLoadFailed'));
+            setDiagnostic(failure.diagnostic);
+            setErrorCode(failure.code);
             setPrograms([]);
         } finally {
             setLoading(false);
         }
     };
+
+    const listItemCount = activeRadio ? programs.length : radios.length;
+    const loadStatus = resolveRemoteLoadStatus({
+        loading,
+        settled: !loading,
+        itemCount: listItemCount,
+        error,
+    });
 
     return (
         <div className="flex h-full min-h-0 w-full flex-col px-4 md:px-8">
@@ -191,21 +222,29 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
                 ) : null}
             </div>
 
-            {error ? (
-                <div className={`flex flex-1 items-center justify-center text-sm ${muted}`}>{error}</div>
-            ) : loading && !activeRadio && radios.length === 0 ? (
-                <div className={`flex flex-1 items-center justify-center gap-2 text-sm ${muted}`}>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    {t('home.podcastLoading')}
-                </div>
+            {loadStatus !== 'ready' ? (
+                <RemoteLoadState
+                    status={loadStatus}
+                    isDaylight={isDaylight}
+                    loadingLabel={t('home.podcastLoading')}
+                    emptyLabel={activeRadio ? t('home.podcastNoEpisodes') : t('home.podcastEmpty')}
+                    errorLabel={error || t(resolveRemoteLoadMessageKey('error', errorCode))}
+                    onRetry={() => {
+                        if (activeRadio) {
+                            void openRadio(activeRadio);
+                            return;
+                        }
+                        if (query.trim()) {
+                            void handleSearch();
+                            return;
+                        }
+                        void loadHot();
+                    }}
+                    diagnostic={diagnostic}
+                />
             ) : activeRadio ? (
                 <div className={`min-h-0 flex-1 overflow-y-auto ${resolveHomeContentBottomPaddingClass(true)}`}>
-                    {loading && programs.length === 0 ? (
-                        <div className={`flex items-center justify-center gap-2 py-16 text-sm ${muted}`}>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            {t('home.podcastLoading')}
-                        </div>
-                    ) : programs.length === 0 ? (
+                    {programs.length === 0 ? (
                         <div className={`py-16 text-center text-sm ${muted}`}>{t('home.podcastNoEpisodes')}</div>
                     ) : (
                         <ul className="space-y-0.5">

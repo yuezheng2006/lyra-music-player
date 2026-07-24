@@ -97,6 +97,26 @@ describe('prefetchService audio-first', () => {
         expect(getAudioUrl).toHaveBeenCalledTimes(1);
     });
 
+    it('stores bilibili companion videoUrl during audio prefetch', async () => {
+        getAudioUrl.mockResolvedValue({
+            kind: 'ok',
+            audioUrl: 'https://cdn.example/audio.m4s',
+            videoUrl: 'https://cdn.example/video.m4s',
+        });
+
+        const song = {
+            id: 77,
+            name: 'Bilibili Next',
+            musicProvider: 'bilibili' as const,
+        };
+
+        const data = await prefetchSongAudio(song as any, 'standard');
+
+        expect(data?.audioUrl).toBe('https://cdn.example/audio.m4s');
+        expect(data?.videoUrl).toBe('https://cdn.example/video.m4s');
+        expect(getPrefetchedData(song as any, 'standard')?.videoUrl).toBe('https://cdn.example/video.m4s');
+    });
+
     it('urgently prefetches the immediate next queue song', async () => {
         getAudioUrl.mockImplementation(async (song: { id: number }) => ({
             kind: 'ok',

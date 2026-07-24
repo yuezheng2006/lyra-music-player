@@ -9,13 +9,11 @@ import { DEFAULT_INTERACTIVE3D_SCENE_TUNING } from '@/types';
 import { resolveStoredInteractive3dSceneTuning } from '@/components/visualizer/geometric/interactive3dSceneRegistry';
 
 describe('Mineradio visual migration', () => {
-    it('applies quantum cube preset bundle as a structured WebGL style', () => {
+    it('maps the retired quantum cube preset to cover particles', () => {
         const tuning = applyMineradioVisualPreset('quantumCube');
-        expect(tuning.visualPreset).toBe('quantumCube');
-        expect(tuning.enableBloomParticles).toBe(true);
-        expect(tuning.enableFloatingParticles).toBe(true);
+        expect(tuning.visualPreset).toBe('emily');
         expect(tuning.enableCoverParticles).toBe(true);
-        expect(tuning.enableDomShapes).toBe(false);
+        expect(tuning.enableBloomParticles).toBe(false);
     });
 
     it('keeps quality tier when switching presets', () => {
@@ -26,29 +24,31 @@ describe('Mineradio visual migration', () => {
 
     it('applies Mineradio original preset bundles', () => {
         const tunnel = applyMineradioVisualPreset('mineradioTunnel');
-        const vinylPreset = applyMineradioVisualPreset('mineradioVinyl');
+        const orbit = applyMineradioVisualPreset('mineradioOrbit');
 
         expect(tunnel.visualPreset).toBe('mineradioTunnel');
         expect(tunnel.enableCoverParticles).toBe(true);
         expect(tunnel.enableBassRipples).toBe(false);
-        expect(vinylPreset.visualPreset).toBe('mineradioVinyl');
-        expect(vinylPreset.enableCoverParticles).toBe(true);
-        expect(vinylPreset.enableBloomParticles).toBe(true);
+        expect(orbit.visualPreset).toBe('mineradioOrbit');
+        expect(orbit.enableCoverParticles).toBe(true);
+        expect(orbit.enableBloomParticles).toBe(false);
     });
 
     it('keeps the visible cover particles bright across every supported preset', () => {
         for (const preset of INTERACTIVE3D_VISUAL_PRESET_OPTIONS) {
             const tuning = applyMineradioVisualPreset(preset);
             expect(tuning.enableCoverParticles).toBe(true);
-            expect(tuning.enableBloomParticles).toBe(true);
+            expect(tuning.enableBloomParticles).toBe(false);
             expect(tuning.bloomStrength).toBeGreaterThan(0);
         }
     });
 
     it('normalizes legacy preset ids to shipped styles', () => {
         expect(normalizeInteractive3dVisualPreset('requiem')).toBe('emily');
-        expect(normalizeInteractive3dVisualPreset('vinyl')).toBe('quantumCube');
-        expect(normalizeInteractive3dVisualPreset('starfield')).toBe('quantumCube');
+        expect(normalizeInteractive3dVisualPreset('vinyl')).toBe('emily');
+        expect(normalizeInteractive3dVisualPreset('mineradioVinyl')).toBe('emily');
+        expect(normalizeInteractive3dVisualPreset('starfield')).toBe('emily');
+        expect(normalizeInteractive3dVisualPreset('quantumCube')).toBe('emily');
         expect(normalizeInteractive3dVisualPreset('tunnel')).toBe('emily');
         expect(normalizeInteractive3dVisualPreset('aurora')).toBe('emily');
         expect(normalizeInteractive3dVisualPreset('terrain')).toBe('emily');

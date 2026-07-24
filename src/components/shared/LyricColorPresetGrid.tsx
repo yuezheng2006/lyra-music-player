@@ -24,6 +24,8 @@ interface LyricColorPresetGridProps {
     compact?: boolean;
     /** Larger type and color dots for floating player readability. */
     emphasis?: boolean;
+    /** Controls surface: color circles only (label via title/aria). */
+    dotsOnly?: boolean;
 }
 
 const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
@@ -37,6 +39,7 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
     isDaylight = false,
     compact = false,
     emphasis = false,
+    dotsOnly = false,
 }) => {
     const { t } = useTranslation();
     const mode = isDaylight ? 'light' : 'dark';
@@ -61,6 +64,49 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
         : compact
             ? 'px-1.5 py-1'
             : 'px-2.5 py-2';
+
+    if (dotsOnly) {
+        return (
+            <div
+                className={`flex flex-wrap items-center gap-2 ${className}`.trim()}
+                data-testid="lyric-color-preset-grid"
+                role="listbox"
+                aria-label={t('options.lyricColorPresetTitle') || 'Lyric colors'}
+            >
+                {presets.map((preset) => {
+                    const isActive = activePresetId === preset.id;
+                    const label = t(preset.labelKey) || preset.labelFallback;
+                    const swatches = resolveLyricColorPresetSwatches(preset, mode);
+                    const bodyColor = swatches[0];
+
+                    return (
+                        <button
+                            key={preset.id}
+                            type="button"
+                            role="option"
+                            data-testid={`lyric-color-preset-${preset.id}`}
+                            aria-pressed={isActive}
+                            aria-selected={isActive}
+                            aria-label={label}
+                            title={label}
+                            onClick={() => onSelect(preset.id)}
+                            className={`relative flex h-7 w-7 items-center justify-center rounded-full transition-transform ${
+                                isActive ? 'scale-110 ring-2 ring-white/80' : 'opacity-85 hover:opacity-100 hover:scale-105'
+                            } ${buttonClassName}`.trim()}
+                            style={{
+                                backgroundColor: bodyColor,
+                                boxShadow: isActive ? `0 0 10px ${bodyColor}` : undefined,
+                            }}
+                        >
+                            {isActive ? (
+                                <Check size={12} strokeWidth={2.8} className="text-black/80 drop-shadow-sm" />
+                            ) : null}
+                        </button>
+                    );
+                })}
+            </div>
+        );
+    }
 
     return (
         <div

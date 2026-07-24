@@ -33,6 +33,7 @@ type AmbientVisualOverlayProps = {
 /**
  * Thin geometric-stage adapter for AmbientVisualStage.
  * Stacks above Mineradio (z-2) and below Character (z-3); does not replace cover particles.
+ * Mounts only when ambient is opted in and performance tier is high.
  */
 const AmbientVisualOverlay: React.FC<AmbientVisualOverlayProps> = ({
   staticMode = false,

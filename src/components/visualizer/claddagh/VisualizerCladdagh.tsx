@@ -1,6 +1,6 @@
 // Only for the you who has yet to exist in this world.
 // DO NOT REMOVE THE LINE ABOVE.
-import React, { useMemo, useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useLayoutEffect, useCallback, useId } from 'react';
 import { measureNaturalWidth, prepareWithSegments } from '@chenglou/pretext';
 import { useMotionValue, animate, MotionValue, useSpring, motion } from 'framer-motion';
 import { DEFAULT_CLADDAGH_TUNING, type Line, type Theme } from '../../../types';
@@ -13,6 +13,31 @@ import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
 import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { buildWordColorRanges } from '../wordColoring';
+import { resolveWaitingWordPresentation } from '../../../utils/lyrics/lyricWordMode';
+import { resolveLyricWordStatus } from '../../../utils/lyrics/lyricWordStatusMath';
+import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+import {
+    isCladdaghEquatorPulseUnchanged,
+    resolveCladdaghEquatorPulseSnapshot,
+    CLADDAGH_EQUATOR_PULSE_MIN_INTERVAL_MS,
+    type CladdaghEquatorPulseSnapshot,
+} from '../../../utils/visualizer/claddaghEquatorPulseMath';
+import {
+    isCladdaghGlyphEffectivelyHidden,
+    shouldWriteCladdaghGlyphDom,
+    type CladdaghGlyphDomCache,
+} from '../../../utils/visualizer/claddaghGlyphDomMath';
+import {
+    applyCladdaghFrontCenterPull,
+    CLADDAGH_LINE_ORBIT_PHASE_STEP,
+    projectCladdaghRingPoint,
+    resolveCladdaghGlyphTiltDeg,
+    resolveCladdaghLineOrbitPhase,
+    resolveCladdaghOrbitDepth,
+    resolveCladdaghOrbitMajorRadius,
+    resolveCladdaghOrbitMinorRadius,
+    resolveCladdaghOrbitRingGuide,
+} from '../../../utils/visualizer/claddaghOrbitMath';
 
 // src/components/visualizer/claddagh/VisualizerCladdagh.tsx
 
@@ -112,8 +137,15 @@ const adjustCladdaghTimeline = <T extends { startTime: number; endTime: number; 
 const CLADDAGH_MAX_ARC_SPAN = 4.25;
 const CLADDAGH_LETTER_SPACING_EM = 0.04;
 const CLADDAGH_BASE_TRACKING_EM = 0.18;
-const CLADDAGH_BACK_FOLLOW_RATIO = 0.28;
-const CLADDAGH_BACK_ORBIT_FOLLOW_RATIO = 0.52;
+/** Mild back-follow — equator layout can't absorb a large chase offset. */
+const CLADDAGH_BACK_FOLLOW_RATIO = 0.08;
+const CLADDAGH_BACK_ORBIT_FOLLOW_RATIO = 0.1;
+/** Soft line handoff: short phase step + ease-out, no big equator sweep. */
+const CLADDAGH_LINE_HANDOFF_TRANSITION = {
+    type: 'tween' as const,
+    duration: 0.52,
+    ease: [0.33, 1, 0.32, 1] as [number, number, number, number],
+};
 const CLADDAGH_SPACING_CACHE_LIMIT = 240;
 const claddaghSpacingCache = new Map<string, number[]>();
 
@@ -178,14 +210,6 @@ const getFractionalActiveIndex = (
 
 
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
-
-// Keeps tangent-based character rotation readable instead of allowing upside-down glyphs.
-const normalizeReadableAngle = (degrees: number): number => {
-    let normalized = degrees;
-    while (normalized > 90) normalized -= 180;
-    while (normalized < -90) normalized += 180;
-    return normalized;
-};
 
 const rememberSpacingOffsets = (key: string, offsets: number[]) => {
     if (claddaghSpacingCache.size >= CLADDAGH_SPACING_CACHE_LIMIT) {
@@ -342,12 +366,28 @@ const RingLine: React.FC<RingLineProps> = ({
     const fontStack = resolveThemeFontStack(theme);
     const baseFontSize = 72 * lyricsFontScale;
     const fontSpec = `700 ${baseFontSize}px ${fontStack}`;
+    const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const waitingPresentation = useMemo(
+        () => resolveWaitingWordPresentation(lyricWordMode),
+        [lyricWordMode],
+    );
 
+    // Solid fills only — soft text-shadow / glow washes out glyphs on dark covers.
     const baseColor = useMemo(
-        () => colorWithAlpha(theme.primaryColor, LYRIC_LINE_OPACITY.karaokeUnsung),
+        () => colorWithAlpha(theme.primaryColor, LYRIC_LINE_OPACITY.waitingNear),
         [theme.primaryColor],
     );
     const highlightColor = theme.primaryColor;
+    const waitingOpacity = waitingPresentation.opacity;
+    const focusScale = focusScaleRatio ?? 0.62;
+    const currentLineVisualLen = useMemo(
+        () => (lines[centerLineIndex] ? getVisualLength(lines[centerLineIndex].fullText) : 0),
+        [lines, centerLineIndex],
+    );
+    const targetLineVisualLen = useMemo(
+        () => getVisualLength(line.fullText),
+        [line.fullText],
+    );
 
     const isRawScaleRef = useRef(false);
     const normalizePower = useCallback((power: number) => {
@@ -386,12 +426,16 @@ const RingLine: React.FC<RingLineProps> = ({
     }, [line, theme.wordColors, fontSpec, baseFontSize, Rx, textSpacingScale]);
 
     const charRefs = useRef<(HTMLSpanElement | null)[]>([]);
+    const glyphDomCacheRef = useRef<(CladdaghGlyphDomCache | undefined)[]>([]);
+    const glyphFrameRef = useRef(0);
 
     useLayoutEffect(() => {
-        const handler = (latestTime: number) => {
+        const paint = () => {
+            glyphFrameRef.current = 0;
             const mvsLength = spacingInfo.length;
             if (mvsLength === 0) return;
 
+            const latestTime = currentTime.get();
             const curLineOffset = lineOffset.get();
             const power = normalizePower(audioPower.get());
             const intensity = theme.animationIntensity || 'normal';
@@ -409,22 +453,17 @@ const RingLine: React.FC<RingLineProps> = ({
             // Scale radius, bounded to avoid excessive translation
             const scaleFactor = Math.min(1 + power * intensityMultiplier, maxScale);
             const currentRx = Rx * scaleFactor;
-            const currentRy = Ry * scaleFactor;
 
-            const lineDiffFromCenter = Math.abs(curLineOffset - lineIndex * Math.PI) / Math.PI;
-
-            // Calculate overlap mitigation factors based on current and next line lengths
-            const currentLine = lines[centerLineIndex];
-            const currentLen = currentLine ? getVisualLength(currentLine.fullText) : 0;
-            const targetLine = lines[lineIndex];
-            const targetLen = targetLine ? getVisualLength(targetLine.fullText) : 0;
+            const linePhase = resolveCladdaghLineOrbitPhase(lineIndex);
+            const lineDiffFromCenter = Math.abs(curLineOffset - linePhase)
+                / Math.max(CLADDAGH_LINE_ORBIT_PHASE_STEP, 1e-6);
 
             let lengthFadeFactor = 1.0;
             let lengthScaleFactor = 1.0;
 
-            if (lineIndex > centerLineIndex && currentLen > 10) {
-                const fadeStrength = clamp((currentLen - 10) / 8, 0, 1);
-                const targetStrength = clamp((targetLen - 5) / 5, 0.4, 1);
+            if (lineIndex > centerLineIndex && currentLineVisualLen > 10) {
+                const fadeStrength = clamp((currentLineVisualLen - 10) / 8, 0, 1);
+                const targetStrength = clamp((targetLineVisualLen - 5) / 5, 0.4, 1);
                 const combinedStrength = fadeStrength * targetStrength;
 
                 const targetMinOpacity = 1.0 - combinedStrength;
@@ -446,10 +485,7 @@ const RingLine: React.FC<RingLineProps> = ({
                 * CLADDAGH_BACK_ORBIT_FOLLOW_RATIO
                 * (1 - Math.pow(1 - activeLineProgress, 1.35));
             let wordOffset = ownWordOffset;
-            if (lineIndex < centerLineIndex) {
-                // Past lines keep their own completed word offset instead of
-                // tracking the new active line, to avoid snapping back to 0.
-            } else {
+            if (lineIndex >= centerLineIndex) {
                 // Use lineDiffFromCenter as a continuous blend factor so the
                 // back-follow contribution fades out smoothly during the spring
                 // rotation, instead of jumping to 0 when renderBaseIndex updates.
@@ -462,153 +498,154 @@ const RingLine: React.FC<RingLineProps> = ({
                 ) * backFollowFactor;
             }
 
-            const R_ref = currentRx;
             const R_major = currentRx;
-            const R_minor = currentRx * 0.09; // Squashed minor axis for a slender ellipse (matching orange design)
+            const lineDiffNormalized = lineDiffFromCenter;
+            const activeLineFactor = Math.max(0, 1 - lineDiffNormalized);
+            const maxVisibleDist = currentRx * 0.52;
+            const lineWindowFade = clamp(2.15 - lineDiffNormalized, 0.2, 1);
+            const pastFade = lineIndex < centerLineIndex
+                ? Math.max(0.14, 1 - lineDiffNormalized * 0.9)
+                : 1;
+            const isChorus = Boolean(line.isChorus);
+            const caches = glyphDomCacheRef.current;
+            if (caches.length !== mvsLength) {
+                glyphDomCacheRef.current = new Array(mvsLength);
+            }
 
             for (let i = 0; i < mvsLength; i++) {
                 const el = charRefs.current[i];
                 if (!el) continue;
 
                 const item = spacingInfo[i];
-                const nominalAngle = item.nominalAngle;
-
-                const theta = lineIndex * Math.PI + nominalAngle; // Spacing by 180 degrees
+                const theta = linePhase + item.nominalAngle;
                 const psi = theta - curLineOffset - wordOffset;
-
-                // deltaDist is the linear distance along the arc in pixels
-                const deltaDist = psi * R_ref;
-
-                // Angle along the major axis
+                const deltaDist = psi * R_major;
                 const thetaCurve = deltaDist / R_major;
-
-                // Calculate depth factor D (1 in the front, 0 in the back) based on ellipse curve position
                 const localCos = Math.cos(thetaCurve);
-                const D = (localCos + 1) / 2;
+                const D = resolveCladdaghOrbitDepth(thetaCurve);
+                const spacingFactor = 0.74 + 0.26 * Math.pow(D, 1.15);
 
-                // Scale character spacing along the major axis by depth to make back characters gather closer together
-                const spacingFactor = 0.35 + 0.65 * Math.pow(D, 1.2);
-
-                // Ellipse positions centered at origin (0, 0)
-                // Active character (psi = 0) is at (0, R_minor) before rotation
-                const rawX = Math.sin(thetaCurve) * R_major * spacingFactor;
-                
-                let rawY = localCos * R_minor;
-                if (line.isChorus) {
-                    // Alternating vertical stagger that pushes even/odd indices up/down, pulsing with beat power
-                    const staggerAmount = baseFontSize * (0.06 + power * 0.12);
-                    rawY += (i % 2 === 0 ? 1 : -1) * staggerAmount;
-                }
-
-                // Rotate the coordinate system by exactly -ellipseTiltDeg degrees
-                // so the major axis aligns exactly with the screen's anti-diagonal.
-                const thetaRot = -((ellipseTiltDeg ?? 45) * Math.PI) / 180;
-                const cosTheta = Math.cos(thetaRot);
-                const sinTheta = Math.sin(thetaRot);
-
-                const x = rawX * cosTheta - rawY * sinTheta;
-                const y = rawX * sinTheta + rawY * cosTheta;
-
-                const tangentX = Math.cos(thetaCurve) * R_major;
-                const tangentY = -Math.sin(thetaCurve) * R_minor;
-                const rotatedTangentX = tangentX * cosTheta - tangentY * sinTheta;
-                const rotatedTangentY = tangentX * sinTheta + tangentY * cosTheta;
-                const tangentAngle = normalizeReadableAngle(Math.atan2(rotatedTangentY, rotatedTangentX) * 180 / Math.PI);
-
-                // Calculate the focus factor F:
-                // F ranges from 1 (active character on active line) to 0 (back side of the ring / far away)
-                const lineDiffNormalized = lineDiffFromCenter;
-                const activeLineFactor = Math.max(0, 1 - lineDiffNormalized);
-
-                const maxVisibleDist = currentRx * 0.48; // Focus width for active line
+                // Collar on the ground — lyrics ride the vertical wall (文字在项圈壁上).
+                const hit = projectCladdaghRingPoint(thetaCurve, R_major, spacingFactor);
+                const depth = hit.depth;
                 const distRatio = Math.min(1, Math.abs(deltaDist) / maxVisibleDist);
-                const F = activeLineFactor * Math.pow(1 - distRatio, 1.8);
+                const F = activeLineFactor * Math.pow(1 - distRatio, 1.6);
 
-                // Blend visual properties using depth factor D and focus factor F for a pseudo-3D look
-                // Active character (D=1, F=1) is largest and sharpest.
-                // Background characters (D=0, F=0) stay visible while still feeling distant.
-                const distanceOpacity = 0.22 + 0.78 * Math.pow(D, 1.9);
-                let finalOpacity = (0.35 + 0.65 * Math.pow(D, 1.5) * (0.35 + 0.65 * F)) * distanceOpacity;
-
-                // Hide the next line while it is still equivalent to the outgoing line's foreground turn.
-                const lineWindowFade = clamp(2 - lineDiffNormalized, 0, 1);
-                finalOpacity = finalOpacity * lineWindowFade;
-
-                // Hide past lines completely when the transition is done to prevent overlapping in the background
-                if (lineIndex < centerLineIndex) {
-                    const pastFade = Math.max(0, 1 - lineDiffNormalized);
-                    finalOpacity = finalOpacity * pastFade;
+                const pulled = applyCladdaghFrontCenterPull(hit.x, hit.y, F);
+                let x = pulled.x;
+                let y = pulled.y;
+                if (isChorus) {
+                    const staggerAmount = baseFontSize * (0.05 + power * 0.1) * (1 - F);
+                    y += (i % 2 === 0 ? 1 : -1) * staggerAmount;
                 }
 
-                // Apply dynamic layout overlap mitigation factors based on sentence lengths
-                finalOpacity = finalOpacity * lengthFadeFactor;
+                const depthFocus = Math.max(depth, F);
+                const distanceOpacity = 0.12 + 0.88 * Math.pow(depthFocus, 1.55);
+                let finalOpacity = (0.28 + 0.72 * Math.pow(depthFocus, 1.35) * (0.3 + 0.7 * F))
+                    * distanceOpacity
+                    * lineWindowFade
+                    * pastFade
+                    * lengthFadeFactor;
 
-                // Boundary fade to keep non-focused lines strictly in the back half of the ellipse
-                let boundaryFade = 1.0;
                 if (lineDiffFromCenter > 0.02) {
-                    const progress = clamp((lineDiffFromCenter - 0.3) / 0.6, 0, 1);
-                    const cosThreshold = 1.0 - 1.2 * progress;
+                    const progress = clamp((lineDiffFromCenter - 0.35) / 0.7, 0, 1);
+                    const cosThreshold = 1.0 - progress;
                     if (localCos > cosThreshold) {
-                        boundaryFade = clamp(1.0 - (localCos - cosThreshold) / 0.15, 0, 1);
+                        finalOpacity *= clamp(1.0 - (localCos - cosThreshold) / 0.28, 0.18, 1);
                     }
                 }
-                finalOpacity = finalOpacity * boundaryFade;
 
-                const scale = (0.22 + 0.98 * Math.pow(D, 1.5)) * (1.0 + (focusScaleRatio ?? 0.65) * F) * lengthScaleFactor;
-                const blur = 8.0 * (1 - D) * (1 - 0.5 * F);
-                const tiltAngle = clamp(tangentAngle * (0.4 + 0.6 * D), -38, 38);
-
-                el.style.transform = `translate3d(calc(-50% + ${x.toFixed(1)}px), calc(-50% + ${y.toFixed(1)}px), 0px) rotate(${tiltAngle.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
-                el.style.opacity = finalOpacity.toFixed(3);
-                el.style.filter = blur < 0.2 ? 'none' : `blur(${blur.toFixed(2)}px)`;
-
-                // Update text color and text shadow (glow) based on current play status (like VisualizerClassic)
-                let activeColorState: 'waiting' | 'active' | 'passed' = 'waiting';
-                if (latestTime >= item.startTime && latestTime <= item.endTime) {
-                    activeColorState = 'active';
-                } else if (latestTime > item.endTime) {
-                    activeColorState = 'passed';
+                const activeColorState = resolveLyricWordStatus(
+                    latestTime,
+                    item.startTime,
+                    item.endTime,
+                );
+                if (activeColorState === 'waiting') {
+                    finalOpacity *= waitingOpacity;
                 }
-
-                // All characters of the current active line have a glow that decreases from the center (focus point)
-                // Enhance base glow radius and scale with power on beats for chorus lines
-                const glowRadius = line.isChorus
-                    ? (36 + power * 24) * Math.pow(F, 1.5)
-                    : 24 * Math.pow(F, 2.0);
 
                 const targetColor = activeColorState === 'active' || activeColorState === 'passed'
                     ? (item.charColor || highlightColor)
                     : baseColor;
 
-                el.style.color = targetColor;
+                const nextCache: CladdaghGlyphDomCache = {
+                    x,
+                    y,
+                    rot: 0,
+                    scale: 0,
+                    opacity: finalOpacity,
+                    color: targetColor,
+                };
 
-                if (glowRadius > 0.5) {
-                    if (line.isChorus) {
-                        // Blend targetColor with the theme's primary text color to create a bright inner core matching the theme tone
-                        const innerGlowColor = mixColors(targetColor, theme.primaryColor || '#ffffff', 0.65);
-                        el.style.textShadow = `0 0 ${(glowRadius * 0.35).toFixed(1)}px ${innerGlowColor}, 0 0 ${glowRadius.toFixed(1)}px ${targetColor}, 0 0 ${(glowRadius * 1.6).toFixed(1)}px ${targetColor}`;
-                    } else {
-                        el.style.textShadow = `0 0 ${glowRadius.toFixed(1)}px ${targetColor}`;
+                if (isCladdaghGlyphEffectivelyHidden(finalOpacity)) {
+                    if (shouldWriteCladdaghGlyphDom(caches[i], nextCache)) {
+                        el.style.opacity = '0';
+                        caches[i] = nextCache;
                     }
-                } else {
-                    el.style.textShadow = 'none';
+                    continue;
                 }
+
+                const scale = (0.24 + 0.76 * Math.pow(depth, 1.4))
+                    * (1.0 + focusScale * F)
+                    * hit.perspectiveScale
+                    * lengthScaleFactor;
+                const tiltAngle = resolveCladdaghGlyphTiltDeg(hit.tangentAngleDeg, depth, F);
+                nextCache.rot = tiltAngle;
+                nextCache.scale = scale;
+
+                if (!shouldWriteCladdaghGlyphDom(caches[i], nextCache)) {
+                    continue;
+                }
+
+                el.style.transform = `translate3d(calc(-50% + ${x.toFixed(1)}px), calc(-50% + ${y.toFixed(1)}px), 0px) rotate(${tiltAngle.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
+                el.style.opacity = finalOpacity.toFixed(3);
+                if (caches[i]?.color !== targetColor) {
+                    el.style.color = targetColor;
+                }
+                caches[i] = nextCache;
             }
         };
 
-        const handleUpdate = () => {
-            handler(currentTime.get());
+        // Coalesce motion-value storms into one paint per animation frame.
+        const schedule = () => {
+            if (glyphFrameRef.current) return;
+            glyphFrameRef.current = requestAnimationFrame(paint);
         };
 
-        const unsubscribeTime = currentTime.onChange(handler);
-        const unsubscribeOffset = lineOffset.onChange(handleUpdate);
-        handler(currentTime.get());
+        const unsubscribeTime = currentTime.on('change', schedule);
+        const unsubscribeOffset = lineOffset.on('change', schedule);
+        paint();
 
         return () => {
             unsubscribeTime();
             unsubscribeOffset();
+            if (glyphFrameRef.current) {
+                cancelAnimationFrame(glyphFrameRef.current);
+                glyphFrameRef.current = 0;
+            }
         };
-    }, [spacingInfo, lineIndex, centerLineIndex, lineOffset, Rx, Ry, audioPower, currentTime, containerWidth, containerHeight, activeSpacingInfo, renderBaseIndex, highlightColor, baseColor, focusScaleRatio, ellipseTiltDeg, lines, line]);
+    }, [
+        spacingInfo,
+        lineIndex,
+        centerLineIndex,
+        lineOffset,
+        Rx,
+        audioPower,
+        currentTime,
+        activeSpacingInfo,
+        renderBaseIndex,
+        highlightColor,
+        baseColor,
+        focusScale,
+        lines,
+        line,
+        waitingOpacity,
+        currentLineVisualLen,
+        targetLineVisualLen,
+        baseFontSize,
+        normalizePower,
+        theme.animationIntensity,
+    ]);
 
     return (
         <div className="absolute inset-0 pointer-events-none w-full h-full">
@@ -623,7 +660,9 @@ const RingLine: React.FC<RingLineProps> = ({
                         opacity: 0,
                         transform: 'translate3d(-50%, -50%, 0px) scale(0.2)',
                         transformOrigin: 'center center',
-                        willChange: 'transform, opacity, filter, color, text-shadow',
+                        willChange: 'transform, opacity',
+                        filter: 'none',
+                        textShadow: 'none',
                         fontFamily: fontStack,
                         fontSize: `${baseFontSize}px`,
                         fontWeight: 700,
@@ -656,10 +695,10 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
         paused = false,
     } = props;
 
-    const centerNormalTiltDeg = 90 - claddaghTuning.ellipseTiltDeg;
+    // Parallel front view — ring guide stays axis-aligned with the viewport.
+    const centerNormalTiltDeg = 0;
 
     const isRawScaleRef = useRef(false);
-    const glowIntensityRef = useRef(0);
     const normalizePower = useCallback((power: number) => {
         if (!Number.isFinite(power)) return 0;
         if (power > 1.0) {
@@ -689,80 +728,15 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
     const fontSpec = `700 ${baseFontSize}px ${fontStack}`;
 
     const containerRef = useRef<HTMLDivElement>(null);
-    const axisLineRef = useRef<HTMLDivElement>(null);
+    const orbitRingGroupRef = useRef<SVGGElement>(null);
+    const orbitRingGlowRef = useRef<SVGPathElement>(null);
+    const orbitRingTrackRef = useRef<SVGPathElement>(null);
+    const orbitRingBandRef = useRef<SVGPathElement>(null);
+    const orbitRingRimTopRef = useRef<SVGPathElement>(null);
+    const orbitRingRimBottomRef = useRef<SVGPathElement>(null);
+    const orbitRingFrontArcRef = useRef<SVGPathElement>(null);
+    const equatorSvgId = useId().replace(/:/g, '');
     const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-
-    // Smoothly animate axis line color and scale in response to audio power
-    useEffect(() => {
-        const lineEl = axisLineRef.current;
-        if (!lineEl) return;
-
-        let frameId = 0;
-
-        const updateColors = () => {
-            const bassPower = paused ? 0 : normalizePower(smoothedBass.get());
-            const vocalPower = paused ? 0 : normalizePower(smoothedVocal.get());
-            const fromColor = theme.primaryColor || '#ffffff';
-            let toColor = theme.accentColor || '#ffffff';
-            // If primary and accent are the same, try secondary
-            if (toColor === fromColor && theme.secondaryColor) {
-                toColor = theme.secondaryColor;
-            }
-            // If still the same, mix with white to guarantee visual color change on beats
-            if (toColor === fromColor) {
-                toColor = '#ffffff';
-            }
-
-            // Color response (using maximum of bass and vocal energy for high responsiveness)
-            const colorPower = Math.max(bassPower, vocalPower);
-            const colorDelta = Math.max(0, colorPower - 0.02);
-            const colorRatio = Math.min(1.0, colorDelta / 0.58);
-
-            // Mix between fromColor and toColor, pulsing alpha from 0.2 to 0.95 (vivid color beat)
-            const mixed = mixColors(fromColor, toColor, colorRatio, 0.2 + 0.75 * colorRatio);
-
-            // Linear-gradient fades out the line at its top-left and bottom-right endpoints (20% and 80%)
-            // so that the endpoints of the short segment are smoothly blurred/faded.
-            const gradientString = `linear-gradient(90deg, transparent, ${mixed} 20%, ${mixed} 80%, transparent)`;
-            lineEl.style.background = gradientString;
-            lineEl.style.backgroundImage = gradientString;
-
-            // Square the bass power value to expand the dynamic range and prevent easy saturation for length scaling
-            const bassSqr = bassPower * bassPower;
-
-            // Apply dynamic length scaling using scaleX and subtle thickness scaling using scaleY
-            const scaleX = 1.0 + bassSqr * 1.5;
-            const scaleY = 1.0 + bassSqr * 0.5;
-            lineEl.style.transform = `translate(-50%, -50%) rotate(${centerNormalTiltDeg}deg) scale(${scaleX}, ${scaleY})`;
-
-            // Smoothly transition glow intensity (transition duration ~330ms at 60fps)
-            const targetIntensity = isChorus ? 1.0 : 0.0;
-            const diff = targetIntensity - glowIntensityRef.current;
-            if (Math.abs(diff) > 0.01) {
-                glowIntensityRef.current += Math.sign(diff) * 0.05;
-                glowIntensityRef.current = Math.max(0, Math.min(1, glowIntensityRef.current));
-            } else {
-                glowIntensityRef.current = targetIntensity;
-            }
-
-            const glowIntensity = glowIntensityRef.current;
-            if (glowIntensity > 0.001) {
-                const glowSize = (4 + bassPower * 12) * glowIntensity;
-                const glowColor = colorWithAlpha(mixed, glowIntensity);
-                lineEl.style.filter = `drop-shadow(0 0 ${glowSize.toFixed(1)}px ${glowColor})`;
-            } else {
-                lineEl.style.filter = 'none';
-            }
-
-            frameId = requestAnimationFrame(updateColors);
-        };
-
-        frameId = requestAnimationFrame(updateColors);
-
-        return () => {
-            cancelAnimationFrame(frameId);
-        };
-    }, [smoothedBass, smoothedVocal, theme.primaryColor, theme.accentColor, theme.secondaryColor, centerNormalTiltDeg, paused, isChorus]);
 
     // Initialize dimensions on mount to avoid zero size on first render
     useEffect(() => {
@@ -787,17 +761,143 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
         return () => observer.disconnect();
     }, []);
 
-    // Radial configuration (increased to prevent long sentence overlaps)
-    const Rx = (dimensions.width > 0 ? Math.min(dimensions.width * 0.44, 560) : 360) * claddaghTuning.radiusScale;
-    const Ry = Rx > 0 ? Rx * 0.707 : 254; // 45-degree angle projection ratio
+    // 3D foreshortened oval — horizontal axes, sized to the stage.
+    const Rx = resolveCladdaghOrbitMajorRadius(
+        dimensions.width,
+        dimensions.height,
+        claddaghTuning.radiusScale,
+    );
+    const Ry = resolveCladdaghOrbitMinorRadius(Rx);
+    const orbitRingGuide = resolveCladdaghOrbitRingGuide(
+        dimensions.width,
+        dimensions.height,
+        Rx,
+        0,
+    );
     const focusSpacingScale = (1 + claddaghTuning.focusScaleRatio) / (1 + DEFAULT_CLADDAGH_TUNING.focusScaleRatio);
     const activeTextSpacingScale = focusSpacingScale;
 
-    if (typeof window !== 'undefined') {
-        (window as any).visualizerDimensions = dimensions;
-        (window as any).visualizerRx = Rx;
-        (window as any).visualizerRy = Ry;
-    }
+    // Pulse the equatorial collar with audio — throttled + dirty-checked (~25fps).
+    useEffect(() => {
+        const groupEl = orbitRingGroupRef.current;
+        const glowEl = orbitRingGlowRef.current;
+        const trackEl = orbitRingTrackRef.current;
+        const bandEl = orbitRingBandRef.current;
+        const rimTopEl = orbitRingRimTopRef.current;
+        const rimBottomEl = orbitRingRimBottomRef.current;
+        const frontArcEl = orbitRingFrontArcRef.current;
+        if (!groupEl || !trackEl) return;
+
+        let frameId = 0;
+        let shimmerPhase = 0;
+        let lastPulseAt = 0;
+        let lastSnapshot: CladdaghEquatorPulseSnapshot | null = null;
+        let lastMixed = '';
+        let lastBright = '';
+        const originX = orbitRingGuide.cx;
+        const originY = orbitRingGuide.cy;
+        groupEl.style.transformOrigin = `${originX}px ${originY}px`;
+
+        const applyPulse = (force: boolean) => {
+            const now = performance.now();
+            if (!force && now - lastPulseAt < CLADDAGH_EQUATOR_PULSE_MIN_INTERVAL_MS) {
+                return;
+            }
+            lastPulseAt = now;
+
+            const bassPower = paused ? 0 : normalizePower(smoothedBass.get());
+            const vocalPower = paused ? 0 : normalizePower(smoothedVocal.get());
+            shimmerPhase += paused ? 0 : (0.9 + vocalPower * 2.4) * (CLADDAGH_EQUATOR_PULSE_MIN_INTERVAL_MS / 16.67);
+            const snapshot = resolveCladdaghEquatorPulseSnapshot(bassPower, vocalPower, shimmerPhase);
+            if (!force && isCladdaghEquatorPulseUnchanged(lastSnapshot, snapshot)) {
+                return;
+            }
+            lastSnapshot = snapshot;
+
+            const fromColor = theme.primaryColor || '#ffffff';
+            let toColor = theme.accentColor || '#ffffff';
+            if (toColor === fromColor && theme.secondaryColor) {
+                toColor = theme.secondaryColor;
+            }
+            if (toColor === fromColor) {
+                toColor = '#ffffff';
+            }
+
+            const colorRatio = snapshot.colorRatioQ;
+            const mixed = mixColors(fromColor, toColor, colorRatio, 0.28 + 0.55 * colorRatio);
+            const bright = mixColors(mixed, '#ffffff', 0.35 + 0.4 * colorRatio, 0.55);
+            const colorChanged = mixed !== lastMixed || bright !== lastBright;
+            lastMixed = mixed;
+            lastBright = bright;
+
+            if (glowEl && colorChanged) {
+                glowEl.setAttribute('stroke', mixed);
+                glowEl.setAttribute('stroke-opacity', (0.1 + 0.22 * colorRatio).toFixed(3));
+                glowEl.setAttribute('stroke-width', (10 + colorRatio * 10).toFixed(2));
+            }
+            if (bandEl && colorChanged) {
+                bandEl.setAttribute('fill', mixed);
+                bandEl.setAttribute('fill-opacity', (0.08 + 0.12 * colorRatio).toFixed(3));
+                bandEl.setAttribute('stroke', mixed);
+                bandEl.setAttribute('stroke-opacity', (0.14 + 0.18 * colorRatio).toFixed(3));
+            }
+            if (colorChanged) {
+                const rimOpacity = (0.22 + 0.28 * colorRatio).toFixed(3);
+                const rimWidth = (1.1 + colorRatio * 0.9).toFixed(2);
+                if (rimTopEl) {
+                    rimTopEl.setAttribute('stroke', bright);
+                    rimTopEl.setAttribute('stroke-opacity', rimOpacity);
+                    rimTopEl.setAttribute('stroke-width', rimWidth);
+                }
+                if (rimBottomEl) {
+                    rimBottomEl.setAttribute('stroke', mixed);
+                    rimBottomEl.setAttribute('stroke-opacity', (0.16 + 0.2 * colorRatio).toFixed(3));
+                    rimBottomEl.setAttribute('stroke-width', rimWidth);
+                }
+                trackEl.setAttribute('stroke', bright);
+                trackEl.setAttribute('stroke-opacity', (0.28 + 0.36 * colorRatio).toFixed(3));
+                trackEl.setAttribute('stroke-width', (1.8 + colorRatio * 1.1).toFixed(2));
+            }
+            if (frontArcEl) {
+                if (colorChanged) {
+                    frontArcEl.setAttribute('stroke', bright);
+                    frontArcEl.setAttribute('stroke-opacity', (0.42 + 0.45 * colorRatio).toFixed(3));
+                    frontArcEl.setAttribute('stroke-width', (2.4 + colorRatio * 1.6).toFixed(2));
+                    frontArcEl.setAttribute('stroke-dasharray', `${snapshot.dashA} ${snapshot.dashB}`);
+                }
+                frontArcEl.setAttribute('stroke-dashoffset', (-snapshot.shimmerQ).toFixed(1));
+            }
+            groupEl.style.transform = `rotate(${centerNormalTiltDeg}deg) scale(${snapshot.breathQ})`;
+        };
+
+        const tick = () => {
+            applyPulse(false);
+            // Paused: stop the loop after one settle paint.
+            if (!paused) {
+                frameId = requestAnimationFrame(tick);
+            }
+        };
+
+        applyPulse(true);
+        if (!paused) {
+            frameId = requestAnimationFrame(tick);
+        }
+
+        return () => {
+            cancelAnimationFrame(frameId);
+        };
+    }, [
+        smoothedBass,
+        smoothedVocal,
+        theme.primaryColor,
+        theme.accentColor,
+        theme.secondaryColor,
+        centerNormalTiltDeg,
+        paused,
+        orbitRingGuide.cx,
+        orbitRingGuide.cy,
+        normalizePower,
+    ]);
 
     // Determine the focus line index
     const focusIndex = currentLineIndex !== -1
@@ -815,29 +915,26 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
         return buildMeasuredSpacingInfo(timeline, fontSpec, baseFontSize, Rx, activeTextSpacingScale);
     }, [lines, renderBaseIndex, fontSpec, baseFontSize, Rx, activeTextSpacingScale]);
 
-    // Coordinate rotation offsets using MotionValue for line transition自转 animations
-    const lineOffset = useMotionValue(centerLineIndex * Math.PI);
+    // Coordinate rotation offsets using MotionValue for line transition自转 animations.
+    // Negative phase → new lines enter from bottom-left and exit toward top-right.
+    const lineOffset = useMotionValue(resolveCladdaghLineOrbitPhase(centerLineIndex));
     const lastIndexRef = useRef(centerLineIndex);
 
     useEffect(() => {
         const prev = lastIndexRef.current;
         const curr = centerLineIndex;
         lastIndexRef.current = curr;
+        const targetPhase = resolveCladdaghLineOrbitPhase(curr);
 
         if (Math.abs(curr - prev) > 1) {
-            lineOffset.set(curr * Math.PI);
+            lineOffset.set(targetPhase);
             setRenderBaseIndex(curr);
         } else {
             // Update renderBaseIndex immediately so activeSpacingInfo tracks
             // the new active line from the start. This prevents the wordOffset
             // discontinuity that occurred when onComplete switched it later.
             setRenderBaseIndex(curr);
-            const controls = animate(lineOffset, curr * Math.PI, {
-                type: 'spring',
-                stiffness: 55,
-                damping: 14,
-                mass: 0.9,
-            });
+            const controls = animate(lineOffset, targetPhase, CLADDAGH_LINE_HANDOFF_TRANSITION);
             return () => controls.stop();
         }
     }, [centerLineIndex, lineOffset]);
@@ -873,23 +970,104 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
                 ref={containerRef as any}
                 className="relative flex flex-col items-center justify-center w-full h-full overflow-hidden select-none"
             >
-                {/* Background Dedicated Visuals */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none z-[1]">
-                    {/* Center Axis Line with blurred/faded endpoints */}
-                    <div
-                        ref={axisLineRef}
+                {/* Collar / 项圈: layered equator — glow, wall, twin rims, front energy. */}
+                <svg
+                    className="absolute inset-0 pointer-events-none z-[1]"
+                    width={dimensions.width}
+                    height={dimensions.height}
+                    viewBox={`0 0 ${Math.max(dimensions.width, 1)} ${Math.max(dimensions.height, 1)}`}
+                    aria-hidden
+                >
+                    <defs>
+                        <linearGradient
+                            id={`claddagh-eq-fade-${equatorSvgId}`}
+                            x1="0%"
+                            y1="0%"
+                            x2="100%"
+                            y2="0%"
+                        >
+                            <stop offset="0%" stopColor="#fff" stopOpacity="0" />
+                            <stop offset="14%" stopColor="#fff" stopOpacity="0.55" />
+                            <stop offset="50%" stopColor="#fff" stopOpacity="1" />
+                            <stop offset="86%" stopColor="#fff" stopOpacity="0.55" />
+                            <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+                        </linearGradient>
+                        <mask id={`claddagh-eq-mask-${equatorSvgId}`}>
+                            <rect
+                                width="100%"
+                                height="100%"
+                                fill={`url(#claddagh-eq-fade-${equatorSvgId})`}
+                            />
+                        </mask>
+                    </defs>
+                    <g
+                        ref={orbitRingGroupRef}
+                        mask={`url(#claddagh-eq-mask-${equatorSvgId})`}
                         style={{
-                            position: 'absolute',
-                            left: '50%',
-                            top: '50%',
-                            width: '300px',
-                            height: '4px',
-                            transform: `translate(-50%, -50%) rotate(${centerNormalTiltDeg}deg) scale(1, 1)`,
-                            transformOrigin: 'center center',
-                            willChange: 'background, transform, filter',
+                            transformOrigin: `${orbitRingGuide.cx}px ${orbitRingGuide.cy}px`,
+                            willChange: 'stroke, stroke-opacity, fill-opacity, transform',
                         }}
-                    />
-                </div>
+                    >
+                        <path
+                            ref={orbitRingGlowRef}
+                            d={orbitRingGuide.glowPath}
+                            fill="none"
+                            stroke={theme.primaryColor}
+                            strokeOpacity={0.12}
+                            strokeWidth={12}
+                            strokeLinejoin="round"
+                            strokeLinecap="round"
+                        />
+                        <path
+                            ref={orbitRingBandRef}
+                            d={orbitRingGuide.bandPath}
+                            fill={theme.primaryColor}
+                            fillOpacity={0.09}
+                            fillRule="evenodd"
+                            stroke={theme.primaryColor}
+                            strokeOpacity={0.16}
+                            strokeWidth={1.1}
+                        />
+                        <path
+                            ref={orbitRingRimBottomRef}
+                            d={orbitRingGuide.rimBottomPath}
+                            fill="none"
+                            stroke={theme.primaryColor}
+                            strokeOpacity={0.18}
+                            strokeWidth={1.2}
+                            strokeLinejoin="round"
+                        />
+                        <path
+                            ref={orbitRingRimTopRef}
+                            d={orbitRingGuide.rimTopPath}
+                            fill="none"
+                            stroke={theme.primaryColor}
+                            strokeOpacity={0.24}
+                            strokeWidth={1.2}
+                            strokeLinejoin="round"
+                        />
+                        <path
+                            ref={orbitRingTrackRef}
+                            d={orbitRingGuide.trackPath}
+                            fill="none"
+                            stroke={theme.primaryColor}
+                            strokeOpacity={0.3}
+                            strokeWidth={1.9}
+                            strokeLinejoin="round"
+                        />
+                        <path
+                            ref={orbitRingFrontArcRef}
+                            d={orbitRingGuide.frontArcPath}
+                            fill="none"
+                            stroke={theme.accentColor || theme.primaryColor}
+                            strokeOpacity={0.48}
+                            strokeWidth={2.6}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeDasharray="20 22"
+                        />
+                    </g>
+                </svg>
 
                 <div style={{ width: '100%', height: '100%', position: 'relative', zIndex: 10 }}>
                     {showText && Rx > 0 && Ry > 0 && lineIndicesToRender.map(idx => (

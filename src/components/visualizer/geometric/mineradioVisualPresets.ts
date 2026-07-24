@@ -9,10 +9,8 @@ import {
 
 export const INTERACTIVE3D_VISUAL_PRESET_OPTIONS: MineradioVisualPresetId[] = [
     'emily',
-    'quantumCube',
     'mineradioTunnel',
     'mineradioOrbit',
-    'mineradioVinyl',
     'mineradioGalaxy',
 ];
 
@@ -21,8 +19,11 @@ export const MINERADIO_VISUAL_PRESET_OPTIONS = INTERACTIVE3D_VISUAL_PRESET_OPTIO
 
 const LEGACY_VISUAL_PRESET_MAP: Record<string, MineradioVisualPresetId> = {
     void: 'emily',
-    vinyl: 'quantumCube',
-    starfield: 'quantumCube',
+    // Retired custom effects — remap until a mature open-source path lands.
+    vinyl: 'emily',
+    mineradioVinyl: 'emily',
+    starfield: 'emily',
+    quantumCube: 'emily',
     lightflow: 'emily',
     tunnel: 'emily',
     aurora: 'emily',
@@ -62,23 +63,23 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
-        enableBloomParticles: true,
-        enableFloatingParticles: true,
+        enableBloomParticles: false,
+        enableFloatingParticles: false,
         enableCoverParticles: true,
     },
-    /** @deprecated 旧唱片入口，迁移到量子盒。 */
+    /** @deprecated 量子盒已下线，归一到封面点云。 */
     starfield: {
-        visualPreset: 'quantumCube',
-        rhythmIntensity: 1.14,
-        cinemaShake: 0.56,
-        bloomStrength: 1.24,
+        visualPreset: 'emily',
+        rhythmIntensity: 0.85,
+        cinemaShake: 0.5,
+        bloomStrength: 0.72,
         enableBackgroundWash: true,
         enableOrbitField: false,
-        enableBassRipples: false,
+        enableBassRipples: true,
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
-        enableBloomParticles: true,
+        enableBloomParticles: false,
         enableFloatingParticles: false,
         enableCoverParticles: true,
     },
@@ -94,8 +95,8 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
-        enableBloomParticles: true,
-        enableFloatingParticles: true,
+        enableBloomParticles: false,
+        enableFloatingParticles: false,
         enableCoverParticles: true,
     },
     /** @deprecated 旧星云入口，迁移到 Mineradio 星河。 */
@@ -110,8 +111,8 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
-        enableBloomParticles: true,
-        enableFloatingParticles: true,
+        enableBloomParticles: false,
+        enableFloatingParticles: false,
         enableCoverParticles: true,
     },
     /** @deprecated 旧声场入口，迁移到封面粒子。 */
@@ -126,24 +127,24 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
-        enableBloomParticles: true,
-        enableFloatingParticles: true,
+        enableBloomParticles: false,
+        enableFloatingParticles: false,
         enableCoverParticles: true,
     },
-    /** 量子盒：发光立方体、能量网格和节拍旋转，适合强 3D 背景。 */
+    /** @deprecated 量子盒已下线，归一到封面点云。 */
     quantumCube: {
-        visualPreset: 'quantumCube',
-        rhythmIntensity: 1.14,
-        cinemaShake: 0.56,
-        bloomStrength: 1.24,
+        visualPreset: 'emily',
+        rhythmIntensity: 0.85,
+        cinemaShake: 0.5,
+        bloomStrength: 0.72,
         enableBackgroundWash: true,
         enableOrbitField: false,
-        enableBassRipples: false,
+        enableBassRipples: true,
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
-        enableBloomParticles: true,
-        enableFloatingParticles: true,
+        enableBloomParticles: false,
+        enableFloatingParticles: false,
         enableCoverParticles: true,
     },
     /** @deprecated 旧极光入口，迁移到封面粒子。 */
@@ -158,8 +159,8 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
-        enableBloomParticles: true,
-        enableFloatingParticles: true,
+        enableBloomParticles: false,
+        enableFloatingParticles: false,
         enableCoverParticles: true,
     },
     /** Mineradio 原版滚筒：管道式封面粒子，自旋向前推进。 */
@@ -174,8 +175,8 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
-        enableBloomParticles: true,
-        enableFloatingParticles: true,
+        enableBloomParticles: false,
+        enableFloatingParticles: false,
         enableCoverParticles: true,
     },
     /** Mineradio 原版星球：球面封面采样和缓慢自转。 */
@@ -190,7 +191,7 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
-        enableBloomParticles: true,
+        enableBloomParticles: false,
         enableFloatingParticles: false,
         enableCoverParticles: true,
     },
@@ -210,19 +211,19 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableFloatingParticles: false,
         enableCoverParticles: true,
     },
-    /** Mineradio 原版唱片：圆形封面 + 黑胶沟槽。 */
+    /** @deprecated 唱片特效已下线，归一到封面点云。 */
     mineradioVinyl: {
-        visualPreset: 'mineradioVinyl',
-        rhythmIntensity: 1.08,
-        cinemaShake: 0.44,
-        bloomStrength: 0.86,
+        visualPreset: 'emily',
+        rhythmIntensity: 0.85,
+        cinemaShake: 0.5,
+        bloomStrength: 0.72,
         enableBackgroundWash: true,
         enableOrbitField: false,
-        enableBassRipples: false,
+        enableBassRipples: true,
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
-        enableBloomParticles: true,
+        enableBloomParticles: false,
         enableFloatingParticles: false,
         enableCoverParticles: true,
     },
@@ -238,8 +239,8 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
-        enableBloomParticles: true,
-        enableFloatingParticles: true,
+        enableBloomParticles: false,
+        enableFloatingParticles: false,
         enableCoverParticles: true,
     },
 };
@@ -266,25 +267,22 @@ export const getMineradioPresetLabelFallback = (preset: MineradioVisualPresetId)
         case 'emily':
             return '封面';
         case 'starfield':
-            return '量子盒';
+        case 'quantumCube':
+        case 'mineradioVinyl':
+            return '封面';
         case 'tunnel':
+        case 'aurora':
             return '极光带';
         case 'nebula':
             return '星云';
         case 'terrain':
             return '声场';
-        case 'quantumCube':
-            return '量子盒';
-        case 'aurora':
-            return '极光带';
         case 'mineradioTunnel':
             return '滚筒';
         case 'mineradioOrbit':
             return '星球';
         case 'mineradioVoid':
             return '虚空';
-        case 'mineradioVinyl':
-            return '唱片';
         case 'mineradioGalaxy':
             return '星河';
         default:

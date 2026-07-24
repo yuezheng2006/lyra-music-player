@@ -1,10 +1,9 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NeteasePlaylist, OnlineMusicProviderId } from '../../types';
-import { OnlineProviderBadge } from '../shared/OnlineProviderBadge';
-import LazyCoverImage from '../shared/LazyCoverImage';
-import { isProviderDefaultPlaylist } from '../../utils/onlineDefaultPlaylists';
+import { HomeShelfCard } from '../shared/HomeShelfCard';
 import { resolveOnlineProviderIconUrl } from '../../utils/onlineProviderAssets';
+import { isProviderDefaultPlaylist } from '../../utils/onlineDefaultPlaylists';
 import { shouldShowHomePeerShortcuts } from '../../utils/ui/homePeerSectionMath';
 import { resolveHomeContentBottomPaddingClass } from '../app/home/homeSurfaceStyles';
 
@@ -35,15 +34,20 @@ const isLikedName = (item: OnlineHomeFlatItem) => {
     return name.includes('喜欢') || name.includes('红心') || name.includes('Favorite');
 };
 
-/** Dense chip: opens peer search without competing with「来源」pills. */
+const SHELF_GRID_CLASS = 'grid grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-2.5 md:gap-3';
+
+const chipShellClass = (isDaylight: boolean) => (
+    isDaylight
+        ? 'bg-black/[0.04] border-black/10 text-black/75 hover:bg-black/[0.07] hover:text-black'
+        : 'bg-white/[0.06] border-white/12 text-white/80 hover:bg-white/[0.1] hover:text-white'
+);
+
+/** Compact platform entry: opens peer search without competing with「来源」pills. */
 const PeerShortcutChip: React.FC<{
     item: OnlineHomeFlatItem;
     isDaylight: boolean;
     onSelect: () => void;
 }> = ({ item, isDaylight, onSelect }) => {
-    const shell = isDaylight
-        ? 'bg-black/[0.04] border-black/10 text-black/75 hover:bg-black/[0.07] hover:text-black'
-        : 'bg-white/[0.06] border-white/12 text-white/80 hover:bg-white/[0.1] hover:text-white';
     const iconUrl = resolveOnlineProviderIconUrl(item.musicProvider) || item.coverUrl;
 
     return (
@@ -51,7 +55,7 @@ const PeerShortcutChip: React.FC<{
             type="button"
             onClick={onSelect}
             title={item.description || item.name}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors active:scale-[0.97] ${shell}`}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors active:scale-[0.97] ${chipShellClass(isDaylight)}`}
         >
             {iconUrl ? (
                 <img
@@ -70,59 +74,23 @@ const PlaylistCard: React.FC<{
     item: OnlineHomeFlatItem;
     isDaylight: boolean;
     onSelect: () => void;
-}> = ({ item, isDaylight, onSelect }) => {
-    const shell = isDaylight
-        ? 'bg-white/55 border-white/70 shadow-[0_8px_22px_rgba(0,0,0,0.05)] hover:bg-white/75 hover:shadow-[0_12px_28px_rgba(0,0,0,0.09)]'
-        : 'bg-white/[0.07] border-white/10 shadow-[0_10px_26px_rgba(0,0,0,0.26)] hover:bg-white/[0.11] hover:shadow-[0_14px_32px_rgba(0,0,0,0.34)]';
-    const metaTone = isDaylight ? 'text-black/42' : 'text-white/42';
-    const titleTone = isDaylight ? 'text-black/88' : 'text-white/92';
-    const coverWash = isDaylight
-        ? 'from-transparent via-transparent to-black/[0.04]'
-        : 'from-transparent via-transparent to-black/35';
+}> = ({ item, isDaylight, onSelect }) => (
+    <HomeShelfCard
+        title={item.name}
+        subtitle={item.description}
+        coverUrl={item.coverUrl}
+        placeholderVariant="playlist"
+        provider={item.musicProvider}
+        isDaylight={isDaylight}
+        onSelect={onSelect}
+    />
+);
 
-    return (
-        <button
-            type="button"
-            onClick={onSelect}
-            className={`group relative text-left overflow-hidden rounded-[18px] border backdrop-blur-xl transition-all duration-300 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.985] ${shell}`}
-        >
-            <div className="relative aspect-square overflow-hidden">
-                <LazyCoverImage
-                    src={item.coverUrl}
-                    alt={item.name}
-                    placeholderLabel={item.name}
-                    placeholderVariant="playlist"
-                    sizePx={320}
-                    className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.045]"
-                />
-                <div className={`pointer-events-none absolute inset-0 bg-gradient-to-b ${coverWash}`} />
-                {item.musicProvider ? (
-                    <OnlineProviderBadge
-                        provider={item.musicProvider}
-                        variant="glass"
-                        isDaylight={isDaylight}
-                        className="absolute top-2 left-2 z-10"
-                    />
-                ) : null}
-            </div>
-
-            <div className={`px-2.5 pt-2 pb-2 min-w-0 ${isDaylight ? 'bg-white/35' : 'bg-white/[0.03]'}`}>
-                <div className={`truncate text-[12px] font-semibold leading-snug tracking-tight ${titleTone}`}>
-                    {item.name}
-                </div>
-                {item.description ? (
-                    <div className={`mt-0.5 truncate text-[10px] leading-snug ${metaTone}`}>
-                        {item.description}
-                    </div>
-                ) : (
-                    <div className="mt-0.5 h-[10px]" />
-                )}
-            </div>
-        </button>
-    );
-};
-
-const SectionTitle: React.FC<{ title: string; isDaylight: boolean; count?: number }> = ({
+const SectionTitle: React.FC<{
+    title: string;
+    isDaylight: boolean;
+    count?: number;
+}> = ({
     title,
     isDaylight,
     count,
@@ -172,7 +140,7 @@ const PlaylistGrid: React.FC<{
     }
 
     return (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-2.5 md:gap-3">
+        <div className={SHELF_GRID_CLASS}>
             {items.map(item => (
                 <PlaylistCard
                     key={`${item.musicProvider || 'netease'}-${item.id}`}
@@ -215,7 +183,9 @@ export const OnlineHomeFlatSurface: React.FC<OnlineHomeFlatSurfaceProps> = ({
         ? libraryItems
         : items.filter(item => !isProviderDefaultPlaylist(item.raw));
     const showLikedSection = moduleFilter === 'all' && likedItems.length > 0;
-    const showPrimarySection = moduleFilter !== 'all' || libraryItems.length > 0 || specialItems.length === 0;
+    const showPrimarySection = moduleFilter !== 'all'
+        || libraryItems.length > 0
+        || specialItems.length === 0;
     const primaryTitle = moduleFilter === 'liked'
         ? t('home.sectionLiked')
         : t('home.sectionPlaylists');

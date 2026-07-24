@@ -34,6 +34,8 @@ export interface PrefetchedSongData {
     audioUrl: string | null;
     audioUrlFetchedAt: number;
     audioUrlQuality: string | null;
+    /** Muted companion stream for Bilibili dual-stream playback (not cached in audio DB). */
+    videoUrl: string | null;
     lyrics: LyricData | null;
     lyricRaw: {
         mainLrc: string | null;
@@ -117,6 +119,7 @@ const createPrefetchDraft = (
     audioUrl: hasValidPrefetchedAudio(existing, audioQuality) ? existing!.audioUrl : null,
     audioUrlFetchedAt: hasValidPrefetchedAudio(existing, audioQuality) ? existing!.audioUrlFetchedAt : 0,
     audioUrlQuality: hasValidPrefetchedAudio(existing, audioQuality) ? existing!.audioUrlQuality : null,
+    videoUrl: hasValidPrefetchedAudio(existing, audioQuality) ? existing!.videoUrl ?? null : null,
     lyrics: existing?.lyrics || null,
     lyricRaw: existing?.lyricRaw || null,
     coverUrl: seedCoverUrl(song, existing?.coverUrl || null),
@@ -191,14 +194,21 @@ export const prefetchSongAudio = async (
             const url = audioResult.audioUrl.startsWith('http:')
                 ? audioResult.audioUrl.replace('http:', 'https:')
                 : audioResult.audioUrl;
+            const videoUrl = typeof audioResult.videoUrl === 'string' && audioResult.videoUrl.trim()
+                ? (audioResult.videoUrl.startsWith('http:')
+                    ? audioResult.videoUrl.replace('http:', 'https:')
+                    : audioResult.videoUrl)
+                : null;
             data.audioUrl = url;
             data.audioUrlFetchedAt = Date.now();
             data.audioUrlQuality = audioQuality;
+            data.videoUrl = videoUrl;
             console.log(`[Prefetch] Got audio URL for: ${song.name}`);
             return commitPrefetchEntry(data);
         }
     } catch (error) {
-        console.warn(`[Prefetch] Failed to get audio URL for ${song.name}:`, error);
+        const { captureRequestFailure } = await import('../utils/network');
+        captureRequestFailure(error, `prefetch:audio:${song.name}`);
     }
 
     commitPrefetchEntry(data);
@@ -363,9 +373,13 @@ export const updatePrefetchedAudioUrl = (
     song: Pick<SongResult, 'id' | 't' | 'musicProvider'>,
     audioUrl: string,
     audioQuality: string,
+    videoUrl?: string | null,
 ): void => {
     const songKey = getPrefetchSongKey(song);
     const existing = prefetchCache.get(songKey);
+    const normalizedVideoUrl = typeof videoUrl === 'string' && videoUrl.trim()
+        ? (videoUrl.startsWith('http:') ? videoUrl.replace('http:', 'https:') : videoUrl)
+        : null;
 
     commitPrefetchEntry({
         songKey,
@@ -373,6 +387,7 @@ export const updatePrefetchedAudioUrl = (
         audioUrl,
         audioUrlFetchedAt: Date.now(),
         audioUrlQuality: audioQuality,
+        videoUrl: normalizedVideoUrl ?? existing?.videoUrl ?? null,
         lyrics: existing?.lyrics || null,
         lyricRaw: existing?.lyricRaw || null,
         coverUrl: existing?.coverUrl || null,

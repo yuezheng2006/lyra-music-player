@@ -672,7 +672,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                             exit={{ opacity: 0, scale: 0.9 }}
                             data-testid="unified-panel"
                             data-app-ui-surface="true"
-                            className={`pointer-events-auto flex w-80 min-h-0 flex-col overflow-hidden rounded-3xl shadow-2xl backdrop-blur-3xl ${glassBg}`}
+                            className={`pointer-events-auto flex w-[min(26rem,calc(100vw-2rem))] min-h-0 flex-col overflow-hidden rounded-3xl shadow-2xl backdrop-blur-3xl ${glassBg}`}
                             style={{
                                 color: theme.primaryColor,
                                 // Cap panel height so Controls tab cannot dominate the viewport.
@@ -1025,6 +1025,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                         }
                         transition={{ duration: 0.24, ease: 'easeOut' }}
                         className="pointer-events-auto fixed bottom-[calc(var(--app-player-bar-height,72px)+12px)] right-0 z-[60] pr-4 md:pr-8 group w-20 flex justify-end"
+                        data-testid="unified-panel-toggle"
                     >
                         {/* Wrapper for both track and button to guarantee perfect alignment across browsers */}
                         <div className={`relative w-12 h-12 transition-all duration-300 transform ${toggleButtonMotionClass}`}>

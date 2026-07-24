@@ -3,7 +3,7 @@ import type { OnlineMusicProviderId } from '../types';
 // src/utils/onlineSearchShortcuts.ts
 // Static popular / common search chips for free peer channels (placeholder lists).
 
-export type OnlineSearchShortcutGroupId = 'hot' | 'common' | 'accounts';
+export type OnlineSearchShortcutGroupId = 'hot' | 'common' | 'accounts' | 'category' | 'song';
 
 export type OnlineSearchShortcutGroup = {
     id: OnlineSearchShortcutGroupId;
@@ -12,6 +12,10 @@ export type OnlineSearchShortcutGroup = {
 
 /** Providers that show empty-state search shortcut chips. */
 export const SEARCH_SHORTCUT_PROVIDER_IDS = ['coco', 'qishui', 'bilibili'] as const;
+
+/** Strip routing prefixes before showing shortcut labels or filling the input box. */
+export const stripShortcutDisplayLabel = (query: string): string =>
+    query.replace(/^(?:up:|账号:|用户:|@|cat:|分类:|song:|歌曲:)\s*/i, '');
 
 export type SearchShortcutProviderId = (typeof SEARCH_SHORTCUT_PROVIDER_IDS)[number];
 
@@ -29,12 +33,12 @@ const COCO_SHORTCUTS: readonly OnlineSearchShortcutGroup[] = [
 
 const QISHUI_SHORTCUTS: readonly OnlineSearchShortcutGroup[] = [
     {
-        id: 'hot',
-        // Qishui-first: Jay Chou, Pins (大头针), and AI-song discovery.
-        queries: ['周杰伦', '大头针', 'AI歌曲', 'AI翻唱', 'AI孙燕姿'],
+        id: 'category',
+        // Playlist/category discovery — adapter resolves via search/playlist (cat: prefix).
+        queries: ['cat:周杰伦', 'cat:大头针', 'cat:AI歌曲', 'cat:AI翻唱', 'cat:AI孙燕姿'],
     },
     {
-        id: 'common',
+        id: 'song',
         queries: ['周杰伦 晴天', '大头针', 'AI周杰伦', 'AI邓紫棋', 'AI陈奕迅'],
     },
 ];

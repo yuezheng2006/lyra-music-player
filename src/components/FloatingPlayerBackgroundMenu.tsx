@@ -15,27 +15,20 @@ import {
     INTERACTIVE3D_VISUAL_PRESET_OPTIONS,
 } from './visualizer/geometric/mineradioVisualPresets';
 import { VISUALIZER_REGISTRY } from './visualizer/registry';
-import LyricColorPicker from './shared/LyricColorPicker';
 import LyricColorPresetGrid from './shared/LyricColorPresetGrid';
 import LyricWordModeToggle from './shared/LyricWordModeToggle';
-import LyricVisualEffectSelector from './shared/LyricVisualEffectSelector';
-import LyricFontPresetSelector from './shared/LyricFontPresetSelector';
-import LyricEffectPackSelector from './shared/LyricEffectPackSelector';
 import { FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX } from './floatingPlayerDockLayout';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import {
     resolveActiveLyricColorPresetId,
-    saveStoredLyricColorPresetId,
     type LyricColorPresetId,
 } from '../utils/theme/lyricColorPresets';
-import { getLyricEffectPackSuggestion } from '../utils/lyricEffectPacks';
 
 // src/components/FloatingPlayerBackgroundMenu.tsx
-// Dock popover: high-frequency 3D, lyric mode, color, and font controls.
+// Dock popover: lightweight presets + open song settings. Full editors live in ControlsTab.
 
 type FloatingPlayerBackgroundMenuProps = {
     isDaylight?: boolean;
-    primaryColor?: string;
     disabled?: boolean;
     visualizerBackgroundMode: VisualizerBackgroundMode | null;
     interactive3dSceneTuning: Interactive3dSceneTuning;
@@ -44,16 +37,14 @@ type FloatingPlayerBackgroundMenuProps = {
     visualizerMode: VisualizerMode;
     onVisualizerModeChange: (mode: VisualizerMode) => void;
     theme?: Theme | null;
-    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
+    onOpenSongSettings?: () => void;
     onOpenChange?: (open: boolean) => void;
     backgroundMenuLabel: string;
-    modeInteractive3dLabel: string;
-    modeCommonLabel: string;
-    modeMonetLabel: string;
     presetSectionLabel: string;
     lyricsStyleSectionLabel: string;
     lyricColorSectionLabel: string;
+    openSongSettingsLabel: string;
     getPresetLabel: (preset: MineradioVisualPresetId) => string;
     getVisualizerLabel: (mode: VisualizerMode) => string;
     buildToolButtonClass: (disabled: boolean, active?: boolean) => string;
@@ -75,31 +66,24 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
     visualizerMode,
     onVisualizerModeChange,
     theme = null,
-    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
+    onOpenSongSettings,
     onOpenChange,
     backgroundMenuLabel,
     presetSectionLabel,
     lyricsStyleSectionLabel,
     lyricColorSectionLabel,
+    openSongSettingsLabel,
     getPresetLabel,
     getVisualizerLabel,
     buildToolButtonClass,
-    primaryColor,
 }) => {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement>(null);
     const resolvedMode = resolveVisualizerBackgroundMode(visualizerBackgroundMode);
     const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
-    const lyricFontPresetId = useSettingsUiStore(state => state.lyricFontPresetId);
-    const visualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
-    const lyricEffectPackId = useSettingsUiStore(state => state.lyricEffectPackId);
     const handleSetLyricWordMode = useSettingsUiStore(state => state.handleSetLyricWordMode);
-    const handleSetLyricFontPresetId = useSettingsUiStore(state => state.handleSetLyricFontPresetId);
-    const handleSetLyricsCustomFont = useSettingsUiStore(state => state.handleSetLyricsCustomFont);
-    const handleSetVisualEffectIntensity = useSettingsUiStore(state => state.handleSetVisualEffectIntensity);
-    const handleSetLyricEffectPackId = useSettingsUiStore(state => state.handleSetLyricEffectPackId);
 
     useEffect(() => {
         onOpenChange?.(open);
@@ -143,7 +127,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                     role="menu"
                     data-testid="floating-player-background-menu"
                     data-app-ui-surface="true"
-                    className={`absolute right-0 z-40 w-[min(360px,92vw)] max-h-[min(82vh,720px)] overscroll-contain overflow-y-auto overflow-x-hidden rounded-2xl border p-3 shadow-[0_18px_48px_rgba(0,0,0,0.35)] backdrop-blur-2xl ${
+                    className={`absolute right-0 z-40 w-[min(320px,92vw)] max-h-[min(72vh,560px)] overscroll-contain overflow-y-auto overflow-x-hidden rounded-2xl border p-3 shadow-[0_18px_48px_rgba(0,0,0,0.35)] backdrop-blur-2xl ${
                         isDaylight
                             ? 'border-black/10 bg-white/92'
                             : 'border-white/12 bg-black/82'
@@ -155,9 +139,10 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                     }`}>
                         {presetSectionLabel}
                     </div>
-                    <div className="mb-3 grid grid-cols-4 gap-1">
+                    <div className="mb-3 grid grid-cols-5 gap-1">
                         {INTERACTIVE3D_VISUAL_PRESET_OPTIONS.map(preset => {
-                            const selected = interactive3dSceneTuning.visualPreset === preset;
+                            const selected = resolvedMode === 'interactive3d'
+                                && interactive3dSceneTuning.visualPreset === preset;
                             return (
                                 <button
                                     key={preset}
@@ -179,6 +164,16 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                                 </button>
                             );
                         })}
+                        <button
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={resolvedMode === 'latent'}
+                            data-testid="floating-player-background-preset-latent"
+                            onClick={() => onVisualizerBackgroundModeChange('latent')}
+                            className={`rounded-lg px-1 py-1.5 text-[11px] font-semibold leading-tight transition-colors ${optionButtonClass(resolvedMode === 'latent', isDaylight)}`}
+                        >
+                            {t('options.visualizerBackgroundModeLatent') || 'Latent'}
+                        </button>
                     </div>
 
                     <div className={`mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
@@ -218,113 +213,52 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                         />
                     </div>
 
-                    {(onApplyLyricBodyColor || onApplyLyricColorPreset) ? (
+                    {onApplyLyricColorPreset ? (
                         <>
                             <div className={`mb-1.5 px-1 text-[12px] font-semibold uppercase tracking-[0.12em] ${
                                 isDaylight ? 'text-black/55' : 'text-white/60'
                             }`}>
                                 {lyricColorSectionLabel}
                             </div>
-                            {onApplyLyricColorPreset ? (
-                                <div className={`rounded-xl p-1.5 ${isDaylight ? 'bg-black/[0.05]' : 'bg-white/[0.07]'}`}>
-                                    <LyricColorPresetGrid
-                                        emphasis
-                                        onSelect={onApplyLyricColorPreset}
-                                        activePresetId={resolveActiveLyricColorPresetId(
-                                            theme,
-                                            isDaylight ? 'light' : 'dark',
-                                        )}
-                                        isDaylight={isDaylight}
-                                        className="!grid-cols-2 gap-2"
-                                        buttonClassName="w-full"
-                                        inactiveButtonClassName={isDaylight
-                                            ? 'text-black/90 hover:bg-black/5'
-                                            : 'text-white/95 hover:bg-white/10'}
-                                        activeButtonClassName={isDaylight
-                                            ? 'bg-white text-stone-950 shadow-sm ring-1 ring-black/10'
-                                            : 'bg-white text-zinc-950 shadow-sm ring-1 ring-white/35'}
-                                    />
-                                </div>
-                            ) : null}
-                            {onApplyLyricBodyColor ? (
-                                <div className={`rounded-xl p-1.5 ${onApplyLyricColorPreset ? 'mt-2' : ''} ${isDaylight ? 'bg-black/[0.05]' : 'bg-white/[0.07]'}`}>
-                                    <LyricColorPicker
-                                        color={theme?.primaryColor || primaryColor || '#f4f4f5'}
-                                        onChange={onApplyLyricBodyColor}
-                                        isDaylight={isDaylight}
-                                        compact
-                                    />
-                                </div>
-                            ) : null}
-
-                            {/* Typography block: lyric font */}
-                            <div className={`mt-3 border-t pt-3 ${
-                                isDaylight ? 'border-black/10' : 'border-white/10'
-                            }`}>
-                                <div className={`mb-1.5 px-1 text-[12px] font-semibold uppercase tracking-[0.12em] ${
-                                    isDaylight ? 'text-black/55' : 'text-white/60'
-                                }`}>
-                                    {t('options.lyricFontPreset') || '歌词字体'}
-                                </div>
-                                <div className={`rounded-xl p-1.5 ${isDaylight ? 'bg-black/[0.05]' : 'bg-white/[0.07]'}`}>
-                                    <LyricFontPresetSelector
-                                        selectedPresetId={lyricFontPresetId}
-                                        onPresetChange={(presetId) => {
-                                            handleSetLyricsCustomFont(null);
-                                            handleSetLyricFontPresetId(presetId);
-                                        }}
-                                        isDaylight={isDaylight}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Effect intensity block */}
-                            <div className={`mt-3 border-t pt-3 ${
-                                isDaylight ? 'border-black/10' : 'border-white/10'
-                            }`}>
-                                <div className={`mb-1.5 px-1 text-[12px] font-semibold uppercase tracking-[0.12em] ${
-                                    isDaylight ? 'text-black/55' : 'text-white/60'
-                                }`}>
-                                    {t('options.visualEffectIntensity') || '效果强度'}
-                                </div>
-                                <div className={`rounded-xl p-1.5 ${isDaylight ? 'bg-black/[0.05]' : 'bg-white/[0.07]'}`}>
-                                    <LyricVisualEffectSelector
-                                        selectedIntensity={visualEffectIntensity}
-                                        onIntensityChange={handleSetVisualEffectIntensity}
-                                        isDaylight={isDaylight}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Lyric effect pack block */}
-                            <div className={`mt-3 border-t pt-3 ${
-                                isDaylight ? 'border-black/10' : 'border-white/10'
-                            }`}>
-                                <div className={`mb-1.5 px-1 text-[12px] font-semibold uppercase tracking-[0.12em] ${
-                                    isDaylight ? 'text-black/55' : 'text-white/60'
-                                }`}>
-                                    {t('options.lyricEffectPack') || '歌词特效'}
-                                </div>
-                                <div className={`rounded-xl p-1.5 ${isDaylight ? 'bg-black/[0.05]' : 'bg-white/[0.07]'}`}>
-                                    <LyricEffectPackSelector
-                                        selectedPackId={lyricEffectPackId}
-                                        onPackChange={handleSetLyricEffectPackId}
-                                        isDaylight={isDaylight}
-                                        onApplySuggestion={(packId) => {
-                                            const suggestion = getLyricEffectPackSuggestion(packId);
-                                            if (suggestion.fontPresetId) {
-                                                handleSetLyricsCustomFont(null);
-                                                handleSetLyricFontPresetId(suggestion.fontPresetId);
-                                            }
-                                            if (suggestion.colorPresetId && onApplyLyricColorPreset) {
-                                                saveStoredLyricColorPresetId(suggestion.colorPresetId as LyricColorPresetId);
-                                                onApplyLyricColorPreset(suggestion.colorPresetId as LyricColorPresetId);
-                                            }
-                                        }}
-                                    />
-                                </div>
+                            <div className={`mb-3 rounded-xl p-1.5 ${isDaylight ? 'bg-black/[0.05]' : 'bg-white/[0.07]'}`}>
+                                <LyricColorPresetGrid
+                                    emphasis
+                                    onSelect={onApplyLyricColorPreset}
+                                    activePresetId={resolveActiveLyricColorPresetId(
+                                        theme,
+                                        isDaylight ? 'light' : 'dark',
+                                    )}
+                                    isDaylight={isDaylight}
+                                    className="!grid-cols-2 gap-2"
+                                    buttonClassName="w-full"
+                                    inactiveButtonClassName={isDaylight
+                                        ? 'text-black/90 hover:bg-black/5'
+                                        : 'text-white/95 hover:bg-white/10'}
+                                    activeButtonClassName={isDaylight
+                                        ? 'bg-white text-stone-950 shadow-sm ring-1 ring-black/10'
+                                        : 'bg-white text-zinc-950 shadow-sm ring-1 ring-white/35'}
+                                />
                             </div>
                         </>
+                    ) : null}
+
+                    {onOpenSongSettings ? (
+                        <button
+                            type="button"
+                            role="menuitem"
+                            data-testid="floating-player-open-song-settings"
+                            onClick={() => {
+                                onOpenSongSettings();
+                                setOpen(false);
+                            }}
+                            className={`w-full rounded-xl px-3 py-2.5 text-left text-[12px] font-semibold transition-colors ${
+                                isDaylight
+                                    ? 'bg-black/[0.06] text-black/85 hover:bg-black/[0.1]'
+                                    : 'bg-white/[0.08] text-white/90 hover:bg-white/[0.14]'
+                            }`}
+                        >
+                            {openSongSettingsLabel}
+                        </button>
                     ) : null}
                 </div>
             ) : null}

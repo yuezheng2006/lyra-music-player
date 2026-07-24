@@ -29,10 +29,8 @@ describe('interactive3d settings matrix', () => {
     it('exposes the shipped WebGL visual preset options', () => {
         expect(INTERACTIVE3D_VISUAL_PRESET_OPTIONS).toEqual([
             'emily',
-            'quantumCube',
             'mineradioTunnel',
             'mineradioOrbit',
-            'mineradioVinyl',
             'mineradioGalaxy',
         ]);
     });
@@ -51,11 +49,11 @@ describe('interactive3d settings matrix', () => {
     });
 
     it('treats bass ripples as emily-only even when stored tuning enables them', () => {
-        const starfield = applyMineradioVisualPreset('starfield');
+        const orbit = applyMineradioVisualPreset('mineradioOrbit');
         const inactive = resolveInactiveInteractive3dSceneEffects({
             ...baseInput,
             interactive3dSceneTuning: resolveStoredInteractive3dSceneTuning({
-                ...starfield,
+                ...orbit,
                 enableBassRipples: true,
             }),
         });

@@ -13,7 +13,7 @@ import { getControlsTabOptionButtonClass, getControlsTabOptionStyles } from './c
 // src/components/panelTab/ControlsTabPlayerBackgroundSection.tsx
 // Compact player-panel controls for visualizer background mode and 3D presets.
 
-const PLAYER_BACKGROUND_MODES: VisualizerBackgroundMode[] = ['interactive3d', 'common', 'monet'];
+const PLAYER_BACKGROUND_MODES: VisualizerBackgroundMode[] = ['interactive3d', 'common', 'monet', 'latent'];
 
 type ControlsTabPlayerBackgroundSectionProps = {
     visualizerMode: VisualizerMode;
@@ -38,6 +38,8 @@ const getBackgroundModeLabel = (
             return t('options.visualizerBackgroundModeCommon') || '通用';
         case 'monet':
             return t('options.visualizerBackgroundModeMonet') || '莫奈';
+        case 'latent':
+            return t('options.visualizerBackgroundModeLatent') || 'Latent';
         case 'url':
             return t('options.visualizerBackgroundModeUrl') || '嵌入';
         case 'sora':
@@ -83,7 +85,7 @@ const ControlsTabPlayerBackgroundSection: React.FC<ControlsTabPlayerBackgroundSe
                 )}
             </div>
 
-            <div className={`grid grid-cols-3 gap-0.5 ${wellBg} p-0.5 rounded-xl`} data-testid="controls-player-background-mode-group">
+            <div className={`grid grid-cols-2 gap-0.5 ${wellBg} p-0.5 rounded-xl`} data-testid="controls-player-background-mode-group">
                 {PLAYER_BACKGROUND_MODES.map(mode => (
                     <button
                         key={mode}

@@ -1,9 +1,11 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { OnlineSearchShortcutGroup } from '../../utils/onlineSearchShortcuts';
+import { stripShortcutDisplayLabel } from '../../utils/onlineSearchShortcuts';
+import { ShortcutChip } from './ShortcutChip';
 
 // src/components/shared/SearchShortcutChips.tsx
-// Empty-state chips for popular / common peer-channel search queries.
+// Empty-state text shortcuts for peer search channels (no cover art).
 
 type SearchShortcutChipsProps = {
     groups: readonly OnlineSearchShortcutGroup[];
@@ -18,12 +20,16 @@ const GROUP_LABEL_KEY: Record<OnlineSearchShortcutGroup['id'], string> = {
     hot: 'search.hotSearches',
     common: 'search.commonSearches',
     accounts: 'search.aiAccountSearches',
+    category: 'search.categorySearches',
+    song: 'search.songSearches',
 };
 
 const GROUP_LABEL_FALLBACK: Record<OnlineSearchShortcutGroup['id'], string> = {
     hot: 'Popular searches',
     common: 'Common searches',
     accounts: 'Popular AI accounts',
+    category: 'Search by category',
+    song: 'Search by song',
 };
 
 export const SearchShortcutChips: React.FC<SearchShortcutChipsProps> = ({
@@ -38,11 +44,8 @@ export const SearchShortcutChips: React.FC<SearchShortcutChipsProps> = ({
 
     if (groups.length === 0) return null;
 
-    const headingText = isDaylight ? 'text-slate-900' : 'text-white';
     const mutedText = isDaylight ? 'text-black/55' : 'text-white/60';
-    const chipClass = isDaylight
-        ? 'border-black/10 bg-white/90 text-slate-700 hover:bg-slate-50 hover:border-black/16'
-        : 'border-white/12 bg-white/8 text-white/85 hover:bg-white/14 hover:border-white/20';
+    const headingText = isDaylight ? 'text-slate-900' : 'text-white';
 
     return (
         <div className="flex flex-col gap-5 py-6 md:py-8">
@@ -53,17 +56,15 @@ export const SearchShortcutChips: React.FC<SearchShortcutChipsProps> = ({
                     </h2>
                     <div className="mt-2.5 flex flex-wrap gap-2">
                         {group.queries.map(query => {
-                            const displayLabel = query.replace(/^(?:up:|账号:|用户:|@)\s*/i, '');
+                            const displayLabel = stripShortcutDisplayLabel(query);
                             return (
-                            <button
-                                key={`${group.id}-${query}`}
-                                type="button"
-                                disabled={disabled}
-                                onClick={() => onSelect(query)}
-                                className={`inline-flex items-center min-h-9 rounded-full border px-3.5 py-1.5 text-sm transition-colors touch-manipulation active:scale-[0.98] disabled:opacity-50 ${chipClass}`}
-                            >
-                                <span className={headingText}>{displayLabel}</span>
-                            </button>
+                                <ShortcutChip
+                                    key={`${group.id}-${query}`}
+                                    label={displayLabel}
+                                    isDaylight={isDaylight}
+                                    disabled={disabled}
+                                    onSelect={() => onSelect(query)}
+                                />
                             );
                         })}
                     </div>

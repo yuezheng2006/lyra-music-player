@@ -14,6 +14,7 @@ import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { resolveWordColor } from '../wordColoring';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { resolveWaitingWordPresentation } from '../../../utils/lyrics/lyricWordMode';
+import { resolveCadenzaGlowIntensity } from '../../../utils/visualizer/cadenzaGlowMath';
 
 // This is the heavy layout mode.
 // The line does not just show up and animate; we first prebuild the active/upcoming lines,
@@ -1278,7 +1279,12 @@ const VisualizerCadenza: React.FC<VisualizerProps> = (props) => {
     } = props;
     const { t } = useTranslation();
     const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const visualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
     const waitingWordPresentation = resolveWaitingWordPresentation(lyricWordMode);
+    const effectiveGlowIntensity = resolveCadenzaGlowIntensity(
+        cadenzaTuning.glowIntensity,
+        visualEffectIntensity,
+    );
     const [viewport, setViewport] = useState({ width: 0, height: 0 });
     const containerRef = useRef<HTMLDivElement>(null);
     const lineLayerRef = useRef<HTMLDivElement>(null);
@@ -1624,14 +1630,14 @@ const VisualizerCadenza: React.FC<VisualizerProps> = (props) => {
                             absoluteIndex,
                             Math.max(placement.wordGraphemeCount, glyphs.length),
                             placement.wordGraphemeTimings,
-                        ) * clamp(animatedState.glowAlpha, 0, 1) * Math.max(tuning.glowIntensity, 0);
+                        ) * clamp(animatedState.glowAlpha, 0, 1) * Math.max(effectiveGlowIntensity, 0);
 
                         glyphSpan.style.textShadow = buildDomTextShadow(placement.color, intensity, blurScale);
                     });
                 } else if (overlayWord.glyphSpans[0]) {
                     const intensity = getClassicGlowEnvelope(time, lineTiming, placement.word)
                         * clamp(animatedState.glowAlpha, 0, 1)
-                        * Math.max(tuning.glowIntensity, 0);
+                        * Math.max(effectiveGlowIntensity, 0);
                     overlayWord.glyphSpans[0].style.textShadow = buildDomTextShadow(placement.color, intensity, blurScale);
                 }
 
@@ -1666,7 +1672,7 @@ const VisualizerCadenza: React.FC<VisualizerProps> = (props) => {
         preparedState,
         showText,
         theme,
-        tuning.glowIntensity,
+        effectiveGlowIntensity,
         tuning.motionAmount,
         viewport.height,
         viewport.width,

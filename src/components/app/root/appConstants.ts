@@ -11,9 +11,9 @@ export const LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC = 3;
 export const DEFAULT_THEME: Theme = {
     name: 'Midnight Default',
     backgroundColor: '#09090b',
-    primaryColor: '#f4f4f5',
-    accentColor: '#f4f4f5',
-    secondaryColor: '#a1a1aa',
+    primaryColor: '#ffffff',
+    accentColor: '#ffffff',
+    secondaryColor: '#d4d4d8',
     fontStyle: 'sans',
     animationIntensity: 'normal',
 };

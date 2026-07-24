@@ -60,15 +60,18 @@ export function useAppControllerCommandLayer(
         enableAlternativeLyricSources,
         enablePlayerPageNativeBlur,
         enableSmartAtmosphere,
+        enableBilibiliVideoBackground,
         activateSmartTheme,
         generateAITheme,
         handleToggleEnableSmartAtmosphere,
+        handleToggleEnableBilibiliVideoBackground,
         getThemeParkSeedTheme,
         handleAutoMatchBestLyricForCurrentSong,
         handleNextTrack,
         handlePrevTrack,
         handleSetAppLanguagePreference,
         handleSetMonetBackgroundTuning,
+        handleSetLatentBackgroundTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
         handleSetLyricWordMode,
@@ -80,6 +83,7 @@ export function useAppControllerCommandLayer(
         homeLayoutStyle,
         isDaylight,
         isDev,
+        isElectronWindow,
         isGeneratingTheme,
         isLyricsLoading,
         isNowPlayingControlDisabled,
@@ -135,6 +139,7 @@ export function useAppControllerCommandLayer(
         stageActiveEntryKind,
         stageLyricsClockRef,
         stageSource,
+        startVideoExport,
         submitSearch,
         syncStageLyricsClock,
         t,
@@ -162,6 +167,10 @@ export function useAppControllerCommandLayer(
     const toggleSmartAtmosphere = useCallback(() => {
         handleToggleEnableSmartAtmosphere(!enableSmartAtmosphere);
     }, [enableSmartAtmosphere, handleToggleEnableSmartAtmosphere]);
+
+    const toggleBilibiliVideoBackground = useCallback(() => {
+        handleToggleEnableBilibiliVideoBackground(!enableBilibiliVideoBackground);
+    }, [enableBilibiliVideoBackground, handleToggleEnableBilibiliVideoBackground]);
 
     const handleSetLyricEffectPackId = useSettingsUiStore(state => state.handleSetLyricEffectPackId);
 
@@ -368,6 +377,7 @@ export function useAppControllerCommandLayer(
         setLyricEffectPackId: handleSetLyricEffectPackId,
         setVisualizerBackgroundMode: handleSetVisualizerBackgroundMode,
         setMonetBackgroundTuning: handleSetMonetBackgroundTuning,
+        setLatentBackgroundTuning: handleSetLatentBackgroundTuning,
         toggleTransparentBackground: () => {
             void toggleTransparentModeWithHandoff(!transparentPlayerBackground);
         },
@@ -384,6 +394,8 @@ export function useAppControllerCommandLayer(
         toggleDaylightMode,
         enableSmartAtmosphere,
         toggleSmartAtmosphere,
+        enableBilibiliVideoBackground,
+        toggleBilibiliVideoBackground,
         setAppLanguagePreference: handleSetAppLanguagePreference,
         enableAlternativeLyricSources,
         runAutoMatchBestLyric: handleAutoMatchBestLyricForCurrentSong,
@@ -398,6 +410,8 @@ export function useAppControllerCommandLayer(
         desktopLyricsEnabled: desktopLyricsStatus.enabled,
         desktopLyricsLocked: desktopLyricsStatus.locked,
         downloadCurrentSong,
+        startVideoExport,
+        isElectronWindow,
     }), [
         canGenerateAITheme,
         canOpenThemeQuickEditor,
@@ -405,15 +419,19 @@ export function useAppControllerCommandLayer(
         desktopLyricsStatus.enabled,
         desktopLyricsStatus.locked,
         downloadCurrentSong,
+        startVideoExport,
+        isElectronWindow,
         enableAlternativeLyricSources,
         enablePlayerPageNativeBlur,
         enableSmartAtmosphere,
+        enableBilibiliVideoBackground,
         generateCurrentSongTheme,
         handleAutoMatchBestLyricForCurrentSong,
         handleNextTrack,
         handlePrevTrack,
         handleSetAppLanguagePreference,
         handleSetMonetBackgroundTuning,
+        handleSetLatentBackgroundTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
         handleSetLyricWordMode,
@@ -450,6 +468,7 @@ export function useAppControllerCommandLayer(
         toggleImmersiveFullscreen,
         toggleDaylightMode,
         toggleSmartAtmosphere,
+        toggleBilibiliVideoBackground,
         toggleDesktopLyrics,
         toggleLoop,
         togglePlay,
@@ -550,9 +569,9 @@ export function useAppControllerCommandLayer(
         if (!preset) {
             return;
         }
-        // Color stays independent from the font picker; still apply glow/rhythm emphasis.
+        // Color chips only change lyric body hues — not animation intensity / glow / rhythm.
         // No toast — same silent UX as font preset / lyric intensity.
-        const nextDualTheme = applyLyricColorPresetToDualTheme(activeDualTheme, preset, { includeEmphasis: true });
+        const nextDualTheme = applyLyricColorPresetToDualTheme(activeDualTheme, preset);
         saveStoredLyricColorPresetId(presetId);
         saveLyricColorDualTheme(nextDualTheme, currentSong?.id ?? null);
     }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme]);

@@ -1,4 +1,5 @@
 import type { GeometricQualityTier } from '../../components/visualizer/geometric/geometricQuality';
+import { shouldMountAmbientForTier } from '../performance/interactive3dFrameCostMath';
 
 // src/utils/atmosphere/ambientVisualMountMath.ts
 // Pure mount gate for AmbientVisualOverlay (enabled + performance tier).
@@ -14,7 +15,7 @@ type AmbientMountGateInput = {
 
 /**
  * Whether AmbientVisualStage should mount a second WebGL canvas.
- * Lite tier always unmounts to avoid dual-WebGL pressure.
+ * Only high tier mounts — balanced/lite stay off to avoid dual-WebGL pressure.
  */
 export function shouldMountAmbientVisual({
   enabled,
@@ -22,7 +23,5 @@ export function shouldMountAmbientVisual({
   staticMode = false,
 }: AmbientMountGateInput): boolean {
   if (staticMode) return false;
-  if (!enabled) return false;
-  if (performanceTier === 'lite') return false;
-  return true;
+  return shouldMountAmbientForTier(enabled, performanceTier);
 }
