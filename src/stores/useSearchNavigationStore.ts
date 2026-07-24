@@ -268,12 +268,12 @@ const getInitialHomeViewTab = (): HomeViewTab => {
         return 'playlist';
     }
     const savedTab = localStorage.getItem(LAST_HOME_VIEW_TAB_KEY);
+    // 'daily' is no longer a sidebar destination; fall back to playlist.
     return savedTab === 'playlist'
         || savedTab === 'local'
         || savedTab === 'albums'
         || savedTab === 'navidrome'
         || savedTab === 'radio'
-        || savedTab === 'daily'
         || savedTab === 'podcast'
         ? savedTab
         : 'playlist';

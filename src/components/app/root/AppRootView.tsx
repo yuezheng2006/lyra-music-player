@@ -289,7 +289,6 @@ export function AppRootView({ controller }: AppRootViewProps) {
             <div className="relative flex min-h-0 flex-1 w-full">
                 <AppSidebar
                     active={((): AppSidebarActive => {
-                        if (homeViewTab === 'daily') return 'daily';
                         if (homeViewTab === 'podcast') return 'podcast';
                         if (homeViewTab === 'local') return 'local';
                         if (homeViewTab === 'navidrome' && navidromeEnabled) return 'navidrome';
@@ -305,10 +304,6 @@ export function AppRootView({ controller }: AppRootViewProps) {
                     onOpenHome={() => {
                         setHomeViewTab('playlist');
                         navigateDirectHome();
-                    }}
-                    onOpenDaily={() => {
-                        setHomeViewTab('daily');
-                        navigateDirectHome({ clearContext: false });
                     }}
                     onOpenPodcast={() => {
                         setHomeViewTab('podcast');
