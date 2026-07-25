@@ -17,6 +17,10 @@ export const shouldResolveCompanionVideoForSong = (
 /**
  * Pause heavy visualizer backgrounds while off-player (when opted in) or while
  * the player is open but audio src is not armed yet (URL still loading).
+ *
+ * Home keeps a solid shell over the stage, so WebGL on home is not user-visible —
+ * Electron defaults `disableHomeDynamicBackground` to save GPU. Selecting 3D from
+ * the dock should navigate into the player view instead of unpausing under home.
  */
 export const resolveShouldPauseVisualizerBackground = (input: {
     currentView: string;

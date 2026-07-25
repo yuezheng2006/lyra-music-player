@@ -18,8 +18,10 @@ export interface CoverParticlePresetRuntimeProfile {
 const PROFILES: Record<MineradioVisualPresetId, CoverParticlePresetRuntimeProfile> = {
     emily: {
         speedMul: 1.00,
-        pointScale: 1.00,
-        cameraZ: 6.60,
+        // Slightly fuller at balanced ~159² so the field stays solid without 221² cost.
+        pointScale: 1.14,
+        // Slightly closer than Mineradio 6.6 so the cover plane uses more screen samples.
+        cameraZ: 6.20,
         fov: 45,
         bassCameraPunch: 0.08,
     },

@@ -5,6 +5,8 @@ import { LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC } from '@/components/app/root/app
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong, isYtmPlaybackSong } from '@/utils/appPlaybackGuards';
 import { shouldPreserveAutoPlayOnPause } from '@/utils/audioAutoPlayGuard';
 import { resolvePlaybackDurationSec, resolveSongDurationSec } from '@/utils/appPlaybackHelpers';
+import { resolveMediaClocksFromAudioElement } from '@/utils/playback/mediaClockIsolationMath';
+import { isOnlinePlaybackRecoveryExhausted } from '../playback/createOnlineRecoveryController';
 
 export interface AppAudioElementProps {
     audioRef: RefObject<HTMLAudioElement | null>;
@@ -14,6 +16,9 @@ export interface AppAudioElementProps {
     effectiveLoopMode: StageLoopMode;
     shouldAutoPlay: MutableRefObject<boolean>;
     currentTime: MotionValue<number>;
+    /** Keep lyrics on the same media clock as dock progress (independent of visualizer RAF). */
+    lyricCurrentTime?: MotionValue<number>;
+    lyricTimelineOffsetMs?: number;
     setPlayerState: (state: PlayerState) => void;
     setupAudioAnalyzer: () => void;
     playbackAutoSkipCountRef: MutableRefObject<number>;
@@ -36,6 +41,8 @@ export function AppAudioElement(props: AppAudioElementProps) {
         effectiveLoopMode,
         shouldAutoPlay,
         currentTime,
+        lyricCurrentTime,
+        lyricTimelineOffsetMs = 0,
         setPlayerState,
         setupAudioAnalyzer,
         playbackAutoSkipCountRef,
@@ -92,16 +99,25 @@ export function AppAudioElement(props: AppAudioElementProps) {
             onTimeUpdate={(e) => {
                 const audioElement = e.currentTarget;
                 if (!audioElement.paused && !audioElement.ended) {
-                    // Drive the dock/progress clock from the element itself so UI
-                    // can advance even when the visualizer RAF loop is starved.
-                    currentTime.set(audioElement.currentTime);
+                    // Media-layer clocks: independent of visualizer RAF / WebGL.
+                    const { currentTimeSec, lyricTimeSec } = resolveMediaClocksFromAudioElement({
+                        audioCurrentTimeSec: audioElement.currentTime,
+                        lyricTimelineOffsetMs,
+                    });
+                    currentTime.set(currentTimeSec);
+                    lyricCurrentTime?.set(lyricTimeSec);
                     if (playerState !== PlayerState.PLAYING) {
                         setPlayerState(PlayerState.PLAYING);
                     }
                 }
             }}
             onSeeked={(e) => {
-                currentTime.set(e.currentTarget.currentTime);
+                const { currentTimeSec, lyricTimeSec } = resolveMediaClocksFromAudioElement({
+                    audioCurrentTimeSec: e.currentTarget.currentTime,
+                    lyricTimelineOffsetMs,
+                });
+                currentTime.set(currentTimeSec);
+                lyricCurrentTime?.set(lyricTimeSec);
             }}
             // Buffer progress debug helper. Uncomment to inspect how much of
             // the current source the browser has actually buffered.
@@ -226,6 +242,12 @@ export function AppAudioElement(props: AppAudioElementProps) {
                 );
 
                 if (shouldRetryOnlineSong) {
+                    if (isOnlinePlaybackRecoveryExhausted(currentSong?.id)) {
+                        shouldAutoPlay.current = false;
+                        pendingResumeTimeRef.current = null;
+                        skipAfterPlaybackFailure();
+                        return;
+                    }
                     void (async () => {
                         const recovered = await recoverOnlinePlaybackSource({
                             failedSrc,

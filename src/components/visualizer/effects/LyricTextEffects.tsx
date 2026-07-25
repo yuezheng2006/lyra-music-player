@@ -20,14 +20,20 @@ type AudioEffectData = {
 };
 
 const PRESET_GLOW: Record<LyricEffectPreset, string[]> = {
-    'soda-white': ['#ffffff', '#f4f4f5'],
-    'foil-gold': ['#ffe9a0', '#f5d76e'],
-    'stage-blue': ['#9ad9ff', '#6ec8ff'],
-    'dazibao-red': ['#ff7a62', '#ff5a45'],
+    'soda-white': ['#E8F4F8', '#C1C8D6'],
+    'foil-gold': ['#F9D770', '#EBB10D'],
+    'stage-blue': ['#4F84FF', '#1661AB'],
+    'dazibao-red': ['#FF4D4D', '#D92121'],
+    'ice-silver': ['#C1C8D6', '#E4DFD7'],
+    'mint-lime': ['#B2F0D9', '#207F4C'],
+    'hot-pink': ['#FF6F61', '#AED9D4'],
+    'violet-neon': ['#D1B3FF', '#C8A2C8'],
+    'sunset-orange': ['#FBB957', '#63BBD0'],
+    'pin-song': ['#EF3473', '#A0D6B4'],
 };
 
 const resolveGlowShadow = (preset: LyricEffectPreset, level = 0.5) => {
-    const [primary, secondary] = PRESET_GLOW[preset];
+    const [primary, secondary] = PRESET_GLOW[preset] ?? PRESET_GLOW['soda-white'];
     const boost = Math.max(0, Math.min(1, level));
     return [
         `0 0 ${8 + boost * 12}px ${primary}`,
@@ -82,9 +88,8 @@ export const applyStageBlueEffect = (element: HTMLElement, audioLevel = 0.5) => 
     animateBreathingGlow(element, 'stage-blue', audioLevel, 1300)
 );
 
-/** @deprecated Pink preset folded into red. */
 export const applyXhsHotPinkEffect = (element: HTMLElement) => (
-    animateBreathingGlow(element, 'dazibao-red', 0.42, 1100)
+    animateBreathingGlow(element, 'hot-pink', 0.42, 1100)
 );
 
 export const applyXhsNoteRedEffect = (element: HTMLElement, text: string) => {

@@ -6,23 +6,26 @@ import {
     resolveElectronSafeVisualizerMode,
     resolveGpuCrashVisualizerFallback,
     resolveGpuCrashVisualizerModeFallback,
+    resolveUserSelectedVisualizerBackgroundMode,
 } from '@/utils/performance/electronInteractive3dGuardMath';
 
 // Guards Electron interactive3d from pegging / crashing the GPU helper.
 
 describe('electronInteractive3dGuardMath', () => {
-    it('caps Retina Electron auto quality to lite', () => {
+    it('caps all Electron auto quality to lite so 3D cannot thrash playback', () => {
         expect(resolveElectronQualityCeiling({
             isElectron: true,
             devicePixelRatio: 2,
         })).toBe('lite');
-    });
-
-    it('caps non-Retina Electron auto quality to balanced (never high)', () => {
         expect(resolveElectronQualityCeiling({
             isElectron: true,
             devicePixelRatio: 1,
-        })).toBe('balanced');
+        })).toBe('lite');
+        expect(resolveElectronQualityCeiling({
+            isElectron: true,
+            devicePixelRatio: 2,
+            prefersReducedMotion: true,
+        })).toBe('lite');
     });
 
     it('does not clamp browser / non-electron runtimes', () => {
@@ -80,6 +83,32 @@ describe('electronInteractive3dGuardMath', () => {
             gpuUnstable: true,
             interactive3dOptIn: false,
         })).toBe('common');
+    });
+
+    it('allows interactive3d retry while blocking other heavy modes under gpuUnstable', () => {
+        expect(resolveUserSelectedVisualizerBackgroundMode({
+            requested: 'interactive3d',
+            isElectron: true,
+            gpuUnstable: true,
+        })).toBe('interactive3d');
+
+        expect(resolveUserSelectedVisualizerBackgroundMode({
+            requested: 'latent',
+            isElectron: true,
+            gpuUnstable: true,
+        })).toBe('common');
+
+        expect(resolveUserSelectedVisualizerBackgroundMode({
+            requested: 'interactive3d',
+            isElectron: true,
+            gpuUnstable: false,
+        })).toBe('interactive3d');
+
+        expect(resolveUserSelectedVisualizerBackgroundMode({
+            requested: 'interactive3d',
+            isElectron: false,
+            gpuUnstable: true,
+        })).toBe('interactive3d');
     });
 
     it('does not demote lyric style after a GPU crash (Monet stays available)', () => {

@@ -142,6 +142,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
         isSettingsSubviewOpen,
         isTitlebarRevealed,
         lyricCurrentTime,
+        lyricTimelineOffsetMs,
         lyrics,
         lyricsFontScale,
         monetBackgroundImage,
@@ -277,6 +278,8 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 effectiveLoopMode={effectiveLoopMode}
                 shouldAutoPlay={shouldAutoPlay}
                 currentTime={currentTime}
+                lyricCurrentTime={lyricCurrentTime}
+                lyricTimelineOffsetMs={lyricTimelineOffsetMs}
                 setPlayerState={setPlayerState}
                 setupAudioAnalyzer={setupAudioAnalyzer}
                 playbackAutoSkipCountRef={playbackAutoSkipCountRef}

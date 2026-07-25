@@ -223,17 +223,27 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
 
             {shouldRenderInteractive3dBackground && (
                 <>
+                    {/* Black base + soft cover tint — welcoming album color without a full fog veil. */}
                     <div
                         className="absolute inset-0 z-0 transition-all duration-1000"
                         style={{
-                            backgroundColor: '#071922',
-                            backgroundImage: resolvedShellCanvasBackground,
+                            backgroundColor: '#000000',
                             opacity: 1,
                         }}
                     />
+                    {resolvedShellCanvasBackground ? (
+                        <div
+                            className="absolute inset-0 z-0 transition-all duration-1000"
+                            style={{
+                                backgroundImage: resolvedShellCanvasBackground,
+                                opacity: 0.42,
+                                pointerEvents: 'none',
+                            }}
+                            aria-hidden
+                        />
+                    ) : null}
                     <div
                         className="absolute inset-0 z-0 isolate pointer-events-auto"
-                        style={{ filter: 'brightness(1.16) saturate(1.08)' }}
                     >
                         <GeometricInteractiveBackground
                             theme={theme}
@@ -304,7 +314,14 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 </div>
             )}
 
-            <div className="relative z-30 isolate w-full h-full overflow-hidden pointer-events-none">
+            <div
+                className="relative z-30 isolate w-full h-full overflow-hidden pointer-events-none"
+                data-lyric-stage={shouldRenderSoraBackground ? 'sora' : undefined}
+                style={shouldRenderSoraBackground ? {
+                    // Extra lift so DOM lyrics read as the hero of the starfield stage.
+                    filter: 'drop-shadow(0 0 18px rgba(0,0,0,0.55)) drop-shadow(0 2px 10px rgba(0,0,0,0.4))',
+                } : undefined}
+            >
                 {shouldApplyLyricRhythm ? (
                     <LyricRhythmStage
                         audioPower={audioPower}

@@ -31,8 +31,8 @@ export const resolveCladdaghEquatorPulseSnapshot = (
         colorRatioQ,
         breathQ,
         shimmerQ,
-        dashA: Math.round(18 + colorRatioQ * 10),
-        dashB: Math.round(26 - colorRatioQ * 8),
+        dashA: Math.round(1 + colorRatioQ),
+        dashB: Math.round(18 - colorRatioQ * 4),
     };
 };
 

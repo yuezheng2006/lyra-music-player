@@ -1,16 +1,15 @@
 import React from 'react';
-import { Moon, Palette, Sun } from 'lucide-react';
+import { Moon, Palette, Sparkles, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { Theme, ThemeMode, VisualizerBackgroundMode, VisualizerMode } from '../../types';
+import type { Theme, ThemeMode, VisualizerBackgroundMode } from '../../types';
 import type { ThemeSourceModel } from '../../hooks/themeControllerState';
-import { getVisualizerModeLabel, VISUALIZER_REGISTRY } from '../visualizer/registry';
 import { resolveVisualizerBackgroundMode, useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import { useThemeQuickEditorStore } from '../../stores/useThemeQuickEditorStore';
 import QuickEffectPicker from './QuickEffectPicker';
 import type { ControlsTabOptionStyles } from './controlsTabOptionStyles';
 
 // src/components/panelTab/ControlsTabThemeSection.tsx
-// Theme source switcher, quick editor entry, and compact animation/background pickers.
+// Advanced theme/background cluster: intensity, background engine, theme source, quick editor, AI generation.
 
 const PLAYER_BACKGROUND_MODES: VisualizerBackgroundMode[] = ['interactive3d', 'common', 'monet', 'latent'];
 
@@ -22,13 +21,14 @@ type ControlsTabThemeSectionProps = {
     themeSourceModel: ThemeSourceModel;
     defaultTheme: Theme;
     daylightTheme: Theme;
-    visualizerMode: VisualizerMode;
-    onVisualizerModeChange: (mode: VisualizerMode) => void;
     visualizerBackgroundMode?: VisualizerBackgroundMode | null;
     onVisualizerBackgroundModeChange?: (mode: VisualizerBackgroundMode) => void;
     isDaylight: boolean;
     onToggleDaylight: () => void;
     optionStyles: ControlsTabOptionStyles;
+    onGenerateAITheme: () => void;
+    isGeneratingTheme: boolean;
+    canGenerateAITheme: boolean;
 };
 
 const getBackgroundModeLabel = (
@@ -57,13 +57,14 @@ const ControlsTabThemeSection: React.FC<ControlsTabThemeSectionProps> = ({
     themeSourceModel,
     defaultTheme,
     daylightTheme,
-    visualizerMode,
-    onVisualizerModeChange,
     visualizerBackgroundMode = null,
     onVisualizerBackgroundModeChange,
     isDaylight,
     onToggleDaylight,
     optionStyles,
+    onGenerateAITheme,
+    isGeneratingTheme,
+    canGenerateAITheme,
 }) => {
     const { t } = useTranslation();
     const openThemeQuickEditor = useThemeQuickEditorStore(state => state.openEditor);
@@ -86,12 +87,8 @@ const ControlsTabThemeSection: React.FC<ControlsTabThemeSectionProps> = ({
     const themeDisplayName = formatThemeDisplayName(themeSourceModel.current.label || theme.name);
     const aiSwatchColor = aiThemeSource.theme?.backgroundColor ?? 'rgba(114,119,134,0.4)';
     const customSwatchColor = customThemeSource.theme?.accentColor ?? 'rgba(114,119,134,0.4)';
-    const resolvedBackgroundMode = resolveVisualizerBackgroundMode(visualizerBackgroundMode, visualizerMode);
+    const resolvedBackgroundMode = resolveVisualizerBackgroundMode(visualizerBackgroundMode);
 
-    const visualizerOptions = VISUALIZER_REGISTRY.map(entry => ({
-        value: entry.mode,
-        label: getVisualizerModeLabel(entry.mode, t),
-    }));
     const backgroundOptions = PLAYER_BACKGROUND_MODES.map(mode => ({
         value: mode,
         label: getBackgroundModeLabel(mode, t),
@@ -122,27 +119,16 @@ const ControlsTabThemeSection: React.FC<ControlsTabThemeSectionProps> = ({
         <div className="space-y-2" data-testid="controls-theme-section">
             <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-widest opacity-40">
-                    {t('ui.animationMode') || 'Animation'}
+                    {t('ui.animationIntensity') || 'Intensity'}
                 </span>
-                <div className="flex min-w-0 items-center gap-1.5" data-testid="controls-lyrics-animation-section">
-                    <QuickEffectPicker
-                        value={visualizerMode}
-                        options={visualizerOptions}
-                        onChange={onVisualizerModeChange}
-                        isDaylight={isDaylight}
-                        primaryColor={theme.primaryColor}
-                        ariaLabel={t('ui.animationMode') || 'Animation'}
-                        testIdPrefix="controls-visualizer-mode"
-                    />
-                    <button
-                        type="button"
-                        onClick={toggleAnimationIntensity}
-                        className={`shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-bold capitalize transition-all ${activeOptionBg}`}
-                        title={t('ui.animationIntensity') || 'Intensity'}
-                    >
-                        {t(`animation.${theme.animationIntensity}`)}
-                    </button>
-                </div>
+                <button
+                    type="button"
+                    onClick={toggleAnimationIntensity}
+                    className={`shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-bold capitalize transition-all ${activeOptionBg}`}
+                    title={t('ui.animationIntensity') || 'Intensity'}
+                >
+                    {t(`animation.${theme.animationIntensity}`)}
+                </button>
             </div>
 
             <div>
@@ -214,8 +200,8 @@ const ControlsTabThemeSection: React.FC<ControlsTabThemeSectionProps> = ({
                 </div>
             </div>
 
-            <div className="flex items-center justify-between border-t border-white/5 pt-2">
-                <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-2">
+                <div className="flex min-w-0 items-center gap-2">
                     <button
                         type="button"
                         onClick={onToggleDaylight}
@@ -230,7 +216,7 @@ const ControlsTabThemeSection: React.FC<ControlsTabThemeSectionProps> = ({
                             type="button"
                             data-testid="controls-open-theme-quick-editor"
                             onClick={openCurrentThemeQuickEditor}
-                            className={`inline-flex max-w-[180px] items-center gap-1 truncate rounded-md px-1.5 py-1 text-left text-xs font-bold transition-colors ${
+                            className={`inline-flex max-w-[150px] items-center gap-1 truncate rounded-md px-1.5 py-1 text-left text-xs font-bold transition-colors ${
                                 isDaylight ? 'hover:bg-black/10' : 'hover:bg-white/10'
                             }`}
                             title={currentEditableSource === 'custom'
@@ -244,11 +230,28 @@ const ControlsTabThemeSection: React.FC<ControlsTabThemeSectionProps> = ({
                             </span>
                         </button>
                     ) : (
-                        <span className="max-w-[140px] truncate text-xs font-bold">
+                        <span className="max-w-[130px] truncate text-xs font-bold">
                             {themeDisplayName}
                         </span>
                     )}
                 </div>
+                <button
+                    type="button"
+                    data-testid="controls-generate-ai-theme"
+                    onClick={onGenerateAITheme}
+                    disabled={isGeneratingTheme || !canGenerateAITheme}
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-all ${
+                        isGeneratingTheme
+                            ? 'bg-blue-500/20 text-blue-300'
+                            : canGenerateAITheme
+                                ? (isDaylight ? 'bg-black/5 hover:bg-black/10' : 'bg-white/10 hover:bg-white/16')
+                                : 'cursor-not-allowed opacity-35'
+                    }`}
+                    title={t('ui.generateAITheme') || 'Generate Smart Theme'}
+                >
+                    <Sparkles size={12} className={isGeneratingTheme ? 'animate-pulse' : ''} />
+                    {t('ui.aiTheme') || 'AI'}
+                </button>
             </div>
         </div>
     );

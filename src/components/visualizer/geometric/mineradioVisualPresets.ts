@@ -56,7 +56,7 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         visualPreset: 'emily',
         rhythmIntensity: 0.85,
         cinemaShake: 0.5,
-        bloomStrength: 0.92,
+        bloomStrength: 0.62,
         enableBackgroundWash: true,
         enableOrbitField: true,
         enableBassRipples: true,

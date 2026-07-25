@@ -10,12 +10,13 @@ import { resolveCoverParticlePresetRuntime } from '@/components/visualizer/geome
 describe('cover particle density upgrade', () => {
     it('uses performance-first grids under the Mineradio curve', () => {
         expect(coverParticleGridForResolution(1.55)).toBe(183);
+        expect(coverParticleGridForResolution(1.35)).toBe(159);
         expect(coverParticleGridForResolution(1.0)).toBe(119);
         expect(coverParticleGridForResolution(0.55)).toBe(65);
-        // Tier grids stay below prior emily budgets (Electron GPU helper thrash).
-        expect(coverParticleGridForQualityTier('high')).toBe(101);
-        expect(coverParticleGridForQualityTier('balanced')).toBe(89);
-        expect(coverParticleGridForQualityTier('lite')).toBe(65);
+        // High = Mineradio 183²; balanced ≈119² (Electron ceiling); lite ≈89².
+        expect(coverParticleGridForQualityTier('high')).toBe(183);
+        expect(coverParticleGridForQualityTier('balanced')).toBe(119);
+        expect(coverParticleGridForQualityTier('lite')).toBe(89);
     });
 
     it('supports preset burst trigger and cinema drift', () => {
@@ -33,8 +34,9 @@ describe('cover particle density upgrade', () => {
     it('keeps active tunnel motion punch stronger than cover', () => {
         const cover = resolveCoverParticlePresetRuntime('emily');
         const tunnel = resolveCoverParticlePresetRuntime('mineradioTunnel');
-        expect(cover.cameraZ).toBe(6.6);
+        expect(cover.cameraZ).toBe(6.2);
         expect(cover.fov).toBe(45);
+        expect(cover.pointScale).toBeCloseTo(1.14);
         expect(tunnel.bassCameraPunch).toBeGreaterThan(cover.bassCameraPunch);
     });
 

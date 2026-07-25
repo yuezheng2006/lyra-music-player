@@ -5,6 +5,7 @@ import {
     resolveVisualizerBottomSubtitlePresentation,
 } from '@/components/visualizer/resolveUpcomingLyricPresentation';
 import { parseColorChannels } from '@/components/visualizer/colorMix';
+import { LYRIC_LINE_OPACITY } from '@/utils/theme/lyricColorPresets';
 
 const DAYLIGHT_THEME = {
     name: 'Daylight Default',
@@ -28,7 +29,8 @@ describe('resolveUpcomingLyricPresentation', () => {
     it('uses a light fill on daylight themes so lines stay readable over dark particles', () => {
         const presentation = resolveUpcomingLyricPresentation(DAYLIGHT_THEME as never, 0.35);
 
-        expect(presentation.lineOpacity).toBeGreaterThanOrEqual(0.88);
+        expect(presentation.lineOpacity).toBeGreaterThanOrEqual(LYRIC_LINE_OPACITY.waitingNear);
+        expect(presentation.lineOpacity).toBeLessThanOrEqual(LYRIC_LINE_OPACITY.waitingNear + 0.12);
         expect(estimateLuminance(presentation.color)).toBeGreaterThan(0.72);
         expect(presentation.textShadow).toContain('0 0 1px');
         expect(presentation.textShadow).toContain('0 0 6px');
@@ -42,7 +44,8 @@ describe('resolveUpcomingLyricPresentation', () => {
             highlightColor: '#fff2b0',
         } as never, 0.35);
 
-        expect(presentation.lineOpacity).toBeGreaterThanOrEqual(0.88);
+        expect(presentation.lineOpacity).toBeGreaterThanOrEqual(LYRIC_LINE_OPACITY.waitingNear);
+        expect(presentation.lineOpacity).toBeLessThanOrEqual(LYRIC_LINE_OPACITY.waitingNear + 0.12);
         expect(estimateLuminance(presentation.color)).toBeGreaterThan(0.7);
         expect(presentation.textShadow).toContain('0 1px 2px');
     });

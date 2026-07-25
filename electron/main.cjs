@@ -16,6 +16,10 @@ const {
   isAllowedLyricProxyHost,
   isAmllDbHost,
 } = require('../shared/lyricProxyHosts.cjs');
+const {
+  resolveMediaRequestOverride,
+  shouldBypassMediaCors,
+} = require('../shared/mediaRequestHeaders.cjs');
 const useLinuxGraphicsDebugMode = process.env.ELECTRON_LINUX_PACKAGED_GRAPHICS === 'true';
 const isAppImageRuntime =
   process.platform === 'linux' &&
@@ -67,6 +71,10 @@ let mainWindow = null;
 let gpuProcessGoneCount = 0;
 let gpuCrashReloadTimer = null;
 let gpuCrashRelaunchArmed = false;
+// macOS Retina: one GPU death already flips Chromium into software GL, which
+// pegs Electron Helper at ~100% CPU with 0% GPU and freezes the dock clock.
+// Escape on the first death; other platforms keep a 2-strike threshold.
+const GPU_CRASH_RELAUNCH_AFTER = process.platform === 'darwin' ? 1 : 2;
 app.on('child-process-gone', (_event, details) => {
   if (!details || details.type !== 'GPU') return;
   gpuProcessGoneCount += 1;
@@ -79,18 +87,31 @@ app.on('child-process-gone', (_event, details) => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send('gpu-process-gone', payload);
   // Chromium falls back to --use-gl=disabled after GPU deaths; window reload
-  // cannot restore HW GL and leaves the renderer wedged at 100% CPU. Relaunch.
-  if (gpuProcessGoneCount >= 2 && !gpuCrashRelaunchArmed) {
+  // cannot restore HW GL and leaves the renderer wedged at 100% CPU.
+  // Packaged: app.relaunch(). Concurrent-dev: exit 75 so scripts/run-electron-dev.mjs
+  // restarts Electron only (vite / sidecars stay up under concurrently -k).
+  if (gpuProcessGoneCount >= GPU_CRASH_RELAUNCH_AFTER && !gpuCrashRelaunchArmed) {
     gpuCrashRelaunchArmed = true;
     if (gpuCrashReloadTimer) {
       clearTimeout(gpuCrashReloadTimer);
       gpuCrashReloadTimer = null;
     }
+    const isConcurrentDev = process.env.ELECTRON_DEV === 'true'
+      || process.env.LYRA_EXTERNAL_DEV_APIS === 'true';
     setTimeout(() => {
+      if (isConcurrentDev) {
+        // Must match ELECTRON_DEV_RESTART_EXIT_CODE in scripts/run-electron-dev.mjs
+        const ELECTRON_DEV_RESTART_EXIT_CODE = 75;
+        console.warn(
+          `[gpu] concurrent-dev: exiting Electron with code ${ELECTRON_DEV_RESTART_EXIT_CODE} for wrapper restart (escape software GL)`,
+        );
+        app.exit(ELECTRON_DEV_RESTART_EXIT_CODE);
+        return;
+      }
       console.warn('[gpu] relaunching app to escape software-GL fallback after GPU deaths');
       app.relaunch();
       app.exit(0);
-    }, 500);
+    }, 350);
   }
 });
 let remoteControlWindow = null;
@@ -824,14 +845,12 @@ function buildDownloadRequestHeaders(audioUrl) {
 
   try {
     const hostname = new URL(audioUrl).hostname.toLowerCase();
-    if (
-      hostname === 'bilivideo.com'
-      || hostname.endsWith('.bilivideo.com')
-      || hostname.endsWith('.bilivideo.cn')
-    ) {
-      headers.Referer = 'https://www.bilibili.com/';
-    } else if (hostname.includes('kugou')) {
-      headers.Referer = 'https://www.kugou.com/';
+    const override = resolveMediaRequestOverride(hostname);
+    if (override?.referer) {
+      headers.Referer = override.referer;
+    }
+    if (override?.origin) {
+      headers.Origin = override.origin;
     }
   } catch {
     // Keep default headers when URL parsing fails.
@@ -1226,18 +1245,7 @@ function setupCorsBypassHandlers() {
     let isTargetDomain = false;
     try {
       const parsedUrl = new URL(originUrl);
-      const hostname = parsedUrl.hostname;
-      isTargetDomain =
-        hostname === 'qq.com' ||
-        hostname.endsWith('.qq.com') ||
-        hostname === 'kugou.com' ||
-        hostname.endsWith('.kugou.com') ||
-        hostname === 'bilibili.com' ||
-        hostname.endsWith('.bilibili.com') ||
-        hostname === 'bilivideo.com' ||
-        hostname.endsWith('.bilivideo.com') ||
-        hostname.endsWith('.bilivideo.cn') ||
-        hostname === 'amll-ttml-db.stevexmh.net';
+      isTargetDomain = shouldBypassMediaCors(parsedUrl.hostname);
     } catch (error) {
       isTargetDomain = false;
     }
@@ -1253,24 +1261,19 @@ function setupCorsBypassHandlers() {
   });
 }
 
-/** CDN streams for Kugou / Bilibili reject wrong Referer from the app origin. */
+/** CDN streams (Kugou / Bilibili / 汽水 douyinvod) reject wrong Referer from the app origin. */
 function setupMediaRefererHandlers() {
   const ses = session.defaultSession;
   ses.webRequest.onBeforeSendHeaders((details, callback) => {
     const requestHeaders = { ...details.requestHeaders };
     try {
       const hostname = new URL(details.url).hostname;
-      if (
-        hostname === 'bilibili.com'
-        || hostname.endsWith('.bilibili.com')
-        || hostname === 'bilivideo.com'
-        || hostname.endsWith('.bilivideo.com')
-        || hostname.endsWith('.bilivideo.cn')
-      ) {
-        requestHeaders.Referer = 'https://www.bilibili.com/';
-        requestHeaders.Origin = 'https://www.bilibili.com';
-      } else if (hostname === 'kugou.com' || hostname.endsWith('.kugou.com')) {
-        requestHeaders.Referer = 'https://www.kugou.com/';
+      const override = resolveMediaRequestOverride(hostname);
+      if (override?.referer) {
+        requestHeaders.Referer = override.referer;
+      }
+      if (override?.origin) {
+        requestHeaders.Origin = override.origin;
       }
     } catch {
       // Keep original headers when URL parsing fails.

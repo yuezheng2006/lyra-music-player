@@ -121,7 +121,7 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
     const lyricFit = useMemo(
         () => resolveLyricContainerFit({
             containerWidth: stageWidth,
-            lyricsFontScale: lyricsFontScale * (immersiveLyrics ? 1.35 : 1) * phrase.fontScaleMul,
+            lyricsFontScale: lyricsFontScale * (immersiveLyrics ? 1.12 : 1) * phrase.fontScaleMul,
             sidePaddingRatio: 0.06,
             minSidePaddingPx: 24,
             preferredWidthRatio: 0.11,

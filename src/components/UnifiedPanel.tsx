@@ -675,12 +675,12 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                             className={`pointer-events-auto flex w-[min(26rem,calc(100vw-2rem))] min-h-0 flex-col overflow-hidden rounded-3xl shadow-2xl backdrop-blur-3xl ${glassBg}`}
                             style={{
                                 color: theme.primaryColor,
-                                // Cap panel height so Controls tab cannot dominate the viewport.
-                                maxHeight: 'min(68dvh, calc(100dvh - var(--app-player-bar-height, 84px) - 5.5rem))',
+                                // Tall enough for Controls core sections; still clear of the player bar.
+                                maxHeight: 'min(88dvh, calc(100dvh - var(--app-player-bar-height, 84px) - 2.5rem))',
                             }}
                         >
                             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-3 hide-scrollbar">
-                                {/* Top: Cover Art — full square on Cover tab; compact strip elsewhere so Controls fits. */}
+                                {/* Top: Cover Art — full square on Cover tab; taller strip elsewhere to avoid squash. */}
                                 <div
                                     ref={coverAreaRef}
                                     onClick={(event) => {
@@ -692,7 +692,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                     className={`w-full overflow-hidden shadow-lg relative mb-2 ${placeholderBg} flex items-center justify-center group cursor-pointer ${
                                         currentTab === 'cover'
                                             ? 'aspect-square rounded-2xl mb-3'
-                                            : 'h-[72px] rounded-xl'
+                                            : 'aspect-[2.2/1] max-h-[168px] rounded-xl'
                                     }`}
                                 >
                                     <LazyCoverImage
@@ -700,8 +700,8 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                         alt="Art"
                                         placeholderLabel={currentSong?.name}
                                         placeholderArtist={(currentSong?.ar || currentSong?.artists || []).map(a => a.name).join(', ')}
-                                        sizePx={currentTab === 'cover' ? 480 : 144}
-                                        className="w-full h-full object-cover"
+                                        sizePx={currentTab === 'cover' ? 480 : 320}
+                                        className="absolute inset-0 h-full w-full object-cover"
                                     />
 
                                     <div className={`absolute inset-0 pointer-events-none transition-opacity duration-200 ${

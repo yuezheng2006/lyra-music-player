@@ -397,6 +397,7 @@ export function useAppControllerCore() {
 
     const {
         syncOutputGain,
+        rampOutputGain,
         handleAudioOutputDeviceChange,
         handlePreviewVolume,
     } = useAppAudioOutput({
@@ -790,6 +791,7 @@ export function useAppControllerCore() {
         statusMsg,
         subtitleOverlayOpacity,
         syncOutputGain,
+        rampOutputGain,
         t,
         theme,
         themeController,

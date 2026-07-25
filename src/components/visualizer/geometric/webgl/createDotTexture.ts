@@ -10,9 +10,11 @@ export const createDotTexture = (): THREE.CanvasTexture => {
     canvas.height = size;
     const ctx = canvas.getContext('2d');
     if (ctx) {
+        // Harder core / faster falloff — soft sprites stacked into a gauze veil on Retina@DPR1.
         const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
         gradient.addColorStop(0, 'rgba(255,255,255,1)');
-        gradient.addColorStop(0.35, 'rgba(255,255,255,0.85)');
+        gradient.addColorStop(0.42, 'rgba(255,255,255,0.92)');
+        gradient.addColorStop(0.72, 'rgba(255,255,255,0.28)');
         gradient.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, size, size);

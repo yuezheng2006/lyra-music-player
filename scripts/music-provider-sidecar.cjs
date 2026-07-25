@@ -9,6 +9,7 @@ const { spawn } = require('child_process');
 const port = Number(process.env.MUSIC_PROVIDER_SIDECAR_PORT || 3002);
 const host = process.env.MUSIC_PROVIDER_SIDECAR_HOST || '127.0.0.1';
 const timeoutMs = Number(process.env.MUSIC_PROVIDER_EXTRACTOR_TIMEOUT_MS || 30000);
+const adapterCache = new Map();
 
 const providerEnvName = (provider, action) =>
   `MUSIC_PROVIDER_${provider.toUpperCase()}_${action.toUpperCase()}_CMD`;
@@ -88,15 +89,21 @@ const loadAdapter = async (provider) => {
     console.warn(error.message);
     return null;
   }
-  // Bust ESM import cache when the adapter file changes (dev-friendly hot reload).
-  let cacheToken = '0';
-  try {
-    cacheToken = String(fs.statSync(resolvedPath).mtimeMs);
-  } catch {
-    cacheToken = String(Date.now());
+  const cached = adapterCache.get(resolvedPath);
+  if (cached && process.env.NODE_ENV === 'production') {
+    return cached.adapter;
   }
-  const mod = await import(`file://${resolvedPath}?t=${cacheToken}`);
-  return mod.default || mod;
+
+  // Preserve adapter hot reload in development without importing unchanged modules again.
+  const mtimeMs = fs.statSync(resolvedPath).mtimeMs;
+  if (cached && cached.mtimeMs === mtimeMs) {
+    return cached.adapter;
+  }
+
+  const mod = await import(`file://${resolvedPath}?t=${mtimeMs}`);
+  const adapter = mod.default || mod;
+  adapterCache.set(resolvedPath, { mtimeMs, adapter });
+  return adapter;
 };
 
 const runAdapter = async (provider, action, payload) => {

@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence, MotionValue, Variants, useMotionValueEvent } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_PARTITA_TUNING, Line, Theme, Word as WordType, AudioBands, type PartitaTuning } from '../../../types';
+import { DEFAULT_PARTITA_TUNING, Line, Theme, Word as WordType, AudioBands, type PartitaTuning, type LyricWordMode } from '../../../types';
 import { buildDisplayWordsFromLayoutUnits, buildPostLyricLayoutUnits, type LyricLayoutUnit } from '../../../utils/lyrics/cjkSemanticLayout';
 import { buildWordGraphemeTimings } from '../../../utils/lyrics/graphemeTiming';
 import { getLineRenderEndTime, getLineRenderHints } from '../../../utils/lyrics/renderHints';
@@ -17,7 +17,11 @@ import {
     resolveLyricVerticalSafeArea,
 } from '../resolveLyricContainerFit';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
-import { resolveWaitingWordPresentation, resolveLyricWordAnimateKey } from '../../../utils/lyrics/lyricWordMode';
+import {
+    resolveWaitingWordPresentation,
+    resolveLyricWordAnimateKey,
+    shouldUseKaraokeWipe,
+} from '../../../utils/lyrics/lyricWordMode';
 import { LYRIC_MOTION_BLUR_PX, lyricBlurFilter } from '../../../utils/lyrics/lyricMotionClarity';
 import {
     buildLyricKaraokeOutlineLayers,
@@ -30,6 +34,8 @@ import {
 import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
 import { useLyricEffectPackBeatVars } from '../../../hooks/useLyricEffectPackBeatVars';
 import LyricEffectPackLayers, { isLyricEffectPackNeonActive } from '../LyricEffectPackLayers';
+import LyricKaraokeWipe from '../LyricKaraokeWipe';
+import { resolveThemeFontStack } from '../../../utils/fontStacks';
 
 // This one is still word-driven, but unlike Classic it needs to pre-build a column/chunk structure first.
 // The flow is basically: ask runtime for the active line, optionally preheat the upcoming line,
@@ -404,7 +410,7 @@ const PartitaWord: React.FC<{
     renderProfile: PartitaLineRenderProfile;
     isChorus?: boolean;
     fontSize: string;
-    lyricWordMode: 'default' | 'karaoke';
+    lyricWordMode: LyricWordMode;
     visualEffectIntensity: LyricVisualEffectIntensity;
     effectPack: ResolvedLyricEffectPack;
 }> = ({
@@ -431,6 +437,11 @@ const PartitaWord: React.FC<{
     const graphemeTimings = useMemo(() => buildWordGraphemeTimings(word), [word]);
     const animateKey = resolveLyricWordAnimateKey(status, lyricWordMode);
     const fontPx = Number.parseFloat(String(fontSize)) || 48;
+    const useWipe = shouldUseKaraokeWipe(lyricWordMode);
+    const wipeFontSpec = useMemo(
+        () => `700 ${fontPx}px ${resolveThemeFontStack(theme)}`,
+        [fontPx, theme],
+    );
     const outlineLayers = useMemo(
         () => buildLyricKaraokeOutlineLayers(activeColor, fontPx, visualEffectIntensity),
         [activeColor, fontPx, visualEffectIntensity],
@@ -503,7 +514,7 @@ const PartitaWord: React.FC<{
                 )}
             </span>
 
-            {/* Body Layer — karaoke 色字白边: scaled solid rim */}
+            {/* Body Layer — ktv uses LTR wipe; default/karaoke keep existing solid reveal */}
             <span className="relative z-10 block">
                 <LyricEffectPackLayers
                     glyph={word.text}
@@ -512,27 +523,46 @@ const PartitaWord: React.FC<{
                     glowColor={activeColor}
                     fontPx={fontPx}
                 />
-                {status === 'active' ? (
-                    <span
-                        aria-hidden
-                        className="lyric-karaoke-rim pointer-events-none absolute inset-0 select-none block"
-                        style={{
-                            color: outlineLayers.rimColor,
-                            transform: `scale(${outlineLayers.rimScale})`,
-                            transformOrigin: 'center center',
-                            textShadow: outlineLayers.rimTextShadow,
-                        }}
-                    >
-                        {word.text}
-                    </span>
-                ) : null}
-                <motion.span
-                    variants={bodyVariants}
-                    custom={{ config, activeColor, baseColor, duration, wordRevealMode: renderProfile.wordRevealMode }}
-                    className={`relative block${neonActive ? ' lyric-effect-neon-scan' : ''}`}
-                >
-                    {word.text}
-                </motion.span>
+                {useWipe ? (
+                    <LyricKaraokeWipe
+                        text={word.text}
+                        startTime={word.startTime}
+                        endTime={word.endTime}
+                        graphemeTimings={graphemeTimings}
+                        currentTime={currentTime}
+                        active={status === 'active'}
+                        wordColor={activeColor}
+                        baseColor={baseColor}
+                        fontPx={fontPx}
+                        fontSpec={wipeFontSpec}
+                        enableStroke
+                        intensity={visualEffectIntensity}
+                    />
+                ) : (
+                    <>
+                        {status === 'active' ? (
+                            <span
+                                aria-hidden
+                                className="lyric-karaoke-rim pointer-events-none absolute inset-0 select-none block"
+                                style={{
+                                    color: outlineLayers.rimColor,
+                                    transform: `scale(${outlineLayers.rimScale})`,
+                                    transformOrigin: 'center center',
+                                    textShadow: outlineLayers.rimTextShadow,
+                                }}
+                            >
+                                {word.text}
+                            </span>
+                        ) : null}
+                        <motion.span
+                            variants={bodyVariants}
+                            custom={{ config, activeColor, baseColor, duration, wordRevealMode: renderProfile.wordRevealMode }}
+                            className={`relative block${neonActive ? ' lyric-effect-neon-scan' : ''}`}
+                        >
+                            {word.text}
+                        </motion.span>
+                    </>
+                )}
             </span>
 
             {/* Chorus Ripple */}
@@ -570,7 +600,7 @@ const PartitaChunk: React.FC<{
     isChorus?: boolean;
     showGuideLines: boolean;
     fontSize: string;
-    lyricWordMode: 'default' | 'karaoke';
+    lyricWordMode: LyricWordMode;
     visualEffectIntensity: LyricVisualEffectIntensity;
     effectPack: ResolvedLyricEffectPack;
 }> = ({
@@ -900,9 +930,9 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
             lyricsFontScale: lyricsFontScale * densityScale,
             sidePaddingRatio: 0.09,
             minSidePaddingPx: 32,
-            preferredWidthRatio: 0.062,
-            minFontPx: 20,
-            maxFontPx: 48,
+            preferredWidthRatio: 0.072,
+            minFontPx: 24,
+            maxFontPx: 58,
             scaleHeadroom: rhythmHeadroom,
             glowInsetPx,
         }),

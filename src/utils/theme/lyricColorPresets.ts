@@ -1,13 +1,20 @@
 import type { DualTheme, Theme } from '../../types';
 
 // src/utils/theme/lyricColorPresets.ts
-// Lyric colors: four high-contrast defaults (白/金/蓝/红). One hue; contrast via opacity + active stroke.
+// Lyric colors from Chinese traditional palette (742). Mono = one stage ink;
+// combo = body + wipe/glow accent. Contrast still uses opacity ladder.
 
 export type LyricColorPresetId =
     | 'soda-white'
     | 'foil-gold'
     | 'stage-blue'
-    | 'dazibao-red';
+    | 'dazibao-red'
+    | 'ice-silver'
+    | 'mint-lime'
+    | 'hot-pink'
+    | 'violet-neon'
+    | 'sunset-orange'
+    | 'pin-song';
 
 export interface LyricColorPresetTextColors {
     primaryColor: string;
@@ -47,96 +54,105 @@ const LEGACY_LYRIC_COLOR_PRESET_IDS: Record<string, LyricColorPresetId> = {
     'midnight-default': 'soda-white',
     'soda-black': 'soda-white',
     'soda-gray': 'soda-white',
-    'douyin-neon': 'foil-gold',
+    'neon-cyan': 'mint-lime',
+    'douyin-neon': 'mint-lime',
     'douyin-yellow': 'foil-gold',
-    'douyin-purple': 'foil-gold',
-    'xhs-morandi': 'dazibao-red',
-    'xhs-hot-pink': 'dazibao-red',
+    'douyin-purple': 'violet-neon',
+    'xhs-morandi': 'hot-pink',
+    'xhs-hot-pink': 'hot-pink',
+    // Deep red folded into 茜色; slot reused by 品红·松花.
+    'deep-red': 'dazibao-red',
 };
 
 /**
  * Design notes:
- * - Defaults are white / gold / blue / red — bright enough for dark cover stages.
- * - primary = the only lyric body hue; active / inactive share it.
- * - Contrast = opacity (LYRIC_LINE_OPACITY) + active highlight stroke.
- * - accent mirrors primary so chrome does not invent a second lyric fill.
- * - secondary = translation / meta only.
+ * - 6 mono + 4 combo from Chinese traditional colors (霜色 / 淡茧 / 绀青 / …).
+ * - Mono: primary = accent; hierarchy via LYRIC_LINE_OPACITY only.
+ * - Combo: accent ≠ primary for karaoke wipe / glow (lyricGlowUsesAccent).
+ * - secondary = translation / meta (云峰灰 dark / 瓦灰 light).
  */
-/** Shared opacity ladder — keep inactive lines readable on dark / cover stages. */
+/**
+ * Shared opacity ladder — same hue for all rows; contrast is alpha only.
+ * Active stays full; neighbors drop hard so current words own the stage.
+ */
 export const LYRIC_LINE_OPACITY = {
     active: 1,
     /**
      * Unsung under karaoke wipe on the active line.
      * Stay above waitingNear so the current line still owns focus before the wipe.
      */
-    karaokeUnsung: 0.72,
+    karaokeUnsung: 0.38,
     /** Next upcoming line — readable, clearly under active / unsung. */
-    waitingNear: 0.58,
-    waitingFar: 0.24,
+    waitingNear: 0.18,
+    waitingFar: 0.08,
     /** Per-row step down for farther waiting lines. */
-    waitingStep: 0.11,
+    waitingStep: 0.06,
     /** Nearest passed line. */
-    passedNear: 0.46,
-    passedFar: 0.18,
+    passedNear: 0.14,
+    passedFar: 0.06,
     /** Per-row step down for older passed lines. */
-    passedStep: 0.09,
+    passedStep: 0.05,
 } as const;
 
-const neutralInk = (body: string, meta: string): LyricColorPresetTextColors => ({
+const META_DARK = '#C1C8D6'; // 云峰灰
+const META_LIGHT = '#867E76'; // 瓦灰
+
+const monoInk = (body: string, meta: string): LyricColorPresetTextColors => ({
     primaryColor: body,
     accentColor: body,
     secondaryColor: meta,
 });
 
+/** Combo: body ink + wipe/glow accent from harmony table. */
+const comboInk = (body: string, accent: string, meta: string): LyricColorPresetTextColors => ({
+    primaryColor: body,
+    accentColor: accent,
+    secondaryColor: meta,
+});
+
+const stageMotion = (
+    intensity: Theme['animationIntensity'] = 'normal',
+    scale = 1.12,
+    glowUsesAccent = false,
+): LyricColorPresetMotion => ({
+    fontStyle: 'sans',
+    animationIntensity: intensity,
+    lyricRhythmScaleMultiplier: scale,
+    lyricGlowUsesAccent: glowUsesAccent,
+});
+
 export const LYRIC_COLOR_PRESETS: readonly LyricColorPreset[] = [
     {
-        // App default — first in UI; aligns with DEFAULT_THEME body.
+        // App default — 霜色; aligns with DEFAULT_THEME body.
         id: 'soda-white',
         labelKey: 'options.lyricColorPreset.sodaWhite',
-        labelFallback: '白',
-        light: neutralInk('#fafafa', '#71717a'),
-        dark: neutralInk('#ffffff', '#d4d4d8'),
-        motion: {
-            fontStyle: 'sans',
-            animationIntensity: 'normal',
-            lyricRhythmScaleMultiplier: 1.08,
-            lyricGlowUsesAccent: false,
-        },
+        labelFallback: '霜色',
+        light: monoInk('#2A3C5C', META_LIGHT), // 黛蓝
+        dark: monoInk('#E8F4F8', META_DARK), // 霜色
+        motion: stageMotion('normal', 1.08),
     },
     {
         id: 'foil-gold',
         labelKey: 'options.lyricColorPreset.foilGold',
-        labelFallback: '金',
-        // Bright champagne foil — high luminance on dark / cover stages.
-        light: neutralInk('#8b6914', '#78716c'),
-        dark: neutralInk('#f5d76e', '#e4e4e7'),
-        motion: {
-            fontStyle: 'sans',
-            animationIntensity: 'normal',
-            lyricRhythmScaleMultiplier: 1.14,
-            lyricGlowUsesAccent: false,
-        },
+        labelFallback: '淡茧',
+        light: monoInk('#EBB10D', META_LIGHT), // 栀子黄
+        dark: monoInk('#F9D770', META_DARK), // 淡茧黄
+        motion: stageMotion('normal', 1.14),
     },
     {
         id: 'stage-blue',
         labelKey: 'options.lyricColorPreset.stageBlue',
-        labelFallback: '蓝',
-        // Cool sky blue — stays clear on warm and dark covers.
-        light: neutralInk('#1d4ed8', '#64748b'),
-        dark: neutralInk('#6ec8ff', '#e4e4e7'),
-        motion: {
-            fontStyle: 'sans',
-            animationIntensity: 'normal',
-            lyricRhythmScaleMultiplier: 1.12,
-            lyricGlowUsesAccent: false,
-        },
+        labelFallback: '绀青',
+        light: monoInk('#1661AB', META_LIGHT), // 靛青
+        dark: monoInk('#4F84FF', META_DARK), // 绀青
+        motion: stageMotion('normal', 1.12),
     },
     {
         id: 'dazibao-red',
         labelKey: 'options.lyricColorPreset.dazibaoRed',
-        labelFallback: '红',
-        light: neutralInk('#b91c1c', '#78716c'),
-        dark: neutralInk('#ff7a62', '#e4e4e7'),
+        labelFallback: '茜色',
+        light: monoInk('#D92121', META_LIGHT), // 朱砂红
+        dark: monoInk('#FF4D4D', META_DARK), // 茜色
         motion: {
             fontStyle: 'serif',
             animationIntensity: 'chaotic',
@@ -144,13 +160,65 @@ export const LYRIC_COLOR_PRESETS: readonly LyricColorPreset[] = [
             lyricGlowUsesAccent: false,
         },
     },
+    {
+        id: 'ice-silver',
+        labelKey: 'options.lyricColorPreset.iceSilver',
+        labelFallback: '云峰',
+        light: monoInk('#2B333E', META_LIGHT), // 青灰
+        dark: monoInk('#C1C8D6', '#E4DFD7'), // 云峰灰 / 珍珠灰 meta
+        motion: stageMotion('calm', 1.06),
+    },
+    {
+        id: 'mint-lime',
+        labelKey: 'options.lyricColorPreset.mintLime',
+        labelFallback: '松花',
+        light: monoInk('#207F4C', META_LIGHT), // 薄荷绿
+        dark: monoInk('#B2F0D9', META_DARK), // 浅薄荷绿
+        motion: stageMotion('normal', 1.14),
+    },
+    {
+        // 海棠 · 天水 — warm body + cool wipe
+        id: 'hot-pink',
+        labelKey: 'options.lyricColorPreset.hotPink',
+        labelFallback: '海棠',
+        light: comboInk('#EF3473', '#63BBD0', META_LIGHT), // 品红 / 霁青
+        dark: comboInk('#FF6F61', '#AED9D4', META_DARK), // 海棠 / 天水碧
+        motion: stageMotion('normal', 1.18, true),
+    },
+    {
+        // 丁香 · 藤萝 — same-family violet glow
+        id: 'violet-neon',
+        labelKey: 'options.lyricColorPreset.violetNeon',
+        labelFallback: '丁香',
+        light: comboInk('#681752', '#9B8AE8', META_LIGHT), // 牵牛紫 / 紫藤萝
+        dark: comboInk('#C8A2C8', '#D1B3FF', META_DARK), // 丁香紫 / 浅紫藤萝
+        motion: stageMotion('normal', 1.16, true),
+    },
+    {
+        // 橘橙 · 霁青 — warm/cool karaoke
+        id: 'sunset-orange',
+        labelKey: 'options.lyricColorPreset.sunsetOrange',
+        labelFallback: '橘霁',
+        light: comboInk('#F97D1C', '#1661AB', META_LIGHT), // 橘橙 / 靛青
+        dark: comboInk('#FBB957', '#63BBD0', META_DARK), // 蜜黄 / 霁青
+        motion: stageMotion('normal', 1.16, true),
+    },
+    {
+        // 品红 · 松花 — split-complementary memory color
+        id: 'pin-song',
+        labelKey: 'options.lyricColorPreset.pinSong',
+        labelFallback: '品红',
+        light: comboInk('#82111F', '#207F4C', META_LIGHT), // 殷红 / 薄荷绿
+        dark: comboInk('#EF3473', '#A0D6B4', META_DARK), // 品红 / 松花绿
+        motion: stageMotion('normal', 1.2, true),
+    },
 ];
 
 export const LYRIC_COLOR_PRESET_STORAGE_KEY = 'lyric_color_preset_id';
 
 export const LYRIC_BODY_COLOR_STORAGE_KEY = 'lyric_body_color';
 
-/** App default lyric color preset — 白. */
+/** App default lyric color preset — 霜色. */
 export const DEFAULT_LYRIC_COLOR_PRESET_ID: LyricColorPresetId = 'soda-white';
 
 /** Resolves current or legacy preset ids. */
@@ -259,7 +327,7 @@ export const saveStoredLyricBodyColor = (color: string | null) => {
 
 /**
  * Stage text inks from the lyric-color triad.
- * - titleColor / body = primary (the only lyric hue)
+ * - titleColor / body = primary (the only lyric hue for mono)
  * - activeColor kept for legacy callers; Monet wipe uses body opacity, not a second fill hue
  * - hintColor = secondary (translation / meta)
  */
@@ -283,9 +351,13 @@ const hexToRgba = (hex: string, alpha: number): string => {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+const isComboPreset = (preset: LyricColorPreset): boolean => (
+    normalizeHexColor(preset.dark.primaryColor) !== normalizeHexColor(preset.dark.accentColor)
+);
+
 /**
- * UI swatches for a preset chip: current-mode body + dimmed same hue.
- * Foil gold uses a metallic pair (highlight + deep foil) so it doesn't read as flat yellow.
+ * UI swatches for a preset chip: body + twin (dimmed mono, or wipe accent for combo).
+ * Foil gold uses a metallic pair (淡茧黄 highlight + 栀子黄 deep).
  */
 export const resolveLyricColorPresetSwatches = (
     preset: LyricColorPreset,
@@ -293,10 +365,14 @@ export const resolveLyricColorPresetSwatches = (
 ): readonly [string, string] => {
     if (preset.id === 'foil-gold') {
         return mode === 'dark'
-            ? ['#ffe9a0', '#c9a227']
-            : ['#c9a227', '#6b4f00'];
+            ? ['#F9D770', '#EBB10D']
+            : ['#EBB10D', '#8B6914'];
     }
-    const body = preset[mode].primaryColor;
+    const colors = preset[mode];
+    if (isComboPreset(preset)) {
+        return [colors.primaryColor, colors.accentColor];
+    }
+    const body = colors.primaryColor;
     return [body, hexToRgba(body, LYRIC_LINE_OPACITY.waitingNear)];
 };
 

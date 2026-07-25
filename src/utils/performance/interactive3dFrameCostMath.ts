@@ -24,7 +24,7 @@ export type Interactive3dFrameCostBreakdown = {
 
 /**
  * Cover particle grid for any visual preset — always honors quality tier.
- * Emily no longer forces resolution 1.55.
+ * High = Mineradio 183²; Electron auto path uses balanced (~119²) + frameSkip.
  */
 export const resolveCoverParticleGridForPreset = (
     _preset: MineradioVisualPresetId | unknown,

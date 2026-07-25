@@ -5,7 +5,8 @@ import type { MotionValue } from 'framer-motion';
 import { getCachedCoverUrl } from '../services/coverCache';
 import { loadOnlineSongAudioSource, loadOnlineSongLyrics } from '../services/onlinePlayback';
 import { isSongMarkedUnavailable, neteaseApi } from '../services/netease';
-import { getProviderSongCacheKey, isNeteaseOnlineSong } from '../services/musicProviders/registry';
+import { getProviderSongCacheKey, getSongMusicProviderId, isNeteaseOnlineSong } from '../services/musicProviders/registry';
+import { startTelemetrySpan, trackTelemetry } from '../utils/telemetry/trackTelemetry';
 import { getPrefetchedData, invalidateAndRefetch, prefetchNearbySongs } from '../services/prefetchService';
 import type { ThemeCacheSongKey } from '../services/themeCache';
 import { PlayerState, type HomeViewTab, type SearchSourceId, type StagePlayerQueueDiffOp, type StagePlayerSnapshot } from '../types';
@@ -567,6 +568,20 @@ export function usePlaybackQueueController({
         const playbackRequestId = ++playbackRequestIdRef.current;
         const isLatestPlaybackRequest = () => playbackRequestIdRef.current === playbackRequestId;
         pendingOnlinePlaySongIdRef.current = song.id;
+        const providerId = getSongMusicProviderId(song);
+        trackTelemetry('song.switch', {
+            data: {
+                songId: song.id,
+                provider: providerId,
+                quality: effectiveAudioQuality,
+                fm: Boolean(isFmCall),
+            },
+        });
+        const audioResolveSpan = startTelemetrySpan('audio.resolve', {
+            provider: providerId,
+            songId: song.id,
+            phase: 'playSong',
+        });
 
         const clearPendingIfCurrent = () => {
             if (pendingOnlinePlaySongIdRef.current === song.id) {
@@ -620,10 +635,19 @@ export function usePlaybackQueueController({
                 if (preloadedOnlineAudioResult.kind === 'ok' && preloadedOnlineAudioResult.blobUrl) {
                     URL.revokeObjectURL(preloadedOnlineAudioResult.blobUrl);
                 }
+                audioResolveSpan.end({ level: 'debug', data: { ok: false, reason: 'stale-request' } });
                 return;
             }
 
             if (preloadedOnlineAudioResult.kind === 'unavailable') {
+                audioResolveSpan.end({
+                    level: 'error',
+                    data: {
+                        ok: false,
+                        reason: 'unavailable',
+                        errorCode: preloadedOnlineAudioResult.errorCode ?? null,
+                    },
+                });
                 const nextSong = getNextPlayableQueueSong(queueContext, song.id);
                 const canSkip = Boolean(nextSong) && skipCount < MAX_UNAVAILABLE_AUTO_SKIP_COUNT;
                 // Network/5xx (e.g. netease ECONNRESET) is not a takedown — keep "播放出错".
@@ -656,6 +680,14 @@ export function usePlaybackQueueController({
                 return;
             }
         } catch (error) {
+            audioResolveSpan.end({
+                level: 'error',
+                data: {
+                    ok: false,
+                    reason: 'exception',
+                    name: error instanceof Error ? error.name : 'unknown',
+                },
+            });
             const { captureRequestFailure } = await import('../utils/network');
             const failure = captureRequestFailure(error, `playSong:audio:${song.name}`);
             const nextSong = getNextPlayableQueueSong(queueContext, song.id);
@@ -700,12 +732,14 @@ export function usePlaybackQueueController({
 
         const audioResult = preloadedOnlineAudioResult;
         if (!audioResult || audioResult.kind !== 'ok') {
+            audioResolveSpan.end({ level: 'error', data: { ok: false, reason: 'not-ok' } });
             setStatusMsg({ type: 'error', text: t('status.playbackError') });
             setPlayerState(PlayerState.IDLE);
             setIsLyricsLoading(false);
             clearPendingIfCurrent();
             return;
         }
+        audioResolveSpan.end({ data: { ok: true } });
 
         if (audioResult.blobUrl) {
             blobUrlRef.current = audioResult.blobUrl;
@@ -725,6 +759,14 @@ export function usePlaybackQueueController({
             setAudioSrc(audioResult.audioSrc);
             // Any provider returning videoSrc arms the muted video stage under lyrics.
             setVideoSrc(audioResult.videoSrc || null);
+        });
+        trackTelemetry('audio.src_set', {
+            data: {
+                provider: providerId,
+                songId: song.id,
+                phase: 'playSong',
+                kind: audioResult.blobUrl ? 'blob' : 'http',
+            },
         });
 
         const audioElement = audioRef.current;
@@ -773,6 +815,10 @@ export function usePlaybackQueueController({
         });
 
         // Lyrics never block audio: resolve asynchronously after playback has started.
+        const lyricsSpan = startTelemetrySpan('lyrics.load', {
+            songId: song.id,
+            provider: providerId,
+        });
         void loadOnlineSongLyrics(song, prefetched, userId, {
             isCurrent: () => currentSongRef.current === song.id,
             onLyrics: resolvedLyrics => setLyrics(resolvedLyrics),
@@ -786,6 +832,7 @@ export function usePlaybackQueueController({
                 // Audio may already be playing; avoid a toast that looks like playback is blocked.
             },
             onDone: () => {
+                lyricsSpan.end({ data: { ok: true } });
                 setIsLyricsLoading(false);
                 setStatusMsg(prev => {
                     if (!prev || prev.persistent || prev.type !== 'info') {
@@ -801,6 +848,13 @@ export function usePlaybackQueueController({
                 });
             },
         }).catch(error => {
+            lyricsSpan.end({
+                level: 'error',
+                data: {
+                    ok: false,
+                    name: error instanceof Error ? error.name : 'unknown',
+                },
+            });
             console.warn('[App] Lyric fetch failed', error);
             setLyrics(null);
             setIsLyricsLoading(false);

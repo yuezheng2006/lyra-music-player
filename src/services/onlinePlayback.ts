@@ -70,30 +70,44 @@ const extractCloudLyricText = (response: any): string => {
 export async function loadOnlineSongAudioSource(
     song: SongResult,
     audioQuality: string,
-    prefetched: PrefetchedSongData | null
+    prefetched: PrefetchedSongData | null,
+    options?: { forceRefresh?: boolean },
 ): Promise<
     | { kind: 'ok'; audioSrc: string; videoSrc?: string; blobUrl?: string }
     | { kind: 'unavailable'; diagnostic?: string; errorCode?: string }
 > {
+    const forceRefresh = options?.forceRefresh === true;
+
     // Prefer a valid prefetch streaming URL before reading a full Electron blob into memory —
     // first audible byte beats local IPC for perceived start latency.
-    if (prefetched?.audioUrl && prefetched.audioUrl !== 'CACHED_IN_DB' && isUrlValid(prefetched.audioUrlFetchedAt)) {
+    // Recovery must skip caches — expired Douyin/Qishui signed URLs often still look "valid".
+    if (
+        !forceRefresh
+        && prefetched?.audioUrl
+        && prefetched.audioUrl !== 'CACHED_IN_DB'
+        && isUrlValid(prefetched.audioUrlFetchedAt)
+    ) {
         const prefetchedVideo = normalizeAudioUrl(prefetched.videoUrl || null) || undefined;
         const videoSrc = prefetchedVideo ?? await resolveCompanionVideoSrc(song, audioQuality, prefetched);
         return buildOkAudioSource(prefetched.audioUrl, { videoSrc });
     }
 
-    const audioCacheKey = getProviderSongCacheKey('audio', song);
-    const cachedAudioBlob = await getCachedAudioBlob(audioCacheKey);
-    if (cachedAudioBlob) {
-        const blobUrl = URL.createObjectURL(cachedAudioBlob);
-        const videoSrc = await resolveCompanionVideoSrc(song, audioQuality, prefetched);
-        return buildOkAudioSource(blobUrl, { blobUrl, videoSrc });
+    if (!forceRefresh) {
+        const audioCacheKey = getProviderSongCacheKey('audio', song);
+        const cachedAudioBlob = await getCachedAudioBlob(audioCacheKey);
+        if (cachedAudioBlob) {
+            const blobUrl = URL.createObjectURL(cachedAudioBlob);
+            const videoSrc = await resolveCompanionVideoSrc(song, audioQuality, prefetched);
+            return buildOkAudioSource(blobUrl, { blobUrl, videoSrc });
+        }
     }
 
     const provider = getMusicProviderForSong(song);
     try {
-        const audioResult = await provider.getAudioUrl(song, { quality: audioQuality });
+        const audioResult = await provider.getAudioUrl(song, {
+            quality: audioQuality,
+            forceRefresh,
+        });
         if (audioResult.kind !== 'ok') {
             return { kind: 'unavailable' };
         }

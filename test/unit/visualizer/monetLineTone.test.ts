@@ -63,10 +63,10 @@ describe('resolveMonetLineTone', () => {
         const tone = resolveMonetLineTone(entry('passed', -1), THEME as never, 0.72, 'monet');
 
         expect(tone.blurPx).toBe(0);
-        expect(readAlpha(tone.baseColor)).toBeGreaterThanOrEqual(0.28);
-        expect(readAlpha(tone.baseColor)).toBeLessThanOrEqual(0.42);
-        expect(tone.scale).toBeLessThanOrEqual(0.8);
-        expect(tone.fontWeight).toBeLessThanOrEqual(500);
+        expect(readAlpha(tone.baseColor)).toBeGreaterThanOrEqual(0.18);
+        expect(readAlpha(tone.baseColor)).toBeLessThanOrEqual(0.28);
+        expect(tone.scale).toBeLessThanOrEqual(0.76);
+        expect(tone.fontWeight).toBeLessThanOrEqual(460);
     });
 
     it('dims the active underlay so the same-hue wipe can read', () => {
@@ -74,7 +74,7 @@ describe('resolveMonetLineTone', () => {
 
         expect(tone.blurPx).toBe(0);
         expect(tone.opacity).toBe(1);
-        expect(readAlpha(tone.baseColor)).toBeGreaterThanOrEqual(0.55);
+        expect(readAlpha(tone.baseColor)).toBeGreaterThanOrEqual(0.45);
         expect(readAlpha(tone.baseColor)).toBeLessThan(1);
         expect(tone.baseColor).toContain('255, 0, 110');
     });
@@ -88,20 +88,23 @@ describe('resolveMonetLineTone', () => {
         expect(readAlpha(mid.baseColor)).toBeLessThan(readAlpha(near.baseColor));
         expect(readAlpha(far.baseColor)).toBeLessThan(readAlpha(mid.baseColor));
         expect(mid.scale).toBeLessThan(near.scale);
-        expect(readAlpha(near.baseColor)).toBeGreaterThanOrEqual(0.35);
+        expect(readAlpha(near.baseColor)).toBeGreaterThanOrEqual(0.22);
     });
 
     it('dims karaoke unsung base with the same brand hue', () => {
         const tone = resolveMonetLineTone(entry('active', 0), THEME as never, 0.88, 'karaoke');
         expect(tone.blurPx).toBe(0);
         expect(readAlpha(tone.baseColor)).toBeLessThan(1);
-        expect(readAlpha(tone.baseColor)).toBeGreaterThanOrEqual(0.55);
+        expect(readAlpha(tone.baseColor)).toBeGreaterThanOrEqual(0.45);
         expect(tone.baseColor).toContain('255, 0, 110');
     });
 
     it('keeps a clear gap between full active wipe and nearby waiting', () => {
         const waiting = resolveMonetLineTone(entry('waiting', 1), THEME as never, 0.72, 'monet');
-        expect(1 - readAlpha(waiting.baseColor)).toBeGreaterThanOrEqual(0.45);
-        expect(readAlpha(waiting.baseColor)).toBeGreaterThanOrEqual(0.35);
+        const active = resolveMonetLineTone(entry('active', 0), THEME as never, 0.72, 'monet');
+        expect(1 - readAlpha(waiting.baseColor)).toBeGreaterThanOrEqual(0.65);
+        expect(readAlpha(waiting.baseColor)).toBeGreaterThanOrEqual(0.22);
+        expect(readAlpha(waiting.baseColor)).toBeLessThan(readAlpha(active.baseColor));
+        expect(readAlpha(active.baseColor) - readAlpha(waiting.baseColor)).toBeGreaterThanOrEqual(0.18);
     });
 });

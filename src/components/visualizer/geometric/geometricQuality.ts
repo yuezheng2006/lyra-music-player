@@ -24,12 +24,13 @@ const TIER_PROFILES: Record<GeometricQualityTier, Omit<GeometricQualityProfile, 
     high: {
         particleTarget: 420,
         maxBeatParticles: 36,
-        devicePixelRatioCap: 1,
+        // Non-Electron Retina sharpening; Electron still hard-caps DPR to 1 in cover runtime.
+        devicePixelRatioCap: 1.25,
         enableRipples: true,
         enableBeatBursts: true,
         enableDomShapes: true,
         shapeCount: 12,
-        // Never render cover particles every frame — GPU helper thrash on Electron.
+        // Skip every other frame — full-frame + dense grids thrash Electron GPU helper.
         frameSkip: 2,
     },
     balanced: {
@@ -40,17 +41,20 @@ const TIER_PROFILES: Record<GeometricQualityTier, Omit<GeometricQualityProfile, 
         enableBeatBursts: true,
         enableDomShapes: false,
         shapeCount: 0,
-        frameSkip: 3,
+        // Electron auto-ceiling is balanced; keep skip so Retina stays under ~100% GPU.
+        frameSkip: 2,
     },
     lite: {
-        particleTarget: 140,
-        maxBeatParticles: 12,
+        // Safe retry profile for Electron Retina: one-pixel render target,
+        // sparse geometry, and infrequent draws keep lyrics independent.
+        particleTarget: 72,
+        maxBeatParticles: 4,
         devicePixelRatioCap: 1,
         enableRipples: false,
         enableBeatBursts: false,
         enableDomShapes: false,
         shapeCount: 0,
-        frameSkip: 4,
+        frameSkip: 6,
     },
 };
 

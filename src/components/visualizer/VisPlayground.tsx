@@ -176,18 +176,18 @@ type QueryLocalFontsWindow = Window & {
 const PREVIEW_THEME: Theme = {
     name: 'Preview Theme',
     backgroundColor: '#09090b',
-    primaryColor: '#ffffff',
-    accentColor: '#ffffff',
+    primaryColor: '#E8F4F8',
+    accentColor: '#E8F4F8',
     secondaryColor: '#d4d4d8',
     fontStyle: 'sans',
     animationIntensity: 'normal',
 };
 
 const FONT_SCALE_OPTIONS: PresetOption<number>[] = [
-    { label: '90%', value: 0.9 },
     { label: '100%', value: 1 },
-    { label: '110%', value: 1.1 },
+    { label: '115%', value: 1.15 },
     { label: '125%', value: 1.25 },
+    { label: '140%', value: 1.4 },
 ];
 
 const FONT_ROW_HEIGHT = 94;

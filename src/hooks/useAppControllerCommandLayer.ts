@@ -26,6 +26,8 @@ import { PlayerState, type SongResult } from '@/types';
 import { isLocalPlaybackSong, isNavidromePlaybackSong } from '@/utils/appPlaybackGuards';
 import { downloadSongToUserDirectory } from '@/services/songDownloadService';
 import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
+import { hasPlayableHtmlMediaSource } from '@/utils/audioAutoPlayGuard';
+import { resolveVolumeStepAdjustment } from '@/utils/playback/adjustVolumeByStepMath';
 import type {
     AppControllerCoreResult,
     AppControllerLibraryResult,
@@ -69,6 +71,8 @@ export function useAppControllerCommandLayer(
         handleAutoMatchBestLyricForCurrentSong,
         handleNextTrack,
         handlePrevTrack,
+        handleSetVolume,
+        handleToggleMute,
         handleSetAppLanguagePreference,
         handleSetMonetBackgroundTuning,
         handleSetLatentBackgroundTuning,
@@ -86,6 +90,7 @@ export function useAppControllerCommandLayer(
         isElectronWindow,
         isGeneratingTheme,
         isLyricsLoading,
+        isMuted,
         isNowPlayingControlDisabled,
         isNowPlayingStageActive,
         isPlayerChromeHidden,
@@ -149,7 +154,22 @@ export function useAppControllerCommandLayer(
         toggleTransparentModeWithHandoff,
         transparentPlayerBackground,
         visualizerMode,
+        volume,
     } = core;
+
+    const adjustVolumeByStep = useCallback((delta: number) => {
+        const { nextVolume, volumeChanged, shouldUnmute } = resolveVolumeStepAdjustment({
+            volume,
+            isMuted,
+            delta,
+        });
+        if (volumeChanged) {
+            handleSetVolume(nextVolume);
+        }
+        if (shouldUnmute) {
+            handleToggleMute();
+        }
+    }, [handleSetVolume, handleToggleMute, isMuted, volume]);
 
     const canGenerateAITheme = Boolean((lyrics?.lines.length ?? 0) > 0 || currentSong?.isPureMusic || currentSong?.name);
     const generateCurrentSongTheme = useCallback(() => {
@@ -366,6 +386,8 @@ export function useAppControllerCommandLayer(
         toggleLoop,
         handleNextTrack,
         handlePrevTrack,
+        adjustVolumeByStep,
+        toggleMute: handleToggleMute,
         shuffleQueue,
         playQueue,
         playSong,
@@ -429,6 +451,8 @@ export function useAppControllerCommandLayer(
         handleAutoMatchBestLyricForCurrentSong,
         handleNextTrack,
         handlePrevTrack,
+        adjustVolumeByStep,
+        handleToggleMute,
         handleSetAppLanguagePreference,
         handleSetMonetBackgroundTuning,
         handleSetLatentBackgroundTuning,
@@ -574,6 +598,11 @@ export function useAppControllerCommandLayer(
         const nextDualTheme = applyLyricColorPresetToDualTheme(activeDualTheme, preset);
         saveStoredLyricColorPresetId(presetId);
         saveLyricColorDualTheme(nextDualTheme, currentSong?.id ?? null);
+        void import('../utils/telemetry/trackTelemetry').then(({ trackTelemetry }) => {
+            trackTelemetry('settings.changed', {
+                data: { key: 'lyricColorPreset', value: presetId },
+            });
+        });
     }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme]);
 
     const handleApplyLyricBodyColor = useCallback((color: string) => {
@@ -594,14 +623,20 @@ export function useAppControllerCommandLayer(
     });
 
     const seekMainAudio = useCallback((time: number) => {
-        if (audioRef.current) {
-            audioRef.current.currentTime = time;
-            if (audioRef.current.paused) {
-                void audioRef.current.play();
-                setPlayerState(PlayerState.PLAYING);
-            }
-            void publishStagePlayerPlaybackUpdate();
+        const audio = audioRef.current;
+        if (!audio) {
+            return;
         }
+        audio.currentTime = time;
+        // Lyric-line seek may try to resume; empty/dead src throws NotSupportedError.
+        if (audio.paused && hasPlayableHtmlMediaSource(audio)) {
+            void audio.play().then(() => {
+                setPlayerState(PlayerState.PLAYING);
+            }).catch(() => {
+                setPlayerState(PlayerState.PAUSED);
+            });
+        }
+        void publishStagePlayerPlaybackUpdate();
     }, [audioRef, publishStagePlayerPlaybackUpdate, setPlayerState]);
 
     const handleMonetLyricLineSeek = useCallback((lyricTimeSec: number) => {

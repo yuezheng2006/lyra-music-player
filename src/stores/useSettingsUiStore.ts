@@ -27,14 +27,23 @@ import {
 } from '../utils/lyricEffectPacks';
 import { getLyricFilterError } from '../utils/lyrics/filtering';
 import {
+    clampLyricsFontScale,
+    DEFAULT_LYRICS_FONT_SCALE,
+} from '../utils/lyrics/lyricsFontScaleMath';
+import {
     readGpuUnstableFlag,
     readInteractive3dOptIn,
     resolveElectronSafeVisualizerBackgroundMode,
     resolveElectronSafeVisualizerMode,
-    writeGpuUnstableFlag,
     writeInteractive3dOptIn,
 } from '../utils/performance/electronInteractive3dGuardMath';
 import { resolveDefaultDisableHomeDynamicBackground } from '../utils/playback/playbackLoadPriorityMath';
+import {
+    applyGpuCrashVisualDemote,
+    applyResetVisualizerBackgroundMode,
+    applyVisualizerBackgroundModeSelection,
+    ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY as ENABLE_3D_BG_KEY,
+} from './visualizerBackgroundModeHandlers';
 import { buildStoredCappellaEmojiPack, clearCustomCappellaEmojiPack, isSupportedCappellaEmojiFile, saveCustomCappellaEmojiPack } from '../services/cappellaEmojiPack';
 import { buildStoredCappellaAvatar, clearCustomCappellaAvatar, isSupportedCappellaAvatarFile, saveCustomCappellaAvatar } from '../services/cappellaAvatarPack';
 import { clearUploadedLyricsFont, uploadAndRegisterLyricsFont } from '../services/customLyricsFont';
@@ -87,7 +96,8 @@ export const VISUALIZER_OPACITY_STORAGE_KEY = 'visualizer_opacity';
 export const ENABLE_SMART_ATMOSPHERE_STORAGE_KEY = 'enable_smart_atmosphere';
 export const ENABLE_BILIBILI_VIDEO_BACKGROUND_STORAGE_KEY = 'enable_bilibili_video_background';
 export const INTERACTIVE_3D_SCENE_TUNING_STORAGE_KEY = 'interactive_3d_scene_tuning';
-export const ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY = 'enable_3d_interactive_background';
+export { ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY } from './visualizerBackgroundModeHandlers';
+const ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY = ENABLE_3D_BG_KEY;
 
 const DEFAULT_DAYLIGHT_PREFERENCE = false;
 
@@ -666,7 +676,7 @@ const readStoredUrlBackgroundSelectedId = (): string | null => {
 };
 
 /** Default player background when nothing is stored. Independent of lyric visualizer mode. */
-export const DEFAULT_VISUALIZER_BACKGROUND_MODE: VisualizerBackgroundMode = 'interactive3d';
+export const DEFAULT_VISUALIZER_BACKGROUND_MODE: VisualizerBackgroundMode = 'common';
 
 /**
  * Resolve player background mode.
@@ -855,16 +865,14 @@ const readStoredLyricEffectPackId = (): LyricEffectPackId => {
 
 const readStoredLyricsFontScale = (): number => {
     if (typeof window === 'undefined') {
-        return 1;
+        return DEFAULT_LYRICS_FONT_SCALE;
     }
 
     const saved = localStorage.getItem('lyrics_font_scale');
-    if (!saved) return 1;
+    if (!saved) return DEFAULT_LYRICS_FONT_SCALE;
 
     const parsed = parseFloat(saved);
-    if (!Number.isFinite(parsed)) return 1;
-
-    return Math.min(1.4, Math.max(0.85, parsed));
+    return clampLyricsFontScale(parsed, DEFAULT_LYRICS_FONT_SCALE);
 };
 
 export const resolveStoredCustomLyricsFont = (parsed: Partial<StoredCustomLyricsFont>): StoredCustomLyricsFont | null => {
@@ -1597,50 +1605,50 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         set({ visualizerOpacity: next });
     },
     handleSetVisualizerBackgroundMode: (mode) => {
-        const enable3dInteractiveBackground = mode === 'interactive3d';
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('visualizer_background_mode', mode);
-            setStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, enable3dInteractiveBackground);
-            writeInteractive3dOptIn(localStorage, enable3dInteractiveBackground);
-            if (enable3dInteractiveBackground) {
-                // Explicit user choice — allow another attempt after a prior GPU thrash.
-                writeGpuUnstableFlag(localStorage, false);
-            }
-        }
-        set({ visualizerBackgroundMode: mode, enable3dInteractiveBackground });
-    },
-    handleResetVisualizerBackgroundMode: () => {
-        let resolvedMode = DEFAULT_VISUALIZER_BACKGROUND_MODE;
-        if (typeof window !== 'undefined') {
-            resolvedMode = resolveElectronSafeVisualizerBackgroundMode({
-                mode: resolvedMode,
-                isElectron: Boolean((window as Window & { electron?: unknown }).electron),
-                devicePixelRatio: window.devicePixelRatio || 1,
-                gpuUnstable: readGpuUnstableFlag(localStorage),
-                interactive3dOptIn: false,
-            });
-            localStorage.setItem('visualizer_background_mode', resolvedMode);
-            setStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, resolvedMode === 'interactive3d');
-            writeInteractive3dOptIn(localStorage, false);
-        }
+        const isElectron = typeof window !== 'undefined'
+            && Boolean((window as Window & { electron?: unknown }).electron);
+        const prevMode = get().visualizerBackgroundMode;
+        const { resolvedMode, enable3dInteractiveBackground } = applyVisualizerBackgroundModeSelection({
+            mode,
+            isElectron,
+            storage: typeof window !== 'undefined' ? localStorage : null,
+        });
         set({
             visualizerBackgroundMode: resolvedMode,
-            enable3dInteractiveBackground: resolvedMode === 'interactive3d',
+            enable3dInteractiveBackground,
+        });
+        void import('../utils/telemetry/trackTelemetry').then(({ trackTelemetry }) => {
+            trackTelemetry('settings.changed', {
+                data: {
+                    key: 'visualizerBackgroundMode',
+                    from: prevMode,
+                    to: resolvedMode,
+                },
+            });
+        });
+    },
+    handleResetVisualizerBackgroundMode: () => {
+        const { resolvedMode, enable3dInteractiveBackground } = applyResetVisualizerBackgroundMode({
+            defaultMode: DEFAULT_VISUALIZER_BACKGROUND_MODE,
+            isElectron: typeof window !== 'undefined'
+                && Boolean((window as Window & { electron?: unknown }).electron),
+            devicePixelRatio: typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1,
+            storage: typeof window !== 'undefined' ? localStorage : null,
+        });
+        set({
+            visualizerBackgroundMode: resolvedMode,
+            enable3dInteractiveBackground,
         });
     },
     forceSafeVisualizerBackgroundAfterGpuCrash: () => {
-        // Keep the user's lyric style (e.g. Monet). Only drop heavy backgrounds —
-        // Monet Electron lite path handles canvas cost when gpuUnstable is set.
-        if (typeof window !== 'undefined') {
-            writeGpuUnstableFlag(localStorage, true);
-            writeInteractive3dOptIn(localStorage, false);
-            localStorage.setItem('visualizer_background_mode', 'common');
-            setStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, false);
-        }
-        set({
-            visualizerBackgroundMode: 'common',
-            enable3dInteractiveBackground: false,
-        });
+        const state = get();
+        const keep3dOptIn = state.visualizerBackgroundMode === 'interactive3d'
+            || state.enable3dInteractiveBackground
+            || (typeof window !== 'undefined' && readInteractive3dOptIn(localStorage));
+        set(applyGpuCrashVisualDemote({
+            keep3dOptIn,
+            storage: typeof window !== 'undefined' ? localStorage : null,
+        }));
     },
     handleAddUrlBackgroundItem: (item) => {
         const sanitized = sanitizeUrlBackgroundItem(item);
@@ -1728,7 +1736,13 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         if (typeof window !== 'undefined') {
             localStorage.setItem('visualizer_mode', mode);
         }
+        const prevMode = get().visualizerMode;
         set({ visualizerMode: mode });
+        void import('../utils/telemetry/trackTelemetry').then(({ trackTelemetry }) => {
+            trackTelemetry('settings.changed', {
+                data: { key: 'visualizerMode', from: prevMode, to: mode },
+            });
+        });
         notify(get, {
             type: 'info',
             text: `已切换到${entry.labelFallback}歌词`,
@@ -2137,7 +2151,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         set({ lyricsFontStyle: fontStyle });
     },
     handleSetLyricsFontScale: (fontScale) => {
-        const next = Math.min(1.4, Math.max(0.85, fontScale));
+        const next = clampLyricsFontScale(fontScale);
         if (typeof window !== 'undefined') {
             localStorage.setItem('lyrics_font_scale', String(next));
         }

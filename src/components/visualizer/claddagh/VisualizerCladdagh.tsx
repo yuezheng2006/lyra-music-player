@@ -729,9 +729,7 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
 
     const containerRef = useRef<HTMLDivElement>(null);
     const orbitRingGroupRef = useRef<SVGGElement>(null);
-    const orbitRingGlowRef = useRef<SVGPathElement>(null);
     const orbitRingTrackRef = useRef<SVGPathElement>(null);
-    const orbitRingBandRef = useRef<SVGPathElement>(null);
     const orbitRingRimTopRef = useRef<SVGPathElement>(null);
     const orbitRingRimBottomRef = useRef<SVGPathElement>(null);
     const orbitRingFrontArcRef = useRef<SVGPathElement>(null);
@@ -780,9 +778,7 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
     // Pulse the equatorial collar with audio — throttled + dirty-checked (~25fps).
     useEffect(() => {
         const groupEl = orbitRingGroupRef.current;
-        const glowEl = orbitRingGlowRef.current;
         const trackEl = orbitRingTrackRef.current;
-        const bandEl = orbitRingBandRef.current;
         const rimTopEl = orbitRingRimTopRef.current;
         const rimBottomEl = orbitRingRimBottomRef.current;
         const frontArcEl = orbitRingFrontArcRef.current;
@@ -830,20 +826,9 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
             lastMixed = mixed;
             lastBright = bright;
 
-            if (glowEl && colorChanged) {
-                glowEl.setAttribute('stroke', mixed);
-                glowEl.setAttribute('stroke-opacity', (0.1 + 0.22 * colorRatio).toFixed(3));
-                glowEl.setAttribute('stroke-width', (10 + colorRatio * 10).toFixed(2));
-            }
-            if (bandEl && colorChanged) {
-                bandEl.setAttribute('fill', mixed);
-                bandEl.setAttribute('fill-opacity', (0.08 + 0.12 * colorRatio).toFixed(3));
-                bandEl.setAttribute('stroke', mixed);
-                bandEl.setAttribute('stroke-opacity', (0.14 + 0.18 * colorRatio).toFixed(3));
-            }
             if (colorChanged) {
-                const rimOpacity = (0.22 + 0.28 * colorRatio).toFixed(3);
-                const rimWidth = (1.1 + colorRatio * 0.9).toFixed(2);
+                const rimOpacity = (0.012 + 0.018 * colorRatio).toFixed(3);
+                const rimWidth = (0.35 + colorRatio * 0.1).toFixed(2);
                 if (rimTopEl) {
                     rimTopEl.setAttribute('stroke', bright);
                     rimTopEl.setAttribute('stroke-opacity', rimOpacity);
@@ -851,18 +836,18 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
                 }
                 if (rimBottomEl) {
                     rimBottomEl.setAttribute('stroke', mixed);
-                    rimBottomEl.setAttribute('stroke-opacity', (0.16 + 0.2 * colorRatio).toFixed(3));
+                    rimBottomEl.setAttribute('stroke-opacity', (0.008 + 0.012 * colorRatio).toFixed(3));
                     rimBottomEl.setAttribute('stroke-width', rimWidth);
                 }
                 trackEl.setAttribute('stroke', bright);
-                trackEl.setAttribute('stroke-opacity', (0.28 + 0.36 * colorRatio).toFixed(3));
-                trackEl.setAttribute('stroke-width', (1.8 + colorRatio * 1.1).toFixed(2));
+                trackEl.setAttribute('stroke-opacity', (0.015 + 0.025 * colorRatio).toFixed(3));
+                trackEl.setAttribute('stroke-width', (0.4 + colorRatio * 0.1).toFixed(2));
             }
             if (frontArcEl) {
                 if (colorChanged) {
                     frontArcEl.setAttribute('stroke', bright);
-                    frontArcEl.setAttribute('stroke-opacity', (0.42 + 0.45 * colorRatio).toFixed(3));
-                    frontArcEl.setAttribute('stroke-width', (2.4 + colorRatio * 1.6).toFixed(2));
+                    frontArcEl.setAttribute('stroke-opacity', (0.025 + 0.045 * colorRatio).toFixed(3));
+                    frontArcEl.setAttribute('stroke-width', (0.45 + colorRatio * 0.15).toFixed(2));
                     frontArcEl.setAttribute('stroke-dasharray', `${snapshot.dashA} ${snapshot.dashB}`);
                 }
                 frontArcEl.setAttribute('stroke-dashoffset', (-snapshot.shimmerQ).toFixed(1));
@@ -915,8 +900,7 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
         return buildMeasuredSpacingInfo(timeline, fontSpec, baseFontSize, Rx, activeTextSpacingScale);
     }, [lines, renderBaseIndex, fontSpec, baseFontSize, Rx, activeTextSpacingScale]);
 
-    // Coordinate rotation offsets using MotionValue for line transition自转 animations.
-    // Negative phase → new lines enter from bottom-left and exit toward top-right.
+    // Increasing phase keeps line handoff moving in the same orbit direction as word progression.
     const lineOffset = useMotionValue(resolveCladdaghLineOrbitPhase(centerLineIndex));
     const lastIndexRef = useRef(centerLineIndex);
 
@@ -1009,62 +993,48 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
                         }}
                     >
                         <path
-                            ref={orbitRingGlowRef}
-                            d={orbitRingGuide.glowPath}
-                            fill="none"
-                            stroke={theme.primaryColor}
-                            strokeOpacity={0.12}
-                            strokeWidth={12}
-                            strokeLinejoin="round"
-                            strokeLinecap="round"
-                        />
-                        <path
-                            ref={orbitRingBandRef}
-                            d={orbitRingGuide.bandPath}
-                            fill={theme.primaryColor}
-                            fillOpacity={0.09}
-                            fillRule="evenodd"
-                            stroke={theme.primaryColor}
-                            strokeOpacity={0.16}
-                            strokeWidth={1.1}
-                        />
-                        <path
                             ref={orbitRingRimBottomRef}
                             d={orbitRingGuide.rimBottomPath}
                             fill="none"
                             stroke={theme.primaryColor}
-                            strokeOpacity={0.18}
-                            strokeWidth={1.2}
+                            strokeOpacity={0.008}
+                            strokeWidth={0.35}
+                            strokeLinecap="round"
                             strokeLinejoin="round"
+                            strokeDasharray="0.7 18"
                         />
                         <path
                             ref={orbitRingRimTopRef}
                             d={orbitRingGuide.rimTopPath}
                             fill="none"
                             stroke={theme.primaryColor}
-                            strokeOpacity={0.24}
-                            strokeWidth={1.2}
+                            strokeOpacity={0.012}
+                            strokeWidth={0.35}
+                            strokeLinecap="round"
                             strokeLinejoin="round"
+                            strokeDasharray="0.7 18"
                         />
                         <path
                             ref={orbitRingTrackRef}
                             d={orbitRingGuide.trackPath}
                             fill="none"
                             stroke={theme.primaryColor}
-                            strokeOpacity={0.3}
-                            strokeWidth={1.9}
+                            strokeOpacity={0.015}
+                            strokeWidth={0.4}
+                            strokeLinecap="round"
                             strokeLinejoin="round"
+                            strokeDasharray="0.8 15"
                         />
                         <path
                             ref={orbitRingFrontArcRef}
                             d={orbitRingGuide.frontArcPath}
                             fill="none"
                             stroke={theme.accentColor || theme.primaryColor}
-                            strokeOpacity={0.48}
-                            strokeWidth={2.6}
+                            strokeOpacity={0.025}
+                            strokeWidth={0.45}
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            strokeDasharray="20 22"
+                            strokeDasharray="1 18"
                         />
                     </g>
                 </svg>

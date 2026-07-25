@@ -54,17 +54,16 @@ describe('interactive3dFrameCostMath', () => {
             ambientEnabled: true,
         });
 
-        // high ≈ 101² without default bloom (tightened for Electron GPU helper)
-        expect(defaultHigh.grid).toBe(101);
+        // high = Mineradio 183² without default bloom
+        expect(defaultHigh.grid).toBe(183);
         expect(defaultHigh.bloomEnabled).toBe(false);
-        expect(defaultHigh.vertexInvocations).toBe(10_201);
+        expect(defaultHigh.vertexInvocations).toBe(33_489);
         expect(defaultHigh.ambientWebGLMounted).toBe(false);
 
         expect(liteSafe.grid).toBe(coverParticleGridForQualityTier('lite'));
         expect(liteSafe.bloomEnabled).toBe(false);
         expect(liteSafe.ambientWebGLMounted).toBe(false);
-        // Legacy blow-up was ~66_978 vertex invocations; stay well under a quarter of that.
-        expect(defaultHigh.vertexInvocations).toBeLessThan(16_000);
-        expect(defaultHigh.relativeCost / Math.max(1, liteSafe.relativeCost)).toBeLessThan(4);
+        expect(defaultHigh.vertexInvocations).toBeLessThanOrEqual(33_489);
+        expect(defaultHigh.relativeCost / Math.max(1, liteSafe.relativeCost)).toBeLessThan(5);
     });
 });

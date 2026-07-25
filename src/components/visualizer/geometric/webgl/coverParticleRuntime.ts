@@ -18,7 +18,11 @@ import {
 import { createCoverParticleMaterials, type CoverParticleUniforms } from './coverParticleMaterials';
 import { createDotTexture, createEmptyColorTexture } from './createDotTexture';
 import { buildCoverEdgeAndDepthFromSource } from './buildCoverEdgeAndDepth';
-import { CoverColorMixTween } from './coverColorMixTween';
+import {
+    CoverColorMixTween,
+    DEFAULT_COVER_COLOR_MIX_MS,
+    EMILY_COVER_COLOR_MIX_MS,
+} from './coverColorMixTween';
 import { CoverNumericTween } from './coverNumericTween';
 import {
     resolveWebGLPresetIndex,
@@ -52,9 +56,12 @@ import {
     type CoverParticleCaptureSnapshot,
     shouldEnableCoverParticleCaptureBridge,
 } from './coverParticleCaptureMath';
+import { trackTelemetry } from '../../../../utils/telemetry/trackTelemetry';
 
 // src/components/visualizer/geometric/webgl/coverParticleRuntime.ts
 // Three.js runtime for cover particle WebGL layers.
+
+const VIZ_FRAME_COST_TELEMETRY_INTERVAL_MS = 2000;
 
 export type { CoverParticleCaptureSnapshot };
 
@@ -209,6 +216,8 @@ export class CoverParticleRuntime {
     private interactionDragging = false;
 
     private lastInteractionPointer = { x: 0, y: 0, t: 0 };
+
+    private lastVizFrameTelemetryAt = 0;
 
     private pointerRaycaster = new THREE.Raycaster();
 
@@ -860,11 +869,13 @@ export class CoverParticleRuntime {
             const frameSkip = Math.max(1, this.qualityProfile?.frameSkip ?? 1);
             const paused = this.latestInputs.paused;
             const electronCap = Boolean((window as Window & { electron?: unknown }).electron);
-            // Paused: slow refresh. Playing on Electron: never denser than every other frame.
+            const retinaElectron = electronCap && (window.devicePixelRatio || 1) >= 2;
+            // Paused: slow refresh. Retina Electron: every 3rd frame — denser updates
+            // have crashed the GPU helper into software-GL (Helper 100% / GPU 0%).
             // Never skip lyric ticks — karaoke must stay locked to the audio clock.
             const effectiveSkip = paused
                 ? Math.max(frameSkip, 3)
-                : Math.max(frameSkip, electronCap ? 2 : 1);
+                : Math.max(frameSkip, retinaElectron ? 3 : electronCap ? 2 : 1);
             const skipParticles = effectiveSkip > 1 && frameIndex % effectiveSkip !== 0;
             this.renderFrame({ skipParticles });
         });
@@ -1032,9 +1043,12 @@ export class CoverParticleRuntime {
 
                     if (this.coverTexture?.image) {
                         this.copyCoverImageToPrevious(this.coverTexture.image as CanvasImageSource);
+                        const mixMs = normalizeInteractive3dVisualPreset(this.tuning?.visualPreset) === 'emily'
+                            ? EMILY_COVER_COLOR_MIX_MS
+                            : DEFAULT_COVER_COLOR_MIX_MS;
                         this.colorMixTween.start((mix) => {
                             this.uniforms.uColorMixT.value = mix;
-                        });
+                        }, mixMs);
                     } else {
                         this.uniforms.uColorMixT.value = 1;
                     }
@@ -1181,7 +1195,7 @@ export class CoverParticleRuntime {
     private ensureParticleAlphaVisible() {
         if (this.hasRevealedParticles) return;
         this.hasRevealedParticles = true;
-        this.alphaTween.start(this.uniforms.uAlpha.value || 0, 0.96, 920, (alpha) => {
+        this.alphaTween.start(this.uniforms.uAlpha.value || 0, 1.0, 920, (alpha) => {
             this.uniforms.uAlpha.value = alpha;
         });
     }
@@ -1269,7 +1283,8 @@ export class CoverParticleRuntime {
             uniforms.uTime.value = elapsed;
             uniforms.uSpeed.value = (smartAtmosphereEnabled ? 0.85 + intensity * 0.35 : 0.34 + intensity * 0.18) * presetProfile.speedMul;
             uniforms.uEdgeEnabled.value = preset === 'emily' ? 0 : 1;
-            uniforms.uCoverWarp.value = preset === 'emily' ? 0.68 : 1;
+            // Full Mineradio Z amplitude — prior 0.68 softener flattened Emily too much.
+            uniforms.uCoverWarp.value = 1;
             uniforms.uIntensity.value = intensity;
             uniforms.uCoverRes.value = this.resolveCoverResolutionUniform();
             uniforms.uBass.value = audioUniforms.bass;
@@ -1289,7 +1304,8 @@ export class CoverParticleRuntime {
                 uniforms.uMouseXY.value.set(pointerX * 2.1, pointerY * 2.1);
                 uniforms.uMouseActive.value = pointerActive ? 1 : 0;
             }
-            uniforms.uParticleDim.value = (smartAtmosphereEnabled ? 1 : 0.68) * this.contrastLift;
+            // Keep cover field bright; the old 0.68 dim made album colors muddy/unreadable.
+            uniforms.uParticleDim.value = this.contrastLift;
             this.updateQuantumCubePass(elapsed, audioUniforms, quantumCubeActive);
 
             const bassPulse = smartAtmosphereEnabled
@@ -1325,6 +1341,7 @@ export class CoverParticleRuntime {
         if (!hasParticles && !hasLyrics) return;
 
         this.renderer.autoClear = true;
+        const renderStarted = performance.now();
         if (normalizeInteractive3dVisualPreset(this.tuning?.visualPreset) === 'quantumCube' && this.quantumMaterial) {
             this.renderer.render(this.quantumScene, this.quantumCamera);
             this.renderer.autoClear = false;
@@ -1332,6 +1349,19 @@ export class CoverParticleRuntime {
         }
         this.renderer.render(this.scene, this.camera);
         this.renderer.autoClear = true;
+        const renderMs = performance.now() - renderStarted;
+        if (renderStarted - this.lastVizFrameTelemetryAt >= VIZ_FRAME_COST_TELEMETRY_INTERVAL_MS) {
+            this.lastVizFrameTelemetryAt = renderStarted;
+            trackTelemetry('viz.frame_cost', {
+                level: renderMs >= 12 ? 'warn' : 'debug',
+                durMs: renderMs,
+                data: {
+                    preset: normalizeInteractive3dVisualPreset(this.tuning?.visualPreset),
+                    hasParticles,
+                    hasLyrics,
+                },
+            });
+        }
     }
 
     private resolveCoverResolutionUniform(): number {

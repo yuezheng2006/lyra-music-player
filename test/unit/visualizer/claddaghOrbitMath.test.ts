@@ -74,9 +74,15 @@ describe('claddaghOrbitMath — equatorial collar line', () => {
             .toBeLessThan(Math.abs(resolveCladdaghGlyphTiltDeg(40, 0, 0)));
     });
 
-    it('uses a short negative line phase so equator handoff stays subtle', () => {
+    it('keeps line handoff moving in the same direction as word progression', () => {
+        const firstPhase = resolveCladdaghLineOrbitPhase(0);
+        const nextPhase = resolveCladdaghLineOrbitPhase(1);
+        const wordProgressionDelta = -0.1;
+        const handoffDelta = -(nextPhase - firstPhase);
+
         expect(CLADDAGH_LINE_ORBIT_PHASE_STEP).toBeLessThan(Math.PI * 0.35);
-        expect(resolveCladdaghLineOrbitPhase(0)).toBeCloseTo(0);
-        expect(resolveCladdaghLineOrbitPhase(1)).toBeCloseTo(-CLADDAGH_LINE_ORBIT_PHASE_STEP);
+        expect(firstPhase).toBeCloseTo(0);
+        expect(nextPhase).toBeCloseTo(CLADDAGH_LINE_ORBIT_PHASE_STEP);
+        expect(Math.sign(handoffDelta)).toBe(Math.sign(wordProgressionDelta));
     });
 });

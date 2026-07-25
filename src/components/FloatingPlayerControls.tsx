@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Download, Maximize, Minimize, Maximize2, Minimize2 } from 'lucide-react';
+import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Download, Home, Maximize, Minimize, Maximize2, Minimize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { MotionValue } from 'framer-motion';
 import ProgressBar from './ProgressBar';
@@ -347,6 +347,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                             }
                             onNavigateToPlayer();
                         }}
+                        onNavigateToHome={onNavigateToHome}
                         effectsModeActive={effectsModeActive}
                         noTrackText={noTrackText}
                         primaryColor={primaryColor}
@@ -399,6 +400,9 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         getBackgroundPresetLabel={getBackgroundPresetLabel}
                         getVisualizerModeLabel={getVisualizerModeLabel}
                         onDockPopoverOpenChange={onDockPopoverOpenChange}
+                        onEnsurePlayerView={() => {
+                            if (currentView !== 'player') onNavigateToPlayer();
+                        }}
                     />
                 </motion.div>
             </div>
@@ -441,6 +445,7 @@ type DockedBarProps = {
     onNextTrack?: () => void;
     onTogglePlayerLyricsVisible?: () => void;
     onToggleEffectsMode?: () => void;
+    onNavigateToHome?: () => void;
     effectsModeActive?: boolean;
     noTrackText: string;
     primaryColor: string;
@@ -493,6 +498,8 @@ type DockedBarProps = {
     getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
     getVisualizerModeLabel?: (mode: VisualizerMode) => string;
     onDockPopoverOpenChange?: (open: boolean) => void;
+    /** Reveal player view so heavy backgrounds are not covered by the home shell. */
+    onEnsurePlayerView?: () => void;
 };
 
 const DockedBar: React.FC<DockedBarProps> = ({
@@ -512,6 +519,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
     onNextTrack,
     onTogglePlayerLyricsVisible,
     onToggleEffectsMode,
+    onNavigateToHome,
     effectsModeActive = false,
     noTrackText,
     primaryColor,
@@ -564,6 +572,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
     getBackgroundPresetLabel,
     getVisualizerModeLabel,
     onDockPopoverOpenChange,
+    onEnsurePlayerView,
 }) => {
     const { t } = useTranslation();
     const skipDisabled = controlsDisabled || !canSkipTracks;
@@ -624,7 +633,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
                 />
             </div>
 
-            {/* Mineradio order: cover · quality · loop · prev/play/next · bg · 词 · queue · fullscreen · time */}
+            {/* Mineradio order: cover · quality · loop · prev/play/next · home · bg · 词 · queue · fullscreen · time */}
             <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-5 pt-2.5 sm:gap-3 sm:px-6 md:px-7">
                 <div className="flex min-w-0 items-center gap-2 text-left sm:gap-2.5">
                     {onToggleEffectsMode ? (
@@ -830,6 +839,20 @@ const DockedBar: React.FC<DockedBarProps> = ({
                 </div>
 
                 <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-1.5">
+                    {effectsModeActive && onNavigateToHome ? (
+                        <button
+                            type="button"
+                            onClick={onNavigateToHome}
+                            disabled={controlsDisabled}
+                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled)}`}
+                            title={t('ui.backToHome') || '返回主页'}
+                            aria-label={t('ui.backToHome') || '返回主页'}
+                            data-testid="floating-player-go-home"
+                        >
+                            <Home size={16} strokeWidth={TRANSPORT_ICON_STROKE} />
+                        </button>
+                    ) : null}
+
                     {canSwitchBackground
                         && interactive3dSceneTuning
                         && onVisualizerBackgroundModeChange
@@ -848,7 +871,9 @@ const DockedBar: React.FC<DockedBarProps> = ({
                             onApplyLyricColorPreset={onApplyLyricColorPreset}
                             onOpenSongSettings={onOpenSongSettings}
                             onOpenChange={setBackgroundMenuOpen}
+                            onEnsurePlayerView={onEnsurePlayerView}
                             backgroundMenuLabel={backgroundMenuLabel}
+                            backgroundModeCommonLabel={backgroundModeCommonLabel}
                             presetSectionLabel={backgroundPresetSectionLabel}
                             lyricsStyleSectionLabel={lyricsStyleSectionLabel}
                             lyricColorSectionLabel={lyricColorSectionLabel}

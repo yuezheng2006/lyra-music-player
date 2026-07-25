@@ -24,11 +24,19 @@ describe('geometricQuality', () => {
         expect(profile.enableRipples).toBe(true);
         expect(profile.maxBeatParticles).toBeGreaterThan(30);
         expect(profile.frameSkip).toBeGreaterThanOrEqual(2);
-        expect(profile.devicePixelRatioCap).toBeLessThanOrEqual(1);
+        expect(profile.devicePixelRatioCap).toBeLessThanOrEqual(1.25);
     });
 
     it('balanced/lite skip frames for CPU headroom', () => {
-        expect(resolveGeometricQualityProfile(921600, 'balanced').frameSkip).toBeGreaterThanOrEqual(3);
+        expect(resolveGeometricQualityProfile(921600, 'balanced').frameSkip).toBeGreaterThanOrEqual(2);
         expect(resolveGeometricQualityProfile(921600, 'lite').frameSkip).toBeGreaterThanOrEqual(4);
+    });
+
+    it('keeps the lite WebGL retry profile sparse', () => {
+        const profile = resolveGeometricQualityProfile(921600, 'lite');
+        expect(profile.devicePixelRatioCap).toBe(1);
+        expect(profile.particleTarget).toBeLessThanOrEqual(72);
+        expect(profile.maxBeatParticles).toBeLessThanOrEqual(4);
+        expect(profile.enableRipples).toBe(false);
     });
 });

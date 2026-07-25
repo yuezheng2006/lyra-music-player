@@ -58,6 +58,9 @@ export type CommandPaletteContext = {
     toggleLoop: () => void;
     handleNextTrack: () => void;
     handlePrevTrack: () => void;
+    /** Adjust volume by a relative step (e.g. ±0.05); may unmute on step-up. */
+    adjustVolumeByStep: (delta: number) => void;
+    toggleMute: () => void;
     shuffleQueue: () => void;
     playQueue: SongResult[];
     playSong: (song: SongResult, queue?: SongResult[]) => void | Promise<void>;

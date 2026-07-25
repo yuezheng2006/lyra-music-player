@@ -18,6 +18,8 @@ type UsePlaybackVisualizerBridgeParams = {
     activePlaybackContext: 'main' | 'stage';
     /** Used to re-bind timeupdate/interval when the loaded track changes. */
     audioSrc: string | null;
+    /** Re-bind media clock listeners when recovery remounts the same source URL. */
+    audioElementEpoch?: number;
     audioPower: MotionValue<number>;
     audioBands: {
         bass: MotionValue<number>;
@@ -64,6 +66,7 @@ export function usePlaybackVisualizerBridge({
     animationFrameRef,
     activePlaybackContext,
     audioSrc,
+    audioElementEpoch = 0,
     audioPower,
     audioBands,
     currentTime,
@@ -268,9 +271,10 @@ export function usePlaybackVisualizerBridge({
     }, [animationFrameRef, updateLoop]);
 
     // Backup when compositor/RAF stalls (GPU thrash): timeupdate + interval still advance lyrics.
-    // Re-bind on audioSrc swaps — audioRef.current alone is not a React dependency.
+    // Re-bind on source swaps and same-source recovery remounts — audioRef alone is not reactive.
     useEffect(() => {
         void audioSrc;
+        void audioElementEpoch;
         const audioElement = audioRef.current;
         if (!audioElement) return undefined;
 
@@ -302,6 +306,7 @@ export function usePlaybackVisualizerBridge({
         activePlaybackContext,
         audioRef,
         audioSrc,
+        audioElementEpoch,
         currentTime,
         isNowPlayingStageActive,
         lyrics,

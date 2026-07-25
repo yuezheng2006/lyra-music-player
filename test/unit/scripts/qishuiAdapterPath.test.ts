@@ -44,4 +44,12 @@ describe('qishui adapter path (packaged cwd)', () => {
       process.chdir(previousCwd);
     }
   });
+
+  it('caches loaded adapter modules in production and by mtime in development', () => {
+    const source = fs.readFileSync(sidecarPath, 'utf8');
+    expect(source).toContain('const adapterCache = new Map()');
+    expect(source).toContain("process.env.NODE_ENV === 'production'");
+    expect(source).toContain('adapterCache.get(resolvedPath)');
+    expect(source).toContain('cached.mtimeMs === mtimeMs');
+  });
 });

@@ -12,9 +12,18 @@ export type MusicProviderSearchResult = {
     hasMore?: boolean;
 };
 
+export type MusicProviderSearchOptions = {
+    limit: number;
+    offset: number;
+    signal?: AbortSignal;
+};
+
 export type MusicProvider = {
     id: OnlineMusicProviderId;
-    search: (query: string, options: { limit: number; offset: number }) => Promise<MusicProviderSearchResult>;
-    getAudioUrl: (song: SongResult, options: { quality: string }) => Promise<ProviderAudioResult>;
+    search: (query: string, options: MusicProviderSearchOptions) => Promise<MusicProviderSearchResult>;
+    getAudioUrl: (
+        song: SongResult,
+        options: { quality: string; forceRefresh?: boolean },
+    ) => Promise<ProviderAudioResult>;
     getLyrics: (song: SongResult) => Promise<LyricData | null>;
 };

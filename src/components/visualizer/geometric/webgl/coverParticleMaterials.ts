@@ -36,6 +36,7 @@ export const createCoverParticleMaterials = (
         uVinylSpin: { value: 0 },
         uCoverRes: { value: 1 },
         uCoverWarp: { value: 1 },
+        // Warm lift; chroma is preserved in the fragment (not blown to white).
         uColorBoost: { value: 1.28 },
         uHasCover: { value: 0 },
         uPixel: { value: 1 },

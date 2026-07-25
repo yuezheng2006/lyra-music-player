@@ -36,17 +36,16 @@ export function useAppAudioOutput({
         const clampedVolume = clampMediaVolume(targetVolume);
 
         if (gainNodeRef.current && audioContextRef.current) {
+            const now = audioContextRef.current.currentTime;
+            const param = gainNodeRef.current.gain;
+            const nextGain = replayGainLinearRef.current * clampedVolume;
+            // Cancel in-flight play/pause linear ramps before applying UI volume.
+            param.cancelScheduledValues(now);
             if (smoothing <= 0) {
-                gainNodeRef.current.gain.setValueAtTime(
-                    replayGainLinearRef.current * clampedVolume,
-                    audioContextRef.current.currentTime,
-                );
+                param.setValueAtTime(nextGain, now);
             } else {
-                gainNodeRef.current.gain.setTargetAtTime(
-                    replayGainLinearRef.current * clampedVolume,
-                    audioContextRef.current.currentTime,
-                    smoothing,
-                );
+                param.setValueAtTime(param.value, now);
+                param.setTargetAtTime(nextGain, now, smoothing);
             }
 
             if (audioRef.current) {
@@ -61,6 +60,37 @@ export function useAppAudioOutput({
             audioRef.current.muted = isMuted;
         }
     }, [audioContextRef, audioRef, gainNodeRef, isMuted, replayGainLinearRef]);
+
+    /** Linear gain ramp for short play/pause fades; still multiplies ReplayGain. */
+    const rampOutputGain = useCallback((targetVolume: number, durationMs: number) => {
+        const clampedVolume = clampMediaVolume(targetVolume);
+        const nextGain = replayGainLinearRef.current * clampedVolume;
+
+        if (gainNodeRef.current && audioContextRef.current) {
+            const now = audioContextRef.current.currentTime;
+            const param = gainNodeRef.current.gain;
+            const durationSec = Math.max(0, durationMs) / 1000;
+            try {
+                param.cancelScheduledValues(now);
+                param.setValueAtTime(param.value, now);
+                if (durationSec <= 0) {
+                    param.setValueAtTime(nextGain, now);
+                } else {
+                    param.linearRampToValueAtTime(nextGain, now + durationSec);
+                }
+            } catch {
+                param.setValueAtTime(nextGain, now);
+            }
+
+            if (audioRef.current) {
+                audioRef.current.volume = 1;
+                audioRef.current.muted = false;
+            }
+            return;
+        }
+
+        syncOutputGain(clampedVolume, durationMs > 0 ? 0.015 : 0);
+    }, [audioContextRef, audioRef, gainNodeRef, replayGainLinearRef, syncOutputGain]);
 
     const applyAudioOutputDevice = useCallback(async (
         targetDeviceId: string,
@@ -206,6 +236,7 @@ export function useAppAudioOutput({
 
     return {
         syncOutputGain,
+        rampOutputGain,
         applyAudioOutputDevice,
         handleAudioOutputDeviceChange,
         handlePreviewVolume,

@@ -33,8 +33,9 @@ export type MakeLyricMaskOptions = {
 const STAGE_LYRIC_MAX_LINES = 2;
 const MASK_WIDTH = 2048;
 const MASK_HEIGHT = 512;
-const MIN_FONT_SIZE = 28;
-const START_FONT_SIZE = 128;
+const MIN_FONT_SIZE = 32;
+const START_FONT_SIZE = 152;
+/** Immersive mask stays sharp without forcing a much larger glyph block. */
 const IMMERSIVE_START_FONT_SIZE = 168;
 /** Horizontal padding inside the mask so glyphs never sit on the texture edge. */
 const MASK_EDGE_PADDING_PX = 280;

@@ -354,5 +354,5 @@ export const isCladdaghLaterAtRight = (): boolean => {
 export const resolveCladdaghAxisTiltDeg = (_ellipseTiltDeg: number): number => 0;
 
 export const resolveCladdaghLineOrbitPhase = (lineIndex: number): number => (
-    -lineIndex * CLADDAGH_LINE_ORBIT_PHASE_STEP
+    lineIndex * CLADDAGH_LINE_ORBIT_PHASE_STEP
 );

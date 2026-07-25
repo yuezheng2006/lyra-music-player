@@ -49,9 +49,9 @@ export type LyricVerticalSafeArea = {
 
 const DEFAULT_SIDE_PADDING_RATIO = 0.08;
 const DEFAULT_MIN_SIDE_PADDING_PX = 28;
-const DEFAULT_PREFERRED_WIDTH_RATIO = 0.072;
-const DEFAULT_MIN_FONT_PX = 22;
-const DEFAULT_MAX_FONT_PX = 56;
+const DEFAULT_PREFERRED_WIDTH_RATIO = 0.084;
+const DEFAULT_MIN_FONT_PX = 26;
+const DEFAULT_MAX_FONT_PX = 68;
 
 /**
  * mapRhythmScaleBoost peaks near ~1.16 with full beat/punch; keep a little slack for glow.

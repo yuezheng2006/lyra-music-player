@@ -14,6 +14,14 @@ describe('claddagh equator / glyph DOM dirty checks', () => {
         expect(isCladdaghEquatorPulseUnchanged(a, b)).toBe(true);
     });
 
+    it('keeps the energy arc as sparse micro-dots across the audio range', () => {
+        const idle = resolveCladdaghEquatorPulseSnapshot(0, 0, 0);
+        const peak = resolveCladdaghEquatorPulseSnapshot(1, 1, 0);
+
+        expect({ dashA: idle.dashA, dashB: idle.dashB }).toEqual({ dashA: 1, dashB: 18 });
+        expect({ dashA: peak.dashA, dashB: peak.dashB }).toEqual({ dashA: 2, dashB: 14 });
+    });
+
     it('marks glyph DOM dirty only past write thresholds', () => {
         const prev = { x: 10, y: 20, rot: 5, scale: 1, opacity: 0.5, color: '#fff' };
         expect(shouldWriteCladdaghGlyphDom(prev, { ...prev, x: 10.1 })).toBe(false);

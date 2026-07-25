@@ -41,7 +41,7 @@
     "probe:netease-xeapi": "node test/manual/netease_xeapi_probe.cjs",
     "stage:client": "vite --open /stage-client.html",
     "prototype:portfolio-motion": "npm --prefix .scratch/portfolio-motion install && npm --prefix .scratch/portfolio-motion run dev",
-    "dev:electron": "cross-env ELECTRON_DEV=true LYRA_EXTERNAL_DEV_APIS=true LYRA_DISABLE_SINGLE_INSTANCE_LOCK=true concurrently -k \"npm run dev:netease-api\" \"npm run dev:music-provider\" \"vite --port 3000 --strictPort\" \"wait-on tcp:3000 tcp:3001 tcp:3002 && electron .\"",
+    "dev:electron": "cross-env ELECTRON_DEV=true LYRA_EXTERNAL_DEV_APIS=true LYRA_DISABLE_SINGLE_INSTANCE_LOCK=true concurrently -k \"npm run dev:netease-api\" \"npm run dev:music-provider\" \"vite --port 3000 --strictPort\" \"wait-on tcp:3000 tcp:3001 tcp:3002 && node scripts/run-electron-dev.mjs .\"",
     "dev:electron:dist": "cross-env ELECTRON_DEV=false ELECTRON=true vite build && electron .",
     "build:electron": "cross-env ELECTRON_DEV=false ELECTRON=true vite build && electron-builder",
     "contributors:add": "npx all-contributors-cli add",

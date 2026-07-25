@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { requestSidecarAudioUrl } from '@/services/musicProviders/sidecarProviderClient';
+import {
+    requestSidecarAudioUrl,
+    requestSidecarSearch,
+    resetSidecarProviderClientCacheForTests,
+} from '@/services/musicProviders/sidecarProviderClient';
 
 // test/unit/services/sidecarProviderClient.test.ts
 // Covers 4xx unavailable vs 5xx transport failure for QQ audio lookup.
@@ -29,9 +33,11 @@ describe('requestSidecarAudioUrl', () => {
     beforeEach(() => {
         vi.stubGlobal('fetch', vi.fn());
         vi.stubEnv('VITE_MUSIC_PROVIDER_API_BASE', 'http://127.0.0.1:3002');
+        resetSidecarProviderClientCacheForTests();
     });
 
     afterEach(() => {
+        resetSidecarProviderClientCacheForTests();
         vi.unstubAllGlobals();
         vi.unstubAllEnvs();
     });
@@ -55,7 +61,7 @@ describe('requestSidecarAudioUrl', () => {
         } as Response);
 
         await expect(requestSidecarAudioUrl('qq', song, { quality: 'hires' }))
-            .rejects.toThrow(/sidecar audio failed: 500/);
+            .rejects.toThrow(/500/);
     });
 
     it('returns ok when sidecar provides an audio URL', async () => {
@@ -67,5 +73,65 @@ describe('requestSidecarAudioUrl', () => {
 
         await expect(requestSidecarAudioUrl('qq', song, { quality: 'standard' }))
             .resolves.toEqual({ kind: 'ok', audioUrl: 'https://example.com/a.mp3' });
+    });
+
+    it('forceRefresh bypasses negative cache and issues a new sidecar lookup', async () => {
+        vi.mocked(fetch)
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 404,
+                json: async () => ({ error: 'Audio URL unavailable' }),
+            } as Response)
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                json: async () => ({ audioUrl: 'https://example.com/fresh.mp3' }),
+            } as Response);
+
+        await expect(requestSidecarAudioUrl('qq', song, { quality: 'standard' }))
+            .resolves.toEqual({ kind: 'unavailable' });
+
+        await expect(requestSidecarAudioUrl('qq', song, { quality: 'standard' }))
+            .resolves.toEqual({ kind: 'unavailable' });
+
+        await expect(requestSidecarAudioUrl('qq', song, { quality: 'standard', forceRefresh: true }))
+            .resolves.toEqual({ kind: 'ok', audioUrl: 'https://example.com/fresh.mp3' });
+        expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('resolves the Electron sidecar port once across searches', async () => {
+        vi.unstubAllEnvs();
+        const getMusicProviderPort = vi.fn().mockResolvedValue(43123);
+        vi.stubGlobal('window', { electron: { getMusicProviderPort } });
+        vi.mocked(fetch).mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: async () => ({ songs: [], total: 0, hasMore: false }),
+        } as Response);
+
+        await requestSidecarSearch('qishui', '大头针', { limit: 30, offset: 0 });
+        await requestSidecarSearch('qishui', '孤勇者', { limit: 30, offset: 0 });
+
+        expect(getMusicProviderPort).toHaveBeenCalledTimes(1);
+    });
+
+    it('forwards an abort signal to sidecar search fetch', async () => {
+        vi.mocked(fetch).mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: async () => ({ songs: [], total: 0, hasMore: false }),
+        } as Response);
+        const controller = new AbortController();
+
+        await requestSidecarSearch('qishui', '大头针', {
+            limit: 30,
+            offset: 0,
+            signal: controller.signal,
+        });
+
+        expect(fetch).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ signal: controller.signal }),
+        );
     });
 });

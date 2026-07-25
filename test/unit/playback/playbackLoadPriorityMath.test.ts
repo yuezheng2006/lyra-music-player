@@ -40,6 +40,13 @@ describe('playbackLoadPriorityMath', () => {
             disableHomeDynamicBackground: false,
             audioSrc: null,
         })).toBe(false);
+
+        // Home solid shell hides the stage; keep GPU paused even with audioSrc.
+        expect(resolveShouldPauseVisualizerBackground({
+            currentView: 'home',
+            disableHomeDynamicBackground: true,
+            audioSrc: 'https://cdn.example/a.mp3',
+        })).toBe(true);
     });
 
     it('defaults Electron home to pause heavy backgrounds', () => {

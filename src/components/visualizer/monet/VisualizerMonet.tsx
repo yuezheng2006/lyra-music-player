@@ -305,7 +305,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                                     immersiveLyrics={immersiveLyrics}
                                     lyricFontPresetId={lyricFontPresetId}
                                     visualEffectIntensity={visualEffectIntensity}
-                                    presentation={lyricWordMode === 'karaoke' ? 'karaoke' : 'monet'}
+                                    presentation={(lyricWordMode === 'karaoke' || lyricWordMode === 'ktv') ? 'karaoke' : 'monet'}
                                 />
                             </motion.div>
 

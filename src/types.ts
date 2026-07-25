@@ -107,7 +107,8 @@ export type ThemeMode = 'default' | 'ai' | 'custom';
 
 export type BuiltinVisualizerMode = 'classic' | 'cadenza' | 'partita' | 'fume' | 'monet';
 export type VisualizerMode = BuiltinVisualizerMode | (string & {});
-export type LyricWordMode = 'default' | 'karaoke';
+/** default = current line only; karaoke = preview upcoming; ktv = traditional LTR wipe (parallel to karaoke). */
+export type LyricWordMode = 'default' | 'karaoke' | 'ktv';
 export type VisualizerFrameRate = 'off' | 120 | 90 | 60;
 
 export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'ytmusic' | 'radio' | 'daily' | 'podcast' | 'history';

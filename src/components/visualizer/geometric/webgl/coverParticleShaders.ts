@@ -589,7 +589,8 @@ void main(){
   // Floor vinyl luminance so the platter stays readable on dark themes.
   vColor = mix(vColor, max(vColor, vec3(0.09)), mineradioVinylMask);
 
-  vBright = 0.82 + maxRippleAmp * 0.55 + uBass * 0.10 + edgeBoostFinal * 0.30 + uEnergy * 0.05 + uBurstAmt * 0.40;
+  // Background-stage brightness: vivid cover field without bleaching chroma.
+  vBright = 0.93 + maxRippleAmp * 0.40 + uBass * 0.08 + edgeBoostFinal * 0.22 + uEnergy * 0.04 + uBurstAmt * 0.28;
   if (uHasDepth > 0.5 && uPreset < 0.5) {
     float bgMul = mix(1.0, 0.55, 0.20 * (1.0 - fgMask));
     vBright *= bgMul;
@@ -648,12 +649,13 @@ void main(){
   vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
   float dist = max(0.5, -mvPos.z);
   float depthSize = 36.0 / dist;
-  float audioBoost = 1.0 + maxRippleAmp * 0.82 + edgeBoostFinal * 0.62 + uBeat * 0.38 + uBurstAmt * 0.62;
-  float sz = clamp(depthSize * audioBoost, 1.05, 5.55);
-  if (uPreset < 0.5) {
-    float coverDrive = uBass * 0.10 + uMid * 0.08 + uTreble * 0.08 + uBeat * 0.12 + maxRippleAmp * 0.36;
-    sz = clamp(depthSize * (1.0 + coverDrive), 1.05, 4.95);
-  } else if (uPreset > 10.5) {
+  // Emily (uPreset < 0.5) uses Mineradio default audioBoost — no weakened coverDrive branch.
+  float audioBoost = 1.0 + maxRippleAmp * 0.7 + edgeBoostFinal * 0.55 + uBeat * 0.30 + uBurstAmt * 0.5;
+  // Tighter Emily max size — large soft blobs smear eyes/mouth into mush.
+  float sz = uPreset < 0.5
+    ? clamp(depthSize * audioBoost, 1.00, 3.45)
+    : clamp(depthSize * audioBoost, 1.05, 4.95);
+  if (uPreset > 10.5) {
     float galaxyDrive = uBass * 0.070 + uMid * 0.046 + uTreble * 0.060 + uBurstAmt * 0.090 + uBeat * 0.055;
     sz = clamp(depthSize * (1.05 + galaxyDrive), 1.00, 5.45);
   } else if (uPreset > 9.5) {
@@ -700,9 +702,10 @@ void main(){
   vec4 tex = texture2D(uDotTex, gl_PointCoord);
   if (tex.a < 0.02) discard;
   vec3 col = vColor * vBright;
+  // Mineradio main-path fragment (vinyl retired; keep mask so preset id 10 stays inert).
   float vinylMask = step(9.5, uPreset) * (1.0 - step(10.5, uPreset));
-  col = mix(col, col * 1.42 + vec3(0.06, 0.04, 0.08), vEdgeBoost * 0.42 * (1.0 - vinylMask));
-  col = mix(col, col * 1.28 + vec3(0.03, 0.05, 0.08), vRipple * 0.48 * (1.0 - vinylMask * 0.7));
+  col = mix(col, col * 1.3 + vec3(0.05), vEdgeBoost * 0.35 * (1.0 - vinylMask));
+  col = mix(col, col * 1.2, vRipple * 0.4 * (1.0 - vinylMask));
   float keepBlack = 1.0 - smoothstep(0.025, 0.115, vSourceLum);
   float nonBlack = 1.0 - keepBlack;
   float dotDist = length(gl_PointCoord - vec2(0.5)) * 2.0;
@@ -710,13 +713,16 @@ void main(){
   float outLum = dot(col, vec3(0.299, 0.587, 0.114));
   float lightParticle = smoothstep(0.50, 0.82, outLum) * nonBlack * (1.0 - vinylMask);
   float darkParticle = (1.0 - smoothstep(0.20, 0.50, outLum)) * nonBlack * (1.0 - vinylMask);
-  col = mix(col, vec3(0.0), readableRim * lightParticle * 0.38);
-  col = mix(col, vec3(1.0), readableRim * darkParticle * 0.20);
-  float chromaRim = smoothstep(0.54, 0.96, dotDist) * (vRipple * 0.28 + vEdgeBoost * 0.18) * (1.0 - vinylMask);
-  col.r += chromaRim * 0.16;
-  col.b += chromaRim * 0.22;
-  col = mix((col - vec3(0.5)) * 1.12 + vec3(0.5), col, vinylMask);
-  col = clamp(col, vec3(0.0), vec3(1.8));
+  col = mix(col, vec3(0.0), readableRim * lightParticle * 0.18);
+  col = mix(col, vec3(1.0), readableRim * darkParticle * 0.14);
+  // Cover-forward: keep luminance, push chroma so the stage feels vivid/welcoming.
+  float lum = dot(col, vec3(0.299, 0.587, 0.114));
+  vec3 chroma = col - vec3(lum);
+  col = vec3(lum * 1.02) + chroma * 1.95;
+  // Soft highlight knee keeps hue instead of clipping to white.
+  float peak = max(col.r, max(col.g, col.b));
+  col *= 1.0 / max(1.0, 0.48 + peak * 0.52);
+  col = clamp(col, vec3(0.0), vec3(1.75));
   gl_FragColor = vec4(col, tex.a * uAlpha * uParticleDim * vAlpha);
 }
 `;

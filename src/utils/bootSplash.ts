@@ -1,3 +1,5 @@
+import { trackTelemetry } from './telemetry/trackTelemetry';
+
 // src/utils/bootSplash.ts
 // Controls the HTML boot splash that paints before the React bundle.
 
@@ -83,6 +85,11 @@ export function dismissBootSplash(): void {
     const delayMs = resolveBootSplashDismissDelayMs(splashShownAtMs, nowMs);
 
     const hide = () => {
+        const dwellMs = splashShownAtMs > 0 ? Math.max(0, nowMs - splashShownAtMs) : undefined;
+        trackTelemetry('boot.splash_dismiss', {
+            data: { dwellMs: dwellMs != null ? Math.round(dwellMs) : null },
+            durMs: dwellMs,
+        });
         splash.setAttribute('data-hidden', 'true');
         window.setTimeout(() => {
             splash.remove();

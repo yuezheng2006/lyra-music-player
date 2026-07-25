@@ -44,6 +44,8 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         handleLike,
         handleNextTrack,
         handlePrevTrack,
+        handleSetVolume,
+        handleToggleMute,
         handleStageExternalPlayRequest,
         handleToggleLoopMode,
         isDaylight,
@@ -91,12 +93,15 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         staticMode,
         syncNowPlayingClock,
         syncOutputGain,
+        rampOutputGain,
         syncStageLyricsClock,
         t,
         transparentPlayerBackground,
         updateCacheSize,
         videoRef,
         videoSrc,
+        volume,
+        isMuted,
     } = core;
 
     const { setupAudioAnalyzer, cacheSongAssets } = usePlaybackAudioBridge({
@@ -128,6 +133,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         activePlaybackContext,
         stageActiveEntryKind,
         isNowPlayingStageActive,
+        currentSongId: currentSong?.id ?? null,
         audioSrc,
         duration,
         audioRef,
@@ -139,6 +145,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         setStatusMsg,
         setupAudioAnalyzer,
         syncOutputGain,
+        rampOutputGain,
         getTargetPlaybackVolume,
         shouldRefreshCurrentOnlineAudioSource,
         recoverOnlinePlaybackSource,
@@ -297,6 +304,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         animationFrameRef,
         activePlaybackContext,
         audioSrc,
+        audioElementEpoch,
         audioPower,
         audioBands,
         currentTime,
@@ -352,6 +360,10 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         handleToggleLoopMode,
         pausePlayback,
         resumePlayback,
+        volume,
+        isMuted,
+        handleSetVolume,
+        handleToggleMute,
         replayCurrentSong: () => {
             if (!currentSong) return;
             void playSong(currentSong, playQueue.length > 0 ? playQueue : [currentSong], isFmMode, {

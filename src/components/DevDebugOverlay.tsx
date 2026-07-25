@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MotionValue, useMotionValueEvent } from 'framer-motion';
 import type { ThemeMode, DualTheme, LyricData, LyricAlternateText, LyricBackgroundVocal, LyricSyllable } from '../types';
+import TelemetryDebugPanel from './dev/TelemetryDebugPanel';
 
 export interface DevDebugLineSnapshot {
     text: string | null;
@@ -464,7 +465,7 @@ const DevDebugOverlay: React.FC<DevDebugOverlayProps> = ({
     lyricCurrentTime,
     isDaylight,
 }) => {
-    const [activeTab, setActiveTab] = useState<'memory' | 'playback' | 'lyrics' | 'theme'>('memory');
+    const [activeTab, setActiveTab] = useState<'memory' | 'playback' | 'lyrics' | 'theme' | 'telemetry'>('memory');
     const [liveCurrentTime, setLiveCurrentTime] = useState(() => currentTime.get());
     const [liveLyricCurrentTime, setLiveLyricCurrentTime] = useState(() => lyricCurrentTime?.get() ?? currentTime.get());
     const [memoryHistory, setMemoryHistory] = useState<MemorySample[]>([]);
@@ -610,6 +611,7 @@ const DevDebugOverlay: React.FC<DevDebugOverlayProps> = ({
                     <TabButton label="Playback" isActive={activeTab === 'playback'} onClick={() => setActiveTab('playback')} isDaylight={isDaylight} />
                     <TabButton label="Lyrics" isActive={activeTab === 'lyrics'} onClick={() => setActiveTab('lyrics')} isDaylight={isDaylight} />
                     <TabButton label="Theme" isActive={activeTab === 'theme'} onClick={() => setActiveTab('theme')} isDaylight={isDaylight} />
+                    <TabButton label="Telemetry" isActive={activeTab === 'telemetry'} onClick={() => setActiveTab('telemetry')} isDaylight={isDaylight} />
                 </div>
 
                 {activeTab === 'memory' && (
@@ -776,6 +778,10 @@ const DevDebugOverlay: React.FC<DevDebugOverlayProps> = ({
                             isDaylight={isDaylight}
                         />
                     </div>
+                )}
+
+                {activeTab === 'telemetry' && (
+                    <TelemetryDebugPanel isDaylight={isDaylight} panelClass={panelClass} />
                 )}
 
                 {activeTab === 'theme' && (

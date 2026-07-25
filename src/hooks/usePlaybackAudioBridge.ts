@@ -7,6 +7,8 @@ import { hasCachedAudio, saveAudioBlob } from '../services/audioCache';
 import { getProviderSongCacheKey } from '../services/musicProviders/registry';
 import { saveToCache } from '../services/db';
 import { hasPlayableHtmlMediaSource, isTransientAutoplayFailure } from '../utils/audioAutoPlayGuard';
+import { trackTelemetry } from '../utils/telemetry/trackTelemetry';
+import { isOnlinePlaybackRecoveryExhausted } from '../components/app/playback/createOnlineRecoveryController';
 
 // src/hooks/usePlaybackAudioBridge.ts
 
@@ -147,6 +149,66 @@ export function usePlaybackAudioBridge({
         }
     }, [audioRef, getTargetPlaybackVolume, syncOutputGain]);
 
+    // Buffer underrun / rebuffer — primary signal for audible stutter with moving UI clock.
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) return undefined;
+        let waitingSince: number | null = null;
+
+        const onWaiting = () => {
+            waitingSince = performance.now();
+            let bufferedSec: number | null = null;
+            try {
+                if (audio.buffered.length > 0) {
+                    bufferedSec = audio.buffered.end(audio.buffered.length - 1) - audio.currentTime;
+                }
+            } catch {
+                bufferedSec = null;
+            }
+            trackTelemetry('audio.waiting', {
+                level: 'warn',
+                data: {
+                    readyState: audio.readyState,
+                    networkState: audio.networkState,
+                    currentTime: Math.round(audio.currentTime * 10) / 10,
+                    bufferedSec: bufferedSec == null ? null : Math.round(bufferedSec * 10) / 10,
+                },
+            });
+        };
+        const onStalled = () => {
+            trackTelemetry('audio.stalled', {
+                level: 'warn',
+                data: {
+                    readyState: audio.readyState,
+                    networkState: audio.networkState,
+                    currentTime: Math.round(audio.currentTime * 10) / 10,
+                },
+            });
+        };
+        const onPlaying = () => {
+            if (waitingSince == null) return;
+            const durMs = performance.now() - waitingSince;
+            waitingSince = null;
+            trackTelemetry('audio.rebuffered', {
+                level: durMs >= 250 ? 'warn' : 'info',
+                durMs,
+                data: {
+                    readyState: audio.readyState,
+                    currentTime: Math.round(audio.currentTime * 10) / 10,
+                },
+            });
+        };
+
+        audio.addEventListener('waiting', onWaiting);
+        audio.addEventListener('stalled', onStalled);
+        audio.addEventListener('playing', onPlaying);
+        return () => {
+            audio.removeEventListener('waiting', onWaiting);
+            audio.removeEventListener('stalled', onStalled);
+            audio.removeEventListener('playing', onPlaying);
+        };
+    }, [audioElementEpoch, audioRef, audioSrc]);
+
     useEffect(() => {
         localStorage.setItem('local_replaygain_mode', replayGainMode);
     }, [replayGainMode]);
@@ -246,6 +308,9 @@ export function usePlaybackAudioBridge({
 
                         // Src reload / empty-source races reject play(); keep autoplay armed for canplay.
                         if (isTransientAutoplayFailure(error)) {
+                            if (isOnlinePlaybackRecoveryExhausted(currentSong?.id)) {
+                                shouldAutoPlayRef.current = false;
+                            }
                             return;
                         }
 
@@ -278,7 +343,7 @@ export function usePlaybackAudioBridge({
             audioElement.removeEventListener('canplay', handlePlaybackReady);
             audioElement.removeEventListener('loadeddata', handlePlaybackReady);
         };
-    }, [audioContextRef, audioElementEpoch, audioRef, audioSrc, getTargetPlaybackVolume, setPlayerState, setStatusMsg, setupAudioAnalyzer, shouldAutoPlayRef, syncOutputGain, t]);
+    }, [audioContextRef, audioElementEpoch, audioRef, audioSrc, currentSong?.id, getTargetPlaybackVolume, setPlayerState, setStatusMsg, setupAudioAnalyzer, shouldAutoPlayRef, syncOutputGain, t]);
 
     return {
         setupAudioAnalyzer,

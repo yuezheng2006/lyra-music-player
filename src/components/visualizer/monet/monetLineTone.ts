@@ -68,8 +68,8 @@ export const resolveMonetLineTone = (
 
         const distance = Math.max(Math.abs(entry.offset), 1);
         const isWaiting = entry.status === 'waiting';
-        const waitingNear = Math.min(LYRIC_LINE_OPACITY.waitingNear, 0.5);
-        const passedNear = Math.min(LYRIC_LINE_OPACITY.passedNear, 0.38);
+        const waitingNear = LYRIC_LINE_OPACITY.waitingNear;
+        const passedNear = LYRIC_LINE_OPACITY.passedNear;
         const lineAlpha = isWaiting
             ? clamp(
                 waitingNear - (distance - 1) * LYRIC_LINE_OPACITY.waitingStep,
@@ -83,13 +83,13 @@ export const resolveMonetLineTone = (
             );
         return {
             opacity: 1,
-            scale: clamp(0.82 * Math.pow(0.94, distance - 1), 0.68, 0.82),
+            scale: clamp(0.78 * Math.pow(0.92, distance - 1), 0.62, 0.78),
             // Keep blur off — size / weight / tracking carry the form contrast without GPU cost.
             blurPx: 0,
             baseColor: colorWithAlpha(bodyColor, lineAlpha),
-            fontWeight: Math.min(isWaiting ? 500 + weightBoost : 420 + weightBoost, 700),
+            fontWeight: Math.min(isWaiting ? 480 + weightBoost : 400 + weightBoost, 650),
             zIndex: isWaiting ? 3 - distance : 2 - distance,
-            letterSpacingPx: 0.8 + (distance - 1) * 0.35,
+            letterSpacingPx: 1 + (distance - 1) * 0.4,
         };
     }
 
@@ -108,9 +108,9 @@ export const resolveMonetLineTone = (
     const distance = Math.max(Math.abs(entry.offset), 1);
     const isWaiting = entry.status === 'waiting';
     // Smaller base + steeper falloff so current line size contrast is obvious.
-    const scale = clamp(inactiveScale * Math.pow(0.9, distance - 1), 0.64, 0.8);
-    const waitingNear = Math.min(LYRIC_LINE_OPACITY.waitingNear, 0.5);
-    const passedNear = Math.min(LYRIC_LINE_OPACITY.passedNear, 0.4);
+    const scale = clamp(inactiveScale * Math.pow(0.88, distance - 1), 0.58, 0.76);
+    const waitingNear = LYRIC_LINE_OPACITY.waitingNear;
+    const passedNear = LYRIC_LINE_OPACITY.passedNear;
     const lineAlpha = isWaiting
         ? clamp(
             waitingNear - (distance - 1) * LYRIC_LINE_OPACITY.waitingStep,
@@ -128,8 +128,8 @@ export const resolveMonetLineTone = (
         scale,
         blurPx: 0,
         baseColor: colorWithAlpha(bodyColor, lineAlpha),
-        fontWeight: Math.min((isWaiting ? 480 : 420) + (weightBoost / 2), 600),
+        fontWeight: Math.min((isWaiting ? 440 : 380) + (weightBoost / 2), 560),
         zIndex: isWaiting ? 3 - distance : 2 - distance,
-        letterSpacingPx: 1.1 + (distance - 1) * 0.4,
+        letterSpacingPx: 1.25 + (distance - 1) * 0.45,
     };
 };

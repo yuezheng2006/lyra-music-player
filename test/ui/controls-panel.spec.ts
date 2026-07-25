@@ -266,18 +266,27 @@ test.describe('player controls panel', () => {
     await installControlsPanelState(page);
   });
 
-  test('renders compact high-frequency control sections', async ({ page }) => {
+  test('renders core sections and keeps advanced controls collapsed', async ({ page }) => {
     await openControlsTab(page);
 
+    // Core sections are always visible.
     await expect(page.getByTestId('controls-quick-actions')).toBeVisible();
-    await expect(page.getByTestId('controls-theme-section')).toBeVisible();
     await expect(page.getByTestId('controls-lyrics-animation-section')).toBeVisible();
-    await expect(page.getByTestId('controls-lyric-color-presets')).toBeVisible();
-    await expect(page.getByTestId('controls-toggle-lyrics-advanced')).toBeVisible();
-    await expect(page.getByTestId('controls-lyrics-advanced-section')).toHaveCount(0);
-    await expect(page.getByTestId('controls-open-lyric-color-picker')).toBeVisible();
     await expect(page.getByTestId('controls-interactive3d-presets-section')).toBeVisible();
-    await expect(page.getByTestId('controls-open-more-settings')).toBeVisible();
+    await expect(page.getByTestId('controls-lyric-color-presets')).toBeVisible();
+    await expect(page.getByTestId('controls-lyric-font-section')).toBeVisible();
+    await expect(page.getByTestId('controls-lyric-font-size-section')).toBeVisible();
+    await expect(page.getByTestId('controls-toggle-lyrics-advanced')).toBeVisible();
+
+    // Advanced content stays collapsed until toggled.
+    await expect(page.getByTestId('controls-lyrics-advanced-section')).toHaveCount(0);
+    await expect(page.getByTestId('controls-theme-section')).toHaveCount(0);
+    await expect(page.getByTestId('controls-open-more-settings')).toHaveCount(0);
+
+    await page.getByTestId('controls-toggle-lyrics-advanced').click();
+    await expect(page.getByTestId('controls-lyrics-advanced-section')).toBeVisible();
+    await expect(page.getByTestId('controls-theme-section')).toBeVisible();
+    await expect(page.getByTestId('controls-lyric-word-mode-section')).toBeVisible();
 
     await expect(page.getByTestId('controls-animation-intensity-section')).toHaveCount(0);
     await expect(page.getByTestId('controls-player-background-section')).toHaveCount(0);
@@ -315,8 +324,12 @@ test.describe('player controls panel', () => {
   test('selecting a 3D preset switches background mode to interactive3d', async ({ page }) => {
     await openControlsTab(page);
 
+    // Fixture starts on common background — no 3D preset should look selected.
+    await expect(page.getByTestId('controls-interactive3d-preset-emily')).toHaveAttribute('aria-checked', 'false');
+
     await page.getByTestId('controls-interactive3d-preset-emily').click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_background_mode'))).toBe('interactive3d');
+    await expect(page.getByTestId('controls-interactive3d-preset-emily')).toHaveAttribute('aria-checked', 'true');
   });
 
   test('applies lyric color preset without changing theme source mode', async ({ page }) => {
@@ -326,5 +339,15 @@ test.describe('player controls panel', () => {
     await page.getByTestId('lyric-color-preset-foil-gold').click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('lyric_color_preset_id'))).toBe('foil-gold');
     await expect.poll(() => page.evaluate(() => localStorage.getItem('theme_bg_mode'))).not.toBe('ai');
+  });
+
+  test('updates lyric font scale from quick presets', async ({ page }) => {
+    await openControlsTab(page);
+
+    await page.getByTestId('controls-lyric-font-scale-1.25').click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('lyrics_font_scale'))).toBe('1.25');
+
+    await page.getByTestId('controls-lyric-font-scale-1').click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('lyrics_font_scale'))).toBe('1');
   });
 });

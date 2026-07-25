@@ -17,6 +17,7 @@ import { useGeometricPointer } from './useGeometricPointer';
 import { useInteractiveCameraControl } from './useInteractiveCameraControl';
 import VignetteOverlay from './VignetteOverlay';
 import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
+import { shouldShowCoverParticleWebGL } from './webgl/CoverParticleWebGLStage';
 
 // src/components/visualizer/geometric/GeometricLayer.tsx
 // Mineradio unified WebGL playback background (ambient + cover particles + stage lyrics + character).
@@ -65,6 +66,8 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
         [performanceTier, sceneTuning],
     );
     const needsContainment = shouldContainInteractive3dStageForMode(visualizerMode);
+    // Electron disables cover WebGL; keep a static stage so the player is not blank.
+    const coverWebGLActive = shouldShowCoverParticleWebGL(sceneTuning);
 
     useEffect(() => {
         if (!needsContainment) {
@@ -144,7 +147,33 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                     aria-hidden
                 />
             )}
-            {paused ? (
+            {/* Keep WebGL mounted while paused — remounting on every pause burns GPU and blanks the stage. */}
+            {coverWebGLActive ? (
+                <MineradioPlaybackStage
+                    theme={theme}
+                    coverUrl={coverUrl}
+                    sceneTuning={sceneTuning}
+                    qualityProfile={qualityProfile}
+                    audioBands={audioBands}
+                    beatPulse={beatPulse ?? fallbackMotion}
+                    atmosphereEnergy={atmosphereEnergy ?? fallbackMotion}
+                    smartAtmosphereEnabled={enableBeatBursts}
+                    pointerX={pointerX}
+                    pointerY={pointerY}
+                    currentTime={currentTime}
+                    lines={lines}
+                    showLyrics={showLyrics}
+                    immersiveLyrics={immersiveLyrics}
+                    lyricColumnEndRatio={
+                        needsContainment
+                            ? (lyricColumnEndRatio ?? DEFAULT_LYRIC_COLUMN_END_RATIO)
+                            : undefined
+                    }
+                    playing={playing}
+                    paused={paused}
+                    cameraControlState={cameraControlState}
+                />
+            ) : (
                 <StaticGeometricScene
                     theme={theme}
                     shapes={[]}
@@ -152,32 +181,10 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                     hideShapes
                     disableVignette={disableVignette}
                 />
-            ) : (
+            )}
+            {/* Skip extra WebGL layers when cover WebGL is gated (Electron GPU lockout). */}
+            {coverWebGLActive ? (
                 <>
-                    <MineradioPlaybackStage
-                        theme={theme}
-                        coverUrl={coverUrl}
-                        sceneTuning={sceneTuning}
-                        qualityProfile={qualityProfile}
-                        audioBands={audioBands}
-                        beatPulse={beatPulse ?? fallbackMotion}
-                        atmosphereEnergy={atmosphereEnergy ?? fallbackMotion}
-                        smartAtmosphereEnabled={enableBeatBursts}
-                        pointerX={pointerX}
-                        pointerY={pointerY}
-                        currentTime={currentTime}
-                        lines={lines}
-                        showLyrics={showLyrics}
-                        immersiveLyrics={immersiveLyrics}
-                        lyricColumnEndRatio={
-                            needsContainment
-                                ? (lyricColumnEndRatio ?? DEFAULT_LYRIC_COLUMN_END_RATIO)
-                                : undefined
-                        }
-                        playing={playing}
-                        paused={paused}
-                        cameraControlState={cameraControlState}
-                    />
                     {/* Above cover particles, below character — otherwise Emily/dense particles hide ambient. */}
                     <AmbientVisualOverlay
                         staticMode={staticMode}
@@ -191,7 +198,7 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                         currentTime={currentTime}
                     />
                 </>
-            )}
+            ) : null}
             <VignetteOverlay disabled={disableVignette} immersive={immersiveLyrics} />
         </div>
     );

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { waitForTelemetryEvent } from './helpers/telemetry';
 
 const BASE_INTERACTIVE3D_TUNING = {
     qualityTier: 'balanced',
@@ -47,8 +48,13 @@ async function openVisPlaygroundWithInteractive3d(
         await saveToCache('last_song', song);
         await saveToCache('last_queue', [song]);
         localStorage.setItem('i18nextLng', 'en');
+        localStorage.setItem('lyra_onboarding_completed', 'true');
+        localStorage.setItem('folia_last_seen_guide_version', '1.0.3');
+        localStorage.setItem('last_app_view', 'player');
+        localStorage.setItem('open_player_on_launch', 'true');
         localStorage.setItem('visualizer_background_mode', 'interactive3d');
         localStorage.setItem('static_mode', 'false');
+        localStorage.removeItem('lyra_gpu_unstable_v1');
         localStorage.setItem('interactive_3d_scene_tuning', JSON.stringify({
             ...tuning,
             visualPreset: preset,
@@ -108,10 +114,15 @@ async function expectWebGLStageMounted(
         };
     }), { timeout: 20_000 }).toMatchObject({
         ok: true,
-        stagePointerEvents: 'auto',
-        canvasPointerEvents: 'auto',
+        // Camera input is handled by the dedicated capture overlay, never the
+        // WebGL canvas, so controls remain reachable above the visualizer.
+        stagePointerEvents: 'none',
+        canvasPointerEvents: 'none',
         interactiveReady: 'true',
     });
+
+    // Telemetry proves the WebGL render loop is actually ticking (not a blank mount).
+    await waitForTelemetryEvent(page, 'viz.frame_cost', { timeout: 12_000 });
 }
 
 async function expectWebGLStageInteractive(page: import('@playwright/test').Page) {

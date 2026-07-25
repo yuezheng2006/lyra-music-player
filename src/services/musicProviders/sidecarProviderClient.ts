@@ -3,7 +3,11 @@ import { detectTimedLyricFormat } from '../../utils/lyrics/formatDetection';
 import { parseLyricsAsync } from '../../utils/lyrics/workerClient';
 import { requestWithStability } from '../../utils/network';
 import { getQQMusicAuth } from './qqMusicAuth';
-import type { MusicProviderSearchResult, ProviderAudioResult } from './types';
+import type {
+    MusicProviderSearchOptions,
+    MusicProviderSearchResult,
+    ProviderAudioResult,
+} from './types';
 
 // src/services/musicProviders/sidecarProviderClient.ts
 
@@ -64,6 +68,15 @@ export const markProviderAudioUnavailable = (
     rememberNegativeAudio(buildAudioLookupKey(providerId, song, quality));
 };
 
+/** Clear negative audio cache so Format-error recovery can mint a fresh signed CDN URL. */
+export const clearProviderAudioUnavailable = (
+    providerId: OnlineMusicProviderId,
+    song: SongResult,
+    quality: string,
+) => {
+    audioNegativeCache.delete(buildAudioLookupKey(providerId, song, quality));
+};
+
 const getElectronMusicProviderPort = async (): Promise<number | null> => {
     const electronBridge = typeof window !== 'undefined' ? (window as any).electron : null;
     if (!electronBridge || typeof electronBridge.getMusicProviderPort !== 'function') {
@@ -78,7 +91,7 @@ const getElectronMusicProviderPort = async (): Promise<number | null> => {
     }
 };
 
-const getConfiguredSidecarBase = async () => {
+const resolveConfiguredSidecarBase = async () => {
     const viteEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
     const value = viteEnv?.VITE_MUSIC_PROVIDER_API_BASE;
     if (typeof value === 'string' && value.trim()) {
@@ -94,6 +107,19 @@ const getConfiguredSidecarBase = async () => {
         ? viteEnv.VITE_MUSIC_PROVIDER_API_PORT.trim()
         : '3002';
     return `http://127.0.0.1:${port}`;
+};
+
+let configuredSidecarBasePromise: Promise<string> | null = null;
+
+const getConfiguredSidecarBase = () => {
+    configuredSidecarBasePromise ??= resolveConfiguredSidecarBase();
+    return configuredSidecarBasePromise;
+};
+
+export const resetSidecarProviderClientCacheForTests = () => {
+    configuredSidecarBasePromise = null;
+    audioNegativeCache.clear();
+    audioInflight.clear();
 };
 
 const hashProviderSongId = (providerId: OnlineMusicProviderId, rawId: string): number => {
@@ -167,7 +193,7 @@ export const normalizeSidecarSong = (
 export const requestSidecarSearch = async (
     providerId: OnlineMusicProviderId,
     query: string,
-    options: { limit: number; offset: number }
+    options: MusicProviderSearchOptions,
 ): Promise<MusicProviderSearchResult> => {
     const base = await getConfiguredSidecarBase();
     if (!base) {
@@ -181,7 +207,7 @@ export const requestSidecarSearch = async (
     });
     const { response } = await requestWithStability(
         `${base}/providers/${providerId}/search?${params.toString()}`,
-        {},
+        { signal: options.signal },
         { source: 'sidecar', endpoint: `/providers/${providerId}/search` },
     );
     if (!response.ok) {
@@ -201,17 +227,30 @@ export const requestSidecarSearch = async (
 export const requestSidecarAudioUrl = async (
     providerId: OnlineMusicProviderId,
     song: SongResult,
-    options: { quality: string }
+    options: { quality: string; forceRefresh?: boolean }
 ): Promise<ProviderAudioResult> => {
     const lookupKey = buildAudioLookupKey(providerId, song, options.quality);
-    const cachedNegative = getCachedNegativeAudio(lookupKey);
-    if (cachedNegative) {
-        return cachedNegative;
-    }
+    if (options.forceRefresh) {
+        audioNegativeCache.delete(lookupKey);
+        const inflight = audioInflight.get(lookupKey);
+        // Wait out a restore/play lookup so recovery does not reuse the same signed URL.
+        if (inflight) {
+            try {
+                await inflight;
+            } catch {
+                // Ignore — recovery always issues a fresh request below.
+            }
+        }
+    } else {
+        const cachedNegative = getCachedNegativeAudio(lookupKey);
+        if (cachedNegative) {
+            return cachedNegative;
+        }
 
-    const inflight = audioInflight.get(lookupKey);
-    if (inflight) {
-        return inflight;
+        const inflight = audioInflight.get(lookupKey);
+        if (inflight) {
+            return inflight;
+        }
     }
 
     const request = (async (): Promise<ProviderAudioResult> => {

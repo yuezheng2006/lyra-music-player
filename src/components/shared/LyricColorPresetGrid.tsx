@@ -26,6 +26,8 @@ interface LyricColorPresetGridProps {
     emphasis?: boolean;
     /** Controls surface: color circles only (label via title/aria). */
     dotsOnly?: boolean;
+    /** Dock tiles: one swatch above a short label — avoids horizontal truncate. */
+    tile?: boolean;
 }
 
 const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
@@ -40,6 +42,7 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
     compact = false,
     emphasis = false,
     dotsOnly = false,
+    tile = false,
 }) => {
     const { t } = useTranslation();
     const mode = isDaylight ? 'light' : 'dark';
@@ -51,19 +54,25 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
         : 'bg-white text-zinc-950 shadow-sm ring-1 ring-white/35';
     const labelClass = emphasis
         ? 'text-[12px] font-semibold leading-snug'
-        : compact
+        : tile
             ? 'text-[10px] font-semibold leading-none'
-            : 'text-[11px] font-semibold';
+            : compact
+                ? 'text-[10px] font-semibold leading-none'
+                : 'text-[11px] font-semibold';
     const swatchClass = emphasis
         ? 'h-3 w-3 rounded-full'
-        : compact
-            ? 'h-2 w-2 rounded-full'
-            : 'h-2.5 w-2.5 rounded-full';
+        : tile
+            ? 'h-3 w-3 rounded-full'
+            : compact
+                ? 'h-2 w-2 rounded-full'
+                : 'h-2.5 w-2.5 rounded-full';
     const padClass = emphasis
         ? 'px-2.5 py-2'
-        : compact
-            ? 'px-1.5 py-1'
-            : 'px-2.5 py-2';
+        : tile
+            ? 'px-1 py-1.5'
+            : compact
+                ? 'px-1.5 py-1'
+                : 'px-2.5 py-2';
 
     if (dotsOnly) {
         return (
@@ -100,6 +109,58 @@ const LyricColorPresetGrid: React.FC<LyricColorPresetGridProps> = ({
                         >
                             {isActive ? (
                                 <Check size={12} strokeWidth={2.8} className="text-black/80 drop-shadow-sm" />
+                            ) : null}
+                        </button>
+                    );
+                })}
+            </div>
+        );
+    }
+
+    if (tile) {
+        return (
+            <div
+                className={`grid grid-cols-5 gap-1 ${className}`.trim()}
+                data-testid="lyric-color-preset-grid"
+                role="listbox"
+                aria-label={t('options.lyricColorPresetTitle') || 'Lyric colors'}
+            >
+                {presets.map((preset) => {
+                    const isActive = activePresetId === preset.id;
+                    const label = t(preset.labelKey) || preset.labelFallback;
+                    const resolvedInactive = inactiveButtonClassName || defaultInactiveClass;
+                    const resolvedActive = activeButtonClassName || defaultActiveClass;
+                    const bodyColor = resolveLyricColorPresetSwatches(preset, mode)[0];
+
+                    return (
+                        <button
+                            key={preset.id}
+                            type="button"
+                            role="option"
+                            data-testid={`lyric-color-preset-${preset.id}`}
+                            aria-pressed={isActive}
+                            aria-selected={isActive}
+                            onClick={() => onSelect(preset.id)}
+                            className={`relative flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-lg transition-all ${padClass} ${buttonClassName} ${isActive ? resolvedActive : resolvedInactive}`.trim()}
+                            title={label}
+                        >
+                            <span
+                                className={swatchClass}
+                                style={{
+                                    backgroundColor: bodyColor,
+                                    boxShadow: isActive ? `0 0 10px ${bodyColor}` : undefined,
+                                }}
+                                aria-hidden
+                            />
+                            <span className={`max-w-full truncate ${labelClass}`}>
+                                {label}
+                            </span>
+                            {isActive ? (
+                                <Check
+                                    size={11}
+                                    strokeWidth={2.6}
+                                    className="absolute right-1 top-1 opacity-90"
+                                />
                             ) : null}
                         </button>
                     );

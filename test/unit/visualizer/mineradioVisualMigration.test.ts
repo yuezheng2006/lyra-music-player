@@ -43,6 +43,12 @@ describe('Mineradio visual migration', () => {
         }
     });
 
+    it('aligns emily bloomStrength with Mineradio default-test archive', () => {
+        const emily = applyMineradioVisualPreset('emily', DEFAULT_INTERACTIVE3D_SCENE_TUNING);
+        expect(emily.bloomStrength).toBe(0.62);
+        expect(emily.enableBackgroundWash).toBe(true);
+    });
+
     it('normalizes legacy preset ids to shipped styles', () => {
         expect(normalizeInteractive3dVisualPreset('requiem')).toBe('emily');
         expect(normalizeInteractive3dVisualPreset('vinyl')).toBe('emily');

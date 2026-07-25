@@ -24,6 +24,8 @@ describe('resolveLyricStageMaxWorldWidth', () => {
         });
 
         expect(immersive).toBeGreaterThan(base);
-        expect(immersive).toBeGreaterThan(4.8);
+        // Wider than windowed, but not an edge-to-edge billboard.
+        expect(immersive).toBeLessThanOrEqual(5.8);
+        expect(immersive / base).toBeLessThan(1.45);
     });
 });

@@ -6,7 +6,10 @@ import type { GeometricQualityTier } from '../geometricQuality';
 
 export const PLANE_SIZE = 4.8;
 
-/** Mineradio: grid = round(118 * resolution), clamped 64–183. */
+/**
+ * Mineradio curve: grid = round(118 * resolution), clamped 64–183.
+ * (221² detail tier caused Electron play stutter; stay on Mineradio's curve.)
+ */
 export const coverParticleGridForResolution = (resolution: number): number => {
     const clamped = Math.max(0.55, Math.min(1.55, resolution));
     let grid = Math.round(118 * clamped);
@@ -15,20 +18,21 @@ export const coverParticleGridForResolution = (resolution: number): number => {
 };
 
 /**
- * Performance-first grids (approx counts):
- * high ≈ 101², balanced ≈ 89², lite ≈ 65².
- * Kept deliberately below prior emily budgets — Electron GPU helper thrash.
+ * Quality grids — Electron auto-ceiling is `balanced`, so that tier must stay
+ * cheap with frameSkip≥2 (159²@60fps pegged the GPU helper at 100%).
  */
 export const coverParticleGridForQualityTier = (tier: GeometricQualityTier): number => {
     switch (tier) {
         case 'high':
-            return coverParticleGridForResolution(0.85);
+            // Mineradio max curve — Electron never auto-picks high.
+            return coverParticleGridForResolution(1.55);
         case 'balanced':
-            return coverParticleGridForResolution(0.75);
+            // ~119²: readable cover without Retina Electron GPU thrash.
+            return coverParticleGridForResolution(1.0);
         case 'lite':
-            return coverParticleGridForResolution(0.55);
-        default:
             return coverParticleGridForResolution(0.75);
+        default:
+            return coverParticleGridForResolution(1.0);
     }
 };
 

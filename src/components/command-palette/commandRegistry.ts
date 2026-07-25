@@ -710,6 +710,39 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         },
     },
     {
+        id: 'playback-volume-up',
+        group: 'playback',
+        title: 'Volume up',
+        description: 'Raise volume by 5%',
+        keywords: ['volume up', 'louder', '音量加', '音量+', '增大音量', 'yinliangjia', 'ylj'],
+        execute: (_input, context) => {
+            context.adjustVolumeByStep(0.05);
+            return true;
+        },
+    },
+    {
+        id: 'playback-volume-down',
+        group: 'playback',
+        title: 'Volume down',
+        description: 'Lower volume by 5%',
+        keywords: ['volume down', 'quieter', '音量减', '音量-', '减小音量', 'yinliangjian', 'yljian'],
+        execute: (_input, context) => {
+            context.adjustVolumeByStep(-0.05);
+            return true;
+        },
+    },
+    {
+        id: 'playback-toggle-mute',
+        group: 'playback',
+        title: 'Toggle mute',
+        description: 'Mute or unmute playback',
+        keywords: ['mute', 'unmute', '静音', '取消静音', 'jingyin', 'jy'],
+        execute: (_input, context) => {
+            context.toggleMute();
+            return true;
+        },
+    },
+    {
         id: 'playback-shuffle',
         group: 'playback',
         title: 'Shuffle queue',
@@ -825,9 +858,20 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         group: 'visualizer',
         title: 'Lyrics: Karaoke Word Highlight',
         description: 'Show upcoming lyrics with current-line word highlight',
-        keywords: ['lyric word mode', 'karaoke', 'sing along', 'k歌', '卡拉ok', 'kalake', 'ktv', 'kg', 'k歌逐字', '预告歌词'],
+        keywords: ['lyric word mode', 'karaoke', 'sing along', 'k歌', '卡拉ok', 'kalake', 'kg', 'k歌逐字', '预告歌词'],
         execute: (_input, context) => {
             context.setLyricWordMode('karaoke');
+            return true;
+        },
+    },
+    {
+        id: 'lyric-word-mode-ktv',
+        group: 'visualizer',
+        title: 'Lyrics: Traditional KTV Wipe',
+        description: 'Traditional left-to-right karaoke wipe fill on supported lyric layouts',
+        keywords: ['lyric word mode', 'ktv', 'traditional karaoke', 'wipe', '扫光', '传统k歌', '传统', 'chuantong', 'ct', '扫字'],
+        execute: (_input, context) => {
+            context.setLyricWordMode('ktv');
             return true;
         },
     },
