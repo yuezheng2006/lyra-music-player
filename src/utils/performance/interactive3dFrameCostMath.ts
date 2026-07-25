@@ -50,7 +50,8 @@ export const shouldMountAmbientForTier = (
 const estimateVertexShaderWeight = (preset: MineradioVisualPresetId): number => {
     // Emily cover path: multi-octave snoise + ripple loop + cover/edge/prev textures.
     if (preset === 'emily') return 1;
-    if (preset === 'mineradioVinyl' || preset === 'mineradioGalaxy') return 0.85;
+    if (preset === 'mineradioVinyl' || preset === 'mineradioGalaxy') return 0.88;
+    if (preset === 'aurora') return 0.72;
     if (preset === 'quantumCube') return 0.55;
     return 0.7;
 };

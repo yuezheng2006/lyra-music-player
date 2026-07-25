@@ -67,6 +67,7 @@ export default {
     "playbackError": "播放出错",
     "loadingSong": "正在获取歌曲链接...",
     "cacheCleared": "缓存已清除",
+    "cacheClearFailed": "清除缓存失败",
     "dataSynced": "数据同步成功",
     "syncFailed": "同步失败",
     "loginExpired": "登录状态已失效，请重新登录",
@@ -76,6 +77,7 @@ export default {
     "likeFailed": "添加失败",
     "unliked": "已取消喜欢",
     "playlistUpdated": "歌单已更新",
+    "playlistUpdateFailed": "歌单更新失败",
     "songUnavailable": "歌曲已下架",
     "songUnavailableSkipping": "歌曲已下架，正在跳过",
     "songUnavailablePrompt": "歌曲已下架，{{seconds}} 秒后自动跳过",
@@ -694,7 +696,7 @@ export default {
     "cameraPunchStrength": "镜头强度",
     "interactive3dSceneSettings": "3D 场景",
     "interactive3dSceneSettingsDesc": "按组件开关 3D 背景层，并与歌词共用同一套节奏曲线。",
-    "interactive3dWebglOnlyDesc": "默认使用封面点云，也可选择滚筒、星球或星河；节拍、低频和镜头会共同驱动 3D 运动。",
+    "interactive3dWebglOnlyDesc": "默认使用封面点云，也可切换滚筒、星球或星河；节拍与镜头共同驱动 3D 运动。",
     "interactive3dConflict": {
       "cover-particles-disabled": "已关闭封面 WebGL 粒子，3D 交互背景将为空。",
       "smart-atmosphere-off": "智能氛围关闭时，封面律动与 beat 驱动会明显减弱，但仍保留基础频谱反应。",
@@ -726,7 +728,7 @@ export default {
     "interactive3dEffectFloatingParticles": "浮空粒子",
     "interactive3dEffectFloatingParticlesDesc": "慢速漂移的环境星尘。",
     "interactive3dEffectCoverParticles": "封面 WebGL 粒子",
-    "interactive3dEffectCoverParticlesDesc": "封面点云为默认主背景，可切换到滚筒、星球或星河。",
+    "interactive3dEffectCoverParticlesDesc": "封面点云为默认主背景，可切换滚筒、星球或星河。",
     "interactive3dShelfMode": "歌单架模式",
     "interactive3dShelfModeOff": "关闭",
     "interactive3dShelfModeSidebar": "侧栏",
@@ -747,9 +749,7 @@ export default {
     "mineradioPreset": {
       "emily": "封面",
       "starfield": "量子盒",
-      "tunnel": "极光带",
       "nebula": "星云",
-      "terrain": "声场",
       "quantumCube": "量子盒",
       "aurora": "极光带",
       "mineradioTunnel": "滚筒",
@@ -1240,6 +1240,7 @@ export default {
     "statusNone": "无",
     "selectLrcFile": "选择 LRC 文件",
     "importLyricsFile": "导入歌词文件",
+    "importLyricsFailed": "歌词文件导入失败",
     "importedLyricsFile": "导入文件",
     "selectTranslationLrc": "选择译文 LRC",
     "replayGainOff": "关闭",
@@ -1354,7 +1355,9 @@ export default {
     "addAll": "全部添加",
     "addAllToQueue": "全部添加到播放列表",
     "loadingRecommendations": "加载推荐中...",
-    "recommendationHint": "点击歌曲即可开始播放"
+    "recommendationHint": "点击歌曲即可开始播放",
+    "recommendLoginRequired": "登录网易云后可同步每日推荐",
+    "recommendLoadFailed": "每日推荐加载失败"
   },
   "theme": {
     "switchToDark": "切换到深色模式",

@@ -67,6 +67,7 @@ export default {
     "playbackError": "Playback Error",
     "loadingSong": "Loading song URL...",
     "cacheCleared": "Cache cleared",
+    "cacheClearFailed": "Failed to clear cache",
     "dataSynced": "Data synced successfully",
     "syncFailed": "Sync failed",
     "loginExpired": "Login expired. Please sign in again",
@@ -76,6 +77,7 @@ export default {
     "likeFailed": "Failed to like song",
     "unliked": "Removed from Liked",
     "playlistUpdated": "Playlist updated",
+    "playlistUpdateFailed": "Failed to update playlist",
     "songUnavailable": "Song has been taken down",
     "songUnavailableSkipping": "Song has been taken down, skipping",
     "songUnavailablePrompt": "Song has been taken down. Auto-skipping in {{seconds}}s",
@@ -693,7 +695,7 @@ export default {
     "cameraPunchStrength": "Camera punch",
     "interactive3dSceneSettings": "3D Scene",
     "interactive3dSceneSettingsDesc": "Toggle 3D background layers by component, synced with lyric rhythm curves.",
-    "interactive3dWebglOnlyDesc": "Cover particles are the default. You can also choose tunnel, orbit, or galaxy. Beat, bass, and camera motion drive the 3D scene together.",
+    "interactive3dWebglOnlyDesc": "Cover particles are the default. You can also switch tunnel, orbit, or galaxy. Beat and camera motion drive the 3D scene together.",
     "interactive3dConflict": {
       "cover-particles-disabled": "Cover WebGL particles are disabled, so the interactive 3D background will be empty.",
       "smart-atmosphere-off": "With smart atmosphere off, cover rhythm and beat drive are weaker, but basic spectrum response remains.",
@@ -725,7 +727,7 @@ export default {
     "interactive3dEffectFloatingParticles": "Floating Particles",
     "interactive3dEffectFloatingParticlesDesc": "Slow-drifting ambient stardust.",
     "interactive3dEffectCoverParticles": "Cover WebGL Particles",
-    "interactive3dEffectCoverParticlesDesc": "Cover particles are the default WebGL backdrop, with tunnel, orbit, and galaxy as alternates.",
+    "interactive3dEffectCoverParticlesDesc": "Cover particles are the default WebGL backdrop; switch among tunnel, orbit, or galaxy.",
     "interactive3dShelfMode": "Playlist Shelf Mode",
     "interactive3dShelfModeOff": "Off",
     "interactive3dShelfModeSidebar": "Sidebar",
@@ -746,9 +748,7 @@ export default {
     "mineradioPreset": {
       "emily": "Cover",
       "starfield": "Quantum Box",
-      "tunnel": "Aurora",
       "nebula": "Nebula",
-      "terrain": "Soundfield",
       "quantumCube": "Quantum Box",
       "aurora": "Aurora",
       "mineradioTunnel": "Tunnel",
@@ -1237,6 +1237,7 @@ export default {
     "statusNone": "None",
     "selectLrcFile": "Select LRC File",
     "importLyricsFile": "Import Lyrics File",
+    "importLyricsFailed": "Failed to import lyrics file",
     "importedLyricsFile": "Imported File",
     "selectTranslationLrc": "Select Translation LRC",
     "replayGainOff": "Off",
@@ -1351,7 +1352,9 @@ export default {
     "addAll": "Add All",
     "addAllToQueue": "Add all to queue",
     "loadingRecommendations": "Loading recommendations...",
-    "recommendationHint": "Tap to play"
+    "recommendationHint": "Tap to play",
+    "recommendLoginRequired": "Sign in to NetEase to sync daily recommend",
+    "recommendLoadFailed": "Failed to load daily recommend"
   },
   "theme": {
     "switchToDark": "Switch to Dark Mode",

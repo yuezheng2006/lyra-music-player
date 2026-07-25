@@ -969,19 +969,20 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                     description={t('home.playlists') || 'Playlists'}
                     playlists={availablePlaylists}
                     onSelect={async (playlistId) => {
-                        if (isLocal) {
-                            await onAddCurrentSongToLocalPlaylist(String(playlistId));
-                            return;
-                        }
-
-                        if (isNetease) {
-                            await onAddCurrentSongToNeteasePlaylist(Number(playlistId));
-                            return;
-                        }
-
-                        if (isNavidrome) {
-                            await onAddCurrentSongToNavidromePlaylist(String(playlistId));
-                            await refreshNavidromePlaylists();
+                        try {
+                            if (isLocal) {
+                                await onAddCurrentSongToLocalPlaylist(String(playlistId));
+                            } else if (isNetease) {
+                                await onAddCurrentSongToNeteasePlaylist(Number(playlistId));
+                            } else if (isNavidrome) {
+                                await onAddCurrentSongToNavidromePlaylist(String(playlistId));
+                                await refreshNavidromePlaylists();
+                            } else {
+                                return;
+                            }
+                            setIsPlaylistPickerOpen(false);
+                        } catch (error) {
+                            console.error('Failed to add current song to playlist', error);
                         }
                     }}
                     onCreate={(isLocal || isNavidrome) ? () => {
@@ -1000,14 +1001,18 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                     placeholder={t('localMusic.enterPlaylistName') || '输入歌单名称'}
                     confirmLabel={t('options.save') || '保存'}
                     onConfirm={async (name) => {
-                        if (isLocal) {
-                            await onCreateCurrentLocalPlaylist(name);
-                            return;
-                        }
-
-                        if (isNavidrome) {
-                            await onCreateCurrentNavidromePlaylist(name);
-                            await refreshNavidromePlaylists();
+                        try {
+                            if (isLocal) {
+                                await onCreateCurrentLocalPlaylist(name);
+                            } else if (isNavidrome) {
+                                await onCreateCurrentNavidromePlaylist(name);
+                                await refreshNavidromePlaylists();
+                            } else {
+                                return;
+                            }
+                            setIsCreatePlaylistOpen(false);
+                        } catch (error) {
+                            console.error('Failed to create playlist for current song', error);
                         }
                     }}
                 />

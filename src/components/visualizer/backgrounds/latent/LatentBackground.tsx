@@ -18,6 +18,9 @@ import {
     resolveLatentShaderColors,
     resolveLatentShaderSpeed,
 } from '../../../../utils/visualizer/latentBackgroundMath';
+import LatentDissolveOverlay, {
+    type LatentDissolveOverlayHandle,
+} from './LatentDissolveOverlay';
 
 // src/components/visualizer/backgrounds/latent/LatentBackground.tsx
 // Layers two cover-colored Paper shaders and drives their uniforms without React frame updates.
@@ -51,6 +54,8 @@ const LatentBackground: React.FC<LatentBackgroundProps> = ({
     const meshRef = useRef<PaperShaderElement | null>(null);
     const ditheringLayerRef = useRef<HTMLDivElement | null>(null);
     const meshLayerRef = useRef<HTMLDivElement | null>(null);
+    const dissolveRef = useRef<LatentDissolveOverlayHandle | null>(null);
+    const hadCoverColorsRef = useRef(false);
     const pausedRef = useRef(paused);
     const [coverColors, setCoverColors] = useState<string[]>([]);
     const tuning = tuningOverride ?? DEFAULT_LATENT_BACKGROUND_TUNING;
@@ -62,10 +67,16 @@ const LatentBackground: React.FC<LatentBackgroundProps> = ({
         let active = true;
         if (!coverUrl) {
             setCoverColors([]);
+            hadCoverColorsRef.current = false;
             return () => { active = false; };
         }
         void extractColors(coverUrl, 6).then(colors => {
-            if (active) setCoverColors(colors);
+            if (!active) return;
+            if (hadCoverColorsRef.current && colors[0]) {
+                dissolveRef.current?.trigger(colors[0]);
+            }
+            hadCoverColorsRef.current = colors.length > 0;
+            setCoverColors(colors);
         });
         return () => { active = false; };
     }, [coverUrl]);
@@ -232,6 +243,9 @@ const LatentBackground: React.FC<LatentBackgroundProps> = ({
                         style={{ width: '100%', height: '100%' }}
                     />
                 </div>
+            )}
+            {!staticMode && (
+                <LatentDissolveOverlay ref={dissolveRef} enabled={!paused} />
             )}
             {readableOverlayOpacity > 0 && (
                 <div

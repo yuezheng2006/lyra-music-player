@@ -5,7 +5,7 @@ import {
 } from '../../../types';
 
 // src/components/visualizer/geometric/mineradioVisualPresets.ts
-// Interactive 3D visual preset bundles (cover bloom + Mineradio originals + modern WebGL styles).
+// Interactive 3D visual preset bundles (cover bloom + Mineradio originals).
 
 export const INTERACTIVE3D_VISUAL_PRESET_OPTIONS: MineradioVisualPresetId[] = [
     'emily',
@@ -19,15 +19,17 @@ export const MINERADIO_VISUAL_PRESET_OPTIONS = INTERACTIVE3D_VISUAL_PRESET_OPTIO
 
 const LEGACY_VISUAL_PRESET_MAP: Record<string, MineradioVisualPresetId> = {
     void: 'emily',
-    // Retired custom effects — remap until a mature open-source path lands.
     vinyl: 'emily',
     mineradioVinyl: 'emily',
     starfield: 'emily',
     quantumCube: 'emily',
     lightflow: 'emily',
     tunnel: 'emily',
-    aurora: 'emily',
+    hyperspace: 'emily',
+    neonRings: 'emily',
     terrain: 'emily',
+    blackhole: 'emily',
+    aurora: 'emily',
     mineradioVoid: 'emily',
     nebula: 'mineradioGalaxy',
     orbit: 'mineradioOrbit',
@@ -83,22 +85,6 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableFloatingParticles: false,
         enableCoverParticles: true,
     },
-    /** @deprecated 旧光流入口，迁移到封面粒子。 */
-    tunnel: {
-        visualPreset: 'emily',
-        rhythmIntensity: 0.85,
-        cinemaShake: 0.5,
-        bloomStrength: 0.92,
-        enableBackgroundWash: true,
-        enableOrbitField: true,
-        enableBassRipples: true,
-        enableBeatBursts: true,
-        enableLyricFocusAura: true,
-        enableDomShapes: false,
-        enableBloomParticles: false,
-        enableFloatingParticles: false,
-        enableCoverParticles: true,
-    },
     /** @deprecated 旧星云入口，迁移到 Mineradio 星河。 */
     nebula: {
         visualPreset: 'mineradioGalaxy',
@@ -108,22 +94,6 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableBackgroundWash: true,
         enableOrbitField: false,
         enableBassRipples: false,
-        enableBeatBursts: true,
-        enableLyricFocusAura: true,
-        enableDomShapes: false,
-        enableBloomParticles: false,
-        enableFloatingParticles: false,
-        enableCoverParticles: true,
-    },
-    /** @deprecated 旧声场入口，迁移到封面粒子。 */
-    terrain: {
-        visualPreset: 'emily',
-        rhythmIntensity: 0.85,
-        cinemaShake: 0.5,
-        bloomStrength: 0.92,
-        enableBackgroundWash: true,
-        enableOrbitField: true,
-        enableBassRipples: true,
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
@@ -147,7 +117,7 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableFloatingParticles: false,
         enableCoverParticles: true,
     },
-    /** @deprecated 旧极光入口，迁移到封面粒子。 */
+    /** @deprecated 旧极光入口质量不足，归一到封面粒子。 */
     aurora: {
         visualPreset: 'emily',
         rhythmIntensity: 0.85,
@@ -195,16 +165,16 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableFloatingParticles: false,
         enableCoverParticles: true,
     },
-    /** Mineradio 原版虚空：隐藏主粒子，仅保留歌词和自定义背景。 */
+    /** @deprecated 虚空已下线，归一到封面点云。 */
     mineradioVoid: {
-        visualPreset: 'mineradioVoid',
-        rhythmIntensity: 0.70,
-        cinemaShake: 0.18,
-        bloomStrength: 0.00,
+        visualPreset: 'emily',
+        rhythmIntensity: 0.85,
+        cinemaShake: 0.5,
+        bloomStrength: 0.62,
         enableBackgroundWash: true,
-        enableOrbitField: false,
-        enableBassRipples: false,
-        enableBeatBursts: false,
+        enableOrbitField: true,
+        enableBassRipples: true,
+        enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
         enableBloomParticles: false,
@@ -265,24 +235,18 @@ export const applyMineradioVisualPreset = (
 export const getMineradioPresetLabelFallback = (preset: MineradioVisualPresetId): string => {
     switch (preset) {
         case 'emily':
-            return '封面';
         case 'starfield':
         case 'quantumCube':
         case 'mineradioVinyl':
-            return '封面';
-        case 'tunnel':
         case 'aurora':
-            return '极光带';
+        case 'mineradioVoid':
+            return '封面';
         case 'nebula':
             return '星云';
-        case 'terrain':
-            return '声场';
         case 'mineradioTunnel':
             return '滚筒';
         case 'mineradioOrbit':
             return '星球';
-        case 'mineradioVoid':
-            return '虚空';
         case 'mineradioGalaxy':
             return '星河';
         default:

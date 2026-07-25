@@ -1,12 +1,13 @@
-import React, { useMemo, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, Search, Upload, RotateCcw } from 'lucide-react';
+import { Search, Upload, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { OnlineLyricsState } from '../../types';
 import LyricTimelineOffsetControl from './LyricTimelineOffsetControl';
 import { getLyricProviderLabel } from '../../utils/lyrics/lyricSourceLabels';
 
 // src/components/panelTab/OnlineLyricsTab.tsx
+// 在线歌词面板：导入本地歌词文件并切换来源。
 
 interface OnlineLyricsTabProps {
     onlineLyricsState: OnlineLyricsState | null;
@@ -31,6 +32,7 @@ const OnlineLyricsTab: React.FC<OnlineLyricsTabProps> = ({
 }) => {
     const { t } = useTranslation();
     const inputRef = useRef<HTMLInputElement>(null);
+    const [importError, setImportError] = useState<string | null>(null);
 
     const activeTabBg = isDaylight ? 'bg-blue-500/15 text-blue-600' : 'bg-blue-500/20 text-blue-300';
     const tabContainerBg = isDaylight ? 'bg-black/5' : 'bg-white/5';
@@ -65,12 +67,24 @@ const OnlineLyricsTab: React.FC<OnlineLyricsTabProps> = ({
             return;
         }
 
+        setImportError(null);
         const reader = new FileReader();
         reader.onload = nextEvent => {
             const content = nextEvent.target?.result as string | null;
-            if (content) {
-                onImportLyrics(content, file.name);
+            if (!content) {
+                setImportError(t('localMusic.importLyricsFailed') || '歌词文件读取失败');
+                return;
             }
+            try {
+                onImportLyrics(content, file.name);
+            } catch (error) {
+                console.error('Failed to import online lyrics file', error);
+                setImportError(t('localMusic.importLyricsFailed') || '歌词文件导入失败');
+            }
+        };
+        reader.onerror = () => {
+            console.error('Failed to read lyrics file', reader.error);
+            setImportError(t('localMusic.importLyricsFailed') || '歌词文件读取失败');
         };
         reader.readAsText(file);
         event.target.value = '';
@@ -163,6 +177,12 @@ const OnlineLyricsTab: React.FC<OnlineLyricsTabProps> = ({
                     onOffsetChange={onLyricTimelineOffsetChange}
                     isDaylight={isDaylight}
                 />
+
+                {importError && (
+                    <p className={`text-[11px] ${isDaylight ? 'text-red-600/80' : 'text-red-300/80'}`}>
+                        {importError}
+                    </p>
+                )}
             </div>
         </motion.div>
     );

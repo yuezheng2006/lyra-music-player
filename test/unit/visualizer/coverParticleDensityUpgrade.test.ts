@@ -40,17 +40,19 @@ describe('cover particle density upgrade', () => {
         expect(tunnel.bassCameraPunch).toBeGreaterThan(cover.bassCameraPunch);
     });
 
-    it('keeps Mineradio original presets at source camera defaults', () => {
-        for (const preset of [
-            'mineradioTunnel',
-            'mineradioOrbit',
-            'mineradioGalaxy',
-        ] as const) {
-            const profile = resolveCoverParticlePresetRuntime(preset);
-            expect(profile.speedMul).toBe(1);
-            expect(profile.pointScale).toBe(1);
-            expect(profile.fov).toBe(45);
-        }
+    it('keeps Mineradio original presets near source camera defaults', () => {
+        const tunnel = resolveCoverParticlePresetRuntime('mineradioTunnel');
+        const orbit = resolveCoverParticlePresetRuntime('mineradioOrbit');
+        const galaxy = resolveCoverParticlePresetRuntime('mineradioGalaxy');
+
+        expect(tunnel.speedMul).toBeCloseTo(1.06);
+        expect(tunnel.fov).toBe(48);
+        expect(orbit.speedMul).toBe(1);
+        expect(orbit.fov).toBe(45);
+        expect(orbit.bassCameraPunch).toBeGreaterThan(0.1);
+        expect(galaxy.speedMul).toBeCloseTo(1.04);
+        expect(galaxy.fov).toBe(48);
+        expect(galaxy.bassCameraPunch).toBeGreaterThan(0.16);
     });
 
     it('maps the retired vinyl preset to the cover runtime profile', () => {

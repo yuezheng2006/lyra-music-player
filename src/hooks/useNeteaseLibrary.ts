@@ -408,7 +408,7 @@ export function useNeteaseLibrary({
             setStatusMsg({ type: 'success', text: t('status.cacheCleared') });
         } catch (error) {
             console.error('Failed to clear cache:', error);
-            setStatusMsg({ type: 'error', text: t('status.cacheCleared') });
+            setStatusMsg({ type: 'error', text: t('status.cacheClearFailed') || '清除缓存失败' });
         }
     }, [setStatusMsg, t, updateCacheSize]);
 

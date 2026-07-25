@@ -42,6 +42,14 @@ export const createCoverParticleMaterials = (
         uPixel: { value: 1 },
         uPointScale: { value: 1 },
         uColorMixT: { value: 1 },
+        /** 0–1 dissolve front during cover change; idle at 1. */
+        uDissolve: { value: 1 },
+        /** 1 while cover-change dissolve is active. */
+        uDissolveLive: { value: 0 },
+        uMorphFrom: { value: 0 },
+        uMorphTo: { value: 0 },
+        uMorphT: { value: 1 },
+        uMorphLive: { value: 0 },
         uCoverTex: { value: fallbackCoverTexture },
         uPrevCoverTex: { value: fallbackCoverTexture },
         uEdgeTex: { value: fallbackCoverTexture },

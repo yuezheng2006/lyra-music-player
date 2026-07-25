@@ -41,9 +41,11 @@ export const useNeteaseQrLogin = (onSuccess: () => void) => {
             setQrCodeImg(createRes.data.qrimg);
             setStatus(t('home.scanQr'));
 
+            let pollFailures = 0;
             qrCheckInterval.current = setInterval(async () => {
                 try {
                     const checkRes = await neteaseApi.checkQr(key);
+                    pollFailures = 0;
                     const code = checkRes.code;
 
                     if (code === 800) {
@@ -69,6 +71,11 @@ export const useNeteaseQrLogin = (onSuccess: () => void) => {
                     }
                 } catch (error) {
                     console.error(error);
+                    pollFailures += 1;
+                    if (pollFailures >= 3) {
+                        setStatus(t('home.loginError'));
+                        if (qrCheckInterval.current) clearInterval(qrCheckInterval.current);
+                    }
                 }
             }, 3000);
         } catch {

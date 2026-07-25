@@ -567,13 +567,11 @@ export type Interactive3dQualityTier = 'auto' | 'high' | 'balanced' | 'lite';
 /** Mineradio 交互 3D 背景镜头模式。 */
 export type Interactive3dCameraControlMode = 'auto' | 'orbit' | 'wasd' | 'gesture';
 
-/** Interactive 3D visual preset ids (cover + mature WebGL background styles). */
+/** Interactive 3D visual preset ids (shipped + legacy ids kept for storage remap). */
 export type MineradioVisualPresetId =
   | 'emily'
   | 'starfield'
-  | 'tunnel'
   | 'nebula'
-  | 'terrain'
   | 'quantumCube'
   | 'aurora'
   | 'mineradioTunnel'

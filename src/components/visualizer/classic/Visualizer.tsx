@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useLayoutEffect, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence, MotionValue, Variants, useMotionValueEvent } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_CLASSIC_TUNING, Line, Theme, Word as WordType, AudioBands, type ClassicTuning, type LyricWordMode } from '../../../types';
@@ -37,6 +37,7 @@ import {
 import { resolveLyricPhrasePresentation } from '../../../utils/lyrics/lyricPhrasePresentationMath';
 import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
 import { useLyricEffectPackBeatVars } from '../../../hooks/useLyricEffectPackBeatVars';
+import { useLyricStageLayoutSize } from '../../../hooks/useLyricStageLayoutSize';
 import LyricEffectPackLayers, { isLyricEffectPackNeonActive } from '../LyricEffectPackLayers';
 import LyricKaraokeWipe from '../LyricKaraokeWipe';
 
@@ -454,32 +455,8 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         beatPulse,
         isChorus,
     });
-    const [stageWidth, setStageWidth] = useState(() => (
-        typeof window === 'undefined' ? 960 : Math.max(320, window.innerWidth - 220)
-    ));
-    const [shellHeight, setShellHeight] = useState(() => (
-        typeof window === 'undefined' ? 720 : Math.max(420, window.innerHeight)
-    ));
-
-    // Measure layout size (offset*), not transformed getBoundingClientRect — rhythm scale must not inflate fit.
-    useLayoutEffect(() => {
-        const node = stageRef.current;
-        if (!node || typeof ResizeObserver === 'undefined') return undefined;
-        const shell = (node.closest('[data-visualizer-shell="true"]') as HTMLElement | null) ?? node.parentElement;
-        const apply = () => {
-            const nextWidth = Math.max(240, Math.round(node.offsetWidth || node.getBoundingClientRect().width));
-            setStageWidth(prev => (prev === nextWidth ? prev : nextWidth));
-            if (shell) {
-                const nextHeight = Math.max(280, Math.round(shell.clientHeight || shell.offsetHeight));
-                setShellHeight(prev => (prev === nextHeight ? prev : nextHeight));
-            }
-        };
-        apply();
-        const observer = new ResizeObserver(() => apply());
-        observer.observe(node);
-        if (shell) observer.observe(shell);
-        return () => observer.disconnect();
-    }, []);
+    // Remeasure on chrome-hide / fullscreen — a 0-width first frame used to stamp 240px forever.
+    const { stageWidth, shellHeight } = useLyricStageLayoutSize(stageRef, isPlayerChromeHidden);
 
     const displayWords = useMemo(() => {
         if (!activeLine) return [];
@@ -496,15 +473,15 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
         () => resolveLyricContainerFit({
             containerWidth: stageWidth,
             lyricsFontScale: lyricsFontScale * phrase.fontScaleMul,
-            sidePaddingRatio: 0.09,
-            minSidePaddingPx: 32,
-            preferredWidthRatio: 0.08,
-            minFontPx: 26,
-            maxFontPx: 64,
+            sidePaddingRatio: isPlayerChromeHidden ? 0.07 : 0.09,
+            minSidePaddingPx: isPlayerChromeHidden ? 28 : 32,
+            preferredWidthRatio: isPlayerChromeHidden ? 0.095 : 0.08,
+            minFontPx: isPlayerChromeHidden ? 34 : 26,
+            maxFontPx: isPlayerChromeHidden ? 78 : 64,
             scaleHeadroom: rhythmHeadroom,
             glowInsetPx,
         }),
-        [stageWidth, lyricsFontScale, phrase.fontScaleMul, glowInsetPx, rhythmHeadroom],
+        [stageWidth, lyricsFontScale, phrase.fontScaleMul, glowInsetPx, rhythmHeadroom, isPlayerChromeHidden],
     );
     const lyricVertical = useMemo(
         () => resolveLyricVerticalSafeArea({

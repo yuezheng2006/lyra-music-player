@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { getLineRenderEndTime, getLineRenderHints } from '../../../utils/lyrics/renderHints';
@@ -26,6 +26,7 @@ import { colorWithAlpha } from '../colorMix';
 import { resolveLyricInkFills } from '../lyricInk';
 import DazibaoWord from './dazibaoWordStage';
 import { useLyricEffectPackBeatVars } from '../../../hooks/useLyricEffectPackBeatVars';
+import { useLyricStageLayoutSize } from '../../../hooks/useLyricStageLayoutSize';
 
 // src/components/visualizer/dazibao/VisualizerDazibao.tsx
 // 野火走位：仅单行英雄砸脸布局；字体/颜色/特效包各自独立。
@@ -62,31 +63,7 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
     });
 
     const stageRef = useRef<HTMLDivElement | null>(null);
-    const [stageWidth, setStageWidth] = useState(() => (
-        typeof window === 'undefined' ? 960 : Math.max(320, window.innerWidth - 220)
-    ));
-    const [shellHeight, setShellHeight] = useState(() => (
-        typeof window === 'undefined' ? 720 : Math.max(420, window.innerHeight)
-    ));
-
-    useLayoutEffect(() => {
-        const node = stageRef.current;
-        if (!node || typeof ResizeObserver === 'undefined') return undefined;
-        const shell = (node.closest('[data-visualizer-shell="true"]') as HTMLElement | null) ?? node.parentElement;
-        const apply = () => {
-            const nextWidth = Math.max(240, Math.round(node.offsetWidth || node.getBoundingClientRect().width));
-            setStageWidth(prev => (prev === nextWidth ? prev : nextWidth));
-            if (shell) {
-                const nextHeight = Math.max(280, Math.round(shell.clientHeight || shell.offsetHeight));
-                setShellHeight(prev => (prev === nextHeight ? prev : nextHeight));
-            }
-        };
-        apply();
-        const observer = new ResizeObserver(() => apply());
-        observer.observe(node);
-        if (shell) observer.observe(shell);
-        return () => observer.disconnect();
-    }, []);
+    const { stageWidth, shellHeight } = useLyricStageLayoutSize(stageRef, immersiveLyrics);
 
     const fontPreset = useMemo(
         () => getLyricFontPresetById(lyricFontPresetId) ?? getDefaultLyricFontPreset(),

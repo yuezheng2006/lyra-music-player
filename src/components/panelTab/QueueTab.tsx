@@ -222,6 +222,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
                 onConfirm={async (playlistName) => {
                     try {
                         await onSaveCurrentQueueAsPlaylist?.(playlistName);
+                        setIsSaveDialogOpen(false);
                     } catch (error) {
                         console.error('Failed to save local playlist', error);
                     }

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, MotionValue, Variants, useMotionValueEvent } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_PARTITA_TUNING, Line, Theme, Word as WordType, AudioBands, type PartitaTuning, type LyricWordMode } from '../../../types';
@@ -33,6 +33,7 @@ import {
 } from '../../../utils/lyricEffectPacks';
 import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
 import { useLyricEffectPackBeatVars } from '../../../hooks/useLyricEffectPackBeatVars';
+import { useLyricStageLayoutSize } from '../../../hooks/useLyricStageLayoutSize';
 import LyricEffectPackLayers, { isLyricEffectPackNeonActive } from '../LyricEffectPackLayers';
 import LyricKaraokeWipe from '../LyricKaraokeWipe';
 import { resolveThemeFontStack } from '../../../utils/fontStacks';
@@ -839,12 +840,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
     );
     const stageRef = useRef<HTMLDivElement | null>(null);
     const [windowHeight, setWindowHeight] = useState(800);
-    const [stageWidth, setStageWidth] = useState(() => (
-        typeof window === 'undefined' ? 960 : Math.max(320, window.innerWidth - 220)
-    ));
-    const [shellHeight, setShellHeight] = useState(() => (
-        typeof window === 'undefined' ? 720 : Math.max(420, window.innerHeight)
-    ));
+    const { stageWidth, shellHeight } = useLyricStageLayoutSize(stageRef, isPlayerChromeHidden);
     const resolvedPartitaTuning = useMemo(() => resolvePartitaTuning(partitaTuning), [partitaTuning]);
     const layoutCacheRef = useRef<Map<string, PartitaSequentialLayout>>(new Map());
 
@@ -853,25 +849,6 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
         const handleResize = () => setWindowHeight(window.innerHeight);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
-    useLayoutEffect(() => {
-        const node = stageRef.current;
-        if (!node || typeof ResizeObserver === 'undefined') return undefined;
-        const shell = (node.closest('[data-visualizer-shell="true"]') as HTMLElement | null) ?? node.parentElement;
-        const apply = () => {
-            const nextWidth = Math.max(240, Math.round(node.offsetWidth || node.getBoundingClientRect().width));
-            setStageWidth(prev => (prev === nextWidth ? prev : nextWidth));
-            if (shell) {
-                const nextHeight = Math.max(280, Math.round(shell.clientHeight || shell.offsetHeight));
-                setShellHeight(prev => (prev === nextHeight ? prev : nextHeight));
-            }
-        };
-        apply();
-        const observer = new ResizeObserver(() => apply());
-        observer.observe(node);
-        if (shell) observer.observe(shell);
-        return () => observer.disconnect();
     }, []);
 
     const {
@@ -928,15 +905,15 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
         () => resolveLyricContainerFit({
             containerWidth: stageWidth,
             lyricsFontScale: lyricsFontScale * densityScale,
-            sidePaddingRatio: 0.09,
-            minSidePaddingPx: 32,
-            preferredWidthRatio: 0.072,
-            minFontPx: 24,
-            maxFontPx: 58,
+            sidePaddingRatio: isPlayerChromeHidden ? 0.07 : 0.09,
+            minSidePaddingPx: isPlayerChromeHidden ? 28 : 32,
+            preferredWidthRatio: isPlayerChromeHidden ? 0.085 : 0.072,
+            minFontPx: isPlayerChromeHidden ? 30 : 24,
+            maxFontPx: isPlayerChromeHidden ? 70 : 58,
             scaleHeadroom: rhythmHeadroom,
             glowInsetPx,
         }),
-        [stageWidth, lyricsFontScale, densityScale, glowInsetPx, rhythmHeadroom],
+        [stageWidth, lyricsFontScale, densityScale, glowInsetPx, rhythmHeadroom, isPlayerChromeHidden],
     );
     const lyricVertical = useMemo(
         () => resolveLyricVerticalSafeArea({

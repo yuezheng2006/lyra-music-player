@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import type { AudioBands, Interactive3dSceneTuning } from '../../../../types';
 import type { GeometricQualityProfile } from '../geometricQuality';
 import type { InteractiveCameraSnapshot } from '../interactiveCamera/interactiveCameraTypes';
-import { orbitToCameraPosition, resolveOrbitFitCameraRadius } from '../interactiveCamera/interactiveCameraMath';
+import { orbitToCameraPosition } from '../interactiveCamera/interactiveCameraMath';
+import { resolveCoverParticleFitCameraRadius } from './coverParticleViewportFitMath';
 import { resolveVisiblePaneLookAtX } from '../resolveInteractive3dStageContainment';
 import {
     buildCoverParticleGeometry,
@@ -44,6 +45,10 @@ import {
     parseCssColorToCoverParticleRgb,
     resolveCoverParticleContrastLift,
 } from '../../../../utils/visualizer/coverParticleContrastMath';
+import {
+    canMorphCoverParticlePresets,
+    COVER_PARTICLE_MORPH_MS,
+} from '../../../../utils/visualizer/coverParticleMorphMath';
 import { LyricStageRuntime, type LyricStageTickInput } from '../mineradio/lyrics/LyricStageRuntime';
 import { drawCoverToSquareCanvas } from './prepareCoverParticleTexture';
 import {
@@ -92,10 +97,11 @@ const MINERADIO_ORBIT_BASELINES: Partial<Record<
     { theta: number; phi: number; radius: number }
 >> = {
     emily: { theta: 0, phi: 0.08, radius: 6.6 },
-    mineradioTunnel: { theta: 0, phi: 0.03, radius: 6.2 },
+    mineradioTunnel: { theta: 0, phi: 0.03, radius: 6.05 },
     mineradioOrbit: { theta: 0, phi: 0.12, radius: 8.8 },
     mineradioVoid: { theta: 0, phi: 0.05, radius: 8.0 },
-    mineradioGalaxy: { theta: -0.52, phi: 0.34, radius: 9.4 },
+    mineradioGalaxy: { theta: -0.52, phi: 0.34, radius: 9.2 },
+    aurora: { theta: 0.08, phi: 0.06, radius: 5.8 },
 };
 
 const UI_HIT_SELECTOR = [
@@ -138,6 +144,8 @@ export class CoverParticleRuntime {
     private edgeTexture: THREE.Texture | null = null;
 
     private colorMixTween = new CoverColorMixTween();
+
+    private morphTween = new CoverNumericTween();
 
     private alphaTween = new CoverNumericTween();
 
@@ -367,13 +375,12 @@ export class CoverParticleRuntime {
                     -Math.PI * 0.45,
                     Math.PI * 0.45,
                 );
-                // Planet: pull camera back from the shorter viewport axis so the sphere never crops.
-                const fittedBaselineRadius = preset === 'mineradioOrbit'
-                    ? resolveOrbitFitCameraRadius({
-                        fovDeg: presetProfile.fov,
-                        aspect: this.camera.aspect,
-                    })
-                    : orbitBaseline.radius;
+                // Pull camera back from the shorter viewport axis so authored content stays on-screen.
+                const fittedBaselineRadius = resolveCoverParticleFitCameraRadius({
+                    preset,
+                    fovDeg: presetProfile.fov,
+                    aspect: this.camera.aspect,
+                }) ?? orbitBaseline.radius;
                 const targetRadius = THREE.MathUtils.clamp(
                     fittedBaselineRadius
                         + this.userOrbitOffset.radius
@@ -381,7 +388,7 @@ export class CoverParticleRuntime {
                         + cinemaOffset.radiusKick
                         + (presetProfile.immersiveRadiusOffset ?? 0) * immersiveStrength,
                     2.4,
-                    preset === 'mineradioOrbit' ? 18 : 14,
+                    18,
                 );
                 const focusEase = Math.max(0.10, 0.12 + beat * 0.12);
                 const radiusEase = Math.max(0.07, 0.09 + beat * 0.12);
@@ -510,6 +517,11 @@ export class CoverParticleRuntime {
         this.frameUnsubscribe?.();
         this.frameUnsubscribe = null;
         this.colorMixTween.cancel();
+        this.morphTween.cancel();
+        this.uniforms.uDissolveLive.value = 0;
+        this.uniforms.uDissolve.value = 1;
+        this.uniforms.uMorphLive.value = 0;
+        this.uniforms.uMorphT.value = 1;
         this.alphaTween.cancel();
         this.depthTween.cancel();
         this.aiBoostTween.cancel();
@@ -807,12 +819,29 @@ export class CoverParticleRuntime {
 
         if (nextMode === 'cover') {
             if (this.loadedVisualPreset !== preset) {
+                const previousPreset = this.loadedVisualPreset;
+                if (previousPreset && canMorphCoverParticlePresets(previousPreset, preset)) {
+                    this.morphTween.cancel();
+                    this.uniforms.uMorphFrom.value = resolveWebGLPresetIndex(previousPreset);
+                    this.uniforms.uMorphTo.value = resolveWebGLPresetIndex(preset);
+                    this.uniforms.uMorphLive.value = 1;
+                    this.uniforms.uMorphT.value = 0;
+                    this.morphTween.start(0, 1, COVER_PARTICLE_MORPH_MS, (value) => {
+                        this.uniforms.uMorphT.value = value;
+                        if (value >= 1) {
+                            this.uniforms.uMorphLive.value = 0;
+                        }
+                    });
+                } else {
+                    this.uniforms.uMorphLive.value = 0;
+                    this.uniforms.uMorphT.value = 1;
+                }
                 const presetBurst = preset === 'mineradioTunnel'
-                    ? 0.30
+                    ? 0.32
                     : preset === 'mineradioOrbit'
-                        ? 0.24
+                        ? 0.26
                         : preset === 'mineradioGalaxy'
-                            ? 0.16
+                            ? 0.20
                         : 0.14;
                 this.burstSmoother.trigger(presetBurst);
                 this.loadedVisualPreset = preset;
@@ -1046,11 +1075,20 @@ export class CoverParticleRuntime {
                         const mixMs = normalizeInteractive3dVisualPreset(this.tuning?.visualPreset) === 'emily'
                             ? EMILY_COVER_COLOR_MIX_MS
                             : DEFAULT_COVER_COLOR_MIX_MS;
+                        this.uniforms.uDissolveLive.value = 1;
+                        this.uniforms.uDissolve.value = 0;
+                        this.burstSmoother.trigger(0.22);
                         this.colorMixTween.start((mix) => {
                             this.uniforms.uColorMixT.value = mix;
+                            this.uniforms.uDissolve.value = mix;
+                            if (mix >= 1) {
+                                this.uniforms.uDissolveLive.value = 0;
+                            }
                         }, mixMs);
                     } else {
                         this.uniforms.uColorMixT.value = 1;
+                        this.uniforms.uDissolve.value = 1;
+                        this.uniforms.uDissolveLive.value = 0;
                     }
 
                     let coverCanvas: HTMLCanvasElement | null = null;

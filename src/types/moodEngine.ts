@@ -134,7 +134,7 @@ export function getVisualStrategyForEmotion(emotion: EmotionTag): VisualStrategy
       return 'particle';
 
     // Calm/sad used to pick ambient `wave`, but wave fabric belongs inside cover 3D
-    // (e.g. terrain / 声场), not as a second plane above cover particles.
+    // not as a second plane above cover particles.
     case 'sad':
     case 'calm':
     case 'melancholic':

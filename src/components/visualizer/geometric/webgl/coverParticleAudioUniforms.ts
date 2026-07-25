@@ -117,12 +117,12 @@ export class CoverParticleAudioSmoother {
 
         if (
             visualPreset === 'quantumCube'
-            || visualPreset === 'terrain'
             || visualPreset === 'aurora'
             || visualPreset === 'mineradioVinyl'
             || visualPreset === 'mineradioGalaxy'
         ) {
-            const softFlow = visualPreset === 'aurora' || visualPreset === 'mineradioGalaxy';
+            const softFlow = visualPreset === 'aurora'
+                || visualPreset === 'mineradioGalaxy';
             const ringBass = this.smoothBass * (softFlow ? 1.10 : 1.58)
                 + beatClamped * (softFlow ? 0.18 : 0.42)
                 - this.smoothMid * 0.16

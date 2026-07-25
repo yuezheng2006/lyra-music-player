@@ -32,7 +32,7 @@ describe('deriveAtmosphereThemeHints', () => {
             light: baseTheme,
             dark: baseTheme,
             atmosphereHints: {
-                visualPreset: 'terrain',
+                visualPreset: 'emily',
                 atmosphereSensitivity: 0.6,
             },
         };

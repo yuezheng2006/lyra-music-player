@@ -313,88 +313,126 @@ export function useLibraryPlaybackController({
     }, [getFavoriteLocalPlaylist]);
 
     const saveCurrentQueueAsLocalPlaylist = useCallback(async (name: string) => {
-        const trimmedName = name.trim();
-        if (!trimmedName) {
-            throw new Error('Playlist name is empty');
+        try {
+            const trimmedName = name.trim();
+            if (!trimmedName) {
+                throw new Error('Playlist name is empty');
+            }
+
+            const queueSongs = playQueue
+                .map(song => (song as SongResult & { localData?: LocalSong; }).localData)
+                .filter((song): song is LocalSong => Boolean(song?.id));
+
+            if (!queueSongs.length) {
+                throw new Error('No local songs in queue');
+            }
+
+            await createLocalPlaylist(trimmedName, queueSongs);
+            await loadLocalPlaylists();
+            setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '歌单已更新' });
+        } catch (error) {
+            console.error('Failed to save queue as local playlist', error);
+            setStatusMsg({ type: 'error', text: t('status.playlistUpdateFailed') || '歌单更新失败' });
+            throw error;
         }
-
-        const queueSongs = playQueue
-            .map(song => (song as SongResult & { localData?: LocalSong; }).localData)
-            .filter((song): song is LocalSong => Boolean(song?.id));
-
-        if (!queueSongs.length) {
-            throw new Error('No local songs in queue');
-        }
-
-        await createLocalPlaylist(trimmedName, queueSongs);
-        await loadLocalPlaylists();
-    }, [loadLocalPlaylists, playQueue]);
+    }, [loadLocalPlaylists, playQueue, setStatusMsg, t]);
 
     const addCurrentSongToLocalPlaylist = useCallback(async (playlistId: string) => {
-        if (!isLocalPlaybackSong(currentSong) || !currentSong.localData) {
-            throw new Error('Current song is not local');
-        }
+        try {
+            if (!isLocalPlaybackSong(currentSong) || !currentSong.localData) {
+                throw new Error('Current song is not local');
+            }
 
-        await addSongsToLocalPlaylist(playlistId, [currentSong.localData]);
-        await loadLocalPlaylists();
-    }, [currentSong, loadLocalPlaylists]);
+            await addSongsToLocalPlaylist(playlistId, [currentSong.localData]);
+            await loadLocalPlaylists();
+            setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '歌单已更新' });
+        } catch (error) {
+            console.error('Failed to add song to local playlist', error);
+            setStatusMsg({ type: 'error', text: t('status.playlistUpdateFailed') || '歌单更新失败' });
+            throw error;
+        }
+    }, [currentSong, loadLocalPlaylists, setStatusMsg, t]);
 
     const createCurrentLocalPlaylist = useCallback(async (name: string) => {
-        const trimmedName = name.trim();
-        if (!trimmedName) {
-            throw new Error('Playlist name is empty');
-        }
+        try {
+            const trimmedName = name.trim();
+            if (!trimmedName) {
+                throw new Error('Playlist name is empty');
+            }
 
-        if (!isLocalPlaybackSong(currentSong) || !currentSong.localData) {
-            throw new Error('Current song is not local');
-        }
+            if (!isLocalPlaybackSong(currentSong) || !currentSong.localData) {
+                throw new Error('Current song is not local');
+            }
 
-        await createLocalPlaylist(trimmedName, [currentSong.localData]);
-        await loadLocalPlaylists();
-        setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '歌单已更新' });
+            await createLocalPlaylist(trimmedName, [currentSong.localData]);
+            await loadLocalPlaylists();
+            setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '歌单已更新' });
+        } catch (error) {
+            console.error('Failed to create local playlist', error);
+            setStatusMsg({ type: 'error', text: t('status.playlistUpdateFailed') || '歌单更新失败' });
+            throw error;
+        }
     }, [currentSong, loadLocalPlaylists, setStatusMsg, t]);
 
     const addCurrentSongToNeteasePlaylist = useCallback(async (playlistId: number) => {
-        if (!currentSong || isLocalPlaybackSong(currentSong) || isNavidromePlaybackSong(currentSong)) {
-            throw new Error('Current song is not a Netease song');
-        }
+        try {
+            if (!currentSong || isLocalPlaybackSong(currentSong) || isNavidromePlaybackSong(currentSong)) {
+                throw new Error('Current song is not a Netease song');
+            }
 
-        await neteaseApi.updatePlaylistTracks('add', playlistId, [currentSong.id]);
-        await removeFromCache(`playlist_tracks_${playlistId}`);
-        await removeFromCache(`playlist_detail_${playlistId}`);
-        setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '歌单已更新' });
+            await neteaseApi.updatePlaylistTracks('add', playlistId, [currentSong.id]);
+            await removeFromCache(`playlist_tracks_${playlistId}`);
+            await removeFromCache(`playlist_detail_${playlistId}`);
+            setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '歌单已更新' });
+        } catch (error) {
+            console.error('Failed to add song to Netease playlist', error);
+            setStatusMsg({ type: 'error', text: t('status.playlistUpdateFailed') || '歌单更新失败' });
+            throw error;
+        }
     }, [currentSong, setStatusMsg, t]);
 
     const addCurrentSongToNavidromePlaylist = useCallback(async (playlistId: string) => {
-        if (!isNavidromePlaybackSong(currentSong)) {
-            throw new Error('Current song is not a Navidrome song');
-        }
+        try {
+            if (!isNavidromePlaybackSong(currentSong)) {
+                throw new Error('Current song is not a Navidrome song');
+            }
 
-        const config = getNavidromeConfig();
-        const navidromeSong = resolveNavidromePlaybackCarrier(currentSong);
-        if (!config || !navidromeSong?.navidromeData?.id) {
-            throw new Error('Navidrome is not configured');
-        }
+            const config = getNavidromeConfig();
+            const navidromeSong = resolveNavidromePlaybackCarrier(currentSong);
+            if (!config || !navidromeSong?.navidromeData?.id) {
+                throw new Error('Navidrome is not configured');
+            }
 
-        await navidromeApi.updatePlaylist(config, playlistId, {
-            songIdsToAdd: [navidromeSong.navidromeData.id],
-        });
-        setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '歌单已更新' });
+            await navidromeApi.updatePlaylist(config, playlistId, {
+                songIdsToAdd: [navidromeSong.navidromeData.id],
+            });
+            setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '歌单已更新' });
+        } catch (error) {
+            console.error('Failed to add song to Navidrome playlist', error);
+            setStatusMsg({ type: 'error', text: t('status.playlistUpdateFailed') || '歌单更新失败' });
+            throw error;
+        }
     }, [currentSong, setStatusMsg, t]);
 
     const createCurrentNavidromePlaylist = useCallback(async (name: string) => {
-        if (!isNavidromePlaybackSong(currentSong)) {
-            throw new Error('Current song is not a Navidrome song');
-        }
+        try {
+            if (!isNavidromePlaybackSong(currentSong)) {
+                throw new Error('Current song is not a Navidrome song');
+            }
 
-        const config = getNavidromeConfig();
-        const navidromeSong = resolveNavidromePlaybackCarrier(currentSong);
-        if (!config || !navidromeSong?.navidromeData?.id) {
-            throw new Error('Navidrome is not configured');
-        }
+            const config = getNavidromeConfig();
+            const navidromeSong = resolveNavidromePlaybackCarrier(currentSong);
+            if (!config || !navidromeSong?.navidromeData?.id) {
+                throw new Error('Navidrome is not configured');
+            }
 
-        await navidromeApi.createPlaylist(config, name, [navidromeSong.navidromeData.id]);
-        setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '歌单已更新' });
+            await navidromeApi.createPlaylist(config, name, [navidromeSong.navidromeData.id]);
+            setStatusMsg({ type: 'success', text: t('status.playlistUpdated') || '歌单已更新' });
+        } catch (error) {
+            console.error('Failed to create Navidrome playlist', error);
+            setStatusMsg({ type: 'error', text: t('status.playlistUpdateFailed') || '歌单更新失败' });
+            throw error;
+        }
     }, [currentSong, setStatusMsg, t]);
 
     const handleLocalSongMatch = useCallback(async (localSong: LocalSong): Promise<{ updatedLocalSong: LocalSong; matchedSongResult: SongResult | null; }> => {
