@@ -19,6 +19,7 @@ import { isNavidromeEnabled } from '@/services/navidromeService';
 import { isNavidromeUiEnabled } from '@/utils/featureFlags';
 import { useAppPreferences } from '@/hooks/useAppPreferences';
 import { useElectronNeteaseApiStatus } from '@/hooks/useElectronNeteaseApiStatus';
+import { useMusicProviderCatalogBootstrap } from '@/hooks/useMusicProviderCatalogBootstrap';
 import { useAppControllerCoreIntegrations } from '@/hooks/useAppControllerCoreIntegrations';
 import { useThemeController } from '@/hooks/useThemeController';
 import { useAtmosphereThemeBridge } from '@/hooks/useAtmosphereThemeBridge';
@@ -61,6 +62,7 @@ export function useAppControllerCore() {
     const [statusMsg, setStatusMsg] = useState<StatusMessage | null>(null);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
     useElectronNeteaseApiStatus(setStatusMsg, t);
+    useMusicProviderCatalogBootstrap();
 
     // Auto-close the player panel when leaving the player view
     // (Effect moved to after useAppNavigation where currentView is defined)

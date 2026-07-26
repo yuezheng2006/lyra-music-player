@@ -39,6 +39,12 @@ describe('onlineSearchRouting', () => {
         expect(resolveOnlineSearchProvider('晴天', 'qq')).toBe('qq');
     });
 
+    it('falls back to netease when preferred is a home surface tab', () => {
+        expect(resolveOnlineSearchProvider('folio', 'playlist')).toBe('netease');
+        expect(resolveOnlineSearchProvider('folio', 'albums')).toBe('netease');
+        expect(resolveOnlineSearchProvider('folio', 'history')).toBe('netease');
+    });
+
     it('treats peer-free channels as always searchable and gated providers by login', () => {
         expect(isProviderSearchable('coco', {})).toBe(true);
         expect(isProviderSearchable('qishui', {})).toBe(true);

@@ -945,13 +945,14 @@ export function usePlaybackQueueController({
         }
 
         const searchState = useSearchNavigationStore.getState();
-        const playlistProviders = useOnlineLibraryFilterStore.getState().playlistProviders;
+        const filterState = useOnlineLibraryFilterStore.getState();
         // Keep coco / qishui overlay channels isolated — do not fan into each other.
         const providers = resolveOverlaySearchProviders({
             query: trimmedQuery,
             sourceTab: searchSourceTab,
             activeProviders: searchState.searchProviders,
-            enabledProviders: playlistProviders,
+            enabledProviders: filterState.playlistProviders,
+            knownIds: filterState.knownProviderIds,
             sessions: {
                 netease: hasNeteaseSession(user),
                 qq: hasQQMusicSession(),

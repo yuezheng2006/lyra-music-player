@@ -28,7 +28,7 @@ import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterSto
 import { hasNeteaseSession, hasQQMusicSession } from '../utils/onlineLibraryAccess';
 import { resolveSearchableLibraryProviders } from '../utils/onlineSearchRouting';
 import { resolvePeerDefaultDescription, resolvePeerDefaultDisplayName, resolveProviderDefaultChannel } from '../utils/onlineDefaultPlaylists';
-import { isPeerFreeProviderId } from '../utils/onlinePeerProviders';
+import { isCuratedPeerFreeProviderId } from '../utils/onlinePeerProviders';
 import { SearchClearButton } from './shared/SearchClearButton';
 import { resolveOnlineSearchProvider } from '../utils/onlineSearchRouting';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
@@ -150,12 +150,13 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
     })));
     const hasNeteaseLogin = hasNeteaseSession(user);
     const hasQQLogin = hasQQMusicSession();
+    const knownProviderIds = useOnlineLibraryFilterStore(state => state.knownProviderIds);
     const searchableProviders = useMemo(
         () => resolveSearchableLibraryProviders(playlistProviders, {
             netease: hasNeteaseLogin,
             qq: hasQQLogin,
-        }),
-        [hasNeteaseLogin, hasQQLogin, playlistProviders],
+        }, knownProviderIds),
+        [hasNeteaseLogin, hasQQLogin, knownProviderIds, playlistProviders],
     );
     const homeSearchPlaceholder = t(
         resolveHomeSearchPlaceholderKey(searchableProviders),
@@ -179,14 +180,14 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
 
     const openSearchChannel = (provider: OnlineLibraryProviderId) => {
         setSearchProvider(provider);
-        if (isPeerFreeProviderId(provider)) {
+        if (isCuratedPeerFreeProviderId(provider)) {
             openPeerSearchChannel({
                 sourceTab: provider,
                 returnView: 'home',
             });
             return;
         }
-        // Independent login-provider entry starts empty — never borrow the home bar draft.
+        // Open-mode plugins and login providers share the independent empty-entry path.
         restoreSearch({
             query: '',
             sourceTab: provider,

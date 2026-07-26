@@ -1,32 +1,6 @@
 // scripts/music-provider-adapters/example-provider-adapter.mjs
-// Template for native provider adapters. Copy this file and implement the three handlers.
+// Deprecated flat template. Prefer the protocol v1 folder:
+//   scripts/music-provider-adapters/example/
+// See docs/providers/PROTOCOL.md
 
-export async function search({ provider, query, limit, offset }) {
-  void provider;
-  void query;
-  void limit;
-  void offset;
-  return {
-    songs: [],
-    total: 0,
-    hasMore: false,
-  };
-}
-
-export async function audio({ provider, id, song, quality }) {
-  void provider;
-  void id;
-  void song;
-  void quality;
-  return {
-    audioUrl: null,
-  };
-}
-
-export async function lyrics({ provider, id }) {
-  void provider;
-  void id;
-  return {
-    lyrics: null,
-  };
-}
+export { search, audio, lyrics } from './example/adapter.mjs';

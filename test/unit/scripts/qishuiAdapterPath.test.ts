@@ -4,10 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 // test/unit/scripts/qishuiAdapterPath.test.ts
-// Packaged Electron inherits a non-app cwd; qishui must resolve like qq/coco via __dirname.
+// Packaged Electron inherits a non-app cwd; qishui must resolve via __dirname adapters dir.
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const sidecarPath = path.join(repoRoot, 'scripts/music-provider-sidecar.cjs');
+const discoverPath = path.join(repoRoot, 'scripts/music-provider-plugin/discover.cjs');
 const adapterPath = path.join(
   repoRoot,
   'scripts/music-provider-adapters/qishui-provider-adapter.mjs',
@@ -18,12 +19,13 @@ describe('qishui adapter path (packaged cwd)', () => {
     expect(fs.existsSync(adapterPath)).toBe(true);
   });
 
-  it('resolves qishui adapter via __dirname, not process.cwd()', () => {
-    const source = fs.readFileSync(sidecarPath, 'utf8');
-    expect(source).toContain(
-      "path.join(__dirname, 'music-provider-adapters', 'qishui-provider-adapter.mjs')",
-    );
-    expect(source).not.toMatch(
+  it('resolves qishui adapter via __dirname adapters dir + plugin registry', () => {
+    const sidecarSource = fs.readFileSync(sidecarPath, 'utf8');
+    const discoverSource = fs.readFileSync(discoverPath, 'utf8');
+    expect(sidecarSource).toContain("path.join(__dirname, 'music-provider-adapters')");
+    expect(sidecarSource).toContain("require('./music-provider-plugin/discover.cjs')");
+    expect(discoverSource).toContain("qishui: 'qishui-provider-adapter.mjs'");
+    expect(sidecarSource).not.toMatch(
       /provider === 'qishui'[\s\S]{0,120}process\.cwd\(\)/,
     );
   });

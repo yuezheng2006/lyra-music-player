@@ -5,6 +5,7 @@ import type { NowPlayingConnectionStatus, StageSource, StageStatus, Theme } from
 import type { NavidromeServerProfile } from '../../../types/navidrome';
 import type { ObsBrowserSourceStatus } from '../../../types/obsBrowserSource';
 import QQMusicLoginPanel from '../../shared/QQMusicLoginPanel';
+import MusicProviderOpenModeSection from './MusicProviderOpenModeSection';
 import SettingsAdvancedSection from './SettingsAdvancedSection';
 import {
     settingsDescClass,
@@ -491,6 +492,11 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
                     errorTextColor={errorTextColor}
                 />
             </section>
+
+            <MusicProviderOpenModeSection
+                isElectron={isElectron}
+                settingsCardClass={settingsCardClass}
+            />
 
             {isNavidromeUiEnabled() ? (
             <section>

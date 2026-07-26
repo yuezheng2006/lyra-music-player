@@ -112,7 +112,20 @@ export type LyricWordMode = 'default' | 'karaoke' | 'ktv';
 export type VisualizerFrameRate = 'off' | 120 | 90 | 60;
 
 export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'ytmusic' | 'radio' | 'daily' | 'podcast' | 'history';
-export type OnlineMusicProviderId = 'netease' | 'qq' | 'qishui' | 'coco' | 'kugou' | 'bilibili' | 'kuwo';
+/** Curated in-app online sources (not user plugins). */
+export type BuiltInOnlineMusicProviderId =
+  | 'netease'
+  | 'qq'
+  | 'qishui'
+  | 'coco'
+  | 'kugou'
+  | 'bilibili'
+  | 'kuwo';
+/**
+ * Built-in or dynamic sidecar plugin id.
+ * `(string & {})` keeps autocomplete for built-ins while allowing open-mode plugins.
+ */
+export type OnlineMusicProviderId = BuiltInOnlineMusicProviderId | (string & {});
 export type SearchSourceId = HomeViewTab | OnlineMusicProviderId;
 
 export type PlaybackContext = 'main' | 'stage';

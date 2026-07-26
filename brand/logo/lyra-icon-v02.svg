@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Lyra v02 Wave Pedestal - note on sound-wave lines -->
+  <defs>
+    <linearGradient id="lyraBg" x1="14" y1="8" x2="86" y2="94" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF8B63"/>
+      <stop offset="0.55" stop-color="#FFA85A"/>
+      <stop offset="1" stop-color="#FFC56E"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="88" height="88" rx="22" fill="url(#lyraBg)"/>
+  <!-- Wave pedestal -->
+  <path d="M24 72c6-5 12-5 18 0s12 5 18 0 12-5 18 0" stroke="#FFF8F1" stroke-opacity="0.34" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M28 78c5-4 10-4 15 0s10 4 15 0 10-4 15 0" stroke="#FFF8F1" stroke-opacity="0.22" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M32 83.5c4-3 8-3 12 0s8 3 12 0" stroke="#FFF8F1" stroke-opacity="0.14" stroke-width="2.2" stroke-linecap="round"/>
+  <g transform="translate(1.2 1.4)" opacity="0.12">
+    <ellipse cx="42" cy="58" rx="11.5" ry="8.5" transform="rotate(-22 42 58)" fill="#000"/>
+    <rect x="50.5" y="22" width="6.2" height="36" rx="3.1" fill="#000"/>
+    <path d="M56.7 22c8.2 2.4 13.5 8.2 13.5 15.2 0 4.6-3.6 7.2-7.4 5.4-3.2-1.5-5.4-5-5.4-9.2V22Z" fill="#000"/>
+  </g>
+  <g fill="#FFF8F1">
+    <ellipse cx="42" cy="58" rx="11.5" ry="8.5" transform="rotate(-22 42 58)"/>
+    <rect x="50.5" y="22" width="6.2" height="36" rx="3.1"/>
+    <path d="M56.7 22c8.2 2.4 13.5 8.2 13.5 15.2 0 4.6-3.6 7.2-7.4 5.4-3.2-1.5-5.4-5-5.4-9.2V22Z"/>
+  </g>
+</svg>

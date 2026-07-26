@@ -1,5 +1,6 @@
 import type { LyricData, OnlineMusicProviderId, SongResult } from '../../types';
 import { detectTimedLyricFormat } from '../../utils/lyrics/formatDetection';
+import type { ProviderCatalogEntry } from '../../utils/musicProviders/providerManifestMath';
 import { parseLyricsAsync } from '../../utils/lyrics/workerClient';
 import { requestWithStability } from '../../utils/network';
 import { getQQMusicAuth } from './qqMusicAuth';
@@ -10,6 +11,12 @@ import type {
 } from './types';
 
 // src/services/musicProviders/sidecarProviderClient.ts
+
+export type MusicProviderCatalogResponse = {
+    protocolVersion: number;
+    userPluginsDir: string | null;
+    providers: ProviderCatalogEntry[];
+};
 
 type SidecarSongPayload = {
     id?: string | number;
@@ -116,10 +123,74 @@ const getConfiguredSidecarBase = () => {
     return configuredSidecarBasePromise;
 };
 
-export const resetSidecarProviderClientCacheForTests = () => {
+/** Clear cached sidecar base / audio lookups (boot race recovery + tests). */
+export const resetSidecarProviderClientCache = () => {
     configuredSidecarBasePromise = null;
     audioNegativeCache.clear();
     audioInflight.clear();
+};
+
+export const resetSidecarProviderClientCacheForTests = resetSidecarProviderClientCache;
+
+const normalizeCatalogResponse = (data: unknown): MusicProviderCatalogResponse => {
+    const payload = data && typeof data === 'object' ? data as Record<string, unknown> : {};
+    const providers = Array.isArray(payload.providers)
+        ? payload.providers.filter((entry): entry is ProviderCatalogEntry =>
+            Boolean(entry)
+            && typeof entry === 'object'
+            && typeof (entry as ProviderCatalogEntry).id === 'string')
+        : [];
+    return {
+        protocolVersion: Number(payload.protocolVersion) || 1,
+        userPluginsDir: typeof payload.userPluginsDir === 'string' ? payload.userPluginsDir : null,
+        providers,
+    };
+};
+
+export const fetchMusicProviderCatalog = async (): Promise<MusicProviderCatalogResponse> => {
+    const attempt = async () => {
+        const base = await getConfiguredSidecarBase();
+        if (!base) {
+            return { protocolVersion: 1, userPluginsDir: null, providers: [] };
+        }
+        const { response } = await requestWithStability(
+            `${base}/providers`,
+            {},
+            { source: 'sidecar', endpoint: '/providers' },
+        );
+        if (!response.ok) {
+            throw new Error(`sidecar catalog failed: ${response.status}`);
+        }
+        return normalizeCatalogResponse(await response.json());
+    };
+
+    try {
+        return await attempt();
+    } catch (error) {
+        // Cold start may resolve the Electron port before the sidecar binds; retry once.
+        resetSidecarProviderClientCache();
+        try {
+            return await attempt();
+        } catch {
+            throw error;
+        }
+    }
+};
+
+export const reloadMusicProviderCatalog = async (): Promise<MusicProviderCatalogResponse> => {
+    const base = await getConfiguredSidecarBase();
+    if (!base) {
+        return { protocolVersion: 1, userPluginsDir: null, providers: [] };
+    }
+    const { response } = await requestWithStability(
+        `${base}/providers/reload`,
+        { method: 'POST' },
+        { source: 'sidecar', endpoint: '/providers/reload' },
+    );
+    if (!response.ok) {
+        throw new Error(`sidecar reload failed: ${response.status}`);
+    }
+    return normalizeCatalogResponse(await response.json());
 };
 
 const hashProviderSongId = (providerId: OnlineMusicProviderId, rawId: string): number => {

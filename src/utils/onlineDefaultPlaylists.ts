@@ -1,7 +1,7 @@
 import type { NeteasePlaylist, NeteaseUser, OnlineMusicProviderId } from '../types';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
 import { ONLINE_PROVIDER_ICON_URL } from './onlineProviderAssets';
-import { isPeerFreeProviderId, type PeerFreeProviderId } from './onlinePeerProviders';
+import { isCuratedPeerFreeProviderId, type PeerFreeProviderId } from './onlinePeerProviders';
 
 // src/utils/onlineDefaultPlaylists.ts
 // Synthetic playlists keep no-login providers at the same home hierarchy as logged-in ones.
@@ -81,7 +81,7 @@ export const resolveProviderDefaultChannel = (
     if (!playlist || !isProviderDefaultPlaylist(playlist)) {
         return null;
     }
-    if (isPeerFreeProviderId(playlist.musicProvider)) {
+    if (isCuratedPeerFreeProviderId(playlist.musicProvider)) {
         return playlist.musicProvider;
     }
     return PEER_DEFAULT_ID_TO_PROVIDER[playlist.id] || null;

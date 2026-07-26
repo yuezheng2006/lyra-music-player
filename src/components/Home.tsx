@@ -190,12 +190,13 @@ const Home: React.FC<HomeProps> = ({
     const searchProvider = useOnlineLibraryFilterStore(state => state.searchProvider);
     const setSearchProvider = useOnlineLibraryFilterStore(state => state.setSearchProvider);
     const playlistProviders = useOnlineLibraryFilterStore(state => state.playlistProviders);
+    const knownProviderIds = useOnlineLibraryFilterStore(state => state.knownProviderIds);
     const hasNeteaseLogin = hasNeteaseSession(user);
     const hasQQLogin = hasQQMusicSession();
     const searchableProviders = resolveSearchableLibraryProviders(playlistProviders, {
         netease: hasNeteaseLogin,
         qq: hasQQLogin,
-    });
+    }, knownProviderIds);
     const onlineGuestEntered = useOnlineGuestStore(state => state.entered);
     const hasAnyOnlineLogin = hasAnyOnlineMusicSession(user);
     const showGuestConnect = viewTab === 'playlist' && !hasAnyOnlineLogin && !onlineGuestEntered;

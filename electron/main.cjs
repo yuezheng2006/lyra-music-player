@@ -2382,7 +2382,9 @@ const { serveNcmApi } = require('@neteasecloudmusicapienhanced/api/server');
 
 const nodeNet = require('net');
 let assignedPort = 30000; // default fallback
-let assignedMusicProviderPort = 30002;
+// 0 until sidecar binds a real port — avoids renderer caching the stale default.
+let assignedMusicProviderPort = 0;
+let musicProviderSidecarReady = false;
 let musicProviderSidecarProcess = null;
 const NETEASE_API_STATUS_CHANNEL = 'netease-api-status-changed';
 let neteaseApiStatus = {
@@ -2461,6 +2463,7 @@ function usesExternalDevApis() {
 function bindExternalDevApiPorts() {
   assignedPort = Number(process.env.NETEASE_API_PORT || 3001);
   assignedMusicProviderPort = Number(process.env.MUSIC_PROVIDER_SIDECAR_PORT || 3002);
+  musicProviderSidecarReady = true;
   updateNeteaseApiStatus({ status: 'running', port: assignedPort, error: null });
   console.log('[Dev] Using external Netease API on port', assignedPort);
   console.log('[Dev] Using external music provider sidecar on port', assignedMusicProviderPort);
@@ -2514,7 +2517,48 @@ function resolveNodeReadableAppPath(...relativeParts) {
   return asarCandidate;
 }
 
+function waitForTcpPortOpen(port, timeoutMs = 15000) {
+  const startedAt = Date.now();
+  return new Promise((resolve, reject) => {
+    const attempt = () => {
+      const socket = nodeNet.connect({ host: '127.0.0.1', port }, () => {
+        socket.end();
+        resolve(port);
+      });
+      socket.on('error', () => {
+        socket.destroy();
+        if (Date.now() - startedAt >= timeoutMs) {
+          reject(new Error(`Timed out waiting for 127.0.0.1:${port}`));
+          return;
+        }
+        setTimeout(attempt, 100);
+      });
+    };
+    attempt();
+  });
+}
+
+const waitForMusicProviderPort = async (timeoutMs = 30000) => {
+  if (usesExternalDevApis()) {
+    return assignedMusicProviderPort || Number(process.env.MUSIC_PROVIDER_SIDECAR_PORT || 3002);
+  }
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (musicProviderSidecarReady && assignedMusicProviderPort > 0) {
+      return assignedMusicProviderPort;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  if (assignedMusicProviderPort > 0) {
+    return assignedMusicProviderPort;
+  }
+  throw new Error('Music provider sidecar startup timed out');
+};
+
 async function startMusicProviderSidecar() {
+  musicProviderSidecarReady = false;
   try {
     const freePort = await getFreePort();
     const sidecarScript = resolveNodeReadableAppPath('scripts', 'music-provider-sidecar.cjs');
@@ -2524,11 +2568,18 @@ async function startMusicProviderSidecar() {
     }
 
     assignedMusicProviderPort = freePort;
+    const musicProviderPluginsDir = path.join(app.getPath('userData'), 'music-providers');
+    try {
+      fs.mkdirSync(musicProviderPluginsDir, { recursive: true });
+    } catch (error) {
+      console.warn('[MusicProvider] Failed to ensure plugins directory', error);
+    }
     musicProviderSidecarProcess = spawn(process.execPath, [sidecarScript], {
       env: {
         ...process.env,
         ELECTRON_RUN_AS_NODE: '1',
         MUSIC_PROVIDER_SIDECAR_PORT: String(freePort),
+        MUSIC_PROVIDER_USER_PLUGINS_DIR: musicProviderPluginsDir,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -2540,17 +2591,24 @@ async function startMusicProviderSidecar() {
       console.warn(`[MusicProvider] ${chunk.toString('utf8').trim()}`);
     });
     musicProviderSidecarProcess.on('exit', (code, signal) => {
+      musicProviderSidecarReady = false;
       if (code !== 0 && signal !== 'SIGTERM') {
         console.warn('[MusicProvider] Sidecar exited unexpectedly', { code, signal });
       }
       musicProviderSidecarProcess = null;
     });
+
+    await waitForTcpPortOpen(freePort, 15000);
+    musicProviderSidecarReady = true;
+    console.log('[MusicProvider] Sidecar ready on port', freePort);
   } catch (error) {
+    musicProviderSidecarReady = false;
     console.error('[MusicProvider] Failed to start sidecar', error);
   }
 }
 
 function stopMusicProviderSidecar() {
+  musicProviderSidecarReady = false;
   if (musicProviderSidecarProcess) {
     musicProviderSidecarProcess.kill('SIGTERM');
     musicProviderSidecarProcess = null;
@@ -3726,8 +3784,34 @@ ipcMain.handle('get-netease-api-status', () => {
   return neteaseApiStatus;
 });
 
-ipcMain.handle('get-music-provider-port', () => {
-  return assignedMusicProviderPort;
+ipcMain.handle('get-music-provider-port', async () => {
+  try {
+    return await waitForMusicProviderPort();
+  } catch (error) {
+    console.warn('[MusicProvider] get-music-provider-port wait failed', error);
+    return assignedMusicProviderPort > 0 ? assignedMusicProviderPort : null;
+  }
+});
+
+ipcMain.handle('get-music-provider-plugins-dir', () => {
+  const dir = path.join(app.getPath('userData'), 'music-providers');
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    // Directory may already exist or be unwritable; still return the path.
+  }
+  return dir;
+});
+
+ipcMain.handle('open-music-provider-plugins-dir', async () => {
+  const dir = path.join(app.getPath('userData'), 'music-providers');
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    // Ignore mkdir failures; shell.openPath still reports the real error.
+  }
+  const error = await shell.openPath(dir);
+  return { ok: !error, error: error || null, path: dir };
 });
 
 ipcMain.handle('window-minimize', () => {

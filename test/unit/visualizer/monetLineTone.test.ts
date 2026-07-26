@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveMonetLineTone } from '@/components/visualizer/monet/monetLineTone';
+import { LYRIC_LINE_OPACITY } from '@/utils/theme/lyricColorPresets';
 import type { Line } from '@/types';
 
 // test/unit/visualizer/monetLineTone.test.ts
@@ -63,8 +64,7 @@ describe('resolveMonetLineTone', () => {
         const tone = resolveMonetLineTone(entry('passed', -1), THEME as never, 0.72, 'monet');
 
         expect(tone.blurPx).toBe(0);
-        expect(readAlpha(tone.baseColor)).toBeGreaterThanOrEqual(0.18);
-        expect(readAlpha(tone.baseColor)).toBeLessThanOrEqual(0.28);
+        expect(readAlpha(tone.baseColor)).toBe(LYRIC_LINE_OPACITY.passedNear);
         expect(tone.scale).toBeLessThanOrEqual(0.76);
         expect(tone.fontWeight).toBeLessThanOrEqual(460);
     });
@@ -74,8 +74,7 @@ describe('resolveMonetLineTone', () => {
 
         expect(tone.blurPx).toBe(0);
         expect(tone.opacity).toBe(1);
-        expect(readAlpha(tone.baseColor)).toBeGreaterThanOrEqual(0.45);
-        expect(readAlpha(tone.baseColor)).toBeLessThan(1);
+        expect(readAlpha(tone.baseColor)).toBe(LYRIC_LINE_OPACITY.karaokeUnsung);
         expect(tone.baseColor).toContain('255, 0, 110');
     });
 
@@ -88,14 +87,13 @@ describe('resolveMonetLineTone', () => {
         expect(readAlpha(mid.baseColor)).toBeLessThan(readAlpha(near.baseColor));
         expect(readAlpha(far.baseColor)).toBeLessThan(readAlpha(mid.baseColor));
         expect(mid.scale).toBeLessThan(near.scale);
-        expect(readAlpha(near.baseColor)).toBeGreaterThanOrEqual(0.22);
+        expect(readAlpha(near.baseColor)).toBe(LYRIC_LINE_OPACITY.waitingNear);
     });
 
     it('dims karaoke unsung base with the same brand hue', () => {
         const tone = resolveMonetLineTone(entry('active', 0), THEME as never, 0.88, 'karaoke');
         expect(tone.blurPx).toBe(0);
-        expect(readAlpha(tone.baseColor)).toBeLessThan(1);
-        expect(readAlpha(tone.baseColor)).toBeGreaterThanOrEqual(0.45);
+        expect(readAlpha(tone.baseColor)).toBe(LYRIC_LINE_OPACITY.karaokeUnsung);
         expect(tone.baseColor).toContain('255, 0, 110');
     });
 
@@ -103,7 +101,7 @@ describe('resolveMonetLineTone', () => {
         const waiting = resolveMonetLineTone(entry('waiting', 1), THEME as never, 0.72, 'monet');
         const active = resolveMonetLineTone(entry('active', 0), THEME as never, 0.72, 'monet');
         expect(1 - readAlpha(waiting.baseColor)).toBeGreaterThanOrEqual(0.65);
-        expect(readAlpha(waiting.baseColor)).toBeGreaterThanOrEqual(0.22);
+        expect(readAlpha(waiting.baseColor)).toBe(LYRIC_LINE_OPACITY.waitingNear);
         expect(readAlpha(waiting.baseColor)).toBeLessThan(readAlpha(active.baseColor));
         expect(readAlpha(active.baseColor) - readAlpha(waiting.baseColor)).toBeGreaterThanOrEqual(0.18);
     });

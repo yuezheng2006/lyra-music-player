@@ -1,7 +1,8 @@
-import type { OnlineMusicProviderId, SongResult } from '../../types';
+import type { BuiltInOnlineMusicProviderId, OnlineMusicProviderId, SongResult } from '../../types';
 import { getOnlineSongCacheKey, isCloudSong, neteaseApi } from '../netease';
 import { bilibiliMusicProvider } from './bilibiliMusicProvider';
 import { cocoMusicProvider } from './cocoMusicProvider';
+import { createSidecarMusicProvider } from './createSidecarMusicProvider';
 import { kugouMusicProvider } from './kugouMusicProvider';
 import { kuwoMusicProvider } from './kuwoMusicProvider';
 import { qishuiMusicProvider } from './qishuiMusicProvider';
@@ -38,7 +39,7 @@ const neteaseProvider: MusicProvider = {
     getLyrics: async () => null,
 };
 
-const providers: Record<OnlineMusicProviderId, MusicProvider> = {
+const builtinProviders: Record<BuiltInOnlineMusicProviderId, MusicProvider> = {
     netease: neteaseProvider,
     qq: qqMusicProvider,
     qishui: qishuiMusicProvider,
@@ -47,6 +48,8 @@ const providers: Record<OnlineMusicProviderId, MusicProvider> = {
     bilibili: bilibiliMusicProvider,
     kuwo: kuwoMusicProvider,
 };
+
+const dynamicProviderCache = new Map<string, MusicProvider>();
 
 export const getSongMusicProviderId = (song?: Pick<SongResult, 'musicProvider' | 't'> | null): OnlineMusicProviderId => {
     if (song?.musicProvider) {
@@ -58,7 +61,16 @@ export const getSongMusicProviderId = (song?: Pick<SongResult, 'musicProvider' |
 export const isNeteaseOnlineSong = (song?: Pick<SongResult, 'musicProvider' | 't'> | null): boolean =>
     getSongMusicProviderId(song) === 'netease';
 
-export const getMusicProvider = (providerId: OnlineMusicProviderId): MusicProvider => providers[providerId];
+export const getMusicProvider = (providerId: OnlineMusicProviderId): MusicProvider => {
+    if (providerId in builtinProviders) {
+        return builtinProviders[providerId as BuiltInOnlineMusicProviderId];
+    }
+    const cached = dynamicProviderCache.get(providerId);
+    if (cached) return cached;
+    const created = createSidecarMusicProvider(providerId);
+    dynamicProviderCache.set(providerId, created);
+    return created;
+};
 
 export const getMusicProviderForSong = (song: SongResult): MusicProvider =>
     getMusicProvider(getSongMusicProviderId(song));

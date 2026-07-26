@@ -336,8 +336,35 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createSettingsCommand('settings-general', 'General settings', 'Open general app preferences', ['general', 'language settings', 'locale', '通用', '语言', 'tongyong', 'yuyan', 'ty', 'yy'], 'options', 'general'),
     createSettingsCommand('settings-playback', 'Playback settings', 'Open playback behavior settings', ['playback settings', 'playback', '播放', '播放设置', 'bofang', 'bofangshezhi', 'bf', 'bfsz'], 'options', 'playback'),
     createSettingsCommand('settings-integration', 'Integration settings', 'Open music account, Stage, Now Playing, and provider settings', ['integration', 'stage', 'now playing', 'qq music settings', 'qq music cookie', '集成', '连接', 'QQ音乐', 'QQ音乐登录', 'jicheng', 'lianjie', 'qqyinyue', 'qqdenglu', 'jc', 'lj'], 'options', 'integration'),
+    createSettingsCommand('settings-music-provider-plugins', 'Music provider plugins', 'Open open-mode music provider plugin settings', ['music provider', 'provider plugin', 'open mode', 'sidecar plugin', '音乐源插件', '开放模式', '插件源', 'yinyueyuan', 'chajian', 'kaifang', 'cjy'], 'options', 'integration'),
     createSettingsCommand('settings-discord-presence', 'Discord playback status', 'Open Discord Rich Presence settings', ['discord', 'rich presence', 'discord presence', 'playing status', '播放状态', 'discord状态', 'discordzhuangtai', 'bofangzhuangtai', 'dc', 'zt'], 'options', 'integration'),
     createSettingsCommand('settings-obs-browser-source', 'OBS browser source', 'Open OBS browser source settings', ['obs', 'browser source', 'live source', '直播源', '浏览器源', 'zhiboyuan', 'liulanqiyuan', 'zby', 'llqy'], 'options', 'integration'),
+    {
+        id: 'music-provider-rescan',
+        group: 'settings',
+        title: 'Rescan music provider plugins',
+        description: 'Reload local open-mode music provider plugins from disk',
+        keywords: [
+            'rescan providers',
+            'reload providers',
+            'provider plugin',
+            '重新扫描',
+            '扫描插件',
+            '音乐源',
+            'chongxinsaomiao',
+            'saomiao',
+            'cxsm',
+        ],
+        execute: async () => {
+            const { useMusicProviderCatalogStore } = await import('../../stores/useMusicProviderCatalogStore');
+            const { useOnlineLibraryFilterStore } = await import('../../stores/useOnlineLibraryFilterStore');
+            const { mergeProviderCatalogIds } = await import('../../utils/musicProviders/providerManifestMath');
+            await useMusicProviderCatalogStore.getState().reload();
+            const providers = useMusicProviderCatalogStore.getState().providers;
+            useOnlineLibraryFilterStore.getState().syncKnownProviders(mergeProviderCatalogIds(providers));
+            return true;
+        },
+    },
     createSettingsCommand('settings-storage', 'Storage settings', 'Open cache and storage settings', ['storage', 'cache', 'download folder', '存储', '缓存', '下载目录', 'cunchu', 'huancun', 'xiazai', 'cc', 'hc', 'xz'], 'options', 'storage'),
     {
         id: 'open-download-directory',

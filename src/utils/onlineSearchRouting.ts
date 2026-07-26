@@ -43,10 +43,11 @@ export const isProviderSearchable = (
 
 /** Enabled library pills ∩ login-ready providers (peer-free always counts as ready). */
 export const resolveSearchableLibraryProviders = (
-    enabledProviders: Partial<Record<OnlineLibraryProviderId, boolean>>,
+    enabledProviders: Partial<Record<string, boolean>>,
     sessions: OnlineSearchSessionAccess,
+    knownIds: readonly string[] = ONLINE_LIBRARY_PROVIDER_IDS,
 ): OnlineLibraryProviderId[] =>
-    ONLINE_LIBRARY_PROVIDER_IDS.filter(id => enabledProviders[id] && isProviderSearchable(id, sessions));
+    knownIds.filter(id => enabledProviders[id] && isProviderSearchable(id, sessions)) as OnlineLibraryProviderId[];
 
 /** Prefer explicit qishui share-link parsing; otherwise keep the selected channel. */
 export const resolveOnlineSearchProvider = (
@@ -72,9 +73,10 @@ export const resolveOnlineSearchProvider = (
  */
 export const resolveEnabledSearchProviders = (
     query: string,
-    enabledProviders: Partial<Record<OnlineLibraryProviderId, boolean>>,
+    enabledProviders: Partial<Record<string, boolean>>,
     preferred?: OnlineMusicProviderId | SearchSourceId,
     sessions: OnlineSearchSessionAccess = {},
+    knownIds: readonly string[] = ONLINE_LIBRARY_PROVIDER_IDS,
 ): OnlineMusicProviderId[] => {
     if (isQishuiShareUrl(query)) {
         return ['qishui'];
@@ -83,7 +85,7 @@ export const resolveEnabledSearchProviders = (
         return ['bilibili'];
     }
 
-    const searchable = resolveSearchableLibraryProviders(enabledProviders, sessions);
+    const searchable = resolveSearchableLibraryProviders(enabledProviders, sessions, knownIds);
     if (searchable.length > 0) {
         return searchable;
     }
@@ -111,8 +113,9 @@ export const resolveOverlaySearchProviders = (input: {
     query: string;
     sourceTab: SearchSourceId;
     activeProviders?: OnlineMusicProviderId[];
-    enabledProviders: Partial<Record<OnlineLibraryProviderId, boolean>>;
+    enabledProviders: Partial<Record<string, boolean>>;
     sessions?: OnlineSearchSessionAccess;
+    knownIds?: readonly string[];
 }): OnlineMusicProviderId[] => {
     if (isQishuiShareUrl(input.query)) {
         return ['qishui'];
@@ -143,5 +146,6 @@ export const resolveOverlaySearchProviders = (input: {
         input.enabledProviders,
         input.sourceTab,
         input.sessions,
+        input.knownIds,
     );
 };

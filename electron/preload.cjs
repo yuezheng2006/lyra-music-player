@@ -36,6 +36,8 @@ contextBridge.exposeInMainWorld('electron', {
     fetchLyricProxy: (url, init) => ipcRenderer.invoke('lyric-proxy-fetch', url, init),
     getNeteasePort: () => ipcRenderer.invoke('get-netease-port'),
     getMusicProviderPort: () => ipcRenderer.invoke('get-music-provider-port'),
+    getMusicProviderPluginsDir: () => ipcRenderer.invoke('get-music-provider-plugins-dir'),
+    openMusicProviderPluginsDir: () => ipcRenderer.invoke('open-music-provider-plugins-dir'),
     getNeteaseApiStatus: () => ipcRenderer.invoke('get-netease-api-status'),
     onNeteaseApiStatusChanged: (callback) => {
         const listener = (_event, status) => callback(status);

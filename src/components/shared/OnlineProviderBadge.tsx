@@ -67,20 +67,31 @@ const PROVIDER_META: Record<OnlineProviderVisualId, {
     },
 };
 
+const PLUGIN_FALLBACK_META = {
+    short: 'Plugin',
+    solid: 'bg-slate-600 text-white shadow-[0_1px_6px_rgba(100,116,139,0.35)]',
+    glassDay: 'bg-slate-500/14 text-slate-700 border border-slate-500/20',
+    glassNight: 'bg-slate-400/22 text-slate-200 border border-white/10',
+};
+
 export const resolveOnlineProviderVisualId = (
     provider?: string | null,
-): OnlineProviderVisualId => {
+): OnlineProviderVisualId | null => {
+    if (!provider) return 'netease';
     if (provider === 'qq') return 'qq';
     if (provider === 'qishui') return 'qishui';
     if (provider === 'coco') return 'coco';
     if (provider === 'kugou') return 'kugou';
     if (provider === 'bilibili') return 'bilibili';
     if (provider === 'kuwo') return 'kuwo';
-    return 'netease';
+    if (provider === 'netease') return 'netease';
+    // Open-mode / unknown plugin ids use neutral fallback styling in the badge.
+    return null;
 };
 
 export const OnlineProviderBadge: React.FC<OnlineProviderBadgeProps & {
     isDaylight?: boolean;
+    label?: string | null;
 }> = ({
     provider,
     size = 'sm',
@@ -88,10 +99,13 @@ export const OnlineProviderBadge: React.FC<OnlineProviderBadgeProps & {
     showIcon = true,
     isDaylight = true,
     className = '',
+    label = null,
 }) => {
     const id = resolveOnlineProviderVisualId(provider);
-    const meta = PROVIDER_META[id];
-    const iconUrl = resolveOnlineProviderIconUrl(id);
+    const meta = id ? PROVIDER_META[id] : PLUGIN_FALLBACK_META;
+    const iconUrl = id ? resolveOnlineProviderIconUrl(id) : null;
+    const shortLabel = label
+        || (id ? meta.short : (provider ? String(provider).slice(0, 10) : PLUGIN_FALLBACK_META.short));
     const sizeClass = size === 'md'
         ? 'text-[11px] px-2 py-0.5 gap-1'
         : 'text-[10px] px-1.5 py-0.5 gap-0.5';
@@ -112,7 +126,7 @@ export const OnlineProviderBadge: React.FC<OnlineProviderBadgeProps & {
                     className={`${iconClass} rounded-[3px] object-cover`}
                 />
             ) : null}
-            {meta.short}
+            {shortLabel}
         </span>
     );
 };
