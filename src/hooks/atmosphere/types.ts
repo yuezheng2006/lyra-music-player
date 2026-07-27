@@ -26,6 +26,8 @@ export interface AtmosphereEngine {
 
 export type UseAtmosphereEngineParams = {
     enabled?: boolean;
+    /** Gate heavy offline decode until media is actually playing. */
+    isPlaying?: boolean;
     audioSrc: string | null;
     songKey: string | null;
     audioContextRef: RefObject<AudioContext | null>;

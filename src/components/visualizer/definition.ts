@@ -48,6 +48,8 @@ export interface VisualizerSharedProps {
     backgroundOpacity?: number;
     visualizerOpacity?: number;
     transparentBackground?: boolean;
+    /** Dual-stream video under lyrics (e.g. Bilibili DASH); modes should avoid opaque scrims. */
+    videoStageActive?: boolean;
     disableGeometricBackground?: boolean;
     disableVignette?: boolean;
     lyricsFontScale?: number;
@@ -76,6 +78,7 @@ export interface VisualizerSharedProps {
     cappellaCustomAvatarImages?: CappellaAvatarImage[];
     tiltTuning?: TiltTuning;
     monetBackgroundTuning?: MonetBackgroundTuning;
+    latentBackgroundTuning?: import('../../types').LatentBackgroundTuning;
     interactive3dSceneTuning?: Interactive3dSceneTuning;
     monetTuning?: MonetTuning;
     monetBackgroundImage?: MonetBackgroundImage | null;
@@ -132,6 +135,8 @@ export interface VisualizerSettingsPanelProps {
     monetBackgroundImage?: MonetBackgroundImage | null;
     monetBackgroundTuning?: MonetBackgroundTuning;
     onMonetBackgroundTuningChange?: (patch: Partial<MonetBackgroundTuning>) => void;
+    latentBackgroundTuning?: import('../../types').LatentBackgroundTuning;
+    onLatentBackgroundTuningChange?: (patch: Partial<import('../../types').LatentBackgroundTuning>) => void;
     interactive3dSceneTuning?: import('../../types').Interactive3dSceneTuning;
     onInteractive3dSceneTuningChange?: (patch: Partial<import('../../types').Interactive3dSceneTuning>) => void;
     onUploadMonetBackgroundImage?: (files: File[]) => Promise<{ ok: boolean; error?: string; }>;

@@ -4,7 +4,8 @@ import type {
     OnlineLibraryModuleFilter,
     OnlineLibraryProviderId,
 } from '../stores/useOnlineLibraryFilterStore';
-import { buildEnabledDefaultPlaylists } from '../utils/onlineDefaultPlaylists';
+import { buildEnabledDefaultPlaylists, isProviderDefaultPlaylist } from '../utils/onlineDefaultPlaylists';
+import { isPeerFreeProviderId } from '../utils/onlinePeerProviders';
 
 // src/hooks/useAggregatedOnlinePlaylists.ts
 // Merges Netease/QQ playlists with peer-provider defaults and applies filters.
@@ -19,11 +20,7 @@ type AggregatedPlaylistOptions = {
 
 const isLikedPlaylist = (playlist: NeteasePlaylist) => {
     // Peer defaults are search entry points, not personal liked playlists.
-    if (
-        playlist.specialType === 'provider-default'
-        || playlist.musicProvider === 'coco'
-        || playlist.musicProvider === 'qishui'
-    ) {
+    if (isProviderDefaultPlaylist(playlist) || isPeerFreeProviderId(playlist.musicProvider)) {
         return false;
     }
     const name = playlist.name?.trim() || '';
@@ -38,6 +35,16 @@ const isCreatedPlaylist = (playlist: NeteasePlaylist) => {
         return false;
     }
     return true;
+};
+
+const playlistDedupKey = (playlist: NeteasePlaylist) => {
+    if (playlist.musicProvider === 'qq') {
+        return `qq:${playlist.providerPlaylistId || playlist.id}`;
+    }
+    if (isPeerFreeProviderId(playlist.musicProvider)) {
+        return `${playlist.musicProvider}:${playlist.providerPlaylistId || playlist.id}`;
+    }
+    return `netease:${playlist.id}`;
 };
 
 export const aggregateOnlinePlaylists = ({
@@ -68,13 +75,7 @@ export const aggregateOnlinePlaylists = ({
     const merged = [...defaults, ...withCloud, ...qqItems];
     const deduped = new Map<string, NeteasePlaylist>();
     merged.forEach((playlist) => {
-        const key = playlist.musicProvider === 'qq'
-            ? `qq:${playlist.providerPlaylistId || playlist.id}`
-            : playlist.musicProvider === 'coco'
-                ? `coco:${playlist.providerPlaylistId || playlist.id}`
-                : playlist.musicProvider === 'qishui'
-                    ? `qishui:${playlist.providerPlaylistId || playlist.id}`
-                    : `netease:${playlist.id}`;
+        const key = playlistDedupKey(playlist);
         if (!deduped.has(key)) {
             deduped.set(key, playlist);
         }
@@ -95,7 +96,9 @@ export const useAggregatedOnlinePlaylists = (options: AggregatedPlaylistOptions)
         () => aggregateOnlinePlaylists(options),
         [
             options.cloudPlaylist,
+            options.enabledProviders.bilibili,
             options.enabledProviders.coco,
+            options.enabledProviders.kugou,
             options.enabledProviders.qishui,
             options.enabledProviders.netease,
             options.enabledProviders.qq,

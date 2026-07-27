@@ -2,6 +2,12 @@ import React, { useEffect, useRef } from 'react';
 import type { MotionValue } from 'framer-motion';
 import type { AudioBands, MonetAudioStyle, Theme } from '../../../types';
 import { colorWithAlpha, mixColors } from '../colorMix';
+import { readGpuUnstableFlag } from '../../../utils/performance/electronInteractive3dGuardMath';
+import {
+    resolveMonetAudioCanvasDpr,
+    resolveMonetAudioFrameSkip,
+    resolveMonetAudioShadowBlurScale,
+} from '../../../utils/performance/monetElectronLiteMath';
 
 // src/components/visualizer/monet/AudioOverlay.tsx
 // Monet bottom audio rail: mirrored bars / ribbon with beat glow, canvas-only (no per-frame React state).
@@ -206,11 +212,22 @@ const AudioOverlay: React.FC<AudioOverlayProps> = ({
         let canvasHeight = 0;
         let phase = 0;
         let lastFrameMs = performance.now();
+        let frameCounter = 0;
         const peakHolds = new Float32Array(BAR_COUNT);
+        const isElectron = Boolean((window as Window & { electron?: unknown }).electron);
+        const gpuUnstable = readGpuUnstableFlag(
+            typeof localStorage === 'undefined' ? null : localStorage,
+        );
+        const shadowBlurScale = resolveMonetAudioShadowBlurScale({ isElectron, gpuUnstable });
+        const frameSkip = resolveMonetAudioFrameSkip({ isElectron, gpuUnstable });
 
         const resizeCanvas = () => {
             const rect = canvas.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
+            const dpr = resolveMonetAudioCanvasDpr({
+                devicePixelRatio: window.devicePixelRatio || 1,
+                isElectron,
+                gpuUnstable,
+            });
             const nextWidth = Math.max(1, Math.floor(rect.width * dpr));
             const nextHeight = Math.max(1, Math.floor(rect.height * dpr));
             canvasWidth = rect.width;
@@ -296,7 +313,7 @@ const AudioOverlay: React.FC<AudioOverlayProps> = ({
 
                 context.save();
                 context.shadowColor = colorWithAlpha(tip, 0.55 + beat * 0.35);
-                context.shadowBlur = 14 + beat * 18;
+                context.shadowBlur = (14 + beat * 18) * shadowBlurScale;
 
                 context.beginPath();
                 drawCurve(context);
@@ -363,7 +380,7 @@ const AudioOverlay: React.FC<AudioOverlayProps> = ({
 
                     context.save();
                     context.shadowColor = colorWithAlpha(tip, 0.35 + beat * 0.4 + shaped * 0.2);
-                    context.shadowBlur = 8 + beat * 14 + shaped * 6;
+                    context.shadowBlur = (8 + beat * 14 + shaped * 6) * shadowBlurScale;
 
                     const barGradient = context.createLinearGradient(0, baseline - barHeight, 0, baseline);
                     barGradient.addColorStop(0, colorWithAlpha(tip, 0.98));
@@ -422,7 +439,10 @@ const AudioOverlay: React.FC<AudioOverlayProps> = ({
         }
 
         const loop = () => {
-            draw();
+            frameCounter += 1;
+            if (frameSkip <= 0 || frameCounter % (frameSkip + 1) === 0) {
+                draw();
+            }
             frameId = window.requestAnimationFrame(loop);
         };
 

@@ -58,4 +58,22 @@ describe('coverParticleAudioUniforms', () => {
         expect(uniforms.bass).toBeGreaterThan(0);
         expect(uniforms.mid).toBeGreaterThan(0);
     });
+
+    it('soft-flows galaxy beat while keeping emily beat sharp', () => {
+        const smoother = new CoverParticleAudioSmoother();
+        const bands = {
+            bass: { get: () => 210 },
+            mid: { get: () => 150 },
+            treble: { get: () => 110 },
+            vocal: { get: () => 130 },
+        } as never;
+        let emily = { bass: 0, mid: 0, treble: 0, beat: 0, energy: 0 };
+        let galaxy = { bass: 0, mid: 0, treble: 0, beat: 0, energy: 0 };
+        for (let frame = 0; frame < 30; frame += 1) {
+            emily = smoother.tick(bands, 0.8, 1.0, 0.016, true, 0.4, 'emily');
+            galaxy = smoother.tick(bands, 0.8, 1.0, 0.016, true, 0.4, 'mineradioGalaxy');
+        }
+        expect(emily.beat).toBeCloseTo(0.8, 2);
+        expect(galaxy.beat).toBeLessThan(emily.beat);
+    });
 });

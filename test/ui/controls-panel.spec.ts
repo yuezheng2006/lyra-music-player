@@ -26,8 +26,12 @@ async function installControlsPanelState(page: Page) {
     localStorage.setItem('i18nextLng', 'zh-CN');
     localStorage.setItem('default_theme_daylight', 'false');
     localStorage.setItem('static_mode', 'true');
-    localStorage.setItem('last_app_view', 'player');
-    localStorage.setItem('open_player_on_launch', 'true');
+    // Start on home so local import is reachable without leaving the player first.
+    localStorage.setItem('last_app_view', 'home');
+    localStorage.setItem('open_player_on_launch', 'false');
+    localStorage.setItem('lyra_onboarding_completed', 'true');
+    // Match screenshot fixtures: suppress What's New overlay (z-[150]).
+    localStorage.setItem('folia_last_seen_guide_version', '1.0.3');
     localStorage.setItem('visualizer_mode', 'classic');
     localStorage.setItem('player_volume', '0.41');
     localStorage.setItem('player_loop_mode', 'off');
@@ -56,15 +60,17 @@ async function installControlsPanelState(page: Page) {
       },
     });
 
+    // Avoid `#private` fields: Playwright serializes init scripts through a transform
+    // that can emit `_classPrivateFieldInitSpec` without defining the helper.
     class MockAudio extends EventTarget {
       duration = 126;
       paused = true;
       currentTime = 0;
       volume = 1;
-      #src = '';
+      _src = '';
 
       set src(value: string) {
-        this.#src = value;
+        this._src = value;
         setTimeout(() => {
           this.dispatchEvent(new Event('loadedmetadata'));
           this.dispatchEvent(new Event('canplay'));
@@ -72,7 +78,7 @@ async function installControlsPanelState(page: Page) {
       }
 
       get src() {
-        return this.#src;
+        return this._src;
       }
 
       play() {
@@ -89,17 +95,17 @@ async function installControlsPanelState(page: Page) {
     class MockWorker {
       onmessage: ((event: MessageEvent) => void) | null = null;
       onerror: ((event: Event) => void) | null = null;
-      readonly #url: string;
+      url: string;
 
       constructor(url: string | URL) {
-        this.#url = String(url);
-        if (!this.#url.includes('metadataParser.worker')) {
+        this.url = String(url);
+        if (!this.url.includes('metadataParser.worker')) {
           return new OriginalWorker(url as string, { type: 'module' }) as unknown as MockWorker;
         }
       }
 
       postMessage(message: { type: string; requestId: string; file: File; }) {
-        if (!this.#url.includes('metadataParser.worker') || message.type !== 'parse-metadata') {
+        if (!this.url.includes('metadataParser.worker') || message.type !== 'parse-metadata') {
           return;
         }
 
@@ -135,6 +141,8 @@ async function installControlsPanelState(page: Page) {
       value: MockAudio,
     });
 
+    const liveDirectoryHandles = new Map<string, FileSystemDirectoryHandle>();
+
     const createFileHandle = (entry: typeof fixture.entries[number]) => ({
       kind: 'file' as const,
       name: entry.name,
@@ -144,35 +152,84 @@ async function installControlsPanelState(page: Page) {
           lastModified: entry.lastModified,
         });
       },
+      async queryPermission() {
+        return 'granted' as PermissionState;
+      },
+      async requestPermission() {
+        return 'granted' as PermissionState;
+      },
     });
 
-    Object.defineProperty(window, 'showDirectoryPicker', {
-      configurable: true,
-      value: async () => ({
+    const createDirectoryHandle = (rootFixture: typeof fixture) => {
+      const fileHandles = rootFixture.entries.map(createFileHandle);
+      const handle = {
         kind: 'directory' as const,
-        name: fixture.rootName,
+        name: rootFixture.rootName,
         async *values() {
-          for (const handle of fixture.entries.map(createFileHandle)) {
-            yield handle;
+          for (const fileHandle of fileHandles) {
+            yield fileHandle;
           }
         },
         async getFileHandle(name: string) {
-          const handle = fixture.entries.map(createFileHandle).find(item => item.name === name);
-          if (!handle) {
+          const fileHandle = fileHandles.find(item => item.name === name);
+          if (!fileHandle) {
             throw new DOMException(`Missing file: ${name}`, 'NotFoundError');
           }
-          return handle;
+          return fileHandle;
         },
         async getDirectoryHandle() {
           throw new DOMException('Nested directories are not defined in this fixture', 'NotFoundError');
         },
         async queryPermission() {
-          return 'granted';
+          return 'granted' as PermissionState;
         },
         async requestPermission() {
-          return 'granted';
+          return 'granted' as PermissionState;
         },
-      }),
+      };
+      liveDirectoryHandles.set(rootFixture.rootName, handle as unknown as FileSystemDirectoryHandle);
+      return handle;
+    };
+
+    // Plain stubs are IDB-cloneable; restore live methodful handles on read.
+    const originalPut = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function patchedPut(value: any, key?: IDBValidKey) {
+      if (value && value.key === 'local_dir_handles' && value.data && typeof value.data === 'object') {
+        const stubs: Record<string, { kind: 'directory'; name: string }> = {};
+        for (const [name, handle] of Object.entries(value.data as Record<string, any>)) {
+          stubs[name] = { kind: 'directory', name: (handle as { name?: string })?.name || name };
+          if (handle && typeof (handle as { getFileHandle?: unknown }).getFileHandle === 'function') {
+            liveDirectoryHandles.set(name, handle as FileSystemDirectoryHandle);
+          }
+        }
+        return originalPut.call(this, { ...value, data: stubs }, key as IDBValidKey);
+      }
+      return originalPut.call(this, value, key as IDBValidKey);
+    };
+
+    const originalGet = IDBObjectStore.prototype.get;
+    IDBObjectStore.prototype.get = function patchedGet(query: IDBValidKey | IDBKeyRange) {
+      const request = originalGet.call(this, query);
+      request.addEventListener('success', () => {
+        const result = request.result;
+        if (!result || result.key !== 'local_dir_handles' || !result.data || typeof result.data !== 'object') {
+          return;
+        }
+        const restored: Record<string, FileSystemDirectoryHandle> = {};
+        for (const name of Object.keys(result.data)) {
+          const live = liveDirectoryHandles.get(name);
+          if (live) {
+            restored[name] = live;
+          }
+        }
+        result.data = restored;
+      });
+      return request;
+    };
+
+    Object.defineProperty(window, 'showDirectoryPicker', {
+      configurable: true,
+      value: async () => createDirectoryHandle(fixture),
     });
   }, localImportFixture);
 }
@@ -182,18 +239,25 @@ async function openControlsTab(page: Page) {
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
   await page.waitForLoadState('networkidle');
 
-  await page.getByRole('button', { name: 'Folder' }).last().click();
+  // zh-CN uses 本地/本地歌曲; en uses Folder.
+  const localNav = page.getByRole('button', { name: /^(Folder|本地|本地歌曲)$/ }).last();
+  await expect(localNav).toBeVisible({ timeout: 20_000 });
+  await localNav.click();
   await page.getByRole('button', { name: /Import Folder|导入文件夹/i }).last().click();
+  // Folder cards appear first; open the imported library to reach the track row.
+  const importedLibrary = page.getByRole('heading', { name: /Controls Fixture|All Songs/i }).first();
+  await expect(importedLibrary).toBeVisible({ timeout: 20_000 });
+  await importedLibrary.click();
   await expect(page.getByText('Midnight Train').first()).toBeVisible({ timeout: 20_000 });
 
-  await page.getByText('Midnight Train').first().click();
-  await page.waitForTimeout(500);
-
-  const panelToggle = page.locator('.fixed.bottom-8.right-0 button').last();
-  await expect(panelToggle).toBeVisible();
+  // Play-all should navigate into the player stage.
+  await page.getByRole('button', { name: /播放全部|Play All/i }).click();
+  const panelToggle = page.getByTestId('unified-panel-toggle').locator('button').first();
+  await expect(panelToggle).toBeVisible({ timeout: 20_000 });
   await panelToggle.click();
 
-  await page.getByTitle('控制').click();
+  // Exact title only — `/控制|Controls/i` also hits "远程控制" and "Controls Fixture".
+  await page.getByRole('button', { name: /^(控制|Controls)$/ }).click();
   await expect(page.getByTestId('controls-lyrics-animation-section')).toBeVisible();
 }
 
@@ -202,26 +266,40 @@ test.describe('player controls panel', () => {
     await installControlsPanelState(page);
   });
 
-  test('renders compact high-frequency control sections', async ({ page }) => {
+  test('renders core sections and keeps advanced controls collapsed', async ({ page }) => {
     await openControlsTab(page);
 
+    // Core sections are always visible.
     await expect(page.getByTestId('controls-quick-actions')).toBeVisible();
     await expect(page.getByTestId('controls-lyrics-animation-section')).toBeVisible();
-    await expect(page.getByTestId('controls-lyric-color-presets')).toBeVisible();
     await expect(page.getByTestId('controls-interactive3d-presets-section')).toBeVisible();
-    await expect(page.getByTestId('controls-open-more-settings')).toBeVisible();
+    await expect(page.getByTestId('controls-lyric-color-presets')).toBeVisible();
+    await expect(page.getByTestId('controls-lyric-font-section')).toBeVisible();
+    await expect(page.getByTestId('controls-lyric-font-size-section')).toBeVisible();
+    await expect(page.getByTestId('controls-toggle-lyrics-advanced')).toBeVisible();
+
+    // Advanced content stays collapsed until toggled.
+    await expect(page.getByTestId('controls-lyrics-advanced-section')).toHaveCount(0);
+    await expect(page.getByTestId('controls-theme-section')).toHaveCount(0);
+    await expect(page.getByTestId('controls-open-more-settings')).toHaveCount(0);
+
+    await page.getByTestId('controls-toggle-lyrics-advanced').click();
+    await expect(page.getByTestId('controls-lyrics-advanced-section')).toBeVisible();
+    await expect(page.getByTestId('controls-theme-section')).toBeVisible();
+    await expect(page.getByTestId('controls-lyric-word-mode-section')).toBeVisible();
 
     await expect(page.getByTestId('controls-animation-intensity-section')).toHaveCount(0);
-    await expect(page.getByTestId('controls-panel-theme-section')).toHaveCount(0);
     await expect(page.getByTestId('controls-player-background-section')).toHaveCount(0);
   });
 
   test('switches visualizer mode and persists to localStorage', async ({ page }) => {
     await openControlsTab(page);
 
+    await page.getByTestId('controls-visualizer-mode-trigger').click();
     await page.getByTestId('controls-visualizer-mode-cadenza').click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_mode'))).toBe('cadenza');
 
+    await page.getByTestId('controls-visualizer-mode-trigger').click();
     await page.getByTestId('controls-visualizer-mode-classic').click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_mode'))).toBe('classic');
   });
@@ -246,14 +324,30 @@ test.describe('player controls panel', () => {
   test('selecting a 3D preset switches background mode to interactive3d', async ({ page }) => {
     await openControlsTab(page);
 
+    // Fixture starts on common background — no 3D preset should look selected.
+    await expect(page.getByTestId('controls-interactive3d-preset-emily')).toHaveAttribute('aria-checked', 'false');
+
     await page.getByTestId('controls-interactive3d-preset-emily').click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_background_mode'))).toBe('interactive3d');
+    await expect(page.getByTestId('controls-interactive3d-preset-emily')).toHaveAttribute('aria-checked', 'true');
   });
 
-  test('applies lyric color preset and switches to AI theme mode', async ({ page }) => {
+  test('applies lyric color preset without changing theme source mode', async ({ page }) => {
     await openControlsTab(page);
 
-    await page.getByTestId('lyric-color-preset-soda-white').click();
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme_bg_mode'))).toBe('ai');
+    // soda-white is the default; pick another color-only preset.
+    await page.getByTestId('lyric-color-preset-foil-gold').click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('lyric_color_preset_id'))).toBe('foil-gold');
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('theme_bg_mode'))).not.toBe('ai');
+  });
+
+  test('updates lyric font scale from quick presets', async ({ page }) => {
+    await openControlsTab(page);
+
+    await page.getByTestId('controls-lyric-font-scale-1.25').click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('lyrics_font_scale'))).toBe('1.25');
+
+    await page.getByTestId('controls-lyric-font-scale-1').click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('lyrics_font_scale'))).toBe('1');
   });
 });

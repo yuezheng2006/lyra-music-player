@@ -7,13 +7,13 @@ export const ONLINE_AUDIO_URL_REFRESH_BUFFER_MS = 60 * 1000;
 export const PLAYER_CHROME_HIDDEN_STORAGE_KEY = 'player_chrome_hidden';
 export const LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC = 3;
 
-/** 午夜墨染 — dark 默认对齐明亮白歌词色 */
+/** 午夜墨染 — dark 默认对齐霜色歌词墨 */
 export const DEFAULT_THEME: Theme = {
     name: 'Midnight Default',
     backgroundColor: '#09090b',
-    primaryColor: '#f4f4f5',
-    accentColor: '#f4f4f5',
-    secondaryColor: '#a1a1aa',
+    primaryColor: '#E8F4F8',
+    accentColor: '#E8F4F8',
+    secondaryColor: '#C1C8D6',
     fontStyle: 'sans',
     animationIntensity: 'normal',
 };

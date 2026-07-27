@@ -23,23 +23,21 @@ describe('coverParticleBurstSmoother', () => {
 describe('coverParticlePresetRuntime', () => {
     it('normalizes removed presets before resolving runtime profiles', () => {
         const emily = resolveCoverParticlePresetRuntime('emily');
-        const tunnel = resolveCoverParticlePresetRuntime('tunnel');
-        const terrain = resolveCoverParticlePresetRuntime('terrain');
-        const aurora = resolveCoverParticlePresetRuntime('aurora');
-        const voidPreset = resolveCoverParticlePresetRuntime('mineradioVoid');
-
-        expect(tunnel).toEqual(emily);
-        expect(terrain).toEqual(emily);
-        expect(aurora).toEqual(emily);
-        expect(voidPreset).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('tunnel')).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('terrain')).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('blackhole')).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('neonRings')).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('aurora')).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('mineradioVoid')).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('quantumCube')).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('starfield')).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('vinyl')).toEqual(emily);
     });
 
-    it('keeps legacy box aliases on the quantum cube profile', () => {
-        const quantumCube = resolveCoverParticlePresetRuntime('quantumCube');
-        const starfield = resolveCoverParticlePresetRuntime('starfield');
-        const vinyl = resolveCoverParticlePresetRuntime('vinyl');
-
-        expect(starfield).toEqual(quantumCube);
-        expect(vinyl).toEqual(quantumCube);
+    it('maps retired box aliases to the cover profile', () => {
+        const emily = resolveCoverParticlePresetRuntime('emily');
+        expect(resolveCoverParticlePresetRuntime('quantumCube')).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('starfield')).toEqual(emily);
+        expect(resolveCoverParticlePresetRuntime('vinyl')).toEqual(emily);
     });
 });

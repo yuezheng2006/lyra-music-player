@@ -1,7 +1,46 @@
 import type { YtmHomePlaylist, YtmHomeSection, YtmSearchTrack, YtmStreamInfo } from '../types/ytmusic';
+import {
+    classifyThrownError,
+    invokeWithStability,
+    StableRequestError,
+    type RequestErrorCode,
+} from '../utils/network';
 
 // src/services/ytmusicService.ts
 // Renderer wrapper for Electron YouTube Music IPC (search + home playlists + stream proxy).
+
+const classifyYtmusicFailure = (message: string): RequestErrorCode => {
+    const code = classifyThrownError(new Error(message));
+    if (code !== 'unknown') return code;
+    const lower = message.toLowerCase();
+    if (lower.includes('timeout') || lower.includes('timed out')) return 'timeout';
+    if (lower.includes('network') || lower.includes('econn') || lower.includes('fetch')) return 'network';
+    if (lower.includes('401') || lower.includes('403') || lower.includes('auth')) return 'auth';
+    if (lower.includes('429')) return 'http_429';
+    if (lower.includes('500') || lower.includes('502') || lower.includes('503')) return 'http_5xx';
+    return 'unknown';
+};
+
+const runYtmusicIpc = async <T>(
+    endpoint: string,
+    run: () => Promise<{ ok: boolean; error?: string } & T>,
+): Promise<{ ok: true } & T> => {
+    return invokeWithStability(async () => {
+        const result = await run();
+        if (!result.ok) {
+            const message = result.error || `YouTube Music ${endpoint} failed`;
+            throw new StableRequestError({
+                code: classifyYtmusicFailure(message),
+                message,
+                endpoint,
+                attempts: 1,
+                requestId: `ytm_${endpoint}`,
+                source: 'ytm',
+            });
+        }
+        return result as { ok: true } & T;
+    }, { source: 'ytm', endpoint });
+};
 
 const getElectronBridge = () => {
     if (typeof window === 'undefined') return undefined;
@@ -71,10 +110,10 @@ export async function searchYtmusicTracks(query: string, limit = 20): Promise<Yt
         throw new Error('YouTube Music is only available in the desktop app');
     }
 
-    const result = await bridge.ytmusicSearch({ query, limit });
-    if (!result.ok) {
-        throw new Error(result.error || 'YouTube Music search failed');
-    }
+    const result = await runYtmusicIpc<{ tracks?: YtmSearchTrack[] }>(
+        'ytmusicSearch',
+        () => bridge.ytmusicSearch!({ query, limit }),
+    );
     return Array.isArray(result.tracks) ? result.tracks : [];
 }
 
@@ -92,10 +131,10 @@ export async function fetchYtmusicHomeShelves(
         throw new Error('YouTube Music home is only available in the desktop app');
     }
 
-    const result = await bridge.ytmusicGetHomeShelves({ forceRefresh: options?.forceRefresh });
-    if (!result.ok) {
-        throw new Error(result.error || 'YouTube Music home failed');
-    }
+    const result = await runYtmusicIpc<{ shelves?: YtmHomePlaylist[] }>(
+        'ytmusicGetHomeShelves',
+        () => bridge.ytmusicGetHomeShelves!({ forceRefresh: options?.forceRefresh }),
+    );
     const playlists = Array.isArray(result.shelves) ? result.shelves : [];
     shelvesSessionCache = { fetchedAt: Date.now(), playlists, epoch: RENDERER_SHELVES_EPOCH };
     return playlists;
@@ -117,15 +156,18 @@ export async function fetchYtmusicPlaylist(
         throw new Error('YouTube Music playlist is only available in the desktop app');
     }
 
-    const result = await bridge.ytmusicGetPlaylist({
-        playlistId: playlist.playlistId,
-        title: playlist.title,
-        coverUrl: playlist.coverUrl,
-        limit,
-        forceRefresh: options?.forceRefresh,
-    });
-    if (!result.ok || !result.section) {
-        throw new Error(result.error || 'Failed to load playlist');
+    const result = await runYtmusicIpc<{ section?: YtmHomeSection }>(
+        'ytmusicGetPlaylist',
+        () => bridge.ytmusicGetPlaylist!({
+            playlistId: playlist.playlistId,
+            title: playlist.title,
+            coverUrl: playlist.coverUrl,
+            limit,
+            forceRefresh: options?.forceRefresh,
+        }),
+    );
+    if (!result.section) {
+        throw new Error('Failed to load playlist');
     }
     playlistSessionCache.set(playlist.playlistId, {
         fetchedAt: Date.now(),
@@ -141,10 +183,10 @@ export async function fetchYtmusicHome(options?: { forceRefresh?: boolean }): Pr
         throw new Error('YouTube Music home is only available in the desktop app');
     }
 
-    const result = await bridge.ytmusicGetHome({ forceRefresh: options?.forceRefresh });
-    if (!result.ok) {
-        throw new Error(result.error || 'YouTube Music home failed');
-    }
+    const result = await runYtmusicIpc<{ sections?: YtmHomeSection[] }>(
+        'ytmusicGetHome',
+        () => bridge.ytmusicGetHome!({ forceRefresh: options?.forceRefresh }),
+    );
     return Array.isArray(result.sections) ? result.sections : [];
 }
 
@@ -154,11 +196,14 @@ export async function resolveYtmusicStream(videoId: string): Promise<YtmStreamIn
         throw new Error('YouTube Music is only available in the desktop app');
     }
 
-    const result = await bridge.ytmusicResolveStream({ videoId });
-    if (!result.ok || !result.stream?.url) {
-        throw new Error(result.error || 'Failed to resolve YouTube Music stream');
+    const result = await runYtmusicIpc<{ stream?: YtmStreamInfo & { playbackUrl?: string } }>(
+        'ytmusicResolveStream',
+        () => bridge.ytmusicResolveStream!({ videoId }),
+    );
+    if (!result.stream?.url) {
+        throw new Error('Failed to resolve YouTube Music stream');
     }
-    const playbackUrl = (result.stream as YtmStreamInfo & { playbackUrl?: string }).playbackUrl;
+    const playbackUrl = result.stream.playbackUrl;
     if (!playbackUrl) {
         throw new Error('YouTube Music proxy playback URL missing');
     }

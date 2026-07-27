@@ -6,6 +6,11 @@ contextBridge.exposeInMainWorld('electron', {
     getCacheDirectory: () => ipcRenderer.invoke('get-cache-directory'),
     chooseCacheDirectory: () => ipcRenderer.invoke('choose-cache-directory'),
     resetCacheDirectory: () => ipcRenderer.invoke('reset-cache-directory'),
+    getDownloadDirectory: () => ipcRenderer.invoke('get-download-directory'),
+    chooseDownloadDirectory: () => ipcRenderer.invoke('choose-download-directory'),
+    resetDownloadDirectory: () => ipcRenderer.invoke('reset-download-directory'),
+    openDownloadDirectory: () => ipcRenderer.invoke('open-download-directory'),
+    downloadSongFile: (payload) => ipcRenderer.invoke('download-song-file', payload),
     getUpdateStatus: () => ipcRenderer.invoke('updates-get-status'),
     checkForUpdates: () => ipcRenderer.invoke('updates-check'),
     markUpdateSeen: (version) => ipcRenderer.invoke('updates-mark-seen', version),
@@ -31,11 +36,18 @@ contextBridge.exposeInMainWorld('electron', {
     fetchLyricProxy: (url, init) => ipcRenderer.invoke('lyric-proxy-fetch', url, init),
     getNeteasePort: () => ipcRenderer.invoke('get-netease-port'),
     getMusicProviderPort: () => ipcRenderer.invoke('get-music-provider-port'),
+    getMusicProviderPluginsDir: () => ipcRenderer.invoke('get-music-provider-plugins-dir'),
+    openMusicProviderPluginsDir: () => ipcRenderer.invoke('open-music-provider-plugins-dir'),
     getNeteaseApiStatus: () => ipcRenderer.invoke('get-netease-api-status'),
     onNeteaseApiStatusChanged: (callback) => {
         const listener = (_event, status) => callback(status);
         ipcRenderer.on('netease-api-status-changed', listener);
         return () => ipcRenderer.removeListener('netease-api-status-changed', listener);
+    },
+    onGpuProcessGone: (callback) => {
+        const listener = (_event, payload) => callback(payload);
+        ipcRenderer.on('gpu-process-gone', listener);
+        return () => ipcRenderer.removeListener('gpu-process-gone', listener);
     },
     minimizeWindow: () => ipcRenderer.invoke('window-minimize'),
     toggleMaximizeWindow: () => ipcRenderer.invoke('window-toggle-maximize'),

@@ -58,6 +58,9 @@ export type CommandPaletteContext = {
     toggleLoop: () => void;
     handleNextTrack: () => void;
     handlePrevTrack: () => void;
+    /** Adjust volume by a relative step (e.g. ±0.05); may unmute on step-up. */
+    adjustVolumeByStep: (delta: number) => void;
+    toggleMute: () => void;
     shuffleQueue: () => void;
     playQueue: SongResult[];
     playSong: (song: SongResult, queue?: SongResult[]) => void | Promise<void>;
@@ -66,8 +69,10 @@ export type CommandPaletteContext = {
     generateAITheme: () => void;
     setVisualizerMode: (mode: VisualizerMode) => void;
     setLyricWordMode: (mode: LyricWordMode) => void;
+    setLyricEffectPackId: (packId: import('../../utils/lyricEffectPacks').LyricEffectPackId) => void;
     setVisualizerBackgroundMode: (mode: VisualizerBackgroundMode) => void;
     setMonetBackgroundTuning: (patch: Partial<MonetBackgroundTuning>) => void;
+    setLatentBackgroundTuning: (patch: Partial<import('../../types').LatentBackgroundTuning>) => void;
     toggleTransparentBackground: () => void;
     hideBottomSubtitleOverlay: boolean;
     toggleBottomSubtitleOverlay: () => void;
@@ -76,6 +81,8 @@ export type CommandPaletteContext = {
     toggleDaylightMode: () => void;
     enableSmartAtmosphere: boolean;
     toggleSmartAtmosphere: () => void;
+    enableBilibiliVideoBackground: boolean;
+    toggleBilibiliVideoBackground: () => void;
     setAppLanguagePreference: (preference: AppLanguagePreference) => Promise<void> | void;
     enableAlternativeLyricSources: boolean;
     runAutoMatchBestLyric: () => Promise<boolean>;
@@ -89,4 +96,7 @@ export type CommandPaletteContext = {
     setDesktopLyricsLocked: (locked: boolean) => Promise<boolean>;
     desktopLyricsEnabled: boolean;
     desktopLyricsLocked: boolean;
+    downloadCurrentSong: () => Promise<boolean>;
+    startVideoExport: (startMode?: import('../../types/videoExport').VideoExportStartMode) => void;
+    isElectronWindow: boolean;
 };

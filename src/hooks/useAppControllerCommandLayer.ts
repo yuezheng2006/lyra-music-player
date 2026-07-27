@@ -22,9 +22,12 @@ import {
     shouldExitFullscreenOnEscape,
     shouldOpenShortcutsCheatSheet,
 } from '@/components/shortcuts/shortcutKeyboardGuards';
-import { PlayerState } from '@/types';
+import { PlayerState, type SongResult } from '@/types';
 import { isLocalPlaybackSong, isNavidromePlaybackSong } from '@/utils/appPlaybackGuards';
+import { downloadSongToUserDirectory } from '@/services/songDownloadService';
 import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
+import { hasPlayableHtmlMediaSource } from '@/utils/audioAutoPlayGuard';
+import { resolveVolumeStepAdjustment } from '@/utils/playback/adjustVolumeByStepMath';
 import type {
     AppControllerCoreResult,
     AppControllerLibraryResult,
@@ -43,6 +46,7 @@ export function useAppControllerCommandLayer(
     const {
         activePlaybackContext,
         aiTheme,
+        audioQuality,
         audioRef,
         audioSrc,
         bgMode,
@@ -58,15 +62,20 @@ export function useAppControllerCommandLayer(
         enableAlternativeLyricSources,
         enablePlayerPageNativeBlur,
         enableSmartAtmosphere,
+        enableBilibiliVideoBackground,
         activateSmartTheme,
         generateAITheme,
         handleToggleEnableSmartAtmosphere,
+        handleToggleEnableBilibiliVideoBackground,
         getThemeParkSeedTheme,
         handleAutoMatchBestLyricForCurrentSong,
         handleNextTrack,
         handlePrevTrack,
+        handleSetVolume,
+        handleToggleMute,
         handleSetAppLanguagePreference,
         handleSetMonetBackgroundTuning,
+        handleSetLatentBackgroundTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
         handleSetLyricWordMode,
@@ -78,8 +87,10 @@ export function useAppControllerCommandLayer(
         homeLayoutStyle,
         isDaylight,
         isDev,
+        isElectronWindow,
         isGeneratingTheme,
         isLyricsLoading,
+        isMuted,
         isNowPlayingControlDisabled,
         isNowPlayingStageActive,
         isPlayerChromeHidden,
@@ -122,6 +133,7 @@ export function useAppControllerCommandLayer(
         setIsShortcutsCheatSheetOpen,
         setPanelTab,
         setPlayerState,
+        setStatusMsg,
         showLyricMatchModal,
         showNaviLyricMatchModal,
         showOnlineLyricMatchModal,
@@ -132,6 +144,7 @@ export function useAppControllerCommandLayer(
         stageActiveEntryKind,
         stageLyricsClockRef,
         stageSource,
+        startVideoExport,
         submitSearch,
         syncStageLyricsClock,
         t,
@@ -141,7 +154,22 @@ export function useAppControllerCommandLayer(
         toggleTransparentModeWithHandoff,
         transparentPlayerBackground,
         visualizerMode,
+        volume,
     } = core;
+
+    const adjustVolumeByStep = useCallback((delta: number) => {
+        const { nextVolume, volumeChanged, shouldUnmute } = resolveVolumeStepAdjustment({
+            volume,
+            isMuted,
+            delta,
+        });
+        if (volumeChanged) {
+            handleSetVolume(nextVolume);
+        }
+        if (shouldUnmute) {
+            handleToggleMute();
+        }
+    }, [handleSetVolume, handleToggleMute, isMuted, volume]);
 
     const canGenerateAITheme = Boolean((lyrics?.lines.length ?? 0) > 0 || currentSong?.isPureMusic || currentSong?.name);
     const generateCurrentSongTheme = useCallback(() => {
@@ -159,6 +187,41 @@ export function useAppControllerCommandLayer(
     const toggleSmartAtmosphere = useCallback(() => {
         handleToggleEnableSmartAtmosphere(!enableSmartAtmosphere);
     }, [enableSmartAtmosphere, handleToggleEnableSmartAtmosphere]);
+
+    const toggleBilibiliVideoBackground = useCallback(() => {
+        handleToggleEnableBilibiliVideoBackground(!enableBilibiliVideoBackground);
+    }, [enableBilibiliVideoBackground, handleToggleEnableBilibiliVideoBackground]);
+
+    const handleSetLyricEffectPackId = useSettingsUiStore(state => state.handleSetLyricEffectPackId);
+
+    const downloadSong = useCallback(async (song?: SongResult | null) => {
+        const target = song ?? currentSong;
+        if (!target) {
+            setStatusMsg({ type: 'error', text: t('status.noSongPlaying'), nonce: Date.now(), durationMs: 1600 });
+            return false;
+        }
+
+        setStatusMsg({ type: 'info', text: t('status.downloadingSong'), nonce: Date.now(), durationMs: 4000 });
+        const result = await downloadSongToUserDirectory(target, audioQuality, { reveal: true });
+        if (result.ok === true) {
+            setStatusMsg({ type: 'success', text: t('status.songDownloaded'), nonce: Date.now(), durationMs: 2200 });
+            return true;
+        }
+
+        const errorCode = result.ok === false ? result.error : 'download-failed';
+        const errorKey = ({
+            'no-song': 'status.noSongPlaying',
+            'electron-only': 'status.songDownloadElectronOnly',
+            'unsupported-source': 'status.songDownloadUnsupported',
+            unavailable: 'status.songDownloadUnavailable',
+            'download-failed': 'status.songDownloadFailed',
+        } as const)[errorCode] || 'status.songDownloadFailed';
+
+        setStatusMsg({ type: 'error', text: t(errorKey), nonce: Date.now(), durationMs: 2200 });
+        return false;
+    }, [audioQuality, currentSong, setStatusMsg, t]);
+
+    const downloadCurrentSong = useCallback(async () => downloadSong(currentSong), [currentSong, downloadSong]);
 
     const currentSearchSourceTabInPalette = useMemo(() => {
         if (currentSong) {
@@ -323,6 +386,8 @@ export function useAppControllerCommandLayer(
         toggleLoop,
         handleNextTrack,
         handlePrevTrack,
+        adjustVolumeByStep,
+        toggleMute: handleToggleMute,
         shuffleQueue,
         playQueue,
         playSong,
@@ -331,8 +396,10 @@ export function useAppControllerCommandLayer(
         generateAITheme: generateCurrentSongTheme,
         setVisualizerMode: handleSetVisualizerMode,
         setLyricWordMode: handleSetLyricWordMode,
+        setLyricEffectPackId: handleSetLyricEffectPackId,
         setVisualizerBackgroundMode: handleSetVisualizerBackgroundMode,
         setMonetBackgroundTuning: handleSetMonetBackgroundTuning,
+        setLatentBackgroundTuning: handleSetLatentBackgroundTuning,
         toggleTransparentBackground: () => {
             void toggleTransparentModeWithHandoff(!transparentPlayerBackground);
         },
@@ -349,6 +416,8 @@ export function useAppControllerCommandLayer(
         toggleDaylightMode,
         enableSmartAtmosphere,
         toggleSmartAtmosphere,
+        enableBilibiliVideoBackground,
+        toggleBilibiliVideoBackground,
         setAppLanguagePreference: handleSetAppLanguagePreference,
         enableAlternativeLyricSources,
         runAutoMatchBestLyric: handleAutoMatchBestLyricForCurrentSong,
@@ -362,24 +431,35 @@ export function useAppControllerCommandLayer(
         setDesktopLyricsLocked: (locked: boolean) => setDesktopLyricsLocked(locked),
         desktopLyricsEnabled: desktopLyricsStatus.enabled,
         desktopLyricsLocked: desktopLyricsStatus.locked,
+        downloadCurrentSong,
+        startVideoExport,
+        isElectronWindow,
     }), [
         canGenerateAITheme,
         canOpenThemeQuickEditor,
         currentSearchSourceTabInPalette,
         desktopLyricsStatus.enabled,
         desktopLyricsStatus.locked,
+        downloadCurrentSong,
+        startVideoExport,
+        isElectronWindow,
         enableAlternativeLyricSources,
         enablePlayerPageNativeBlur,
         enableSmartAtmosphere,
+        enableBilibiliVideoBackground,
         generateCurrentSongTheme,
         handleAutoMatchBestLyricForCurrentSong,
         handleNextTrack,
         handlePrevTrack,
+        adjustVolumeByStep,
+        handleToggleMute,
         handleSetAppLanguagePreference,
         handleSetMonetBackgroundTuning,
+        handleSetLatentBackgroundTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
         handleSetLyricWordMode,
+        handleSetLyricEffectPackId,
         handleToggleHidePlayerTranslationSubtitle,
         handleToggleShowSubtitleTranslation,
         hidePlayerTranslationSubtitle,
@@ -412,6 +492,7 @@ export function useAppControllerCommandLayer(
         toggleImmersiveFullscreen,
         toggleDaylightMode,
         toggleSmartAtmosphere,
+        toggleBilibiliVideoBackground,
         toggleDesktopLyrics,
         toggleLoop,
         togglePlay,
@@ -512,11 +593,16 @@ export function useAppControllerCommandLayer(
         if (!preset) {
             return;
         }
-        // Color stays independent from the font picker; still apply glow/rhythm emphasis.
+        // Color chips only change lyric body hues — not animation intensity / glow / rhythm.
         // No toast — same silent UX as font preset / lyric intensity.
-        const nextDualTheme = applyLyricColorPresetToDualTheme(activeDualTheme, preset, { includeEmphasis: true });
+        const nextDualTheme = applyLyricColorPresetToDualTheme(activeDualTheme, preset);
         saveStoredLyricColorPresetId(presetId);
         saveLyricColorDualTheme(nextDualTheme, currentSong?.id ?? null);
+        void import('../utils/telemetry/trackTelemetry').then(({ trackTelemetry }) => {
+            trackTelemetry('settings.changed', {
+                data: { key: 'lyricColorPreset', value: presetId },
+            });
+        });
     }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme]);
 
     const handleApplyLyricBodyColor = useCallback((color: string) => {
@@ -537,14 +623,20 @@ export function useAppControllerCommandLayer(
     });
 
     const seekMainAudio = useCallback((time: number) => {
-        if (audioRef.current) {
-            audioRef.current.currentTime = time;
-            if (audioRef.current.paused) {
-                void audioRef.current.play();
-                setPlayerState(PlayerState.PLAYING);
-            }
-            void publishStagePlayerPlaybackUpdate();
+        const audio = audioRef.current;
+        if (!audio) {
+            return;
         }
+        audio.currentTime = time;
+        // Lyric-line seek may try to resume; empty/dead src throws NotSupportedError.
+        if (audio.paused && hasPlayableHtmlMediaSource(audio)) {
+            void audio.play().then(() => {
+                setPlayerState(PlayerState.PLAYING);
+            }).catch(() => {
+                setPlayerState(PlayerState.PAUSED);
+            });
+        }
+        void publishStagePlayerPlaybackUpdate();
     }, [audioRef, publishStagePlayerPlaybackUpdate, setPlayerState]);
 
     const handleMonetLyricLineSeek = useCallback((lyricTimeSec: number) => {
@@ -600,6 +692,8 @@ export function useAppControllerCommandLayer(
         currentSearchSourceTabInPalette,
         devDebugSnapshot,
         activateCurrentSmartTheme,
+        downloadSong,
+        downloadCurrentSong,
         generateCurrentSongTheme,
         handleMonetLyricLineSeek,
         handlePlayerPanelAlbumSelect,

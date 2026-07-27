@@ -8,6 +8,11 @@ import type {
     CommandPaletteSearchSource,
 } from './types';
 import { isDiscordPresenceUiEnabled, isNavidromeUiEnabled } from '../../utils/featureFlags';
+import { usePerformanceMonitorStore } from '../../stores/usePerformanceMonitorStore';
+import { useAmbientVisualStore } from '../../stores/useAmbientVisualStore';
+import { useCharacterStore } from '../../stores/useCharacterStore';
+import { useMagneticPullStore } from '../../stores/useMagneticPullStore';
+import type { PerformanceMode } from '../../types/performance';
 
 // src/components/command-palette/commandRegistry.ts
 // Defines command palette entries and the lightweight matching used for autocomplete.
@@ -223,6 +228,23 @@ const createPanelCommand = (
     },
 });
 
+const createPerformanceModeCommand = (
+    mode: PerformanceMode,
+    title: string,
+    description: string,
+    keywords: string[],
+): CommandPaletteCommand => ({
+    id: `performance-mode-${mode}`,
+    group: 'settings',
+    title,
+    description,
+    keywords,
+    execute: () => {
+        usePerformanceMonitorStore.getState().setMode(mode);
+        return true;
+    },
+});
+
 const createVisualizerCommand = (
     mode: VisualizerMode,
     title: string,
@@ -248,6 +270,9 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createSearchCommand('search-qq', 'Search QQ Music songs', 'Search QQ Music', ['qq', 'qq music', 'search qq', 'QQ音乐', '扣扣音乐', 'qqyinyue', 'qqyy'], () => 'qq'),
     createSearchCommand('search-qishui', 'Parse Qishui Music link', 'Paste a Qishui Music share link', ['qishui', 'qishui music', 'search qishui', '汽水', '汽水音乐', 'qishuiyinyue', 'qsyy'], () => 'qishui'),
     createSearchCommand('search-coco', 'Search Coco songs', 'Search free aggregated music sources', ['coco', 'coco downloader', 'search coco', '聚合', '免费搜索', 'juhe'], () => 'coco'),
+    createSearchCommand('search-kugou', 'Search Kugou songs', 'Search Kugou Music', ['kugou', '酷狗', '酷狗音乐', 'kugouyinyue', 'kgyy'], () => 'kugou'),
+    createSearchCommand('search-bilibili', 'Search Bilibili audio', 'Search Bilibili video audio', ['bilibili', 'bili', 'B站', '哔哩哔哩', 'b站', 'blbl'], () => 'bilibili'),
+    createSearchCommand('search-kuwo', 'Search Kuwo songs', 'Search Kuwo Music', ['kuwo', '酷我', '酷我音乐', 'kuwoyinyue', 'kwyy'], () => 'kuwo'),
     createQueueSearchCommand(),
 
     createSettingsCommand('settings-help', 'Open Help', 'Open help and shortcuts', ['help', '帮助', 'bangzhu', 'bz'], 'help'),
@@ -311,9 +336,99 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createSettingsCommand('settings-general', 'General settings', 'Open general app preferences', ['general', 'language settings', 'locale', '通用', '语言', 'tongyong', 'yuyan', 'ty', 'yy'], 'options', 'general'),
     createSettingsCommand('settings-playback', 'Playback settings', 'Open playback behavior settings', ['playback settings', 'playback', '播放', '播放设置', 'bofang', 'bofangshezhi', 'bf', 'bfsz'], 'options', 'playback'),
     createSettingsCommand('settings-integration', 'Integration settings', 'Open music account, Stage, Now Playing, and provider settings', ['integration', 'stage', 'now playing', 'qq music settings', 'qq music cookie', '集成', '连接', 'QQ音乐', 'QQ音乐登录', 'jicheng', 'lianjie', 'qqyinyue', 'qqdenglu', 'jc', 'lj'], 'options', 'integration'),
+    createSettingsCommand('settings-music-provider-plugins', 'Music provider plugins', 'Open open-mode music provider plugin settings', ['music provider', 'provider plugin', 'open mode', 'sidecar plugin', '音乐源插件', '开放模式', '插件源', 'yinyueyuan', 'chajian', 'kaifang', 'cjy'], 'options', 'integration'),
     createSettingsCommand('settings-discord-presence', 'Discord playback status', 'Open Discord Rich Presence settings', ['discord', 'rich presence', 'discord presence', 'playing status', '播放状态', 'discord状态', 'discordzhuangtai', 'bofangzhuangtai', 'dc', 'zt'], 'options', 'integration'),
     createSettingsCommand('settings-obs-browser-source', 'OBS browser source', 'Open OBS browser source settings', ['obs', 'browser source', 'live source', '直播源', '浏览器源', 'zhiboyuan', 'liulanqiyuan', 'zby', 'llqy'], 'options', 'integration'),
-    createSettingsCommand('settings-storage', 'Storage settings', 'Open cache and storage settings', ['storage', 'cache', '存储', '缓存', 'cunchu', 'huancun', 'cc', 'hc'], 'options', 'storage'),
+    {
+        id: 'music-provider-rescan',
+        group: 'settings',
+        title: 'Rescan music provider plugins',
+        description: 'Reload local open-mode music provider plugins from disk',
+        keywords: [
+            'rescan providers',
+            'reload providers',
+            'provider plugin',
+            '重新扫描',
+            '扫描插件',
+            '音乐源',
+            'chongxinsaomiao',
+            'saomiao',
+            'cxsm',
+        ],
+        execute: async () => {
+            const { useMusicProviderCatalogStore } = await import('../../stores/useMusicProviderCatalogStore');
+            const { useOnlineLibraryFilterStore } = await import('../../stores/useOnlineLibraryFilterStore');
+            const { mergeProviderCatalogIds } = await import('../../utils/musicProviders/providerManifestMath');
+            await useMusicProviderCatalogStore.getState().reload();
+            const providers = useMusicProviderCatalogStore.getState().providers;
+            useOnlineLibraryFilterStore.getState().syncKnownProviders(mergeProviderCatalogIds(providers));
+            return true;
+        },
+    },
+    createSettingsCommand('settings-storage', 'Storage settings', 'Open cache and storage settings', ['storage', 'cache', 'download folder', '存储', '缓存', '下载目录', 'cunchu', 'huancun', 'xiazai', 'cc', 'hc', 'xz'], 'options', 'storage'),
+    {
+        id: 'open-download-directory',
+        group: 'settings',
+        title: 'Open download folder',
+        description: 'Reveal the song download directory in your file manager',
+        keywords: ['download folder', 'download directory', 'open downloads', '下载目录', '打开下载', '下载文件夹', 'xiazai', 'xiazaimulu', 'xzml'],
+        execute: async () => {
+            if (typeof window === 'undefined' || !window.electron?.openDownloadDirectory) {
+                return false;
+            }
+            await window.electron.openDownloadDirectory();
+            return true;
+        },
+    },
+    {
+        id: 'download-current-song',
+        group: 'playback',
+        title: 'Download current song',
+        description: 'Save the current playable audio into the download folder',
+        keywords: [
+            'download song',
+            'save song',
+            'download current',
+            '下载歌曲',
+            '下载当前',
+            '保存歌曲',
+            '本地下载',
+            'xiazai',
+            'baocun',
+            'xzgq',
+        ],
+        execute: async (_input, context) => context.downloadCurrentSong(),
+    },
+    {
+        id: 'record-current-playback',
+        group: 'playback',
+        title: 'Record current playback',
+        description: 'Export the current player view or Bilibili video stream to a video file (Electron only)',
+        keywords: [
+            'record',
+            'video export',
+            'export video',
+            'screen record',
+            'bilibili record',
+            '录制',
+            '录屏',
+            '导出视频',
+            'B站录制',
+            'bilibili',
+            'luzhi',
+            'luping',
+            'daochu',
+            'lz',
+            'lp',
+        ],
+        execute: (_input, context) => {
+            if (!context.isElectronWindow) {
+                return false;
+            }
+            context.startVideoExport('from-start');
+            return true;
+        },
+    },
     createSettingsCommand('settings-desktop', 'Desktop settings', 'Open desktop app settings', ['desktop', 'electron', '桌面', '桌面端', 'zhuomian', 'zhuomianduan', 'zm', 'zmd'], 'options', 'desktop'),
     {
         id: 'desktop-lyrics-toggle',
@@ -341,6 +456,127 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         },
     },
     createSettingsCommand('settings-lab', 'Lab settings', 'Open experimental settings', ['lab', 'experimental', '实验', '实验室', 'shiyan', 'shiyanshi', 'sy', 'sys'], 'options', 'lab'),
+    createPerformanceModeCommand('auto', 'Performance: Auto', 'Auto-adapt visual quality from FPS', ['performance', 'auto quality', '性能', '自动性能', 'xingneng', 'zdnx', 'xn']),
+    createPerformanceModeCommand('high', 'Performance: High', 'Full visual quality', ['performance high', '高性能', 'gaoxingneng', 'gxn']),
+    createPerformanceModeCommand('balanced', 'Performance: Balanced', 'Balanced visual quality', ['performance balanced', '均衡性能', 'junheng', 'jhxn']),
+    createPerformanceModeCommand('lite', 'Performance: Lite', 'Minimal visual quality', ['performance lite', 'low performance', '低性能', '省电', 'dixingneng', 'dxn']),
+    {
+        id: 'toggle-ambient-visual',
+        group: 'visualizer',
+        title: 'Toggle ambient visual',
+        description: 'Show or hide mood-driven ambient visual strategies above cover particles',
+        keywords: [
+            'ambient visual',
+            'ambient',
+            'mood visual',
+            '主视觉',
+            '氛围视觉',
+            '情绪视觉',
+            'zhushijue',
+            'fenweishijue',
+            'zsj',
+            'fwsj',
+        ],
+        execute: () => {
+            const store = useAmbientVisualStore.getState();
+            store.setEnabled(!store.enabled);
+            return true;
+        },
+    },
+    {
+        id: 'toggle-interactive-character',
+        group: 'visualizer',
+        title: 'Toggle interactive character',
+        description: 'Show or hide the fox companion on the player stage',
+        keywords: [
+            'character',
+            'fox',
+            'interactive character',
+            '角色',
+            '互动角色',
+            '狐狸',
+            'juese',
+            'hudongjuese',
+            'js',
+            'hdjs',
+        ],
+        execute: () => {
+            const store = useCharacterStore.getState();
+            store.setEnabled(!store.enabled);
+            return true;
+        },
+    },
+    {
+        id: 'toggle-magnetic-pull',
+        group: 'visualizer',
+        title: 'Toggle magnetic emotion chip',
+        description: 'Soft pointer-follow on the floating mood chip',
+        keywords: [
+            'magnetic',
+            'magnetic pull',
+            'emotion chip',
+            'mood chip',
+            '磁吸',
+            '磁性',
+            '情绪按钮',
+            '情绪芯片',
+            'cixi',
+            'cixing',
+            'qingxuan',
+            'cx',
+        ],
+        execute: () => {
+            const store = useMagneticPullStore.getState();
+            store.setEnabled(!store.enabled);
+            return true;
+        },
+    },
+    {
+        id: 'toggle-emotion-scramble',
+        group: 'visualizer',
+        title: 'Toggle emotion label scramble',
+        description: 'Brief scramble reveal when the mood label changes',
+        keywords: [
+            'scramble',
+            'emotion scramble',
+            'mood scramble',
+            '乱码',
+            '情绪乱码',
+            '文字扰乱',
+            'luanma',
+            'qingxuluanma',
+            'lm',
+            'qxlm',
+        ],
+        execute: () => {
+            const store = useMagneticPullStore.getState();
+            store.setScrambleEnabled(!store.scrambleEnabled);
+            return true;
+        },
+    },
+    {
+        id: 'toggle-emotion-beat-pulse',
+        group: 'visualizer',
+        title: 'Toggle emotion chip beat pulse',
+        description: 'Soft glow on the mood chip follows atmosphere beat',
+        keywords: [
+            'beat pulse',
+            'emotion beat',
+            'mood beat',
+            '节拍光晕',
+            '情绪节拍',
+            'chip pulse',
+            'jiepai',
+            'qingxujiepai',
+            'jp',
+            'qxjp',
+        ],
+        execute: () => {
+            const store = useMagneticPullStore.getState();
+            store.setBeatPulseEnabled(!store.beatPulseEnabled);
+            return true;
+        },
+    },
     createSettingsCommand('settings-visualizer', 'Visualizer settings', 'Open lyrics animation workbench', ['visualizer settings', 'visualizer workbench', '可视化', '歌词动画', 'keshihua', 'gecidonghua', 'ksh', 'gcdh'], 'options', 'visualizer'),
     createSettingsCommand('settings-theme-park', 'Color', 'Open theme editor', ['color', 'theme park', 'theme', '配色', '主题', '主题公园', 'peise', 'zhuti', 'zhutigongyuan', 'ps', 'zt', 'ztgy'], 'options', 'themePark'),
     createSettingsCommand('settings-lyric-filter', 'Lyric filter', 'Open lyric filter settings', ['lyric filter', 'lyrics filter', '歌词过滤', '过滤', 'geciguolv', 'guolv', 'gcgl', 'gl'], 'options', 'lyricFilter'),
@@ -501,6 +737,39 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         },
     },
     {
+        id: 'playback-volume-up',
+        group: 'playback',
+        title: 'Volume up',
+        description: 'Raise volume by 5%',
+        keywords: ['volume up', 'louder', '音量加', '音量+', '增大音量', 'yinliangjia', 'ylj'],
+        execute: (_input, context) => {
+            context.adjustVolumeByStep(0.05);
+            return true;
+        },
+    },
+    {
+        id: 'playback-volume-down',
+        group: 'playback',
+        title: 'Volume down',
+        description: 'Lower volume by 5%',
+        keywords: ['volume down', 'quieter', '音量减', '音量-', '减小音量', 'yinliangjian', 'yljian'],
+        execute: (_input, context) => {
+            context.adjustVolumeByStep(-0.05);
+            return true;
+        },
+    },
+    {
+        id: 'playback-toggle-mute',
+        group: 'playback',
+        title: 'Toggle mute',
+        description: 'Mute or unmute playback',
+        keywords: ['mute', 'unmute', '静音', '取消静音', 'jingyin', 'jy'],
+        execute: (_input, context) => {
+            context.toggleMute();
+            return true;
+        },
+    },
+    {
         id: 'playback-shuffle',
         group: 'playback',
         title: 'Shuffle queue',
@@ -557,6 +826,50 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createVisualizerCommand('claddagh', 'Visualizer: Claddagh', 'Switch to Claddagh visualizer', ['visualizer claddagh', 'claddagh', '回环', 'jiezhi', 'jz']),
     createVisualizerCommand('monet', 'Visualizer: Monet', 'Switch to Monet visualizer', ['visualizer monet', 'monet', '莫奈', 'monai', 'mn', '切换到可视化：莫奈', '切换到可视化莫奈']),
     {
+        id: 'lyric-effect-none',
+        group: 'visualizer',
+        title: 'Lyric effect: None',
+        description: 'Clear lyric effect pack',
+        keywords: ['lyric effect none', 'no lyric effect', '无特效', '关闭特效', 'wutexiao', 'wtx'],
+        execute: (_input, context) => {
+            context.setLyricEffectPackId('none');
+            return true;
+        },
+    },
+    {
+        id: 'lyric-effect-yehuo',
+        group: 'visualizer',
+        title: 'Lyric effect: Wildfire',
+        description: 'Apply yehuo dual-layer echo pack',
+        keywords: ['lyric effect yehuo', 'wildfire effect', '野火感', '双重叠字', 'yehuo', 'yh'],
+        execute: (_input, context) => {
+            context.setLyricEffectPackId('yehuo');
+            return true;
+        },
+    },
+    {
+        id: 'lyric-effect-neon',
+        group: 'visualizer',
+        title: 'Lyric effect: Neon',
+        description: 'Apply neon glow / scan pack',
+        keywords: ['lyric effect neon', 'neon lyrics', '霓虹感', '霓虹', 'nihong', 'nh'],
+        execute: (_input, context) => {
+            context.setLyricEffectPackId('neon');
+            return true;
+        },
+    },
+    {
+        id: 'lyric-effect-glitch',
+        group: 'visualizer',
+        title: 'Lyric effect: Glitch',
+        description: 'Apply short glitch / RGB offset pack',
+        keywords: ['lyric effect glitch', 'glitch lyrics', '故障感', '故障', 'guzhang', 'gz'],
+        execute: (_input, context) => {
+            context.setLyricEffectPackId('glitch');
+            return true;
+        },
+    },
+    {
         id: 'lyric-word-mode-default',
         group: 'visualizer',
         title: 'Lyrics: Default Word Highlight',
@@ -572,9 +885,20 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         group: 'visualizer',
         title: 'Lyrics: Karaoke Word Highlight',
         description: 'Show upcoming lyrics with current-line word highlight',
-        keywords: ['lyric word mode', 'karaoke', 'sing along', 'k歌', '卡拉ok', 'kalake', 'ktv', 'kg', 'k歌逐字', '预告歌词'],
+        keywords: ['lyric word mode', 'karaoke', 'sing along', 'k歌', '卡拉ok', 'kalake', 'kg', 'k歌逐字', '预告歌词'],
         execute: (_input, context) => {
             context.setLyricWordMode('karaoke');
+            return true;
+        },
+    },
+    {
+        id: 'lyric-word-mode-ktv',
+        group: 'visualizer',
+        title: 'Lyrics: Traditional KTV Wipe',
+        description: 'Traditional left-to-right karaoke wipe fill on supported lyric layouts',
+        keywords: ['lyric word mode', 'ktv', 'traditional karaoke', 'wipe', '扫光', '传统k歌', '传统', 'chuantong', 'ct', '扫字'],
+        execute: (_input, context) => {
+            context.setLyricWordMode('ktv');
             return true;
         },
     },
@@ -600,6 +924,53 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         execute: (_input, context) => {
             context.setVisualizerBackgroundMode('monet');
             context.setMonetBackgroundTuning({ backgroundLayout: 'half-pane-gradient' });
+            return true;
+        },
+    },
+    {
+        id: 'background-latent',
+        group: 'visualizer',
+        title: 'Background: Latent',
+        description: 'Switch background to cover-colored audio-reactive shaders',
+        keywords: ['latent', 'shader', 'mesh', 'dithering', '隐现', '着色器', 'yx', '背景切换到隐现', '背景切换到 Latent'],
+        execute: (_input, context) => {
+            context.setVisualizerBackgroundMode('latent');
+            return true;
+        },
+    },
+    {
+        id: 'background-latent-dithering',
+        group: 'visualizer',
+        title: 'Latent: Pixel',
+        description: 'Show only the Dithering layer',
+        keywords: ['latent dithering', 'latent pixel', '隐现像素', '像素层', 'yxss', '背景切换到隐现：像素'],
+        execute: (_input, context) => {
+            context.setVisualizerBackgroundMode('latent');
+            context.setLatentBackgroundTuning({ displayMode: 'dithering' });
+            return true;
+        },
+    },
+    {
+        id: 'background-latent-mesh',
+        group: 'visualizer',
+        title: 'Latent: Fluid',
+        description: 'Show only the MeshGradient layer',
+        keywords: ['latent mesh', 'latent fluid', '隐现流体', '流体层', 'yxlt', '背景切换到隐现：流体'],
+        execute: (_input, context) => {
+            context.setVisualizerBackgroundMode('latent');
+            context.setLatentBackgroundTuning({ displayMode: 'mesh' });
+            return true;
+        },
+    },
+    {
+        id: 'background-latent-both',
+        group: 'visualizer',
+        title: 'Latent: Mixed',
+        description: 'Show both shader layers',
+        keywords: ['latent both', 'latent mixed', '隐现混合', '混合层', 'yxhh', '背景切换到隐现：混合'],
+        execute: (_input, context) => {
+            context.setVisualizerBackgroundMode('latent');
+            context.setLatentBackgroundTuning({ displayMode: 'both' });
             return true;
         },
     },
@@ -632,6 +1003,28 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         ],
         execute: (_input, context) => {
             context.toggleSmartAtmosphere();
+            return true;
+        },
+    },
+    {
+        id: 'settings-toggle-bilibili-video-background',
+        group: 'playback',
+        title: 'Toggle Bilibili video background',
+        description: 'Show or hide muted Bilibili video under lyrics while playing',
+        keywords: [
+            'bilibili video',
+            'bilibili background',
+            'video background',
+            'B站视频',
+            'B站背景',
+            '视频背景',
+            'bizhan',
+            'bizhanshipin',
+            'b站视频',
+            'bilibili',
+        ],
+        execute: (_input, context) => {
+            context.toggleBilibiliVideoBackground();
             return true;
         },
     },
@@ -836,7 +1229,12 @@ export const getCommandPaletteMatches = (
             }
         }
 
-        if (command.id === 'desktop-lyrics-toggle' || command.id === 'desktop-lyrics-lock-toggle') {
+        if (
+            command.id === 'desktop-lyrics-toggle'
+            || command.id === 'desktop-lyrics-lock-toggle'
+            || command.id === 'open-download-directory'
+            || command.id === 'download-current-song'
+        ) {
             const isWebBrowser = typeof window !== 'undefined';
             const isElectron = isWebBrowser && Boolean((window as any).electron);
             if (isWebBrowser && !isElectron) {

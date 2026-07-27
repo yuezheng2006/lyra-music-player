@@ -20,16 +20,20 @@ type AudioEffectData = {
 };
 
 const PRESET_GLOW: Record<LyricEffectPreset, string[]> = {
-    'soda-gray': ['#a1a1aa', '#d4d4d8'],
-    'soda-white': ['#ffffff', '#e4e4e7'],
-    'douyin-yellow': ['#ffd84d', '#ffcc00'],
-    'foil-gold': ['#f2d06b', '#d4af37'],
-    'xhs-hot-pink': ['#ff6b9d', '#ff3d7a'],
-    'dazibao-red': ['#ff5a45', '#ef4444'],
+    'soda-white': ['#E8F4F8', '#C1C8D6'],
+    'foil-gold': ['#F9D770', '#EBB10D'],
+    'stage-blue': ['#4F84FF', '#1661AB'],
+    'dazibao-red': ['#FF4D4D', '#D92121'],
+    'ice-silver': ['#C1C8D6', '#E4DFD7'],
+    'mint-lime': ['#B2F0D9', '#207F4C'],
+    'hot-pink': ['#FF6F61', '#AED9D4'],
+    'violet-neon': ['#D1B3FF', '#C8A2C8'],
+    'sunset-orange': ['#FBB957', '#63BBD0'],
+    'pin-song': ['#EF3473', '#A0D6B4'],
 };
 
 const resolveGlowShadow = (preset: LyricEffectPreset, level = 0.5) => {
-    const [primary, secondary] = PRESET_GLOW[preset];
+    const [primary, secondary] = PRESET_GLOW[preset] ?? PRESET_GLOW['soda-white'];
     const boost = Math.max(0, Math.min(1, level));
     return [
         `0 0 ${8 + boost * 12}px ${primary}`,
@@ -57,30 +61,35 @@ const animateBreathingGlow = (
     },
 );
 
-export const applySodaGrayEffect = (element: HTMLElement, audioLevel = 0.5) => (
-    animateBreathingGlow(element, 'soda-gray', audioLevel, 1400)
-);
-
 export const applySodaWhiteEffect = (element: HTMLElement, audioLevel = 0.5) => (
     animateBreathingGlow(element, 'soda-white', audioLevel, 1400)
 );
 
-/** @deprecated Prefer applySodaGrayEffect — soda-black preset removed. */
-export const applySodaBlackEffect = (element: HTMLElement, audioLevel = 0.5) => (
-    applySodaGrayEffect(element, audioLevel)
+/** @deprecated Gray preset folded into white. */
+export const applySodaGrayEffect = (element: HTMLElement, audioLevel = 0.5) => (
+    applySodaWhiteEffect(element, audioLevel)
 );
 
-/** @deprecated Prefer applyDouyinYellowEffect — kept for older playground callers. */
+/** @deprecated Prefer applySodaWhiteEffect — soda-black preset removed. */
+export const applySodaBlackEffect = (element: HTMLElement, audioLevel = 0.5) => (
+    applySodaWhiteEffect(element, audioLevel)
+);
+
+/** @deprecated Yellow preset folded into gold. */
 export const applyDouyinYellowEffect = (element: HTMLElement, audioLevel = 0.5) => (
-    animateBreathingGlow(element, 'douyin-yellow', audioLevel, 1200)
+    animateBreathingGlow(element, 'foil-gold', audioLevel, 1200)
 );
 
 export const applyFoilGoldEffect = (element: HTMLElement, audioLevel = 0.5) => (
     animateBreathingGlow(element, 'foil-gold', audioLevel, 1300)
 );
 
+export const applyStageBlueEffect = (element: HTMLElement, audioLevel = 0.5) => (
+    animateBreathingGlow(element, 'stage-blue', audioLevel, 1300)
+);
+
 export const applyXhsHotPinkEffect = (element: HTMLElement) => (
-    animateBreathingGlow(element, 'xhs-hot-pink', 0.42, 1100)
+    animateBreathingGlow(element, 'hot-pink', 0.42, 1100)
 );
 
 export const applyXhsNoteRedEffect = (element: HTMLElement, text: string) => {

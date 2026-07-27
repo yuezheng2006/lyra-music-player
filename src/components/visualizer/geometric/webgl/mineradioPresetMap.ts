@@ -7,9 +7,7 @@ import { normalizeInteractive3dVisualPreset } from '../mineradioVisualPresets';
 export const INTERACTIVE3D_WEBGL_PRESET_INDEX: Record<MineradioVisualPresetId, number> = {
     emily: 0,
     starfield: 1,
-    tunnel: 5,
     nebula: 2,
-    terrain: 3,
     quantumCube: 4,
     aurora: 6,
     mineradioTunnel: 7,

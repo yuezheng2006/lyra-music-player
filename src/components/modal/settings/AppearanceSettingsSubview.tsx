@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import {
     DEFAULT_CLADDAGH_TUNING,
+    DEFAULT_LATENT_BACKGROUND_TUNING,
     DEFAULT_MONET_BACKGROUND_TUNING,
     DEFAULT_MONET_TUNING,
     type DualTheme,
@@ -12,6 +13,10 @@ import {
     type UrlBackgroundItem,
 } from '../../../types';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
+import { useAmbientVisualStore } from '../../../stores/useAmbientVisualStore';
+import { useMagneticPullStore } from '../../../stores/useMagneticPullStore';
+import { parsePerformanceMode } from '../../../utils/performance/performanceMonitorMath';
 import { sanitizeUrlBackgroundItem } from '../../../utils/urlBackground';
 import {
     getLyricColorPresetById,
@@ -222,6 +227,39 @@ const decompressMonetBackground = (o: any): any => ({
     backgroundWashCustomColor: o.mbwcc || DEFAULT_MONET_BACKGROUND_TUNING.backgroundWashCustomColor,
 });
 
+const compressLatentBackground = (t: any): any => ({
+    ldm: t.displayMode,
+    lcs: t.colorSource,
+    ldop: t.dynamicOnlyInPlayer,
+    lebr: t.enhancedBeatResponse,
+    lds: t.ditheringSpeed,
+    ldas: t.ditheringAudioSpeed,
+    ldz: t.ditheringSize,
+    ldo: t.ditheringOpacity,
+    lms: t.meshSpeed,
+    lmas: t.meshAudioSpeed,
+    lmd: t.meshDistortion,
+    lmw: t.meshSwirl,
+    loe: t.overlayEnabled,
+    loo: t.overlayOpacity,
+});
+const decompressLatentBackground = (o: any): any => ({
+    displayMode: o.ldm || DEFAULT_LATENT_BACKGROUND_TUNING.displayMode,
+    colorSource: o.lcs || DEFAULT_LATENT_BACKGROUND_TUNING.colorSource,
+    dynamicOnlyInPlayer: o.ldop !== undefined ? o.ldop : DEFAULT_LATENT_BACKGROUND_TUNING.dynamicOnlyInPlayer,
+    enhancedBeatResponse: o.lebr !== undefined ? o.lebr : DEFAULT_LATENT_BACKGROUND_TUNING.enhancedBeatResponse,
+    ditheringSpeed: o.lds !== undefined ? o.lds : DEFAULT_LATENT_BACKGROUND_TUNING.ditheringSpeed,
+    ditheringAudioSpeed: o.ldas !== undefined ? o.ldas : DEFAULT_LATENT_BACKGROUND_TUNING.ditheringAudioSpeed,
+    ditheringSize: o.ldz !== undefined ? o.ldz : DEFAULT_LATENT_BACKGROUND_TUNING.ditheringSize,
+    ditheringOpacity: o.ldo !== undefined ? o.ldo : DEFAULT_LATENT_BACKGROUND_TUNING.ditheringOpacity,
+    meshSpeed: o.lms !== undefined ? o.lms : DEFAULT_LATENT_BACKGROUND_TUNING.meshSpeed,
+    meshAudioSpeed: o.lmas !== undefined ? o.lmas : DEFAULT_LATENT_BACKGROUND_TUNING.meshAudioSpeed,
+    meshDistortion: o.lmd !== undefined ? o.lmd : DEFAULT_LATENT_BACKGROUND_TUNING.meshDistortion,
+    meshSwirl: o.lmw !== undefined ? o.lmw : DEFAULT_LATENT_BACKGROUND_TUNING.meshSwirl,
+    overlayEnabled: o.loe !== undefined ? o.loe : DEFAULT_LATENT_BACKGROUND_TUNING.overlayEnabled,
+    overlayOpacity: o.loo !== undefined ? o.loo : DEFAULT_LATENT_BACKGROUND_TUNING.overlayOpacity,
+});
+
 const compressMonet = (t: any): any => ({
     kce: t.keywordColoringEnabled,
     msd: t.showDescription,
@@ -254,12 +292,17 @@ export const compressConfig = (config: any): string => {
     if (config.visualizerMode) minified.vm = config.visualizerMode;
     if (config.lyricWordMode) minified.lwm = config.lyricWordMode;
     if (config.lyricFontPresetId) minified.lfp = config.lyricFontPresetId;
+    if (config.lyricEffectPackId) minified.lep = config.lyricEffectPackId;
     if (config.visualEffectIntensity) minified.vei = config.visualEffectIntensity;
     if (config.visualizerBackgroundMode) minified.vbm = config.visualizerBackgroundMode;
     if (config.backgroundOpacity !== undefined) minified.bo = config.backgroundOpacity;
     if (config.visualizerOpacity !== undefined) minified.vo = config.visualizerOpacity;
     if (config.hidePlayerTranslationSubtitle !== undefined) minified.hpts = config.hidePlayerTranslationSubtitle;
     if (config.showSubtitleTranslation !== undefined) minified.sst = config.showSubtitleTranslation;
+    if (config.subtitleOverlayBackground !== undefined) minified.sob = config.subtitleOverlayBackground;
+    if (config.subtitleFontInheritsLyrics !== undefined) minified.sfi = config.subtitleFontInheritsLyrics;
+    if (config.subtitleFontStyle) minified.sfs = config.subtitleFontStyle;
+    if (config.subtitleFontFamily) minified.sff = config.subtitleFontFamily;
     if (config.lyricsFontStyle) minified.lfs = config.lyricsFontStyle;
     if (config.lyricsFontScale !== undefined) minified.lfn = config.lyricsFontScale;
     if (config.lyricColorPresetId) minified.lcp = config.lyricColorPresetId;
@@ -273,6 +316,7 @@ export const compressConfig = (config: any): string => {
     if (config.cappellaTuning) minified.cpt = compressCappella(config.cappellaTuning);
     if (config.tiltTuning) minified.tt = compressTilt(config.tiltTuning);
     if (config.monetBackgroundTuning) minified.mbt = compressMonetBackground(config.monetBackgroundTuning);
+    if (config.latentBackgroundTuning) minified.lbt = compressLatentBackground(config.latentBackgroundTuning);
     if (config.interactive3dSceneTuning) minified.i3st = config.interactive3dSceneTuning;
     if (config.monetTuning) minified.mt = compressMonet(config.monetTuning);
     if (config.urlBackgroundList) minified.ubl = config.urlBackgroundList;
@@ -281,6 +325,11 @@ export const compressConfig = (config: any): string => {
     if (config.songThemeAutoGenerateEnabled !== undefined) minified.stag = config.songThemeAutoGenerateEnabled;
     if (config.enableSmartAtmosphere !== undefined) minified.esa = config.enableSmartAtmosphere;
     if (config.enable3dInteractiveBackground !== undefined) minified.e3ib = config.enable3dInteractiveBackground;
+    if (config.performanceMode) minified.pm = config.performanceMode;
+    if (config.ambientVisualEnabled !== undefined) minified.ave = config.ambientVisualEnabled;
+    if (config.magneticPullEnabled !== undefined) minified.mpe = config.magneticPullEnabled;
+    if (config.emotionScrambleEnabled !== undefined) minified.ese = config.emotionScrambleEnabled;
+    if (config.emotionBeatPulseEnabled !== undefined) minified.ebe = config.emotionBeatPulseEnabled;
 
     const jsonStr = JSON.stringify(minified);
     const bytes = new TextEncoder().encode(jsonStr);
@@ -309,7 +358,7 @@ export const decompressConfig = (str: string): any => {
         throw new Error('Invalid format');
     }
 
-    const isMinified = parsed.t !== undefined || parsed.vm !== undefined || parsed.lwm !== undefined || parsed.ct !== undefined || parsed.cat !== undefined || parsed.hpts !== undefined || parsed.sst !== undefined || parsed.esa !== undefined || parsed.e3ib !== undefined;
+    const isMinified = parsed.t !== undefined || parsed.vm !== undefined || parsed.lwm !== undefined || parsed.ct !== undefined || parsed.cat !== undefined || parsed.hpts !== undefined || parsed.sst !== undefined || parsed.esa !== undefined || parsed.e3ib !== undefined || parsed.pm !== undefined || parsed.ave !== undefined || parsed.mpe !== undefined || parsed.ese !== undefined || parsed.ebe !== undefined;
     if (isMinified) {
         const decompressed: any = {};
         if (parsed.t) {
@@ -321,12 +370,17 @@ export const decompressConfig = (str: string): any => {
         if (parsed.vm) decompressed.visualizerMode = parsed.vm;
         if (parsed.lwm) decompressed.lyricWordMode = parsed.lwm;
         if (parsed.lfp) decompressed.lyricFontPresetId = parsed.lfp;
+        if (parsed.lep) decompressed.lyricEffectPackId = parsed.lep;
         if (parsed.vei) decompressed.visualEffectIntensity = parsed.vei;
         if (parsed.vbm) decompressed.visualizerBackgroundMode = parsed.vbm;
         if (parsed.bo !== undefined) decompressed.backgroundOpacity = parsed.bo;
         if (parsed.vo !== undefined) decompressed.visualizerOpacity = parsed.vo;
         if (parsed.hpts !== undefined) decompressed.hidePlayerTranslationSubtitle = parsed.hpts;
         if (parsed.sst !== undefined) decompressed.showSubtitleTranslation = parsed.sst;
+        if (parsed.sob !== undefined) decompressed.subtitleOverlayBackground = parsed.sob;
+        if (parsed.sfi !== undefined) decompressed.subtitleFontInheritsLyrics = parsed.sfi;
+        if (parsed.sfs) decompressed.subtitleFontStyle = parsed.sfs;
+        if (parsed.sff) decompressed.subtitleFontFamily = parsed.sff;
         if (parsed.lfs) decompressed.lyricsFontStyle = parsed.lfs;
         if (parsed.lfn !== undefined) decompressed.lyricsFontScale = parsed.lfn;
         if (parsed.lcp) decompressed.lyricColorPresetId = parsed.lcp;
@@ -340,6 +394,7 @@ export const decompressConfig = (str: string): any => {
         if (parsed.cpt) decompressed.cappellaTuning = decompressCappella(parsed.cpt);
         if (parsed.tt) decompressed.tiltTuning = decompressTilt(parsed.tt);
         if (parsed.mbt) decompressed.monetBackgroundTuning = decompressMonetBackground(parsed.mbt);
+        if (parsed.lbt) decompressed.latentBackgroundTuning = decompressLatentBackground(parsed.lbt);
         if (parsed.i3st) decompressed.interactive3dSceneTuning = parsed.i3st;
         if (parsed.mt) decompressed.monetTuning = decompressMonet(parsed.mt);
         if (parsed.ubl) decompressed.urlBackgroundList = parsed.ubl;
@@ -348,18 +403,25 @@ export const decompressConfig = (str: string): any => {
         if (parsed.stag !== undefined) decompressed.songThemeAutoGenerateEnabled = parsed.stag;
         if (parsed.esa !== undefined) decompressed.enableSmartAtmosphere = parsed.esa;
         if (parsed.e3ib !== undefined) decompressed.enable3dInteractiveBackground = parsed.e3ib;
+        if (parsed.pm) decompressed.performanceMode = parsed.pm;
+        if (parsed.ave !== undefined) decompressed.ambientVisualEnabled = parsed.ave;
+        if (parsed.mpe !== undefined) decompressed.magneticPullEnabled = parsed.mpe;
+        if (parsed.ese !== undefined) decompressed.emotionScrambleEnabled = parsed.ese;
+        if (parsed.ebe !== undefined) decompressed.emotionBeatPulseEnabled = parsed.ebe;
 
         return decompressed;
     } else {
         const validKeys = [
-            'theme', 'visualizerMode', 'lyricWordMode', 'lyricFontPresetId', 'visualEffectIntensity', 'visualizerBackgroundMode', 'backgroundOpacity',
+            'theme', 'visualizerMode', 'lyricWordMode', 'lyricFontPresetId', 'lyricEffectPackId', 'visualEffectIntensity', 'visualizerBackgroundMode', 'backgroundOpacity',
             'visualizerOpacity', 'hidePlayerTranslationSubtitle', 'showSubtitleTranslation',
+            'subtitleOverlayBackground', 'subtitleFontInheritsLyrics', 'subtitleFontStyle', 'subtitleFontFamily',
             'lyricsFontStyle', 'lyricsFontScale', 'lyricColorPresetId', 'lyricBodyColor', 'classicTuning',
             'cadenzaTuning', 'partitaTuning', 'fumeTuning', 'claddaghTuning', 'cappellaTuning',
-            'tiltTuning', 'monetBackgroundTuning', 'interactive3dSceneTuning', 'monetTuning',
+            'tiltTuning', 'monetBackgroundTuning', 'latentBackgroundTuning', 'interactive3dSceneTuning', 'monetTuning',
             'urlBackgroundList', 'urlBackgroundSelectedId',
             'songThemeAutoSwitchEnabled', 'songThemeAutoGenerateEnabled',
-            'enableSmartAtmosphere', 'enable3dInteractiveBackground',
+            'enableSmartAtmosphere', 'enable3dInteractiveBackground', 'performanceMode', 'ambientVisualEnabled',
+            'magneticPullEnabled', 'emotionScrambleEnabled', 'emotionBeatPulseEnabled',
         ];
         const hasValidKey = validKeys.some(k => parsed[k] !== undefined);
         if (!hasValidKey) {
@@ -444,12 +506,17 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         visualizerMode: state.visualizerMode,
         lyricWordMode: state.lyricWordMode,
         lyricFontPresetId: state.lyricFontPresetId,
+        lyricEffectPackId: state.lyricEffectPackId,
         visualEffectIntensity: state.visualEffectIntensity,
         visualizerBackgroundMode: state.visualizerBackgroundMode,
         backgroundOpacity: state.backgroundOpacity,
         visualizerOpacity: state.visualizerOpacity,
         hidePlayerTranslationSubtitle: state.hidePlayerTranslationSubtitle,
         showSubtitleTranslation: state.showSubtitleTranslation,
+        subtitleOverlayBackground: state.subtitleOverlayBackground,
+        subtitleFontInheritsLyrics: state.subtitleFontInheritsLyrics,
+        subtitleFontStyle: state.subtitleFontStyle,
+        subtitleFontFamily: state.subtitleFontFamily,
         lyricsFontStyle: state.lyricsFontStyle,
         lyricsFontScale: state.lyricsFontScale,
         classicTuning: state.classicTuning,
@@ -460,6 +527,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         cappellaTuning: state.cappellaTuning,
         tiltTuning: state.tiltTuning,
         monetBackgroundTuning: state.monetBackgroundTuning,
+        latentBackgroundTuning: state.latentBackgroundTuning,
         interactive3dSceneTuning: state.interactive3dSceneTuning,
         monetTuning: state.monetTuning,
         urlBackgroundList: state.urlBackgroundList,
@@ -470,12 +538,17 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         handleSetVisualizerMode: state.handleSetVisualizerMode,
         handleSetLyricWordMode: state.handleSetLyricWordMode,
         handleSetLyricFontPresetId: state.handleSetLyricFontPresetId,
+        handleSetLyricEffectPackId: state.handleSetLyricEffectPackId,
         handleSetVisualEffectIntensity: state.handleSetVisualEffectIntensity,
         handleSetVisualizerBackgroundMode: state.handleSetVisualizerBackgroundMode,
         handleSetBackgroundOpacity: state.handleSetBackgroundOpacity,
         handleSetVisualizerOpacity: state.handleSetVisualizerOpacity,
         handleToggleHidePlayerTranslationSubtitle: state.handleToggleHidePlayerTranslationSubtitle,
         handleToggleShowSubtitleTranslation: state.handleToggleShowSubtitleTranslation,
+        handleToggleSubtitleOverlayBackground: state.handleToggleSubtitleOverlayBackground,
+        handleSetSubtitleFontInheritsLyrics: state.handleSetSubtitleFontInheritsLyrics,
+        handleSetSubtitleFontStyle: state.handleSetSubtitleFontStyle,
+        handleSetSubtitleFontFamily: state.handleSetSubtitleFontFamily,
         handleSetLyricsFontStyle: state.handleSetLyricsFontStyle,
         handleSetLyricsFontScale: state.handleSetLyricsFontScale,
         handleSetClassicTuning: state.handleSetClassicTuning,
@@ -486,6 +559,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         handleSetCappellaTuning: state.handleSetCappellaTuning,
         handleSetTiltTuning: state.handleSetTiltTuning,
         handleSetMonetBackgroundTuning: state.handleSetMonetBackgroundTuning,
+        handleSetLatentBackgroundTuning: state.handleSetLatentBackgroundTuning,
         handleSetInteractive3dSceneTuning: state.handleSetInteractive3dSceneTuning,
         handleSetMonetTuning: state.handleSetMonetTuning,
         handleAddUrlBackgroundItem: state.handleAddUrlBackgroundItem,
@@ -521,12 +595,17 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             visualizerMode: store.visualizerMode,
             lyricWordMode: store.lyricWordMode,
             lyricFontPresetId: store.lyricFontPresetId,
+            lyricEffectPackId: store.lyricEffectPackId,
             visualEffectIntensity: store.visualEffectIntensity,
             visualizerBackgroundMode: store.visualizerBackgroundMode,
             backgroundOpacity: store.backgroundOpacity,
             visualizerOpacity: store.visualizerOpacity,
             hidePlayerTranslationSubtitle: store.hidePlayerTranslationSubtitle,
             showSubtitleTranslation: store.showSubtitleTranslation,
+            subtitleOverlayBackground: store.subtitleOverlayBackground,
+            subtitleFontInheritsLyrics: store.subtitleFontInheritsLyrics,
+            subtitleFontStyle: store.subtitleFontStyle,
+            subtitleFontFamily: store.subtitleFontFamily,
             lyricsFontStyle: store.lyricsFontStyle,
             lyricsFontScale: store.lyricsFontScale,
             lyricColorPresetId: readStoredLyricColorPresetId(),
@@ -539,6 +618,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             cappellaTuning: store.cappellaTuning,
             tiltTuning: store.tiltTuning,
             monetBackgroundTuning: store.monetBackgroundTuning,
+            latentBackgroundTuning: store.latentBackgroundTuning,
             interactive3dSceneTuning: store.interactive3dSceneTuning,
             monetTuning: store.monetTuning,
             urlBackgroundList: store.urlBackgroundList,
@@ -547,6 +627,11 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             songThemeAutoGenerateEnabled,
             enableSmartAtmosphere: store.enableSmartAtmosphere,
             enable3dInteractiveBackground: store.enable3dInteractiveBackground,
+            performanceMode: usePerformanceMonitorStore.getState().mode,
+            ambientVisualEnabled: useAmbientVisualStore.getState().enabled,
+            magneticPullEnabled: useMagneticPullStore.getState().enabled,
+            emotionScrambleEnabled: useMagneticPullStore.getState().scrambleEnabled,
+            emotionBeatPulseEnabled: useMagneticPullStore.getState().beatPulseEnabled,
         };
     };
 
@@ -599,6 +684,9 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             if (config.lyricFontPresetId) {
                 store.handleSetLyricFontPresetId(config.lyricFontPresetId);
             }
+            if (config.lyricEffectPackId) {
+                store.handleSetLyricEffectPackId(config.lyricEffectPackId);
+            }
             if (config.visualEffectIntensity) {
                 store.handleSetVisualEffectIntensity(config.visualEffectIntensity);
             }
@@ -616,6 +704,18 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             }
             if (config.showSubtitleTranslation !== undefined) {
                 store.handleToggleShowSubtitleTranslation(Boolean(config.showSubtitleTranslation));
+            }
+            if (config.subtitleOverlayBackground !== undefined) {
+                store.handleToggleSubtitleOverlayBackground(Boolean(config.subtitleOverlayBackground));
+            }
+            if (config.subtitleFontInheritsLyrics !== undefined) {
+                store.handleSetSubtitleFontInheritsLyrics(Boolean(config.subtitleFontInheritsLyrics));
+            }
+            if (config.subtitleFontStyle) {
+                store.handleSetSubtitleFontStyle(config.subtitleFontStyle);
+            }
+            if (config.subtitleFontFamily !== undefined) {
+                store.handleSetSubtitleFontFamily(config.subtitleFontFamily);
             }
             if (config.lyricsFontStyle) {
                 store.handleSetLyricsFontStyle(config.lyricsFontStyle);
@@ -653,6 +753,9 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             }
             if (config.monetBackgroundTuning) {
                 store.handleSetMonetBackgroundTuning(config.monetBackgroundTuning);
+            }
+            if (config.latentBackgroundTuning) {
+                store.handleSetLatentBackgroundTuning(config.latentBackgroundTuning);
             }
             if (config.interactive3dSceneTuning) {
                 store.handleSetInteractive3dSceneTuning(config.interactive3dSceneTuning);
@@ -701,6 +804,21 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             }
             if (config.enable3dInteractiveBackground !== undefined) {
                 store.handleToggleEnable3dInteractiveBackground(Boolean(config.enable3dInteractiveBackground));
+            }
+            if (config.performanceMode !== undefined) {
+                usePerformanceMonitorStore.getState().setMode(parsePerformanceMode(String(config.performanceMode)));
+            }
+            if (config.ambientVisualEnabled !== undefined) {
+                useAmbientVisualStore.getState().setEnabled(Boolean(config.ambientVisualEnabled));
+            }
+            if (config.magneticPullEnabled !== undefined) {
+                useMagneticPullStore.getState().setEnabled(Boolean(config.magneticPullEnabled));
+            }
+            if (config.emotionScrambleEnabled !== undefined) {
+                useMagneticPullStore.getState().setScrambleEnabled(Boolean(config.emotionScrambleEnabled));
+            }
+            if (config.emotionBeatPulseEnabled !== undefined) {
+                useMagneticPullStore.getState().setBeatPulseEnabled(Boolean(config.emotionBeatPulseEnabled));
             }
 
             store.statusSetter?.({ type: 'success', text: t('options.importSuccess') || '配置导入成功！' });

@@ -23,6 +23,7 @@ interface UseCoverParticleRuntimeOptions {
     pointerY: MotionValue<number>;
     paused?: boolean;
     cameraSnapshotRef?: React.RefObject<InteractiveCameraSnapshot>;
+    shellBackgroundColor?: string | null;
 }
 
 export const useCoverParticleRuntime = ({
@@ -39,6 +40,7 @@ export const useCoverParticleRuntime = ({
     pointerY,
     paused = false,
     cameraSnapshotRef,
+    shellBackgroundColor = null,
 }: UseCoverParticleRuntimeOptions) => {
     const runtimeRef = useRef<CoverParticleRuntime | null>(null);
     const audioBandsRef = useRef(audioBands);
@@ -53,7 +55,7 @@ export const useCoverParticleRuntime = ({
         const runtime = new CoverParticleRuntime();
         runtimeRef.current = runtime;
         runtime.mount(container);
-        runtime.configure(coverUrl ?? null, sceneTuning, qualityProfile);
+        runtime.configure(coverUrl ?? null, sceneTuning, qualityProfile, shellBackgroundColor);
         runtime.setInputProvider(() => ({
             audioBands: audioBandsRef.current,
             beat: beatPulse?.get() ?? 0,
@@ -89,10 +91,11 @@ export const useCoverParticleRuntime = ({
         sceneTuning?.visualPreset,
         sceneTuning?.enableCoverParticles,
         containerRef,
+        shellBackgroundColor,
     ]);
 
     useEffect(() => {
-        runtimeRef.current?.configure(coverUrl ?? null, sceneTuning, qualityProfile);
+        runtimeRef.current?.configure(coverUrl ?? null, sceneTuning, qualityProfile, shellBackgroundColor);
     }, [
         coverUrl,
         qualityProfile.tier,
@@ -104,6 +107,7 @@ export const useCoverParticleRuntime = ({
         sceneTuning?.enableBassRipples,
         sceneTuning,
         qualityProfile,
+        shellBackgroundColor,
     ]);
 
 };

@@ -10,9 +10,7 @@ describe('mineradioPresetMap', () => {
         expect(INTERACTIVE3D_WEBGL_PRESET_INDEX).toEqual({
             emily: 0,
             starfield: 1,
-            tunnel: 5,
             nebula: 2,
-            terrain: 3,
             quantumCube: 4,
             aurora: 6,
             mineradioTunnel: 7,
@@ -33,7 +31,8 @@ describe('mineradioPresetMap', () => {
 
     it('resolves removed presets to the cover shader branch', () => {
         expect(resolveWebGLPresetIndex('aurora')).toBe(0);
-        expect(resolveWebGLPresetIndex('terrain')).toBe(0);
         expect(resolveWebGLPresetIndex('mineradioVoid')).toBe(0);
+        expect(resolveWebGLPresetIndex('mineradioGalaxy')).toBe(11);
+        expect(resolveWebGLPresetIndex('mineradioTunnel')).toBe(7);
     });
 });

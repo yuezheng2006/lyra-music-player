@@ -4,20 +4,34 @@ import { lyricThreeColor } from './lyricColorHelpers';
 import { makeLyricMask } from './makeLyricMask';
 import { getLyricSunBloomTexture, makeLyricShaderMaterial, type LyricPalette } from './lyricShaders';
 import { resolveLyricStageFitScale } from './resolveLyricStageViewport';
+import {
+    clampLyricsFontScale,
+    resolveImmersiveLyricsFontScale,
+} from '../../../../../utils/lyrics/lyricsFontScaleMath';
 
 // src/components/visualizer/geometric/mineradio/lyrics/buildLyricMesh.ts
 // Builds a Mineradio-style WebGL lyric line group.
 
 const DEFAULT_STAGE_WORLD_WIDTH = 4.8;
-const IMMERSIVE_STAGE_WORLD_WIDTH = 6.4;
+/** Immersive prefers viewport fit over an oversized preferred plane. */
+const IMMERSIVE_STAGE_WORLD_WIDTH = 5.4;
 /** Glow / bloom extends slightly past glyph bounds — include in fit. */
 const GLOW_OVERFLOW = 1.12;
+/** Non-immersive stage lyric scale before user font-scale (was 0.9 — too small). */
+const DEFAULT_STAGE_BASE_SCALE = 1.08;
+/**
+ * Immersive already widens maxWorldWidth; keep base scale near 1 so fullscreen
+ * does not stack another ~20% on top of the wider plane + user font-scale.
+ */
+const IMMERSIVE_STAGE_BASE_SCALE = 0.96;
 
 export type BuildLyricMeshOptions = {
     /** Max world-space width the lyric plane may occupy on screen. */
     maxWorldWidth?: number;
     /** Fullscreen / desktop-lyrics presentation. */
     immersive?: boolean;
+    /** User lyrics font scale (settings). */
+    fontScale?: number;
 };
 
 export const buildLyricMesh = (
@@ -27,6 +41,10 @@ export const buildLyricMesh = (
     options: BuildLyricMeshOptions = {},
 ): THREE.Group => {
     const immersive = Boolean(options.immersive);
+    const rawFontScale = clampLyricsFontScale(options.fontScale ?? 1, 1);
+    const fontScale = immersive
+        ? resolveImmersiveLyricsFontScale(rawFontScale)
+        : rawFontScale;
     const mask = makeLyricMask(text, renderer, undefined, { immersive });
     const maxWorldWidth = Math.max(0.9, options.maxWorldWidth ?? DEFAULT_STAGE_WORLD_WIDTH);
     const preferredWorldWidth = immersive ? IMMERSIVE_STAGE_WORLD_WIDTH : DEFAULT_STAGE_WORLD_WIDTH;
@@ -38,7 +56,7 @@ export const buildLyricMesh = (
     // Fit the full plane (not only glyph AABB) so transparent padding / bloom stay on-screen.
     const occupiedWorldW = Math.max(worldW, textWorldW) * GLOW_OVERFLOW;
     const fitScale = resolveLyricStageFitScale(occupiedWorldW, maxWorldWidth);
-    const baseScale = immersive ? 1.08 : 0.9;
+    const baseScale = (immersive ? IMMERSIVE_STAGE_BASE_SCALE : DEFAULT_STAGE_BASE_SCALE) * fontScale;
 
     const group = new THREE.Group();
     group.renderOrder = 42;

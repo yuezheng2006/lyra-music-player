@@ -111,8 +111,8 @@ describe('Monet tuning and lyric helpers', () => {
 
     it('resolves automatic visualizer background mode', () => {
         // Background is independent of lyric visualizer mode.
-        expect(resolveVisualizerBackgroundMode(null, 'monet')).toBe('interactive3d');
-        expect(resolveVisualizerBackgroundMode(null, 'classic')).toBe('interactive3d');
+        expect(resolveVisualizerBackgroundMode(null, 'monet')).toBe('common');
+        expect(resolveVisualizerBackgroundMode(null, 'classic')).toBe('common');
         expect(resolveVisualizerBackgroundMode('common', 'monet')).toBe('common');
         expect(resolveVisualizerBackgroundMode('monet', 'classic')).toBe('monet');
     });

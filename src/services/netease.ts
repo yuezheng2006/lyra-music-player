@@ -1,4 +1,5 @@
 import { NeteaseUser, NeteasePlaylist, NoCopyrightRecommendation, SongPrivilege, SongResult } from "../types";
+import { requestWithStability } from "../utils/network";
 
 type UnavailableSongReplacement = {
   replacementSong: SongResult;
@@ -115,8 +116,28 @@ const fetchWithCreds = async (endpoint: string, options: RequestInit = {}) => {
     finalUrl = `${finalUrl}${sep}cookie=${encodeURIComponent(cookieToUse)}`;
   }
 
-  const res = await fetch(finalUrl, { ...defaultOptions, credentials: 'include' });
-  const data = await res.json();
+  // Login/logout/QR are user-driven write paths — record diagnostics but do not auto-retry.
+  const isAuthMutation =
+    endpoint.startsWith('/login')
+    || endpoint.startsWith('/logout')
+    || endpoint.includes('/login/qr');
+
+  const { response: res } = await requestWithStability(
+    finalUrl,
+    { ...defaultOptions, credentials: 'include' },
+    {
+      source: 'netease',
+      endpoint,
+      retry: !isAuthMutation,
+    },
+  );
+  let data: any;
+  try {
+    data = await res.json();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to parse JSON';
+    throw new Error(`Netease API parse error for ${endpoint}: ${message}`);
+  }
 
   if (!storedCookie && cookieToUse && (data?.code === 301 || data?.code === 401 || data?.code === 403)) {
     if (typeof localStorage !== 'undefined' && typeof localStorage.removeItem === 'function') {
@@ -711,6 +732,11 @@ export const neteaseApi = {
 
   getLyric: async (id: number) => {
     return fetchWithCreds(`/lyric/new?id=${id}`);
+  },
+
+  /** Brief song wiki/summary — may include style / emotion-ish tag blocks. */
+  getSongWikiSummary: async (id: number) => {
+    return fetchWithCreds(`/song/wiki/summary?id=${id}`);
   },
 
   getChorus: async (id: number) => {

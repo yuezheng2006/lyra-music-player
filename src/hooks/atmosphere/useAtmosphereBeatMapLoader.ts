@@ -6,12 +6,14 @@ import {
     applyCinemaProfileFromBeatMap,
     type CinemaTrackProfile,
 } from '../../utils/atmosphere/moodProfile';
+import { ATMOSPHERE_BEATMAP_DEFER_MS } from '../../utils/playback/playbackLoadPriorityMath';
 
 // src/hooks/atmosphere/useAtmosphereBeatMapLoader.ts
 // Loads offline beat maps when the active audio source changes.
 
 type UseAtmosphereBeatMapLoaderParams = {
     enabled: boolean;
+    isPlaying?: boolean;
     audioSrc: string | null;
     songKey: string | null;
     audioContextRef: RefObject<AudioContext | null>;
@@ -26,6 +28,7 @@ type UseAtmosphereBeatMapLoaderParams = {
 
 export const useAtmosphereBeatMapLoader = ({
     enabled,
+    isPlaying = false,
     audioSrc,
     songKey,
     audioContextRef,
@@ -38,20 +41,29 @@ export const useAtmosphereBeatMapLoader = ({
     onBeatMapLoaded,
 }: UseAtmosphereBeatMapLoaderParams) => {
     const analysisTokenRef = useRef(0);
+    const sourceKeyRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (!enabled) {
             onReset();
+            sourceKeyRef.current = null;
             return;
         }
-
-        onReset();
-        analysisTokenRef.current += 1;
-        const token = analysisTokenRef.current;
 
         if (!audioSrc || !songKey) {
+            onReset();
+            sourceKeyRef.current = null;
             return;
         }
+
+        const sourceKey = `${songKey}|${audioSrc}`;
+        // Reset only when the track/source changes — not on play/pause flips.
+        if (sourceKeyRef.current !== sourceKey) {
+            onReset();
+            sourceKeyRef.current = sourceKey;
+            analysisTokenRef.current += 1;
+        }
+        const token = analysisTokenRef.current;
 
         if (longFormAudio) {
             if (precomputedBeatMap) {
@@ -60,6 +72,11 @@ export const useAtmosphereBeatMapLoader = ({
                 cinemaScale.set(cinemaProfileRef.current.scale);
                 onBeatMapLoaded?.(precomputedBeatMap);
             }
+            return;
+        }
+
+        // Wait until playback has started so full-track decode cannot steal first buffer.
+        if (!isPlaying) {
             return;
         }
 
@@ -78,10 +95,13 @@ export const useAtmosphereBeatMapLoader = ({
             onBeatMapLoaded?.(beatMap);
         };
 
-        void run();
+        const timer = window.setTimeout(() => {
+            void run();
+        }, ATMOSPHERE_BEATMAP_DEFER_MS);
 
         return () => {
             cancelled = true;
+            window.clearTimeout(timer);
         };
     }, [
         audioContextRef,
@@ -90,6 +110,7 @@ export const useAtmosphereBeatMapLoader = ({
         cinemaProfileRef,
         cinemaScale,
         enabled,
+        isPlaying,
         longFormAudio,
         onReset,
         onBeatMapLoaded,

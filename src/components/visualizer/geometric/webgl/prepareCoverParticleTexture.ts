@@ -1,7 +1,8 @@
 // src/components/visualizer/geometric/webgl/prepareCoverParticleTexture.ts
 // Normalizes cover artwork into square canvases before it is sampled by WebGL particles.
 
-export const COVER_PARTICLE_TEXTURE_SIZE = 512;
+/** 768 balances facial detail vs Electron upload/sample cost (was 1024). */
+export const COVER_PARTICLE_TEXTURE_SIZE = 768;
 
 const readCanvasSourceSize = (
     source: CanvasImageSource,

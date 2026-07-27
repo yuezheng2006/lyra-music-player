@@ -4,17 +4,17 @@ import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import {
-    ONLINE_LIBRARY_PROVIDER_IDS,
     useOnlineLibraryFilterStore,
     type OnlineLibraryModuleFilter,
     type OnlineLibraryProviderId,
 } from '../../stores/useOnlineLibraryFilterStore';
+import { useMusicProviderCatalogStore } from '../../stores/useMusicProviderCatalogStore';
 import { useNeteaseQrLogin } from '../../hooks/useNeteaseQrLogin';
 import { useQQMusicLogin } from '../../hooks/useQQMusicLogin';
-import { resolveOnlineProviderIconUrl } from '../../utils/onlineProviderAssets';
+import { resolveProviderDisplayLabel } from '../../utils/musicProviders/providerManifestMath';
 
 // src/components/shared/OnlineProviderFilterBar.tsx
-// Peer library sources: Netease / QQ / Qishui / Coco.
+// Peer library sources: Netease / QQ / Qishui / Coco / Kugou / Bilibili.
 
 type OnlineProviderFilterBarProps = {
     neteaseConnected: boolean;
@@ -68,11 +68,13 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
     const {
         playlistProviders,
         moduleFilter,
+        knownProviderIds,
         togglePlaylistProvider,
         setModuleFilter,
         setPlaylistProviderEnabled,
         setSearchProvider,
     } = useOnlineLibraryFilterStore();
+    const catalogProviders = useMusicProviderCatalogStore((state) => state.providers);
     const [connectTarget, setConnectTarget] = useState<ConnectTarget>(null);
     const netease = useNeteaseQrLogin(() => {
         setPlaylistProviderEnabled('netease', true);
@@ -82,17 +84,26 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
     });
     const qq = useQQMusicLogin();
 
-    const providerLabels: Record<OnlineLibraryProviderId, string> = {
+    const builtInLabels: Partial<Record<string, string>> = {
         netease: t('home.neteaseProvider'),
         qq: t('home.qqMusicProvider'),
         qishui: t('home.qishuiProvider'),
         coco: t('home.cocoProvider'),
+        kugou: t('home.kugouProvider'),
+        bilibili: t('home.bilibiliProvider'),
+        kuwo: t('home.kuwoProvider'),
     };
 
-    const providerHints: Partial<Record<OnlineLibraryProviderId, string>> = {
+    const providerHints: Partial<Record<string, string>> = {
         qishui: t('home.qishuiProviderHint'),
         coco: t('home.cocoProviderHint'),
+        kugou: t('home.kugouProviderHint'),
+        bilibili: t('home.bilibiliProviderHint'),
+        kuwo: t('home.kuwoProviderHint'),
     };
+
+    const resolveLabel = (id: OnlineLibraryProviderId) =>
+        resolveProviderDisplayLabel(id, catalogProviders, builtInLabels);
 
     const isConnected = (id: OnlineLibraryProviderId) => {
         if (id === 'netease') return neteaseConnected;
@@ -108,12 +119,12 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
 
     // Coco / Qishui have no personal library, so created/liked modules are meaningless when they are the only sources.
     const showModuleFilter = useMemo(() => {
-        const enabledConnected = ONLINE_LIBRARY_PROVIDER_IDS.filter((id) => {
+        const enabledConnected = knownProviderIds.filter((id) => {
             if (!playlistProviders[id]) return false;
             return isConnected(id);
         });
         return enabledConnected.some(id => id === 'netease' || id === 'qq');
-    }, [playlistProviders, neteaseConnected, qqConnected]);
+    }, [knownProviderIds, playlistProviders, neteaseConnected, qqConnected]);
 
     useEffect(() => {
         if (!showModuleFilter && moduleFilter !== 'all') {
@@ -132,11 +143,11 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
     const handleProviderClick = (id: OnlineLibraryProviderId) => {
         const connected = isConnected(id);
         if (!connected) {
-            if (id === 'netease' || id === 'qq') {
-                setConnectTarget(id);
-                if (id === 'netease') {
-                    void netease.start();
-                }
+            if (id === 'netease') {
+                setConnectTarget('netease');
+                void netease.start();
+            } else if (id === 'qq') {
+                setConnectTarget('qq');
             }
             return;
         }
@@ -160,10 +171,9 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
                 <span className={`text-[11px] font-semibold uppercase tracking-wide shrink-0 ${labelClass}`}>
                     {t('home.providerFilter')}
                 </span>
-                {ONLINE_LIBRARY_PROVIDER_IDS.map(id => {
+                {knownProviderIds.map(id => {
                     const connected = isConnected(id);
                     const enabled = connected && playlistProviders[id];
-                    const iconUrl = resolveOnlineProviderIconUrl(id);
                     return (
                         <button
                             key={id}
@@ -185,15 +195,7 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
                             {connected && enabled && (
                                 <Check size={14} strokeWidth={2.5} className="opacity-80 shrink-0" />
                             )}
-                            {iconUrl ? (
-                                <img
-                                    src={iconUrl}
-                                    alt=""
-                                    aria-hidden="true"
-                                    className="h-4 w-4 rounded-[4px] object-cover shrink-0"
-                                />
-                            ) : null}
-                            <span>{providerLabels[id]}</span>
+                            <span>{resolveLabel(id)}</span>
                             {!connected && (
                                 <span className="opacity-70">{t('home.connectShort')}</span>
                             )}

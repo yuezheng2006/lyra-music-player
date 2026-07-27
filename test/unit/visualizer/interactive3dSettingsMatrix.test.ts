@@ -29,10 +29,8 @@ describe('interactive3d settings matrix', () => {
     it('exposes the shipped WebGL visual preset options', () => {
         expect(INTERACTIVE3D_VISUAL_PRESET_OPTIONS).toEqual([
             'emily',
-            'quantumCube',
             'mineradioTunnel',
             'mineradioOrbit',
-            'mineradioVinyl',
             'mineradioGalaxy',
         ]);
     });
@@ -51,11 +49,11 @@ describe('interactive3d settings matrix', () => {
     });
 
     it('treats bass ripples as emily-only even when stored tuning enables them', () => {
-        const starfield = applyMineradioVisualPreset('starfield');
+        const orbit = applyMineradioVisualPreset('mineradioOrbit');
         const inactive = resolveInactiveInteractive3dSceneEffects({
             ...baseInput,
             interactive3dSceneTuning: resolveStoredInteractive3dSceneTuning({
-                ...starfield,
+                ...orbit,
                 enableBassRipples: true,
             }),
         });
@@ -79,11 +77,11 @@ describe('interactive3d settings matrix', () => {
         })).toBe('none');
     });
 
-    it('keeps the stored default interactive3d background when monet controls lyrics', () => {
+    it('falls back null background storage to common even when monet controls lyrics', () => {
         expect(resolveInteractive3dEffectiveSettings({
             visualizerBackgroundMode: null,
             visualizerMode: 'monet',
-        }).resolvedBackgroundMode).toBe('interactive3d');
+        }).resolvedBackgroundMode).toBe('common');
     });
 
     it('allows monet lyrics with explicit interactive3d background selection', () => {

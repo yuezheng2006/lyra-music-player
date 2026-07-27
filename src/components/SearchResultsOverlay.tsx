@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Loader2, Play, Plus, Search } from 'lucide-react';
+import { ArrowLeft, Play, Plus, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Theme, UnifiedSong } from '../types';
 import { formatSongName } from '../utils/songNameFormatter';
@@ -14,14 +14,24 @@ import { SearchClearButton } from './shared/SearchClearButton';
 import { SearchShortcutChips } from './shared/SearchShortcutChips';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
 import LazyCoverImage from './shared/LazyCoverImage';
+import RemoteLoadState from './shared/RemoteLoadState';
 import {
     getOnlineSearchShortcutGroups,
     isSearchShortcutProvider,
+    stripShortcutDisplayLabel,
 } from '../utils/onlineSearchShortcuts';
+import { isOnlineMusicProviderId } from '../utils/onlinePeerProviders';
+import { resolveRemoteLoadMessageKey } from '../utils/ui/remoteLoadStatus';
 import {
     APP_CONTENT_BOTTOM_PADDING_CLASS,
     APP_CONTENT_TOP_PADDING_CLASS,
 } from './app/home/homeSurfaceStyles';
+import {
+    SearchProgressLine,
+    SearchResultsLoadingState,
+} from './search/SearchResultsLoadingState';
+import { RecentSearchChips } from './search/RecentSearchChips';
+import { buildRecentSearchChannelKey } from '../utils/search/recentSearchHistory';
 
 // src/components/SearchResultsOverlay.tsx
 // Home-embedded search panel. Channel is driven by home source pills; no in-panel picker.
@@ -46,12 +56,15 @@ interface SearchResultsOverlayProps {
     theme: Theme;
     isDaylight: boolean;
     onClose: () => void;
-    onSubmitSearch: (query?: string) => void;
+    onSubmitSearch: (query?: string, options?: { displayQuery?: string }) => void;
     onLoadMore: () => void;
     onPlayTrack: (track: UnifiedSong) => void;
     onAddSongToQueue: (track: UnifiedSong) => void;
     onSelectArtist: (track: UnifiedSong, artistName: string, artistId?: number) => void;
     onSelectAlbum: (track: UnifiedSong, albumName: string, albumId?: number) => void;
+    onDownloadSong?: (song: UnifiedSong) => void | Promise<boolean>;
+    canDownloadSong?: (song: UnifiedSong | null | undefined) => boolean;
+    downloadSongLabel?: string;
 }
 
 const SearchResultCover: React.FC<{ track: UnifiedSong }> = ({ track }) => {
@@ -110,43 +123,46 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         searchProviders,
         searchSourceTab,
         searchResults,
+        recentSearchHistory,
         isSearchOpen,
         isSearching,
         isLoadingMore,
+        searchError,
+        searchErrorCode,
+        searchDiagnostic,
         hasMore,
         scrollTop,
         setSearchQuery,
         clearSearchInput,
+        clearRecentSearchHistory,
         setSearchScrollTop,
     } = useSearchNavigationStore(useShallow(state => ({
         searchQuery: state.searchQuery,
         searchProviders: state.searchProviders,
         searchSourceTab: state.searchSourceTab,
         searchResults: state.searchResults,
+        recentSearchHistory: state.recentSearchHistory,
         isSearchOpen: state.isSearchOpen,
         isSearching: state.isSearching,
         isLoadingMore: state.isLoadingMore,
+        searchError: state.searchError,
+        searchErrorCode: state.searchErrorCode,
+        searchDiagnostic: state.searchDiagnostic,
         hasMore: state.hasMore,
         scrollTop: state.scrollTop,
         setSearchQuery: state.setSearchQuery,
         clearSearchInput: state.clearSearchInput,
+        clearRecentSearchHistory: state.clearRecentSearchHistory,
         setSearchScrollTop: state.setSearchScrollTop,
     })));
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-    const activeProviders = searchProviders.filter(
-        (id): id is OnlineLibraryProviderId => (
-            id === 'netease' || id === 'qq' || id === 'qishui' || id === 'coco'
-        ),
-    );
-    const sourceFallback = (
-        searchSourceTab === 'netease'
-        || searchSourceTab === 'qq'
-        || searchSourceTab === 'qishui'
-        || searchSourceTab === 'coco'
-    ) ? searchSourceTab : null;
+    const activeProviders = searchProviders.filter(isOnlineMusicProviderId);
+    const sourceFallback = isOnlineMusicProviderId(searchSourceTab) ? searchSourceTab : null;
     const isMultiSource = activeProviders.length > 1;
     const activeProvider = activeProviders[0] || sourceFallback || 'coco';
+    const recentSearchChannelKey = buildRecentSearchChannelKey(searchSourceTab, activeProviders);
+    const recentSearchEntries = recentSearchHistory[recentSearchChannelKey] || [];
     const isPeerOnly = !isMultiSource && isSearchShortcutProvider(activeProvider);
     const shortcutGroups = useMemo(
         () => (isPeerOnly ? getOnlineSearchShortcutGroups(activeProvider) : []),
@@ -158,6 +174,9 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         if (activeProvider === 'qq') return t('home.searchQQMusic');
         if (activeProvider === 'qishui') return t('home.searchQishuiMusic');
         if (activeProvider === 'coco') return t('home.searchCocoMusic');
+        if (activeProvider === 'kugou') return t('home.searchKugouMusic');
+        if (activeProvider === 'bilibili') return t('home.searchBilibiliMusic');
+        if (activeProvider === 'kuwo') return t('home.searchKuwoMusic');
         return t('search.placeholder');
     }, [activeProvider, isMultiSource, t]);
 
@@ -165,14 +184,21 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         if (isMultiSource) return t('search.subtitleMulti');
         if (activeProvider === 'qishui') return t('search.subtitleQishui');
         if (activeProvider === 'coco') return t('search.subtitleCoco');
+        if (activeProvider === 'kugou') return t('search.subtitleKugou');
+        if (activeProvider === 'bilibili') return t('search.subtitleBilibili');
+        if (activeProvider === 'kuwo') return t('search.subtitleKuwo');
         return t('search.subtitle');
     }, [activeProvider, isMultiSource, t]);
 
-    const searchTitle = isMultiSource
-        ? t('search.title')
-        : (activeProvider === 'qishui'
-            ? t('home.qishuiProvider')
-            : (activeProvider === 'coco' ? t('home.cocoProvider') : t('search.title')));
+    const searchTitle = (() => {
+        if (isMultiSource) return t('search.title');
+        if (activeProvider === 'qishui') return t('home.qishuiProvider');
+        if (activeProvider === 'coco') return t('home.cocoProvider');
+        if (activeProvider === 'kugou') return t('home.kugouProvider');
+        if (activeProvider === 'bilibili') return t('home.bilibiliProvider');
+        if (activeProvider === 'kuwo') return t('home.kuwoProvider');
+        return t('search.title');
+    })();
 
     const shellBg = isDaylight ? 'bg-[#f4f7fb]/92' : 'bg-black/80';
     const panelBg = isDaylight
@@ -217,8 +243,7 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
     const visibleResultCount = visibleResults?.length ?? 0;
 
     const handleShortcutSelect = (query: string) => {
-        setSearchQuery(query);
-        onSubmitSearch(query);
+        onSubmitSearch(query, { displayQuery: stripShortcutDisplayLabel(query) });
     };
 
     return (
@@ -277,11 +302,7 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                         >
 
                             <div className={`relative flex-1 rounded-xl border ${inputBg}`}>
-                                {isSearching ? (
-                                    <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin opacity-50" />
-                                ) : (
-                                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40" />
-                                )}
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40" />
                                 <input
                                     type="text"
                                     value={searchQuery}
@@ -303,10 +324,23 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                 disabled={isSearching || !searchQuery.trim()}
                                 className={`inline-flex items-center justify-center gap-2 rounded-xl min-h-11 px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 touch-manipulation active:scale-[0.98] ${accentBtn}`}
                             >
-                                {isSearching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-                                {t('search.submit')}
+                                <Search size={16} />
+                                {isSearching
+                                    ? t('localMusic.searching', '搜索中...')
+                                    : t('search.submit')}
                             </button>
                         </form>
+                        <RecentSearchChips
+                            entries={recentSearchEntries}
+                            isDaylight={isDaylight}
+                            disabled={isSearching}
+                            label={t('search.recent')}
+                            clearLabel={t('search.clearRecent')}
+                            onSelect={(entry) => {
+                                onSubmitSearch(entry.query, { displayQuery: entry.displayQuery });
+                            }}
+                            onClear={() => clearRecentSearchHistory(recentSearchChannelKey)}
+                        />
                     </div>
 
                     <div
@@ -320,12 +354,19 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                         }}
                     >
                         <div className="max-w-5xl mx-auto">
-                            {isSearching ? (
-                                <div className="flex justify-center py-16">
-                                    <Loader2 className="animate-spin w-8 h-8 opacity-50" />
-                                </div>
+                            {isSearching && visibleResultCount === 0 ? (
+                                <SearchResultsLoadingState
+                                    isDaylight={isDaylight}
+                                    label={t('localMusic.searching', '搜索中...')}
+                                />
                             ) : visibleResults && visibleResults.length > 0 ? (
                                 <>
+                                    {isSearching ? (
+                                        <SearchProgressLine
+                                            isDaylight={isDaylight}
+                                            label={t('localMusic.searching', '搜索中...')}
+                                        />
+                                    ) : null}
                                     <div className="mb-3 flex items-baseline justify-between gap-3">
                                         <h2 className={`text-sm font-semibold ${headingText}`}>{t('search.resultsTitle')}</h2>
                                         <p className={`text-xs ${mutedText}`}>
@@ -462,6 +503,15 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                         </div>
                                     )}
                                 </>
+                            ) : searchQuery.trim() && !isSearching && searchError ? (
+                                <RemoteLoadState
+                                    status="error"
+                                    isDaylight={isDaylight}
+                                    errorLabel={t(resolveRemoteLoadMessageKey('error', searchErrorCode))}
+                                    onRetry={() => void onSubmitSearch()}
+                                    diagnostic={searchDiagnostic}
+                                    className="min-h-[240px]"
+                                />
                             ) : searchQuery.trim() && !isSearching ? (
                                 <div className={`text-center py-16 text-sm ${mutedText}`}>{t('home.noResults')}</div>
                             ) : shortcutGroups.length > 0 ? (
@@ -469,6 +519,20 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                     groups={shortcutGroups}
                                     isDaylight={isDaylight}
                                     disabled={isSearching}
+                                    hintKey={
+                                        activeProvider === 'bilibili'
+                                            ? 'search.bilibiliShortcutsHint'
+                                            : activeProvider === 'qishui'
+                                                ? 'search.qishuiShortcutsHint'
+                                                : 'search.shortcutsHint'
+                                    }
+                                    hintFallback={
+                                        activeProvider === 'bilibili'
+                                            ? 'Tap an account to search that UP; or use up:name / a keyword'
+                                            : activeProvider === 'qishui'
+                                                ? 'Category chips search playlists; song chips search tracks'
+                                                : 'Placeholder suggestions — tap to search'
+                                    }
                                     onSelect={handleShortcutSelect}
                                 />
                             ) : (

@@ -19,6 +19,8 @@ export type MonetLineTone = {
     baseColor: string;
     fontWeight: number;
     zIndex: number;
+    /** Extra tracking in px — inactive rows open up so active feels denser / heavier. */
+    letterSpacingPx: number;
 };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -37,7 +39,7 @@ export const resolveMonetWordColor = (
 };
 
 /**
- * Opacity ladder for Monet rows — reference: bright active, stepped fade on neighbors.
+ * Active row owns size / weight / opacity; neighbors step down clearly in form and fill.
  * Alpha is baked into baseColor (wrapper opacity alone is too weak with wipe / stroke layers).
  */
 export const resolveMonetLineTone = (
@@ -55,61 +57,70 @@ export const resolveMonetLineTone = (
         if (entry.status === 'active') {
             return {
                 opacity: LYRIC_LINE_OPACITY.active,
-                scale: immersiveLyrics ? 1.08 : 1.04,
+                scale: immersiveLyrics ? 1.16 : 1.1,
                 blurPx: 0,
                 baseColor: colorWithAlpha(bodyColor, LYRIC_LINE_OPACITY.karaokeUnsung),
-                fontWeight: Math.min(700 + weightBoost, 900),
+                fontWeight: Math.min(800 + weightBoost, 900),
                 zIndex: 4,
+                letterSpacingPx: immersiveLyrics ? -0.6 : -0.35,
             };
         }
 
         const distance = Math.max(Math.abs(entry.offset), 1);
         const isWaiting = entry.status === 'waiting';
+        const waitingNear = LYRIC_LINE_OPACITY.waitingNear;
+        const passedNear = LYRIC_LINE_OPACITY.passedNear;
         const lineAlpha = isWaiting
             ? clamp(
-                LYRIC_LINE_OPACITY.waitingNear - (distance - 1) * LYRIC_LINE_OPACITY.waitingStep,
+                waitingNear - (distance - 1) * LYRIC_LINE_OPACITY.waitingStep,
                 LYRIC_LINE_OPACITY.waitingFar,
-                LYRIC_LINE_OPACITY.waitingNear,
+                waitingNear,
             )
             : clamp(
-                LYRIC_LINE_OPACITY.passedNear - (distance - 1) * LYRIC_LINE_OPACITY.passedStep,
+                passedNear - (distance - 1) * LYRIC_LINE_OPACITY.passedStep,
                 LYRIC_LINE_OPACITY.passedFar,
-                LYRIC_LINE_OPACITY.passedNear,
+                passedNear,
             );
         return {
             opacity: 1,
-            scale: clamp(0.9 * Math.pow(0.96, distance - 1), 0.8, 0.9),
+            scale: clamp(0.78 * Math.pow(0.92, distance - 1), 0.62, 0.78),
+            // Keep blur off — size / weight / tracking carry the form contrast without GPU cost.
             blurPx: 0,
             baseColor: colorWithAlpha(bodyColor, lineAlpha),
-            fontWeight: Math.min(isWaiting ? 600 + weightBoost : 500 + weightBoost, 900),
+            fontWeight: Math.min(isWaiting ? 480 + weightBoost : 400 + weightBoost, 650),
             zIndex: isWaiting ? 3 - distance : 2 - distance,
+            letterSpacingPx: 1 + (distance - 1) * 0.4,
         };
     }
 
     if (entry.status === 'active') {
         return {
             opacity: LYRIC_LINE_OPACITY.active,
-            scale: immersiveLyrics ? 1.06 : 1.02,
+            scale: immersiveLyrics ? 1.14 : 1.1,
             blurPx: 0,
             baseColor: colorWithAlpha(bodyColor, LYRIC_LINE_OPACITY.karaokeUnsung),
-            fontWeight: Math.min((immersiveLyrics ? 800 : 750) + weightBoost, 900),
+            fontWeight: Math.min((immersiveLyrics ? 900 : 850) + weightBoost, 900),
             zIndex: 4,
+            letterSpacingPx: immersiveLyrics ? -0.7 : -0.4,
         };
     }
 
     const distance = Math.max(Math.abs(entry.offset), 1);
     const isWaiting = entry.status === 'waiting';
-    const scale = clamp(inactiveScale * Math.pow(0.93, distance - 1), 0.76, 0.9);
+    // Smaller base + steeper falloff so current line size contrast is obvious.
+    const scale = clamp(inactiveScale * Math.pow(0.88, distance - 1), 0.58, 0.76);
+    const waitingNear = LYRIC_LINE_OPACITY.waitingNear;
+    const passedNear = LYRIC_LINE_OPACITY.passedNear;
     const lineAlpha = isWaiting
         ? clamp(
-            LYRIC_LINE_OPACITY.waitingNear - (distance - 1) * LYRIC_LINE_OPACITY.waitingStep,
+            waitingNear - (distance - 1) * LYRIC_LINE_OPACITY.waitingStep,
             LYRIC_LINE_OPACITY.waitingFar,
-            LYRIC_LINE_OPACITY.waitingNear,
+            waitingNear,
         )
         : clamp(
-            LYRIC_LINE_OPACITY.passedNear - (distance - 1) * LYRIC_LINE_OPACITY.passedStep,
+            passedNear - (distance - 1) * LYRIC_LINE_OPACITY.passedStep,
             LYRIC_LINE_OPACITY.passedFar,
-            LYRIC_LINE_OPACITY.passedNear,
+            passedNear,
         );
 
     return {
@@ -117,7 +128,8 @@ export const resolveMonetLineTone = (
         scale,
         blurPx: 0,
         baseColor: colorWithAlpha(bodyColor, lineAlpha),
-        fontWeight: Math.min((isWaiting ? 550 : 500) + (weightBoost / 2), 900),
+        fontWeight: Math.min((isWaiting ? 440 : 380) + (weightBoost / 2), 560),
         zIndex: isWaiting ? 3 - distance : 2 - distance,
+        letterSpacingPx: 1.25 + (distance - 1) * 0.45,
     };
 };

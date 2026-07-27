@@ -9,14 +9,18 @@ import {
     resolveInteractive3dStageContainmentStyle,
     shouldContainInteractive3dStageForMode,
 } from './resolveInteractive3dStageContainment';
+import AmbientVisualOverlay from './AmbientVisualOverlay';
+import CharacterStageOverlay from './CharacterStageOverlay';
 import StaticGeometricScene from './StaticGeometricScene';
 import type { GeometricBackgroundProps } from './types';
 import { useGeometricPointer } from './useGeometricPointer';
 import { useInteractiveCameraControl } from './useInteractiveCameraControl';
 import VignetteOverlay from './VignetteOverlay';
+import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
+import { shouldShowCoverParticleWebGL } from './webgl/CoverParticleWebGLStage';
 
 // src/components/visualizer/geometric/GeometricLayer.tsx
-// Mineradio unified WebGL playback background (cover particles + stage lyrics).
+// Mineradio unified WebGL playback background (ambient + cover particles + stage lyrics + character).
 
 const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
     theme,
@@ -50,13 +54,20 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
         staticMode,
         captureRef: interactionRef,
     });
+    const performanceTier = usePerformanceMonitorStore((s) => s.effectiveTier);
     const qualityProfile = useMemo(
-        () => sceneTuning
-            ? resolveInteractive3dQualityProfile(sceneTuning)
-            : resolveGeometricQualityProfile(),
-        [sceneTuning],
+        () => {
+            if (sceneTuning) {
+                const tuned = { ...sceneTuning, qualityTier: performanceTier };
+                return resolveInteractive3dQualityProfile(tuned);
+            }
+            return resolveGeometricQualityProfile(921600, performanceTier);
+        },
+        [performanceTier, sceneTuning],
     );
     const needsContainment = shouldContainInteractive3dStageForMode(visualizerMode);
+    // Electron disables cover WebGL; keep a static stage so the player is not blank.
+    const coverWebGLActive = shouldShowCoverParticleWebGL(sceneTuning);
 
     useEffect(() => {
         if (!needsContainment) {
@@ -136,15 +147,8 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                     aria-hidden
                 />
             )}
-            {paused ? (
-                <StaticGeometricScene
-                    theme={theme}
-                    shapes={[]}
-                    particles={[]}
-                    hideShapes
-                    disableVignette={disableVignette}
-                />
-            ) : (
+            {/* Keep WebGL mounted while paused — remounting on every pause burns GPU and blanks the stage. */}
+            {coverWebGLActive ? (
                 <MineradioPlaybackStage
                     theme={theme}
                     coverUrl={coverUrl}
@@ -169,7 +173,32 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                     paused={paused}
                     cameraControlState={cameraControlState}
                 />
+            ) : (
+                <StaticGeometricScene
+                    theme={theme}
+                    shapes={[]}
+                    particles={[]}
+                    hideShapes
+                    disableVignette={disableVignette}
+                />
             )}
+            {/* Skip extra WebGL layers when cover WebGL is gated (Electron GPU lockout). */}
+            {coverWebGLActive ? (
+                <>
+                    {/* Above cover particles, below character — otherwise Emily/dense particles hide ambient. */}
+                    <AmbientVisualOverlay
+                        staticMode={staticMode}
+                        currentTime={currentTime}
+                    />
+                    <CharacterStageOverlay
+                        // Player stage with lyrics/immersive — not on home shell (boot-safe).
+                        visible={immersiveLyrics || showLyrics}
+                        immersive={immersiveLyrics}
+                        paused={!playing}
+                        currentTime={currentTime}
+                    />
+                </>
+            ) : null}
             <VignetteOverlay disabled={disableVignette} immersive={immersiveLyrics} />
         </div>
     );

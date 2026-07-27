@@ -22,6 +22,16 @@ describe('interactive3d Fume layering', () => {
         expect(shouldDrawFumeCanvasBackground('common', true)).toBe(false);
     });
 
+    it('skips Fume canvas backdrop when video stage or transparent shell is active', () => {
+        expect(shouldDrawFumeCanvasBackground('common', false, { videoStageActive: true })).toBe(false);
+        expect(shouldDrawFumeCanvasBackground('common', false, { transparentBackground: true })).toBe(false);
+    });
+
+    it('skips Fume canvas backdrop when the dual-stream video stage is active', () => {
+        expect(shouldDrawFumeCanvasBackground('common', false, { videoStageActive: true })).toBe(false);
+        expect(shouldDrawFumeCanvasBackground('common', false, { transparentBackground: true })).toBe(false);
+    });
+
     it('keeps WebGL LyricStage off so DOM lyrics do not double-draw', () => {
         expect(shouldEnableInteractive3dWebGlLyrics('interactive3d')).toBe(false);
         expect(shouldEnableInteractive3dWebGlLyrics('common')).toBe(false);

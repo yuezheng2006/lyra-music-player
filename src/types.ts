@@ -107,11 +107,25 @@ export type ThemeMode = 'default' | 'ai' | 'custom';
 
 export type BuiltinVisualizerMode = 'classic' | 'cadenza' | 'partita' | 'fume' | 'monet';
 export type VisualizerMode = BuiltinVisualizerMode | (string & {});
-export type LyricWordMode = 'default' | 'karaoke';
+/** default = current line only; karaoke = preview upcoming; ktv = traditional LTR wipe (parallel to karaoke). */
+export type LyricWordMode = 'default' | 'karaoke' | 'ktv';
 export type VisualizerFrameRate = 'off' | 120 | 90 | 60;
 
 export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'ytmusic' | 'radio' | 'daily' | 'podcast' | 'history';
-export type OnlineMusicProviderId = 'netease' | 'qq' | 'qishui' | 'coco';
+/** Curated in-app online sources (not user plugins). */
+export type BuiltInOnlineMusicProviderId =
+  | 'netease'
+  | 'qq'
+  | 'qishui'
+  | 'coco'
+  | 'kugou'
+  | 'bilibili'
+  | 'kuwo';
+/**
+ * Built-in or dynamic sidecar plugin id.
+ * `(string & {})` keeps autocomplete for built-ins while allowing open-mode plugins.
+ */
+export type OnlineMusicProviderId = BuiltInOnlineMusicProviderId | (string & {});
 export type SearchSourceId = HomeViewTab | OnlineMusicProviderId;
 
 export type PlaybackContext = 'main' | 'stage';
@@ -451,9 +465,11 @@ export interface CladdaghTuning {
 }
 
 export const DEFAULT_CLADDAGH_TUNING: CladdaghTuning = {
-  focusScaleRatio: 0.65,
+  // Stronger front punch for face-on depth (still softer than the old 0.9 handoff jump).
+  focusScaleRatio: 0.62,
   radiusScale: 1.0,
-  ellipseTiltDeg: 45,
+  // Face-on parallel ring (major axis horizontal).
+  ellipseTiltDeg: 0,
 };
 
 export type CappellaEmojiPackSource = 'builtin' | 'custom';
@@ -490,13 +506,50 @@ export type MonetBackgroundLayout = 'full-overlay' | 'half-pane-gradient';
 export type MonetBackgroundWashColorMode = 'theme' | 'custom';
 export type MonetAudioStyle = 'bar' | 'line';
 export type MonetPortraitSource = 'cover' | 'custom';
-export type VisualizerBackgroundMode = 'common' | 'interactive3d' | 'monet' | 'url' | 'sora';
+export type VisualizerBackgroundMode = 'common' | 'interactive3d' | 'monet' | 'url' | 'sora' | 'latent';
+export type LatentBackgroundDisplayMode = 'dithering' | 'mesh' | 'both';
+export type LatentBackgroundColorSource = 'cover-theme' | 'cover-only';
 
 export interface UrlBackgroundItem {
   id: string;
   url: string;
   note: string;
 }
+
+export interface LatentBackgroundTuning {
+  displayMode: LatentBackgroundDisplayMode;
+  colorSource: LatentBackgroundColorSource;
+  dynamicOnlyInPlayer: boolean;
+  enhancedBeatResponse: boolean;
+  ditheringSpeed: number;
+  ditheringAudioSpeed: number;
+  ditheringSize: number;
+  ditheringOpacity: number;
+  meshSpeed: number;
+  meshAudioSpeed: number;
+  meshDistortion: number;
+  meshSwirl: number;
+  overlayEnabled: boolean;
+  overlayOpacity: number;
+}
+
+export const DEFAULT_LATENT_BACKGROUND_TUNING: LatentBackgroundTuning = {
+  displayMode: 'both',
+  colorSource: 'cover-theme',
+  dynamicOnlyInPlayer: true,
+  enhancedBeatResponse: true,
+  ditheringSpeed: 0.1,
+  ditheringAudioSpeed: 1.2,
+  ditheringSize: 2.5,
+  ditheringOpacity: 0.55,
+  meshSpeed: 0.3,
+  meshAudioSpeed: 2,
+  meshDistortion: 0.8,
+  meshSwirl: 0.1,
+  overlayEnabled: true,
+  // Stronger default wash so lyrics stay readable on busy shader stacks.
+  overlayOpacity: 0.48,
+};
 
 export interface MonetBackgroundTuning {
   backgroundSource: MonetBackgroundSource;
@@ -527,13 +580,11 @@ export type Interactive3dQualityTier = 'auto' | 'high' | 'balanced' | 'lite';
 /** Mineradio 交互 3D 背景镜头模式。 */
 export type Interactive3dCameraControlMode = 'auto' | 'orbit' | 'wasd' | 'gesture';
 
-/** Interactive 3D visual preset ids (cover + mature WebGL background styles). */
+/** Interactive 3D visual preset ids (shipped + legacy ids kept for storage remap). */
 export type MineradioVisualPresetId =
   | 'emily'
   | 'starfield'
-  | 'tunnel'
   | 'nebula'
-  | 'terrain'
   | 'quantumCube'
   | 'aurora'
   | 'mineradioTunnel'
@@ -609,8 +660,8 @@ export const DEFAULT_INTERACTIVE3D_SCENE_TUNING: Interactive3dSceneTuning = {
   enableBeatBursts: true,
   enableLyricFocusAura: true,
   enableDomShapes: false,
-  enableBloomParticles: true,
-  enableFloatingParticles: true,
+  enableBloomParticles: false,
+  enableFloatingParticles: false,
   enableCoverParticles: true,
   cameraControl: 'auto',
 };

@@ -186,49 +186,77 @@ export const applyAudioReactiveGradient = (
 };
 
 /**
- * 汽水中性 + 舞台撞色歌词的轻量渐变配置
+ * 中国色歌词预设的轻量渐变配置（单色渐变 / 组合色主墨→点缀）
  */
 export const ENHANCED_LYRIC_GRADIENTS: Record<string, AudioReactiveGradientConfig> = {
-    'soda-gray': {
-        type: 'linear',
-        colors: ['#a1a1aa', '#d4d4d8', '#71717a'],
-        angle: 90,
-        animated: false,
-        audioReactive: false,
-    },
     'soda-white': {
         type: 'linear',
-        colors: ['#f4f4f5', '#ffffff', '#a1a1aa'],
+        colors: ['#E8F4F8', '#C1C8D6', '#2A3C5C'],
         angle: 90,
         animated: false,
-        audioReactive: false,
-    },
-    'douyin-yellow': {
-        type: 'linear',
-        colors: ['#ffd84d', '#ffcc00', '#f59e0b'],
-        angle: 90,
-        animated: true,
         audioReactive: false,
     },
     'foil-gold': {
         type: 'linear',
-        colors: ['#f2d06b', '#d4af37', '#a67c00'],
+        colors: ['#FCD337', '#F9D770', '#EBB10D'],
         angle: 90,
         animated: false,
         audioReactive: false,
     },
-    'xhs-hot-pink': {
+    'stage-blue': {
         type: 'linear',
-        colors: ['#ff6b9d', '#ff3d7a', '#be123c'],
+        colors: ['#7EC0EE', '#4F84FF', '#1661AB'],
         angle: 90,
-        animated: true,
+        animated: false,
         audioReactive: false,
     },
     'dazibao-red': {
         type: 'linear',
-        colors: ['#ff5a45', '#ef4444', '#b91c1c'],
+        colors: ['#FF6B6B', '#FF4D4D', '#D92121'],
         angle: 90,
         animated: true,
+        audioReactive: false,
+    },
+    'ice-silver': {
+        type: 'linear',
+        colors: ['#E4DFD7', '#C1C8D6', '#2B333E'],
+        angle: 90,
+        animated: false,
+        audioReactive: false,
+    },
+    'mint-lime': {
+        type: 'linear',
+        colors: ['#B2F0D9', '#A0D6B4', '#207F4C'],
+        angle: 90,
+        animated: false,
+        audioReactive: false,
+    },
+    'hot-pink': {
+        type: 'linear',
+        colors: ['#FF6F61', '#AED9D4', '#63BBD0'],
+        angle: 90,
+        animated: false,
+        audioReactive: false,
+    },
+    'violet-neon': {
+        type: 'linear',
+        colors: ['#D1B3FF', '#C8A2C8', '#9B8AE8'],
+        angle: 90,
+        animated: false,
+        audioReactive: false,
+    },
+    'sunset-orange': {
+        type: 'linear',
+        colors: ['#FBB957', '#F97D1C', '#63BBD0'],
+        angle: 90,
+        animated: false,
+        audioReactive: false,
+    },
+    'pin-song': {
+        type: 'linear',
+        colors: ['#EF3473', '#A0D6B4', '#207F4C'],
+        angle: 90,
+        animated: false,
         audioReactive: false,
     },
 };

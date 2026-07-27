@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type React from 'react';
-import { DEFAULT_CADENZA_TUNING, DEFAULT_CAPPELLA_TUNING, DEFAULT_CLASSIC_TUNING, DEFAULT_CLADDAGH_TUNING, DEFAULT_FUME_TUNING, DEFAULT_INTERACTIVE3D_SCENE_TUNING, DEFAULT_MONET_BACKGROUND_TUNING, DEFAULT_MONET_TUNING, DEFAULT_PARTITA_TUNING, DEFAULT_TILT_TUNING, type CadenzaTuning, type CappellaAvatarImage, type CappellaAvatarSource, type CappellaEmojiImage, type CappellaTuning, type ClassicTuning, type CladdaghTuning, type FumeTuning, type GridViewCardLayout, type Interactive3dSceneTuning, type LyricProviderSource, type LyricWordMode, type MonetBackgroundImage, type MonetBackgroundLayout, type MonetBackgroundSource, type MonetBackgroundTuning, type MonetBackgroundWashColorMode, type MonetPortraitImage, type MonetPortraitSource, type MonetTuning, type PartitaTuning, type QueueAddBehavior, type StatusMessage, type StoredCappellaAvatarImage, type StoredCappellaEmojiImage, type StoredCustomLyricsFont, type StoredMonetBackgroundImage, type StoredMonetPortraitImage, type Theme, type TiltTuning, type UrlBackgroundItem, type VisualizerBackgroundMode, type VisualizerFrameRate, type VisualizerMode } from '../types';
+import { DEFAULT_CADENZA_TUNING, DEFAULT_CAPPELLA_TUNING, DEFAULT_CLASSIC_TUNING, DEFAULT_CLADDAGH_TUNING, DEFAULT_FUME_TUNING, DEFAULT_INTERACTIVE3D_SCENE_TUNING, DEFAULT_LATENT_BACKGROUND_TUNING, DEFAULT_MONET_BACKGROUND_TUNING, DEFAULT_MONET_TUNING, DEFAULT_PARTITA_TUNING, DEFAULT_TILT_TUNING, type CadenzaTuning, type CappellaAvatarImage, type CappellaAvatarSource, type CappellaEmojiImage, type CappellaTuning, type ClassicTuning, type CladdaghTuning, type FumeTuning, type GridViewCardLayout, type Interactive3dSceneTuning, type LatentBackgroundColorSource, type LatentBackgroundDisplayMode, type LatentBackgroundTuning, type LyricProviderSource, type LyricWordMode, type MonetBackgroundImage, type MonetBackgroundLayout, type MonetBackgroundSource, type MonetBackgroundTuning, type MonetBackgroundWashColorMode, type MonetPortraitImage, type MonetPortraitSource, type MonetTuning, type PartitaTuning, type QueueAddBehavior, type StatusMessage, type StoredCappellaAvatarImage, type StoredCappellaEmojiImage, type StoredCustomLyricsFont, type StoredMonetBackgroundImage, type StoredMonetPortraitImage, type Theme, type TiltTuning, type UrlBackgroundItem, type VisualizerBackgroundMode, type VisualizerFrameRate, type VisualizerMode } from '../types';
 import { resolveStoredInteractive3dSceneTuning } from '../components/visualizer/geometric/interactive3dSceneRegistry';
 import { DEFAULT_VISUALIZER_MODE, getVisualizerRegistryEntry, hasVisualizerMode } from '../components/visualizer/registry';
 import {
@@ -19,7 +19,31 @@ import {
     parseLyricVisualEffectIntensity,
     type LyricVisualEffectIntensity,
 } from '../utils/lyricVisualEffects';
+import {
+    DEFAULT_LYRIC_EFFECT_PACK_ID,
+    LYRIC_EFFECT_PACK_STORAGE_KEY,
+    parseLyricEffectPackId,
+    type LyricEffectPackId,
+} from '../utils/lyricEffectPacks';
 import { getLyricFilterError } from '../utils/lyrics/filtering';
+import {
+    clampLyricsFontScale,
+    DEFAULT_LYRICS_FONT_SCALE,
+} from '../utils/lyrics/lyricsFontScaleMath';
+import {
+    readGpuUnstableFlag,
+    readInteractive3dOptIn,
+    resolveElectronSafeVisualizerBackgroundMode,
+    resolveElectronSafeVisualizerMode,
+    writeInteractive3dOptIn,
+} from '../utils/performance/electronInteractive3dGuardMath';
+import { resolveDefaultDisableHomeDynamicBackground } from '../utils/playback/playbackLoadPriorityMath';
+import {
+    applyGpuCrashVisualDemote,
+    applyResetVisualizerBackgroundMode,
+    applyVisualizerBackgroundModeSelection,
+    ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY as ENABLE_3D_BG_KEY,
+} from './visualizerBackgroundModeHandlers';
 import { buildStoredCappellaEmojiPack, clearCustomCappellaEmojiPack, isSupportedCappellaEmojiFile, saveCustomCappellaEmojiPack } from '../services/cappellaEmojiPack';
 import { buildStoredCappellaAvatar, clearCustomCappellaAvatar, isSupportedCappellaAvatarFile, saveCustomCappellaAvatar } from '../services/cappellaAvatarPack';
 import { clearUploadedLyricsFont, uploadAndRegisterLyricsFont } from '../services/customLyricsFont';
@@ -64,10 +88,16 @@ export const HIDE_TASKBAR_ICON_STORAGE_KEY = 'hide_taskbar_icon';
 export const OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY = 'open_player_on_launch';
 export const SUBTITLE_OVERLAY_OPACITY_STORAGE_KEY = 'subtitle_overlay_opacity';
 export const SHOW_SUBTITLE_TRANSLATION_STORAGE_KEY = 'show_subtitle_translation';
+export const SUBTITLE_OVERLAY_BACKGROUND_STORAGE_KEY = 'subtitle_overlay_background';
+const SUBTITLE_FONT_INHERITS_LYRICS_STORAGE_KEY = 'subtitle_font_inherits_lyrics';
+const SUBTITLE_FONT_STYLE_STORAGE_KEY = 'subtitle_font_style';
+const SUBTITLE_FONT_FAMILY_STORAGE_KEY = 'subtitle_font_family';
 export const VISUALIZER_OPACITY_STORAGE_KEY = 'visualizer_opacity';
 export const ENABLE_SMART_ATMOSPHERE_STORAGE_KEY = 'enable_smart_atmosphere';
+export const ENABLE_BILIBILI_VIDEO_BACKGROUND_STORAGE_KEY = 'enable_bilibili_video_background';
 export const INTERACTIVE_3D_SCENE_TUNING_STORAGE_KEY = 'interactive_3d_scene_tuning';
-export const ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY = 'enable_3d_interactive_background';
+export { ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY } from './visualizerBackgroundModeHandlers';
+const ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY = ENABLE_3D_BG_KEY;
 
 const DEFAULT_DAYLIGHT_PREFERENCE = false;
 
@@ -105,7 +135,11 @@ const readStoredDisableHomeDynamicBackground = (): boolean => {
         return legacySaved !== 'true';
     }
 
-    return false;
+    // Electron: pause heavy home backgrounds by default so idle GPU doesn't fight playback.
+    return resolveDefaultDisableHomeDynamicBackground({
+        isElectron: Boolean((window as Window & { electron?: unknown }).electron),
+        stored: null,
+    });
 };
 
 const readStoredAudioQuality = (): AudioQuality => {
@@ -137,6 +171,21 @@ const readStoredSubtitleOverlayOpacity = () => {
     return Number.isFinite(parsed) ? Math.min(1, Math.max(0.2, parsed)) : 0.6;
 };
 
+const readStoredSubtitleFontStyle = (): Theme['fontStyle'] => {
+    if (typeof window === 'undefined') {
+        return 'sans';
+    }
+    const saved = localStorage.getItem(SUBTITLE_FONT_STYLE_STORAGE_KEY);
+    return saved === 'serif' || saved === 'mono' ? saved : 'sans';
+};
+
+const readStoredSubtitleFontFamily = (): string | null => {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+    return localStorage.getItem(SUBTITLE_FONT_FAMILY_STORAGE_KEY)?.trim() || null;
+};
+
 const readStoredVisualizerOpacity = () => {
     if (typeof window === 'undefined') {
         return 1;
@@ -165,7 +214,18 @@ const readStoredVisualizerMode = (): VisualizerMode => {
         return 'cadenza';
     }
 
-    return hasVisualizerMode(saved) ? saved : DEFAULT_VISUALIZER_MODE;
+    let resolvedMode: VisualizerMode = hasVisualizerMode(saved) ? saved : DEFAULT_VISUALIZER_MODE;
+    const isElectron = Boolean((window as Window & { electron?: unknown }).electron);
+    const safeMode = resolveElectronSafeVisualizerMode({
+        mode: resolvedMode,
+        isElectron,
+        gpuUnstable: readGpuUnstableFlag(localStorage),
+    });
+    if (safeMode !== resolvedMode) {
+        resolvedMode = safeMode;
+        localStorage.setItem('visualizer_mode', resolvedMode);
+    }
+    return resolvedMode;
 };
 
 const readStoredVisualizerFrameRate = (): VisualizerFrameRate => {
@@ -373,11 +433,28 @@ const readStoredCladdaghTuning = (): CladdaghTuning => {
 
     try {
         const parsed = JSON.parse(saved) as Partial<CladdaghTuning>;
-        return {
-            focusScaleRatio: clampCladdaghFocusScaleRatio(parsed.focusScaleRatio, DEFAULT_CLADDAGH_TUNING.focusScaleRatio),
+        // Face-on parallel is the default — roll back diagonal (45°) / vertical (90°) presets.
+        const tiltSource = parsed.ellipseTiltDeg === 45 || parsed.ellipseTiltDeg === 90
+            ? DEFAULT_CLADDAGH_TUNING.ellipseTiltDeg
+            : parsed.ellipseTiltDeg;
+        // Soften 0.9 handoff punch; lift the old soft 0.48 default for face-on depth.
+        const focusSource = parsed.focusScaleRatio === 0.9 || parsed.focusScaleRatio === 0.48
+            ? DEFAULT_CLADDAGH_TUNING.focusScaleRatio
+            : parsed.focusScaleRatio;
+        const next: CladdaghTuning = {
+            focusScaleRatio: clampCladdaghFocusScaleRatio(focusSource, DEFAULT_CLADDAGH_TUNING.focusScaleRatio),
             radiusScale: clampCladdaghRadiusScale(parsed.radiusScale, DEFAULT_CLADDAGH_TUNING.radiusScale),
-            ellipseTiltDeg: clampCladdaghEllipseTiltDeg(parsed.ellipseTiltDeg, DEFAULT_CLADDAGH_TUNING.ellipseTiltDeg),
+            ellipseTiltDeg: clampCladdaghEllipseTiltDeg(tiltSource, DEFAULT_CLADDAGH_TUNING.ellipseTiltDeg),
         };
+        if (
+            parsed.ellipseTiltDeg === 45
+            || parsed.ellipseTiltDeg === 90
+            || parsed.focusScaleRatio === 0.9
+            || parsed.focusScaleRatio === 0.48
+        ) {
+            localStorage.setItem('claddagh_tuning', JSON.stringify(next));
+        }
+        return next;
     } catch {
         return DEFAULT_CLADDAGH_TUNING;
     }
@@ -511,7 +588,55 @@ const VISUALIZER_BACKGROUND_MODES: VisualizerBackgroundMode[] = [
     'monet',
     'url',
     'sora',
+    'latent',
 ];
+
+const resolveLatentDisplayMode = (value: LatentBackgroundDisplayMode | undefined): LatentBackgroundDisplayMode => (
+    value === 'dithering' || value === 'mesh' || value === 'both'
+        ? value
+        : DEFAULT_LATENT_BACKGROUND_TUNING.displayMode
+);
+
+const resolveLatentColorSource = (value: LatentBackgroundColorSource | undefined): LatentBackgroundColorSource => (
+    value === 'cover-only' ? 'cover-only' : DEFAULT_LATENT_BACKGROUND_TUNING.colorSource
+);
+
+const clampLatentUnit = (value: number | undefined, fallback: number, min = 0, max = 2) => {
+    const next = Number.isFinite(value) ? Number(value) : fallback;
+    return Math.min(max, Math.max(min, next));
+};
+
+export const resolveStoredLatentBackgroundTuning = (
+    parsed: Partial<LatentBackgroundTuning>,
+): LatentBackgroundTuning => ({
+    displayMode: resolveLatentDisplayMode(parsed.displayMode),
+    colorSource: resolveLatentColorSource(parsed.colorSource),
+    dynamicOnlyInPlayer: parsed.dynamicOnlyInPlayer ?? DEFAULT_LATENT_BACKGROUND_TUNING.dynamicOnlyInPlayer,
+    enhancedBeatResponse: parsed.enhancedBeatResponse ?? DEFAULT_LATENT_BACKGROUND_TUNING.enhancedBeatResponse,
+    ditheringSpeed: clampLatentUnit(parsed.ditheringSpeed, DEFAULT_LATENT_BACKGROUND_TUNING.ditheringSpeed),
+    ditheringAudioSpeed: clampLatentUnit(parsed.ditheringAudioSpeed, DEFAULT_LATENT_BACKGROUND_TUNING.ditheringAudioSpeed),
+    ditheringSize: clampLatentUnit(parsed.ditheringSize, DEFAULT_LATENT_BACKGROUND_TUNING.ditheringSize, 0.5, 8),
+    ditheringOpacity: clampLatentUnit(parsed.ditheringOpacity, DEFAULT_LATENT_BACKGROUND_TUNING.ditheringOpacity, 0, 1),
+    meshSpeed: clampLatentUnit(parsed.meshSpeed, DEFAULT_LATENT_BACKGROUND_TUNING.meshSpeed),
+    meshAudioSpeed: clampLatentUnit(parsed.meshAudioSpeed, DEFAULT_LATENT_BACKGROUND_TUNING.meshAudioSpeed),
+    meshDistortion: clampLatentUnit(parsed.meshDistortion, DEFAULT_LATENT_BACKGROUND_TUNING.meshDistortion),
+    meshSwirl: clampLatentUnit(parsed.meshSwirl, DEFAULT_LATENT_BACKGROUND_TUNING.meshSwirl, 0, 1),
+    overlayEnabled: parsed.overlayEnabled ?? DEFAULT_LATENT_BACKGROUND_TUNING.overlayEnabled,
+    overlayOpacity: clampLatentUnit(parsed.overlayOpacity, DEFAULT_LATENT_BACKGROUND_TUNING.overlayOpacity, 0, 1),
+});
+
+const readStoredLatentBackgroundTuning = (): LatentBackgroundTuning => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_LATENT_BACKGROUND_TUNING;
+    }
+    try {
+        const saved = localStorage.getItem('latent_background_tuning');
+        if (!saved) return DEFAULT_LATENT_BACKGROUND_TUNING;
+        return resolveStoredLatentBackgroundTuning(JSON.parse(saved) as Partial<LatentBackgroundTuning>);
+    } catch {
+        return DEFAULT_LATENT_BACKGROUND_TUNING;
+    }
+};
 
 const readStoredVisualizerBackgroundMode = (): VisualizerBackgroundMode | null => {
     if (typeof window === 'undefined') {
@@ -551,7 +676,7 @@ const readStoredUrlBackgroundSelectedId = (): string | null => {
 };
 
 /** Default player background when nothing is stored. Independent of lyric visualizer mode. */
-export const DEFAULT_VISUALIZER_BACKGROUND_MODE: VisualizerBackgroundMode = 'interactive3d';
+export const DEFAULT_VISUALIZER_BACKGROUND_MODE: VisualizerBackgroundMode = 'common';
 
 /**
  * Resolve player background mode.
@@ -565,14 +690,34 @@ export const resolveVisualizerBackgroundMode = (
 
 const bootstrapVisualizerBackgroundMode = (): VisualizerBackgroundMode => {
     const storedMode = readStoredVisualizerBackgroundMode();
-    const resolvedMode = resolveVisualizerBackgroundMode(storedMode);
+    let resolvedMode = resolveVisualizerBackgroundMode(storedMode);
 
-    if (typeof window !== 'undefined' && !storedMode) {
-        localStorage.setItem('visualizer_background_mode', resolvedMode);
+    if (typeof window !== 'undefined') {
+        const isElectron = Boolean((window as Window & { electron?: unknown }).electron);
+        const safeMode = resolveElectronSafeVisualizerBackgroundMode({
+            mode: resolvedMode,
+            isElectron,
+            devicePixelRatio: window.devicePixelRatio || 1,
+            gpuUnstable: readGpuUnstableFlag(localStorage),
+            interactive3dOptIn: readInteractive3dOptIn(localStorage),
+        });
+        if (safeMode !== resolvedMode) {
+            resolvedMode = safeMode;
+            localStorage.setItem('visualizer_background_mode', resolvedMode);
+            writeInteractive3dOptIn(localStorage, false);
+        } else if (!storedMode) {
+            localStorage.setItem('visualizer_background_mode', resolvedMode);
+        }
+        setStoredBoolean(
+            ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY,
+            resolvedMode === 'interactive3d',
+        );
     }
 
     return resolvedMode;
 };
+
+const bootVisualizerBackgroundMode = bootstrapVisualizerBackgroundMode();
 
 type StoredMonetBackgroundTuningInput = Partial<MonetBackgroundTuning> & {
     backgroundCropMode?: unknown;
@@ -711,18 +856,23 @@ const readStoredVisualEffectIntensity = (): LyricVisualEffectIntensity => {
     return parseLyricVisualEffectIntensity(localStorage.getItem(LYRIC_VISUAL_EFFECT_INTENSITY_STORAGE_KEY));
 };
 
+const readStoredLyricEffectPackId = (): LyricEffectPackId => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_LYRIC_EFFECT_PACK_ID;
+    }
+    return parseLyricEffectPackId(localStorage.getItem(LYRIC_EFFECT_PACK_STORAGE_KEY));
+};
+
 const readStoredLyricsFontScale = (): number => {
     if (typeof window === 'undefined') {
-        return 1;
+        return DEFAULT_LYRICS_FONT_SCALE;
     }
 
     const saved = localStorage.getItem('lyrics_font_scale');
-    if (!saved) return 1;
+    if (!saved) return DEFAULT_LYRICS_FONT_SCALE;
 
     const parsed = parseFloat(saved);
-    if (!Number.isFinite(parsed)) return 1;
-
-    return Math.min(1.4, Math.max(0.85, parsed));
+    return clampLyricsFontScale(parsed, DEFAULT_LYRICS_FONT_SCALE);
 };
 
 export const resolveStoredCustomLyricsFont = (parsed: Partial<StoredCustomLyricsFont>): StoredCustomLyricsFont | null => {
@@ -868,12 +1018,17 @@ type SettingsUiState = {
     preferredAlternativeLyricSource: LyricProviderSource;
     hidePlayerTranslationSubtitle: boolean;
     showSubtitleTranslation: boolean;
+    subtitleOverlayBackground: boolean;
+    subtitleFontInheritsLyrics: boolean;
+    subtitleFontStyle: Theme['fontStyle'];
+    subtitleFontFamily: string | null;
     hidePlayerRightPanelButton: boolean;
     transparentPlayerBackground: boolean;
     enablePlayerPageNativeBlur: boolean;
     autoHidePlayerChrome: boolean;
     disableVisualizerVignette: boolean;
     enableSmartAtmosphere: boolean;
+    enableBilibiliVideoBackground: boolean;
     enable3dInteractiveBackground: boolean;
     minimizeToTray: boolean;
     hideTaskbarIcon: boolean;
@@ -891,6 +1046,7 @@ type SettingsUiState = {
     lyricWordMode: LyricWordMode;
     lyricFontPresetId: string;
     visualEffectIntensity: LyricVisualEffectIntensity;
+    lyricEffectPackId: LyricEffectPackId;
     classicTuning: ClassicTuning;
     cadenzaTuning: CadenzaTuning;
     partitaTuning: PartitaTuning;
@@ -899,6 +1055,7 @@ type SettingsUiState = {
     cappellaTuning: CappellaTuning;
     tiltTuning: TiltTuning;
     monetBackgroundTuning: MonetBackgroundTuning;
+    latentBackgroundTuning: LatentBackgroundTuning;
     interactive3dSceneTuning: Interactive3dSceneTuning;
     monetTuning: MonetTuning;
     storedCappellaEmojiPack: StoredCappellaEmojiImage[];
@@ -975,11 +1132,16 @@ type SettingsUiState = {
     handleSetPreferredAlternativeLyricSource: (source: LyricProviderSource) => void;
     handleToggleHidePlayerTranslationSubtitle: (enable: boolean) => void;
     handleToggleShowSubtitleTranslation: (enable: boolean) => void;
+    handleToggleSubtitleOverlayBackground: (enabled: boolean) => void;
+    handleSetSubtitleFontInheritsLyrics: (inheritsLyrics: boolean) => void;
+    handleSetSubtitleFontStyle: (fontStyle: Theme['fontStyle']) => void;
+    handleSetSubtitleFontFamily: (fontFamily: string | null) => void;
     handleToggleHidePlayerRightPanelButton: (enable: boolean) => void;
     handleToggleTransparentPlayerBackground: (enable: boolean) => void;
     handleToggleAutoHidePlayerChrome: (enable: boolean) => void;
     handleToggleDisableVisualizerVignette: (disable: boolean) => void;
     handleToggleEnableSmartAtmosphere: (enable: boolean) => void;
+    handleToggleEnableBilibiliVideoBackground: (enable: boolean) => void;
     handleToggleEnable3dInteractiveBackground: (enable: boolean) => void;
     handleToggleMinimizeToTray: (enable: boolean) => void;
     handleToggleHideTaskbarIcon: (enable: boolean) => void;
@@ -990,6 +1152,8 @@ type SettingsUiState = {
     handleSetVisualizerOpacity: (opacity: number) => void;
     handleSetVisualizerBackgroundMode: (mode: VisualizerBackgroundMode) => void;
     handleResetVisualizerBackgroundMode: () => void;
+    /** GPU helper crash recovery — force common without re-opting into interactive3d. */
+    forceSafeVisualizerBackgroundAfterGpuCrash: () => void;
     handleAddUrlBackgroundItem: (item: UrlBackgroundItem) => void;
     handleUpdateUrlBackgroundItem: (id: string, patch: Partial<Omit<UrlBackgroundItem, 'id'>>) => void;
     handleDeleteUrlBackgroundItem: (id: string) => void;
@@ -1001,6 +1165,7 @@ type SettingsUiState = {
     handleSetLyricWordMode: (mode: LyricWordMode) => void;
     handleSetLyricFontPresetId: (presetId: string) => void;
     handleSetVisualEffectIntensity: (intensity: LyricVisualEffectIntensity) => void;
+    handleSetLyricEffectPackId: (packId: LyricEffectPackId) => void;
     handleSetClassicTuning: (patch: Partial<ClassicTuning>) => void;
     handleResetClassicTuning: () => void;
     handleSetCadenzaTuning: (patch: Partial<CadenzaTuning>) => void;
@@ -1017,6 +1182,8 @@ type SettingsUiState = {
     handleResetTiltTuning: () => void;
     handleSetMonetBackgroundTuning: (patch: Partial<MonetBackgroundTuning>) => void;
     handleResetMonetBackgroundTuning: () => void;
+    handleSetLatentBackgroundTuning: (patch: Partial<LatentBackgroundTuning>) => void;
+    handleResetLatentBackgroundTuning: () => void;
     handleSetInteractive3dSceneTuning: (patch: Partial<Interactive3dSceneTuning>) => void;
     handleResetInteractive3dSceneTuning: () => void;
     handleSetMonetTuning: (patch: Partial<MonetTuning>) => void;
@@ -1063,13 +1230,18 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     preferredAlternativeLyricSource: readStoredPreferredAlternativeLyricSource(),
     hidePlayerTranslationSubtitle: getStoredBoolean('hide_player_translation_subtitle', false),
     showSubtitleTranslation: getStoredBoolean(SHOW_SUBTITLE_TRANSLATION_STORAGE_KEY, true),
+    subtitleOverlayBackground: getStoredBoolean(SUBTITLE_OVERLAY_BACKGROUND_STORAGE_KEY, false),
+    subtitleFontInheritsLyrics: getStoredBoolean(SUBTITLE_FONT_INHERITS_LYRICS_STORAGE_KEY, true),
+    subtitleFontStyle: readStoredSubtitleFontStyle(),
+    subtitleFontFamily: readStoredSubtitleFontFamily(),
     hidePlayerRightPanelButton: getStoredBoolean('hide_player_right_panel_button', false),
     transparentPlayerBackground: getStoredBoolean('transparent_player_background', false),
     enablePlayerPageNativeBlur: getStoredBoolean('enable_player_page_native_blur', false),
     autoHidePlayerChrome: getStoredBoolean('auto_hide_player_chrome', false),
     disableVisualizerVignette: getStoredBoolean('disable_visualizer_vignette', false),
     enableSmartAtmosphere: getStoredBoolean(ENABLE_SMART_ATMOSPHERE_STORAGE_KEY, true),
-    enable3dInteractiveBackground: getStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, true),
+    enableBilibiliVideoBackground: getStoredBoolean(ENABLE_BILIBILI_VIDEO_BACKGROUND_STORAGE_KEY, true),
+    enable3dInteractiveBackground: bootVisualizerBackgroundMode === 'interactive3d',
     minimizeToTray: getStoredBoolean(MINIMIZE_TO_TRAY_STORAGE_KEY, false),
     hideTaskbarIcon: getStoredBoolean(HIDE_TASKBAR_ICON_STORAGE_KEY, false),
     openPlayerOnLaunch: getStoredBoolean(OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY, false),
@@ -1077,7 +1249,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     backgroundOpacity: readStoredBackgroundOpacity(),
     subtitleOverlayOpacity: readStoredSubtitleOverlayOpacity(),
     visualizerOpacity: readStoredVisualizerOpacity(),
-    visualizerBackgroundMode: bootstrapVisualizerBackgroundMode(),
+    visualizerBackgroundMode: bootVisualizerBackgroundMode,
     urlBackgroundList: readStoredUrlBackgroundList(),
     urlBackgroundSelectedId: readStoredUrlBackgroundSelectedId(),
     visualizerFrameRate: readStoredVisualizerFrameRate(),
@@ -1086,6 +1258,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     lyricWordMode: readStoredLyricWordMode(),
     lyricFontPresetId: readStoredLyricFontPresetId(),
     visualEffectIntensity: readStoredVisualEffectIntensity(),
+    lyricEffectPackId: readStoredLyricEffectPackId(),
     classicTuning: readStoredClassicTuning(),
     cadenzaTuning: readStoredCadenzaTuning(),
     partitaTuning: readStoredPartitaTuning(),
@@ -1094,6 +1267,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
     cappellaTuning: readStoredCappellaTuning(),
     tiltTuning: readStoredTiltTuning(),
     monetBackgroundTuning: readStoredMonetBackgroundTuning(),
+    latentBackgroundTuning: readStoredLatentBackgroundTuning(),
     interactive3dSceneTuning: readStoredInteractive3dSceneTuning(),
     monetTuning: readStoredMonetTuning(),
     storedCappellaEmojiPack: [],
@@ -1303,6 +1477,31 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             text: enable ? '字幕翻译已显示' : '字幕翻译已隐藏',
         });
     },
+    handleToggleSubtitleOverlayBackground: (enabled) => {
+        setStoredBoolean(SUBTITLE_OVERLAY_BACKGROUND_STORAGE_KEY, enabled);
+        set({ subtitleOverlayBackground: enabled });
+    },
+    handleSetSubtitleFontInheritsLyrics: (inheritsLyrics) => {
+        setStoredBoolean(SUBTITLE_FONT_INHERITS_LYRICS_STORAGE_KEY, inheritsLyrics);
+        set({ subtitleFontInheritsLyrics: inheritsLyrics });
+    },
+    handleSetSubtitleFontStyle: (fontStyle) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(SUBTITLE_FONT_STYLE_STORAGE_KEY, fontStyle);
+        }
+        set({ subtitleFontStyle: fontStyle });
+    },
+    handleSetSubtitleFontFamily: (fontFamily) => {
+        const next = fontFamily?.trim() || null;
+        if (typeof window !== 'undefined') {
+            if (next) {
+                localStorage.setItem(SUBTITLE_FONT_FAMILY_STORAGE_KEY, next);
+            } else {
+                localStorage.removeItem(SUBTITLE_FONT_FAMILY_STORAGE_KEY);
+            }
+        }
+        set({ subtitleFontFamily: next });
+    },
     handleToggleHidePlayerRightPanelButton: (enable) => {
         setStoredBoolean('hide_player_right_panel_button', enable);
         set({ hidePlayerRightPanelButton: enable });
@@ -1333,6 +1532,14 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         notify(get, {
             type: 'info',
             text: enable ? '智能氛围已开启' : '智能氛围已关闭',
+        });
+    },
+    handleToggleEnableBilibiliVideoBackground: (enable) => {
+        setStoredBoolean(ENABLE_BILIBILI_VIDEO_BACKGROUND_STORAGE_KEY, enable);
+        set({ enableBilibiliVideoBackground: enable });
+        notify(get, {
+            type: 'info',
+            text: enable ? 'B 站视频背景已开启' : 'B 站视频背景已关闭',
         });
     },
     handleToggleEnable3dInteractiveBackground: (enable) => {
@@ -1398,21 +1605,50 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         set({ visualizerOpacity: next });
     },
     handleSetVisualizerBackgroundMode: (mode) => {
-        const enable3dInteractiveBackground = mode === 'interactive3d';
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('visualizer_background_mode', mode);
-            setStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, enable3dInteractiveBackground);
-        }
-        set({ visualizerBackgroundMode: mode, enable3dInteractiveBackground });
+        const isElectron = typeof window !== 'undefined'
+            && Boolean((window as Window & { electron?: unknown }).electron);
+        const prevMode = get().visualizerBackgroundMode;
+        const { resolvedMode, enable3dInteractiveBackground } = applyVisualizerBackgroundModeSelection({
+            mode,
+            isElectron,
+            storage: typeof window !== 'undefined' ? localStorage : null,
+        });
+        set({
+            visualizerBackgroundMode: resolvedMode,
+            enable3dInteractiveBackground,
+        });
+        void import('../utils/telemetry/trackTelemetry').then(({ trackTelemetry }) => {
+            trackTelemetry('settings.changed', {
+                data: {
+                    key: 'visualizerBackgroundMode',
+                    from: prevMode,
+                    to: resolvedMode,
+                },
+            });
+        });
     },
     handleResetVisualizerBackgroundMode: () => {
-        const resolvedMode = DEFAULT_VISUALIZER_BACKGROUND_MODE;
-        const enable3dInteractiveBackground = resolvedMode === 'interactive3d';
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('visualizer_background_mode', resolvedMode);
-            setStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, enable3dInteractiveBackground);
-        }
-        set({ visualizerBackgroundMode: resolvedMode, enable3dInteractiveBackground });
+        const { resolvedMode, enable3dInteractiveBackground } = applyResetVisualizerBackgroundMode({
+            defaultMode: DEFAULT_VISUALIZER_BACKGROUND_MODE,
+            isElectron: typeof window !== 'undefined'
+                && Boolean((window as Window & { electron?: unknown }).electron),
+            devicePixelRatio: typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1,
+            storage: typeof window !== 'undefined' ? localStorage : null,
+        });
+        set({
+            visualizerBackgroundMode: resolvedMode,
+            enable3dInteractiveBackground,
+        });
+    },
+    forceSafeVisualizerBackgroundAfterGpuCrash: () => {
+        const state = get();
+        const keep3dOptIn = state.visualizerBackgroundMode === 'interactive3d'
+            || state.enable3dInteractiveBackground
+            || (typeof window !== 'undefined' && readInteractive3dOptIn(localStorage));
+        set(applyGpuCrashVisualDemote({
+            keep3dOptIn,
+            storage: typeof window !== 'undefined' ? localStorage : null,
+        }));
     },
     handleAddUrlBackgroundItem: (item) => {
         const sanitized = sanitizeUrlBackgroundItem(item);
@@ -1500,7 +1736,13 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         if (typeof window !== 'undefined') {
             localStorage.setItem('visualizer_mode', mode);
         }
+        const prevMode = get().visualizerMode;
         set({ visualizerMode: mode });
+        void import('../utils/telemetry/trackTelemetry').then(({ trackTelemetry }) => {
+            trackTelemetry('settings.changed', {
+                data: { key: 'visualizerMode', from: prevMode, to: mode },
+            });
+        });
         notify(get, {
             type: 'info',
             text: `已切换到${entry.labelFallback}歌词`,
@@ -1526,6 +1768,13 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
             localStorage.setItem(LYRIC_VISUAL_EFFECT_INTENSITY_STORAGE_KEY, next);
         }
         set({ visualEffectIntensity: next });
+    },
+    handleSetLyricEffectPackId: (packId) => {
+        const next = parseLyricEffectPackId(packId);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(LYRIC_EFFECT_PACK_STORAGE_KEY, next);
+        }
+        set({ lyricEffectPackId: next });
     },
     handleSetClassicTuning: (patch) => {
         const prev = get().classicTuning;
@@ -1697,6 +1946,24 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         }
         set({ monetBackgroundTuning: DEFAULT_MONET_BACKGROUND_TUNING });
         notify(get, { type: 'info', text: '莫奈背景参数已重置' });
+    },
+    handleSetLatentBackgroundTuning: (patch) => {
+        const prev = get().latentBackgroundTuning;
+        const next = resolveStoredLatentBackgroundTuning({
+            ...prev,
+            ...patch,
+        });
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('latent_background_tuning', JSON.stringify(next));
+        }
+        set({ latentBackgroundTuning: next });
+    },
+    handleResetLatentBackgroundTuning: () => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('latent_background_tuning', JSON.stringify(DEFAULT_LATENT_BACKGROUND_TUNING));
+        }
+        set({ latentBackgroundTuning: DEFAULT_LATENT_BACKGROUND_TUNING });
+        notify(get, { type: 'info', text: 'Latent 背景参数已重置' });
     },
     handleSetInteractive3dSceneTuning: (patch) => {
         const prev = get().interactive3dSceneTuning;
@@ -1884,7 +2151,7 @@ export const useSettingsUiStore = create<SettingsUiState>((set, get) => ({
         set({ lyricsFontStyle: fontStyle });
     },
     handleSetLyricsFontScale: (fontScale) => {
-        const next = Math.min(1.4, Math.max(0.85, fontScale));
+        const next = clampLyricsFontScale(fontScale);
         if (typeof window !== 'undefined') {
             localStorage.setItem('lyrics_font_scale', String(next));
         }
@@ -2068,11 +2335,16 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     disableHomeDynamicBackground: state.disableHomeDynamicBackground,
     hidePlayerTranslationSubtitle: state.hidePlayerTranslationSubtitle,
     showSubtitleTranslation: state.showSubtitleTranslation,
+    subtitleOverlayBackground: state.subtitleOverlayBackground,
+    subtitleFontInheritsLyrics: state.subtitleFontInheritsLyrics,
+    subtitleFontStyle: state.subtitleFontStyle,
+    subtitleFontFamily: state.subtitleFontFamily,
     hidePlayerRightPanelButton: state.hidePlayerRightPanelButton,
     transparentPlayerBackground: state.transparentPlayerBackground,
     autoHidePlayerChrome: state.autoHidePlayerChrome,
     disableVisualizerVignette: state.disableVisualizerVignette,
     enableSmartAtmosphere: state.enableSmartAtmosphere,
+    enableBilibiliVideoBackground: state.enableBilibiliVideoBackground,
     enable3dInteractiveBackground: state.enable3dInteractiveBackground,
     minimizeToTray: state.minimizeToTray,
     hideTaskbarIcon: state.hideTaskbarIcon,
@@ -2096,6 +2368,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     lyricWordMode: state.lyricWordMode,
     lyricFontPresetId: state.lyricFontPresetId,
     visualEffectIntensity: state.visualEffectIntensity,
+    lyricEffectPackId: state.lyricEffectPackId,
     homeLayoutStyle: state.homeLayoutStyle,
     handleSetHomeLayoutStyle: state.handleSetHomeLayoutStyle,
     grid3dCardStyle: state.grid3dCardStyle,
@@ -2110,6 +2383,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     cappellaTuning: state.cappellaTuning,
     tiltTuning: state.tiltTuning,
     monetBackgroundTuning: state.monetBackgroundTuning,
+    latentBackgroundTuning: state.latentBackgroundTuning,
     interactive3dSceneTuning: state.interactive3dSceneTuning,
     monetTuning: state.monetTuning,
     cappellaCustomEmojiImages: state.cappellaCustomEmojiImages,
@@ -2139,6 +2413,10 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleToggleDisableHomeDynamicBackground: state.handleToggleDisableHomeDynamicBackground,
     handleToggleHidePlayerTranslationSubtitle: state.handleToggleHidePlayerTranslationSubtitle,
     handleToggleShowSubtitleTranslation: state.handleToggleShowSubtitleTranslation,
+    handleToggleSubtitleOverlayBackground: state.handleToggleSubtitleOverlayBackground,
+    handleSetSubtitleFontInheritsLyrics: state.handleSetSubtitleFontInheritsLyrics,
+    handleSetSubtitleFontStyle: state.handleSetSubtitleFontStyle,
+    handleSetSubtitleFontFamily: state.handleSetSubtitleFontFamily,
     handleToggleHidePlayerRightPanelButton: state.handleToggleHidePlayerRightPanelButton,
     handleToggleTransparentPlayerBackground: state.handleToggleTransparentPlayerBackground,
     enablePlayerPageNativeBlur: state.enablePlayerPageNativeBlur,
@@ -2146,6 +2424,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleToggleAutoHidePlayerChrome: state.handleToggleAutoHidePlayerChrome,
     handleToggleDisableVisualizerVignette: state.handleToggleDisableVisualizerVignette,
     handleToggleEnableSmartAtmosphere: state.handleToggleEnableSmartAtmosphere,
+    handleToggleEnableBilibiliVideoBackground: state.handleToggleEnableBilibiliVideoBackground,
     handleToggleEnable3dInteractiveBackground: state.handleToggleEnable3dInteractiveBackground,
     handleToggleMinimizeToTray: state.handleToggleMinimizeToTray,
     handleToggleHideTaskbarIcon: state.handleToggleHideTaskbarIcon,
@@ -2156,6 +2435,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleSetVisualizerOpacity: state.handleSetVisualizerOpacity,
     handleSetVisualizerBackgroundMode: state.handleSetVisualizerBackgroundMode,
     handleResetVisualizerBackgroundMode: state.handleResetVisualizerBackgroundMode,
+    forceSafeVisualizerBackgroundAfterGpuCrash: state.forceSafeVisualizerBackgroundAfterGpuCrash,
     handleAddUrlBackgroundItem: state.handleAddUrlBackgroundItem,
     handleUpdateUrlBackgroundItem: state.handleUpdateUrlBackgroundItem,
     handleDeleteUrlBackgroundItem: state.handleDeleteUrlBackgroundItem,
@@ -2187,6 +2467,8 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleResetTiltTuning: state.handleResetTiltTuning,
     handleSetMonetBackgroundTuning: state.handleSetMonetBackgroundTuning,
     handleResetMonetBackgroundTuning: state.handleResetMonetBackgroundTuning,
+    handleSetLatentBackgroundTuning: state.handleSetLatentBackgroundTuning,
+    handleResetLatentBackgroundTuning: state.handleResetLatentBackgroundTuning,
     handleSetInteractive3dSceneTuning: state.handleSetInteractive3dSceneTuning,
     handleResetInteractive3dSceneTuning: state.handleResetInteractive3dSceneTuning,
     handleSetMonetTuning: state.handleSetMonetTuning,
@@ -2202,6 +2484,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     handleSetLyricWordMode: state.handleSetLyricWordMode,
     handleSetLyricFontPresetId: state.handleSetLyricFontPresetId,
     handleSetVisualEffectIntensity: state.handleSetVisualEffectIntensity,
+    handleSetLyricEffectPackId: state.handleSetLyricEffectPackId,
     handleSetLyricsFontStyle: state.handleSetLyricsFontStyle,
     handleSetLyricsFontScale: state.handleSetLyricsFontScale,
     handleSetLyricsCustomFont: state.handleSetLyricsCustomFont,

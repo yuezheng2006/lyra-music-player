@@ -22,6 +22,8 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     toggleLoop: vi.fn(),
     handleNextTrack: vi.fn(),
     handlePrevTrack: vi.fn(),
+    adjustVolumeByStep: vi.fn(),
+    toggleMute: vi.fn(),
     shuffleQueue: vi.fn(),
     canGenerateAITheme: true,
     isGeneratingTheme: false,
@@ -30,6 +32,7 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     setLyricWordMode: vi.fn(),
     setVisualizerBackgroundMode: vi.fn(),
     setMonetBackgroundTuning: vi.fn(),
+    setLatentBackgroundTuning: vi.fn(),
     toggleTransparentBackground: vi.fn(),
     hideBottomSubtitleOverlay: false,
     toggleBottomSubtitleOverlay: vi.fn(),
@@ -53,6 +56,12 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     setDesktopLyricsLocked: vi.fn(async () => true),
     desktopLyricsEnabled: false,
     desktopLyricsLocked: true,
+    downloadCurrentSong: vi.fn(async () => true),
+    startVideoExport: vi.fn(),
+    isElectronWindow: false,
+    setLyricEffectPackId: vi.fn(),
+    enableBilibiliVideoBackground: true,
+    toggleBilibiliVideoBackground: vi.fn(),
     ...overrides,
 });
 
@@ -86,6 +95,25 @@ describe('command palette registry', () => {
         match.command.execute(match.input, context);
 
         expect(context.openSettings).toHaveBeenCalledWith('options', 'integration');
+    });
+
+    it('adjusts volume and mute from playback commands', () => {
+        const context = createContext();
+        const [up] = getCommandPaletteMatches('音量加');
+        const [down] = getCommandPaletteMatches('volume down');
+        const [mute] = getCommandPaletteMatches('静音');
+
+        expect(up.command.id).toBe('playback-volume-up');
+        expect(down.command.id).toBe('playback-volume-down');
+        expect(mute.command.id).toBe('playback-toggle-mute');
+
+        up.command.execute(up.input, context);
+        down.command.execute(down.input, context);
+        mute.command.execute(mute.input, context);
+
+        expect(context.adjustVolumeByStep).toHaveBeenCalledWith(0.05);
+        expect(context.adjustVolumeByStep).toHaveBeenCalledWith(-0.05);
+        expect(context.toggleMute).toHaveBeenCalled();
     });
 
     it('opens the shortcuts cheat sheet from the show-shortcuts command', () => {
@@ -308,6 +336,20 @@ describe('command palette registry', () => {
         expect(context.shuffleQueue).toHaveBeenCalled();
     });
 
+    it('starts video export from command palette in electron only', () => {
+        const webContext = createContext({ isElectronWindow: false });
+        const [webMatch] = getCommandPaletteMatches('录制');
+        expect(webMatch.command.id).toBe('record-current-playback');
+        expect(webMatch.command.execute('', webContext)).toBe(false);
+        expect(webContext.startVideoExport).not.toHaveBeenCalled();
+
+        const electronContext = createContext({ isElectronWindow: true });
+        const [electronMatch] = getCommandPaletteMatches('luping');
+        expect(electronMatch.command.id).toBe('record-current-playback');
+        expect(electronMatch.command.execute('', electronContext)).toBe(true);
+        expect(electronContext.startVideoExport).toHaveBeenCalledWith('from-start');
+    });
+
     it('shows best lyric auto-match command only when alternative lyric sources are enabled', async () => {
         const disabledContext = createContext({ enableAlternativeLyricSources: false });
         expect(getCommandPaletteMatches('最佳歌词', disabledContext).some(match => match.command.id === 'playback-auto-match-best-lyric')).toBe(false);
@@ -373,6 +415,11 @@ describe('command palette registry', () => {
         matchKaraokeWord.command.execute('', context);
         expect(context.setLyricWordMode).toHaveBeenCalledWith('karaoke');
 
+        const [matchKtvWord] = getCommandPaletteMatches('传统k歌');
+        expect(matchKtvWord.command.id).toBe('lyric-word-mode-ktv');
+        matchKtvWord.command.execute('', context);
+        expect(context.setLyricWordMode).toHaveBeenCalledWith('ktv');
+
         const [matchFullOverlay] = getCommandPaletteMatches('全屏叠色');
         expect(matchFullOverlay.command.id).toBe('background-monet-full-overlay');
         matchFullOverlay.command.execute('', context);
@@ -389,5 +436,15 @@ describe('command palette registry', () => {
         expect(matchCommon.command.id).toBe('background-common');
         matchCommon.command.execute('', context);
         expect(context.setVisualizerBackgroundMode).toHaveBeenCalledWith('common');
+
+        const [matchLatent] = getCommandPaletteMatches('隐现');
+        expect(matchLatent.command.id).toBe('background-latent');
+        matchLatent.command.execute('', context);
+        expect(context.setVisualizerBackgroundMode).toHaveBeenCalledWith('latent');
+
+        const [matchLatentPixel] = getCommandPaletteMatches('隐现像素');
+        expect(matchLatentPixel.command.id).toBe('background-latent-dithering');
+        matchLatentPixel.command.execute('', context);
+        expect(context.setLatentBackgroundTuning).toHaveBeenCalledWith({ displayMode: 'dithering' });
     });
 });

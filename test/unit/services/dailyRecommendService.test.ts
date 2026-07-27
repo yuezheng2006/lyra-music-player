@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { interleaveDailyRecommendSongs } from '@/services/dailyRecommendService';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+    fetchAggregatedDailyRecommend,
+    interleaveDailyRecommendSongs,
+} from '@/services/dailyRecommendService';
 import {
     dedupeSongsByTitle,
     normalizeRecommendTitle,
@@ -7,6 +10,12 @@ import {
 import type { SongResult } from '@/types';
 
 // test/unit/services/dailyRecommendService.test.ts
+
+vi.mock('@/services/neteasePodcast', () => ({
+    fetchDailyRecommendSongs: vi.fn(),
+}));
+
+import { fetchDailyRecommendSongs } from '@/services/neteasePodcast';
 
 const song = (
     provider: SongResult['musicProvider'],
@@ -60,5 +69,34 @@ describe('dailyRecommendService', () => {
             { provider: 'qishui', kind: 'picks', songs: [] },
             { provider: 'coco', kind: 'picks', songs: [song('coco', 1, 'only')] },
         ]).map(item => item.name)).toEqual(['only']);
+    });
+
+    describe('fetchAggregatedDailyRecommend', () => {
+        beforeEach(() => {
+            vi.mocked(fetchDailyRecommendSongs).mockReset();
+        });
+
+        it('still fetches Netease when home library filter disables netease', async () => {
+            vi.mocked(fetchDailyRecommendSongs).mockResolvedValue({
+                songs: [song('netease', 42, '推荐歌')],
+                code: 200,
+                needLogin: false,
+            });
+
+            const result = await fetchAggregatedDailyRecommend({
+                netease: false,
+                qq: false,
+                qishui: true,
+                coco: false,
+                kugou: false,
+                bilibili: false,
+                kuwo: false,
+            });
+
+            expect(fetchDailyRecommendSongs).toHaveBeenCalledTimes(1);
+            expect(result.songs.map(item => item.name)).toEqual(['推荐歌']);
+            expect(result.sources).toHaveLength(1);
+            expect(result.sources[0]?.provider).toBe('netease');
+        });
     });
 });

@@ -6,9 +6,12 @@ import {
     dismissBootSplash,
     setBootSplashStatus,
 } from '@/utils/bootSplash';
+import { trackTelemetry } from '@/utils/telemetry/trackTelemetry';
 
 // src/hooks/useBootSplashLifecycle.ts
 // Dismisses the HTML boot splash only after the React shell has had time to paint.
+
+const bootLifecycleStartedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
 type UseBootSplashLifecycleOptions = {
     ready: boolean;
@@ -46,6 +49,9 @@ export function useBootSplashLifecycle({ ready, statusText }: UseBootSplashLifec
             innerFrame = window.requestAnimationFrame(() => {
                 settleTimer = window.setTimeout(() => {
                     if (!cancelled) {
+                        trackTelemetry('boot.ready', {
+                            durMs: Math.max(0, performance.now() - bootLifecycleStartedAt),
+                        });
                         dismissBootSplash();
                     }
                 }, BOOT_SPLASH_PAINT_SETTLE_MS);

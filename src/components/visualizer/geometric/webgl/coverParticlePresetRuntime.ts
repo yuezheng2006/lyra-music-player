@@ -18,17 +18,12 @@ export interface CoverParticlePresetRuntimeProfile {
 const PROFILES: Record<MineradioVisualPresetId, CoverParticlePresetRuntimeProfile> = {
     emily: {
         speedMul: 1.00,
-        pointScale: 1.00,
-        cameraZ: 6.60,
+        // Slightly fuller at balanced ~159² so the field stays solid without 221² cost.
+        pointScale: 1.14,
+        // Slightly closer than Mineradio 6.6 so the cover plane uses more screen samples.
+        cameraZ: 6.20,
         fov: 45,
         bassCameraPunch: 0.08,
-    },
-    tunnel: {
-        speedMul: 1.24,
-        pointScale: 1.28,
-        cameraZ: 5.72,
-        fov: 52,
-        bassCameraPunch: 0.32,
     },
     nebula: {
         speedMul: 1.16,
@@ -36,13 +31,6 @@ const PROFILES: Record<MineradioVisualPresetId, CoverParticlePresetRuntimeProfil
         cameraZ: 5.38,
         fov: 50,
         bassCameraPunch: 0.22,
-    },
-    terrain: {
-        speedMul: 1.28,
-        pointScale: 1.24,
-        cameraZ: 5.82,
-        fov: 54,
-        bassCameraPunch: 0.36,
     },
     quantumCube: {
         speedMul: 1.10,
@@ -52,26 +40,26 @@ const PROFILES: Record<MineradioVisualPresetId, CoverParticlePresetRuntimeProfil
         bassCameraPunch: 0.28,
     },
     aurora: {
-        speedMul: 1.02,
-        pointScale: 1.18,
-        cameraZ: 5.60,
+        speedMul: 1.04,
+        pointScale: 1.22,
+        cameraZ: 5.80,
         fov: 50,
-        bassCameraPunch: 0.20,
+        bassCameraPunch: 0.18,
     },
     mineradioTunnel: {
-        speedMul: 1.00,
-        pointScale: 1.00,
-        cameraZ: 6.20,
-        fov: 45,
-        bassCameraPunch: 0.32,
+        speedMul: 1.06,
+        pointScale: 1.04,
+        cameraZ: 6.05,
+        fov: 48,
+        bassCameraPunch: 0.36,
     },
     mineradioOrbit: {
         speedMul: 1.00,
-        pointScale: 1.00,
+        pointScale: 1.02,
         // Fallback before viewport fit; runtime overrides via resolveOrbitFitCameraRadius.
         cameraZ: 8.80,
         fov: 45,
-        bassCameraPunch: 0.06,
+        bassCameraPunch: 0.12,
     },
     mineradioVoid: {
         speedMul: 1.00,
@@ -80,22 +68,20 @@ const PROFILES: Record<MineradioVisualPresetId, CoverParticlePresetRuntimeProfil
         fov: 45,
         bassCameraPunch: 0.02,
     },
+    /** Retired vinyl — unused after normalize maps to emily. */
     mineradioVinyl: {
         speedMul: 1.00,
         pointScale: 1.00,
         cameraZ: 6.50,
-        fov: 43,
-        bassCameraPunch: 0.28,
-        immersivePhiOffset: 0.06,
-        immersiveRadiusOffset: -0.48,
-        immersiveFovOffset: 2.4,
+        fov: 45,
+        bassCameraPunch: 0.22,
     },
     mineradioGalaxy: {
-        speedMul: 1.00,
-        pointScale: 1.00,
-        cameraZ: 9.40,
-        fov: 45,
-        bassCameraPunch: 0.16,
+        speedMul: 1.04,
+        pointScale: 1.06,
+        cameraZ: 9.20,
+        fov: 48,
+        bassCameraPunch: 0.20,
     },
     starfield: {
         speedMul: 1.12,

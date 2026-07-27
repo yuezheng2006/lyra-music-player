@@ -57,20 +57,24 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
         audioOutputDeviceId,
         autoUseBestLyric,
         enableAlternativeLyricSources,
+        enableBilibiliVideoBackground,
         preferredAlternativeLyricSource,
         queueAddBehavior,
         onToggleAlternativeLyricSources,
         onToggleAutoUseBestLyric,
+        onToggleEnableBilibiliVideoBackground,
         onPreferredAlternativeLyricSourceChange,
         onQueueAddBehaviorChange,
     } = useSettingsUiStore(useShallow(state => ({
         audioOutputDeviceId: state.audioOutputDeviceId,
         autoUseBestLyric: state.autoUseBestLyric,
         enableAlternativeLyricSources: state.enableAlternativeLyricSources,
+        enableBilibiliVideoBackground: state.enableBilibiliVideoBackground,
         preferredAlternativeLyricSource: state.preferredAlternativeLyricSource,
         queueAddBehavior: state.queueAddBehavior,
         onToggleAlternativeLyricSources: state.handleToggleAlternativeLyricSources,
         onToggleAutoUseBestLyric: state.handleToggleAutoUseBestLyric,
+        onToggleEnableBilibiliVideoBackground: state.handleToggleEnableBilibiliVideoBackground,
         onPreferredAlternativeLyricSourceChange: state.handleSetPreferredAlternativeLyricSource,
         onQueueAddBehaviorChange: state.handleSetQueueAddBehavior,
     })));
@@ -298,6 +302,29 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                         </div>
                     </SettingsAdvancedSection>
                 )}
+            </section>
+
+            <section>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                    <PlayCircle size={14} /> {t('options.bilibiliPlaybackSection') || 'B 站播放'}
+                </h3>
+                <div className={`rounded-xl border overflow-hidden ${settingsCardClass}`}>
+                    <div className="p-4 flex items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                <PlayCircle size={14} />
+                                {t('options.enableBilibiliVideoBackground') || '显示 B 站视频背景'}
+                            </div>
+                            <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
+                                {t('options.enableBilibiliVideoBackgroundDesc') || '播放 B 站歌曲时在歌词下方显示静音视频；关闭后仅保留音频与 visualizer。'}
+                            </div>
+                        </div>
+                        {renderToggle(
+                            enableBilibiliVideoBackground,
+                            () => onToggleEnableBilibiliVideoBackground(!enableBilibiliVideoBackground),
+                        )}
+                    </div>
+                </div>
             </section>
 
             <section>

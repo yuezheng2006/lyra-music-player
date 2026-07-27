@@ -5,7 +5,17 @@ import { neteaseApi } from '../services/netease';
 import { PlayerState } from '../types';
 import type { ReplayGainMode, SongResult, StageLoopMode, StatusMessage } from '../types';
 import { replayGainModeLabels } from '../utils/appPlaybackHelpers';
-import { isModKeyChord } from '@/components/shortcuts/shortcutKeyboardGuards';
+import {
+    hasFoliaKeyboardWindow,
+    isModKeyChord,
+    isTextEntryTarget,
+} from '@/components/shortcuts/shortcutKeyboardGuards';
+import {
+    KEYBOARD_VOLUME_STEP,
+    resolveVolumeStepAdjustment,
+} from '@/utils/playback/adjustVolumeByStepMath';
+import { resolvePlayToggleAction } from '@/utils/playback/resolvePlayToggleActionMath';
+import { trackTelemetry } from '@/utils/telemetry/trackTelemetry';
 
 // src/hooks/usePlaybackInteractionBridge.ts
 
@@ -43,6 +53,12 @@ type UsePlaybackInteractionBridgeParams = {
     handleToggleLoopMode: () => void;
     pausePlayback: () => void;
     resumePlayback: () => Promise<void>;
+    volume: number;
+    isMuted: boolean;
+    handleSetVolume: (volume: number) => void;
+    handleToggleMute: () => void;
+    /** Re-arm audio when session restore left currentSong without audioSrc. */
+    replayCurrentSong?: () => void;
     syncStageLyricsClock: (timeSec: number, endTimeSec: number, nextPlayerState: PlayerState, startTimeSec?: number) => void;
 };
 
@@ -74,32 +90,81 @@ export function usePlaybackInteractionBridge({
     handleToggleLoopMode,
     pausePlayback,
     resumePlayback,
+    volume,
+    isMuted,
+    handleSetVolume,
+    handleToggleMute,
+    replayCurrentSong,
     syncStageLyricsClock,
 }: UsePlaybackInteractionBridgeParams) {
+    const adjustVolumeByKeyboard = useCallback((delta: number) => {
+        const { nextVolume, volumeChanged, shouldUnmute } = resolveVolumeStepAdjustment({
+            volume,
+            isMuted,
+            delta,
+        });
+        if (volumeChanged) {
+            handleSetVolume(nextVolume);
+        }
+        if (shouldUnmute) {
+            handleToggleMute();
+        }
+    }, [handleSetVolume, handleToggleMute, isMuted, volume]);
     const togglePlay = useCallback((event?: React.MouseEvent | KeyboardEvent) => {
         event?.stopPropagation();
 
-        if (isNowPlayingStageActive) {
-            return;
+        const action = resolvePlayToggleAction({
+            isNowPlayingStageActive,
+            hasCurrentSong: Boolean(currentSong),
+            hasAudioSrc: Boolean(audioSrc),
+            canReplayCurrentSong: Boolean(replayCurrentSong),
+            activePlaybackContext,
+            stageActiveEntryKind,
+            playerStateIsPlaying: playerState === PlayerState.PLAYING,
+            audioIsActivelyPlaying: Boolean(
+                audioRef.current && !audioRef.current.paused && !audioRef.current.ended,
+            ),
+        });
+
+        trackTelemetry('play.toggle', {
+            level: action === 'replay-song' ? 'warn' : 'info',
+            data: {
+                action,
+                hasAudioSrc: Boolean(audioSrc),
+                playbackContext: activePlaybackContext,
+                stageKind: stageActiveEntryKind,
+                songId: currentSong?.id ?? null,
+            },
+        });
+        if (action === 'replay-song') {
+            trackTelemetry('audio.src_empty', {
+                level: 'warn',
+                data: { reason: 'play-toggle-replay', songId: currentSong?.id ?? null },
+            });
         }
 
-        if (activePlaybackContext === 'stage' && stageActiveEntryKind === 'lyrics' && !audioSrc) {
-            if (playerState === PlayerState.PLAYING) {
+        switch (action) {
+            case 'replay-song':
+                // After GPU relaunch / failed restore: rehydrate stream instead of fake lyrics clock.
+                replayCurrentSong?.();
+                return;
+            case 'synthetic-pause':
                 pausePlayback();
-            } else {
+                return;
+            case 'synthetic-resume':
                 void resumePlayback();
-            }
-            return;
-        }
-
-        if (audioRef.current) {
-            if (!audioRef.current.paused && !audioRef.current.ended) {
+                return;
+            case 'audio-pause':
                 pausePlayback();
-            } else {
+                return;
+            case 'audio-resume':
                 void resumePlayback();
-            }
+                return;
+            case 'noop':
+            default:
+                return;
         }
-    }, [activePlaybackContext, audioRef, audioSrc, isNowPlayingStageActive, pausePlayback, playerState, resumePlayback, stageActiveEntryKind]);
+    }, [activePlaybackContext, audioRef, audioSrc, currentSong, isNowPlayingStageActive, pausePlayback, playerState, replayCurrentSong, resumePlayback, stageActiveEntryKind]);
 
     const toggleLoop = useCallback((event?: React.MouseEvent) => {
         event?.stopPropagation();
@@ -144,17 +209,11 @@ export function usePlaybackInteractionBridge({
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (
-                event.target instanceof HTMLInputElement
-                || event.target instanceof HTMLTextAreaElement
-                || (event.target instanceof HTMLElement && event.target.isContentEditable)
-            ) {
+            if (isTextEntryTarget(event.target)) {
                 return;
             }
 
-            const hasBlockingWindow = () => Boolean(
-                document.querySelector('[data-folia-keyboard-window="true"]')
-            );
+            const hasBlockingWindow = () => hasFoliaKeyboardWindow();
 
             if (isDev && event.altKey && event.shiftKey && event.code === 'KeyD') {
                 event.preventDefault();
@@ -163,6 +222,15 @@ export function usePlaybackInteractionBridge({
             }
 
             switch (event.code) {
+                case 'ArrowUp':
+                case 'ArrowDown': {
+                    // Player view only — home GridView/ArtistGrid own ↑↓ for card navigation.
+                    if (currentView !== 'player' || hasBlockingWindow()) return;
+                    if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+                    event.preventDefault();
+                    adjustVolumeByKeyboard(event.code === 'ArrowUp' ? KEYBOARD_VOLUME_STEP : -KEYBOARD_VOLUME_STEP);
+                    break;
+                }
                 case 'Space':
                     if (currentSong && (audioSrc || isNowPlayingStageActive || (activePlaybackContext === 'stage' && stageActiveEntryKind === 'lyrics'))) {
                         event.preventDefault();
@@ -267,6 +335,7 @@ export function usePlaybackInteractionBridge({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [
         activePlaybackContext,
+        adjustVolumeByKeyboard,
         audioRef,
         audioSrc,
         currentSong,

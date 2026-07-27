@@ -19,6 +19,7 @@ import { isNavidromeEnabled } from '@/services/navidromeService';
 import { isNavidromeUiEnabled } from '@/utils/featureFlags';
 import { useAppPreferences } from '@/hooks/useAppPreferences';
 import { useElectronNeteaseApiStatus } from '@/hooks/useElectronNeteaseApiStatus';
+import { useMusicProviderCatalogBootstrap } from '@/hooks/useMusicProviderCatalogBootstrap';
 import { useAppControllerCoreIntegrations } from '@/hooks/useAppControllerCoreIntegrations';
 import { useThemeController } from '@/hooks/useThemeController';
 import { useAtmosphereThemeBridge } from '@/hooks/useAtmosphereThemeBridge';
@@ -47,6 +48,7 @@ export function useAppControllerCore() {
 
     // Player Data
     const [audioSrc, setAudioSrc] = useState<string | null>(null);
+    const [videoSrc, setVideoSrc] = useState<string | null>(null);
     const [currentSong, setCurrentSong] = useState<SongResult | null>(null);
     const [lyrics, setLyricsState] = useState<LyricData | null>(null);
     const [lyricTimelineOffsetMs, setLyricTimelineOffsetMs] = useState(0);
@@ -60,6 +62,7 @@ export function useAppControllerCore() {
     const [statusMsg, setStatusMsg] = useState<StatusMessage | null>(null);
     const [isPanelOpen, setIsPanelOpen] = useState(false);
     useElectronNeteaseApiStatus(setStatusMsg, t);
+    useMusicProviderCatalogBootstrap();
 
     // Auto-close the player panel when leaving the player view
     // (Effect moved to after useAppNavigation where currentView is defined)
@@ -118,8 +121,14 @@ export function useAppControllerCore() {
 
     useEffect(() => {
         const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
+        // Re-read storage in case an earlier skip wrote before this store instance hydrated.
+        const storedCompleted = typeof window !== 'undefined'
+            && (
+                localStorage.getItem('lyra_onboarding_completed') === 'true'
+                || Boolean(localStorage.getItem('folia_last_seen_guide_version'))
+            );
         const overlay = resolveStartupOverlay({
-            onboardingCompleted,
+            onboardingCompleted: onboardingCompleted || storedCompleted,
             lastSeenGuideVersion,
             appVersion,
         });
@@ -200,6 +209,7 @@ export function useAppControllerCore() {
 
     // Refs
     const audioRef = useRef<HTMLAudioElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const animationFrameRef = useRef<number>(0);
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
@@ -224,6 +234,11 @@ export function useAppControllerCore() {
     const onlinePlaybackRecoveryRef = useRef<Promise<boolean> | null>(null);
     const lastAudioRecoverySourceRef = useRef<string | null>(null);
     const currentOnlineAudioUrlFetchedAtRef = useRef<number | null>(null);
+    /** Bumped to remount <audio> after Format-error recovery (poisoned media element). */
+    const [audioElementEpoch, setAudioElementEpoch] = useState(0);
+    const remountAudioElement = useCallback(() => {
+        setAudioElementEpoch((epoch) => epoch + 1);
+    }, []);
     // Buffer progress debug helper. Uncomment this ref, the reset effect below,
     // and the audio `onProgress` handler to log buffered percent again.
     // const lastBufferedPercentLogRef = useRef<number | null>(null);
@@ -265,6 +280,7 @@ export function useAppControllerCore() {
         autoHidePlayerChrome,
         disableVisualizerVignette,
         enableSmartAtmosphere,
+        enableBilibiliVideoBackground,
         enable3dInteractiveBackground,
         minimizeToTray,
         hideTaskbarIcon,
@@ -284,6 +300,7 @@ export function useAppControllerCore() {
         cappellaTuning,
         tiltTuning,
         monetBackgroundTuning,
+        latentBackgroundTuning,
         interactive3dSceneTuning,
         monetTuning,
         cappellaCustomEmojiImages,
@@ -313,6 +330,7 @@ export function useAppControllerCore() {
         handleToggleTransparentPlayerBackground,
         handleToggleDisableVisualizerVignette,
         handleToggleEnableSmartAtmosphere,
+        handleToggleEnableBilibiliVideoBackground,
         handleToggleEnable3dInteractiveBackground,
         handleToggleMinimizeToTray,
         handleToggleHideTaskbarIcon,
@@ -324,6 +342,8 @@ export function useAppControllerCore() {
         handleSetLyricWordMode,
         handleSetVisualizerBackgroundMode,
         handleSetMonetBackgroundTuning,
+        handleSetLatentBackgroundTuning,
+        handleResetLatentBackgroundTuning,
         handleSetInteractive3dSceneTuning,
         handleSetMonetTuning,
         handleSetCadenzaTuning,
@@ -379,6 +399,7 @@ export function useAppControllerCore() {
 
     const {
         syncOutputGain,
+        rampOutputGain,
         handleAudioOutputDeviceChange,
         handlePreviewVolume,
     } = useAppAudioOutput({
@@ -412,9 +433,11 @@ export function useAppControllerCore() {
         lastAudioRecoverySourceRef,
         currentOnlineAudioUrlFetchedAtRef,
         setAudioSrc,
+        setVideoSrc,
+        remountAudioElement,
         onlineAudioUrlTtlMs: ONLINE_AUDIO_URL_TTL_MS,
         onlineAudioUrlRefreshBufferMs: ONLINE_AUDIO_URL_REFRESH_BUFFER_MS,
-    }), [audioQuality, audioSrc, audioRef, blobUrlRef, currentOnlineAudioUrlFetchedAtRef, currentSong, currentSongRef, lastAudioRecoverySourceRef, onlinePlaybackRecoveryRef, pendingResumeTimeRef, setAudioSrc, shouldAutoPlay]);
+    }), [audioQuality, audioSrc, audioRef, blobUrlRef, currentOnlineAudioUrlFetchedAtRef, currentSong, currentSongRef, lastAudioRecoverySourceRef, onlinePlaybackRecoveryRef, pendingResumeTimeRef, remountAudioElement, setAudioSrc, setVideoSrc, shouldAutoPlay]);
 
     const getCoverUrl = useMemo(
         () => createCoverUrlResolver(cachedCoverUrl, currentSong),
@@ -577,7 +600,10 @@ export function useAppControllerCore() {
         audioPower,
         audioQuality,
         audioRef,
+        audioElementEpoch,
         audioSrc,
+        videoRef,
+        videoSrc,
         backgroundOpacity,
         bass,
         applyCustomTheme,
@@ -613,6 +639,7 @@ export function useAppControllerCore() {
         enableNowPlayingStage,
         enablePlayerPageNativeBlur,
         enableSmartAtmosphere,
+        enableBilibiliVideoBackground,
         fumeTuning,
         gainNodeRef,
         activateSmartTheme,
@@ -629,6 +656,8 @@ export function useAppControllerCore() {
         handleSetLyricFilterPattern,
         handleSetInteractive3dSceneTuning,
         handleSetMonetBackgroundTuning,
+        handleSetLatentBackgroundTuning,
+        handleResetLatentBackgroundTuning,
         handleSetMonetTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
@@ -641,6 +670,7 @@ export function useAppControllerCore() {
         handleToggleDaylight,
         handleToggleDisableVisualizerVignette,
         handleToggleEnableSmartAtmosphere,
+        handleToggleEnableBilibiliVideoBackground,
         handleToggleHidePlayerTranslationSubtitle,
         handleToggleLoopMode,
         handleToggleMute,
@@ -687,6 +717,7 @@ export function useAppControllerCore() {
         mid,
         monetBackgroundImage,
         monetBackgroundTuning,
+        latentBackgroundTuning,
         monetPortraitImage,
         monetTuning,
         navidromeEnabled,
@@ -718,6 +749,7 @@ export function useAppControllerCore() {
         setActiveGridViewCollection,
         setAudioQuality,
         setAudioSrc,
+        setVideoSrc,
         setCachedCoverUrl,
         setCurrentLineIndex,
         setCurrentSong,
@@ -761,6 +793,7 @@ export function useAppControllerCore() {
         statusMsg,
         subtitleOverlayOpacity,
         syncOutputGain,
+        rampOutputGain,
         t,
         theme,
         themeController,

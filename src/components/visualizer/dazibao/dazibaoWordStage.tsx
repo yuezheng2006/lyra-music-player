@@ -3,18 +3,24 @@ import { motion, useMotionValueEvent, type MotionValue } from 'framer-motion';
 import type { Word as WordType } from '../../../types';
 import { buildWordGraphemeTimings } from '../../../utils/lyrics/graphemeTiming';
 import {
+    resolveLyricWordStatus,
+    type LyricWordStatus,
+} from '../../../utils/lyrics/lyricWordStatusMath';
+import {
     buildLyricKaraokeOutlineLayers,
     combineShadowEffects,
     type LyricVisualEffectConfig,
 } from '../../../utils/lyricVisualEffects';
+import type { ResolvedLyricEffectPack } from '../../../utils/lyricEffectPacks';
 import type { WaitingWordPresentation } from '../../../utils/lyrics/lyricWordMode';
 import { colorWithAlpha } from '../colorMix';
 import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
+import LyricEffectPackLayers, { isLyricEffectPackNeonActive } from '../LyricEffectPackLayers';
 
 // src/components/visualizer/dazibao/dazibaoWordStage.tsx
-// 野火走位词级砸脸；字体/颜色/特效由 visualEffectConfig 驱动。
+// 野火走位词级砸脸；特效包为衬托，节拍通过舞台 CSS vars 微调（不喧宾夺主）。
 
-type WordStatus = 'waiting' | 'active' | 'passed';
+type WordStatus = LyricWordStatus;
 
 type DazibaoWordProps = {
     word: WordType;
@@ -29,7 +35,9 @@ type DazibaoWordProps = {
     letterSpacingPx: number;
     waitingPresentation: WaitingWordPresentation;
     visualEffectConfig: LyricVisualEffectConfig;
-    isChorus: boolean;
+    effectPack: ResolvedLyricEffectPack;
+    /** Active-word punch from phrase presentation (verse/chorus/breath). */
+    wordActiveScale: number;
     lookaheadSec?: number;
 };
 
@@ -46,47 +54,40 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
     letterSpacingPx,
     waitingPresentation,
     visualEffectConfig,
-    isChorus,
+    effectPack,
+    wordActiveScale,
     lookaheadSec = 0.08,
 }) => {
     const [status, setStatus] = useState<WordStatus>('waiting');
     const graphemeTimings = useMemo(() => buildWordGraphemeTimings(word), [word]);
-    const activeEnd = Math.max(word.endTime, word.startTime + 0.1);
 
     useMotionValueEvent(currentTime, 'change', (latest: number) => {
-        let next: WordStatus = 'waiting';
-        if (latest >= word.startTime - lookaheadSec && latest <= activeEnd) {
-            next = 'active';
-        } else if (latest > activeEnd) {
-            next = 'passed';
-        }
-        if (next !== status) {
-            setStatus(next);
-        }
+        const next = resolveLyricWordStatus(latest, word.startTime, word.endTime, lookaheadSec);
+        // Functional update avoids stale-closure skips when the main thread is busy (3D).
+        setStatus((prev) => (prev === next ? prev : next));
     });
 
     const karaokeOutline = useMemo(() => {
         if (!visualEffectConfig.enableStroke || status !== 'active') {
             return null;
         }
-        // 色字白边 — scaled solid rim (calligraphy-safe; no -webkit-text-stroke).
         return buildLyricKaraokeOutlineLayers(activeColor, fontPx, visualEffectConfig.intensity);
     }, [activeColor, fontPx, status, visualEffectConfig.enableStroke, visualEffectConfig.intensity]);
 
+    // Prefer solid ink over soft halos — glow/text-shadow makes brush glyphs hard to read.
     const activeShadow = useMemo(() => {
-        if (visualEffectConfig.enableIntenseGlow) {
-            return combineShadowEffects(activeColor, glowColor, visualEffectConfig);
-        }
-        return `0 0 ${Math.round(fontPx * 0.2)}px ${colorWithAlpha(glowColor, 0.25)}`;
-    }, [activeColor, fontPx, glowColor, visualEffectConfig]);
+        if (!visualEffectConfig.enableIntenseGlow) return 'none';
+        const base = combineShadowEffects(activeColor, glowColor, visualEffectConfig);
+        if (effectPack.glowBoost <= 0) return base;
+        const boostBlur = Math.round(fontPx * (0.22 + effectPack.glowBoost * 0.35));
+        const boost = `0 0 ${boostBlur}px ${colorWithAlpha(glowColor, 0.22 + effectPack.glowBoost * 0.22)}`;
+        return `${base}, ${boost}`;
+    }, [activeColor, effectPack.glowBoost, fontPx, glowColor, visualEffectConfig]);
 
-    const passedShadow = useMemo(
-        () => `0 0 ${Math.round(fontPx * 0.35)}px ${colorWithAlpha(glowColor, 0.4)}`,
-        [fontPx, glowColor],
-    );
+    const passedShadow = 'none';
 
     const scaleTarget = status === 'active'
-        ? (isChorus ? 1.14 : 1.08)
+        ? wordActiveScale
         : status === 'passed'
             ? 1
             : (waitingPresentation.parkAtRest ? 1 : 0.92);
@@ -113,6 +114,8 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
         lineHeight: 1.05,
     };
 
+    const neonActive = isLyricEffectPackNeonActive(effectPack, status);
+
     return (
         <motion.span
             className="relative inline-block origin-center whitespace-nowrap will-change-transform"
@@ -126,15 +129,24 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
                     : 'blur(0px)',
             }}
             transition={{
+                // Keep punch short so the word lands on the beat instead of after it.
                 scale: status === 'active'
-                    ? { duration: 0.3, times: [0, 1], ease: [0.16, 1.25, 0.32, 1] }
-                    : { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
-                opacity: { duration: 0.18 },
-                y: { duration: 0.3, ease: [0.16, 1.25, 0.32, 1] },
-                filter: { duration: 0.2 },
+                    ? { duration: 0.16, times: [0, 1], ease: [0.16, 1.25, 0.32, 1] }
+                    : { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+                opacity: { duration: 0.12 },
+                y: { duration: 0.16, ease: [0.16, 1.25, 0.32, 1] },
+                filter: { duration: 0.14 },
             }}
         >
             <span className="relative z-[1] inline-block">
+                <LyricEffectPackLayers
+                    glyph={glyph}
+                    status={status}
+                    effectPack={effectPack}
+                    glowColor={glowColor}
+                    fontPx={fontPx}
+                    typeStyle={sharedType}
+                />
                 {karaokeOutline ? (
                     <span
                         aria-hidden
@@ -151,11 +163,10 @@ const DazibaoWord: React.FC<DazibaoWordProps> = ({
                     </span>
                 ) : null}
                 <span
-                    className="relative inline-block"
+                    className={`relative inline-block${neonActive ? ' lyric-effect-neon-scan' : ''}`}
                     style={{
                         ...sharedType,
                         color: faceColor,
-                        // Keep dazibao punch glow on the fill face; rim is the outline twin.
                         textShadow: status === 'active'
                             ? activeShadow
                             : status === 'passed'

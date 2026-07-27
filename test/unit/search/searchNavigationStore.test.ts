@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
 import { neteaseApi } from '@/services/netease';
 import { getMusicProvider } from '@/services/musicProviders/registry';
+import { resetSearchResultCacheForTests } from '@/utils/search/searchResultCache';
+import type { MusicProviderSearchResult } from '@/services/musicProviders/types';
 
 vi.mock('@/services/netease', () => ({
     neteaseApi: {
@@ -24,6 +26,16 @@ vi.mock('@/services/navidromeService', () => ({
     },
 }));
 
+const deferred = <T,>() => {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+    });
+    return { promise, resolve, reject };
+};
+
 describe('useSearchNavigationStore', () => {
     const cloudSearchMock = vi.mocked(neteaseApi.cloudSearch);
     const getMusicProviderMock = vi.mocked(getMusicProvider);
@@ -33,6 +45,7 @@ describe('useSearchNavigationStore', () => {
     };
 
     beforeEach(() => {
+        resetSearchResultCacheForTests();
         cloudSearchMock.mockReset();
         getMusicProviderMock.mockReset();
         getMusicProviderMock.mockImplementation((providerId) => {
@@ -97,7 +110,8 @@ describe('useSearchNavigationStore', () => {
             homeViewTab: 'playlist',
             homeSearchQuery: '',
             searchQuery: '',
-            peerSearchQueries: { coco: '', qishui: '' },
+            peerSearchQueries: { coco: '', qishui: '', kugou: '', bilibili: '', kuwo: '' },
+            recentSearchHistory: {},
             searchSourceTab: 'playlist',
             searchProviders: [],
             searchResults: null,
@@ -143,6 +157,140 @@ describe('useSearchNavigationStore', () => {
         expect(state.searchSourceTab).toBe('local');
         expect(state.searchResults).toHaveLength(1);
         expect(state.hasMore).toBe(false);
+    });
+
+    it('keeps displayQuery in searchQuery while routing with the prefixed query', async () => {
+        const searchMock = vi.fn(async () => ({
+            songs: [{
+                id: 301,
+                name: 'Category Hit',
+                artists: [{ id: 1, name: 'Artist' }],
+                album: { id: 2, name: 'Album' },
+                duration: 180000,
+                musicProvider: 'qishui' as const,
+            }],
+            hasMore: false,
+        }));
+        getMusicProviderMock.mockReturnValue({
+            id: 'qishui',
+            search: searchMock,
+            getAudioUrl: vi.fn(),
+            getLyrics: vi.fn(),
+        });
+
+        useSearchNavigationStore.setState({
+            isSearchOpen: true,
+            searchSourceTab: 'qishui',
+            searchProviders: ['qishui'],
+            searchQuery: '',
+            peerSearchQueries: { coco: '', qishui: '', kugou: '', bilibili: '', kuwo: '' },
+        });
+
+        const didSearch = await useSearchNavigationStore.getState().submitSearch({
+            query: 'cat:周杰伦',
+            displayQuery: '周杰伦',
+            sourceTab: 'qishui',
+            providers: ['qishui'],
+            deps,
+        });
+
+        const state = useSearchNavigationStore.getState();
+
+        expect(didSearch).toBe(true);
+        expect(searchMock).toHaveBeenCalledWith('cat:周杰伦', expect.objectContaining({ limit: 30, offset: 0 }));
+        expect(state.searchQuery).toBe('周杰伦');
+        expect(state.peerSearchQueries.qishui).toBe('cat:周杰伦');
+        expect(state.searchSourceTab).toBe('qishui');
+    });
+
+    it('stores raw and display queries in the active channel history', async () => {
+        getMusicProviderMock.mockReturnValue({
+            id: 'qishui',
+            search: vi.fn(async () => ({ songs: [], hasMore: false })),
+            getAudioUrl: vi.fn(),
+            getLyrics: vi.fn(),
+        });
+
+        await useSearchNavigationStore.getState().submitSearch({
+            query: 'cat:周杰伦',
+            displayQuery: '周杰伦',
+            sourceTab: 'qishui',
+            providers: ['qishui'],
+            deps,
+        });
+
+        expect(useSearchNavigationStore.getState().recentSearchHistory.qishui).toEqual([
+            expect.objectContaining({
+                query: 'cat:周杰伦',
+                displayQuery: '周杰伦',
+            }),
+        ]);
+    });
+
+    it('isolates peer and stable multi-provider histories', async () => {
+        getMusicProviderMock.mockImplementation((providerId) => ({
+            id: providerId,
+            search: vi.fn(async () => ({ songs: [], hasMore: false })),
+            getAudioUrl: vi.fn(),
+            getLyrics: vi.fn(),
+        }));
+
+        await useSearchNavigationStore.getState().submitSearch({
+            query: '大头针',
+            sourceTab: 'qishui',
+            providers: ['qishui'],
+            deps,
+        });
+        await useSearchNavigationStore.getState().submitSearch({
+            query: '孤勇者',
+            sourceTab: 'coco',
+            providers: ['coco'],
+            deps,
+        });
+        await useSearchNavigationStore.getState().submitSearch({
+            query: '周杰伦',
+            sourceTab: 'qq',
+            providers: ['qishui', 'qq', 'coco'],
+            deps,
+        });
+
+        const history = useSearchNavigationStore.getState().recentSearchHistory;
+        expect(history.qishui?.[0].query).toBe('大头针');
+        expect(history.coco?.[0].query).toBe('孤勇者');
+        expect(history['coco+qishui+qq']?.[0].query).toBe('周杰伦');
+    });
+
+    it('does not store share links and clears only one channel', async () => {
+        const storage = {
+            getItem: vi.fn(() => null),
+            setItem: vi.fn(),
+        };
+        vi.stubGlobal('window', { localStorage: storage });
+        getMusicProviderMock.mockReturnValue({
+            id: 'qishui',
+            search: vi.fn(async () => ({ songs: [], hasMore: false })),
+            getAudioUrl: vi.fn(),
+            getLyrics: vi.fn(),
+        });
+        useSearchNavigationStore.setState({
+            recentSearchHistory: {
+                qishui: [{ query: '大头针', displayQuery: '大头针', searchedAt: 1 }],
+                coco: [{ query: '孤勇者', displayQuery: '孤勇者', searchedAt: 2 }],
+            },
+        });
+
+        await useSearchNavigationStore.getState().submitSearch({
+            query: 'https://qishui.douyin.com/s/abc123',
+            sourceTab: 'qishui',
+            providers: ['qishui'],
+            deps,
+        });
+        useSearchNavigationStore.getState().clearRecentSearchHistory('qishui');
+
+        expect(useSearchNavigationStore.getState().recentSearchHistory).toEqual({
+            coco: [{ query: '孤勇者', displayQuery: '孤勇者', searchedAt: 2 }],
+        });
+        expect(storage.setItem).toHaveBeenCalled();
     });
 
     it('submits a QQ Music provider search', async () => {
@@ -216,6 +364,168 @@ describe('useSearchNavigationStore', () => {
         expect(getMusicProviderMock).toHaveBeenCalledWith('coco');
         expect(state.searchProviders).toEqual(['netease', 'qq', 'coco']);
         expect(state.searchResults?.map(song => song.musicProvider)).toEqual(['netease', 'qq', 'coco']);
+    });
+
+    it('publishes the first provider batch before slower providers finish', async () => {
+        const fast = deferred<MusicProviderSearchResult>();
+        const slow = deferred<MusicProviderSearchResult>();
+        getMusicProviderMock.mockImplementation((providerId) => ({
+            id: providerId,
+            search: vi.fn(() => providerId === 'qq' ? fast.promise : slow.promise),
+            getAudioUrl: vi.fn(),
+            getLyrics: vi.fn(),
+        }));
+
+        const submit = useSearchNavigationStore.getState().submitSearch({
+            query: '周杰伦',
+            sourceTab: 'qq',
+            providers: ['qq', 'qishui'],
+            deps,
+        });
+        fast.resolve({
+            songs: [{
+                id: 1,
+                name: '晴天',
+                artists: [],
+                album: { id: 0, name: '' },
+                duration: 1,
+                musicProvider: 'qq',
+            }],
+            hasMore: false,
+        });
+
+        await vi.waitFor(() => {
+            expect(useSearchNavigationStore.getState().searchResults?.map(song => song.musicProvider))
+                .toEqual(['qq']);
+        });
+        expect(useSearchNavigationStore.getState().isSearching).toBe(true);
+
+        slow.resolve({
+            songs: [{
+                id: 2,
+                name: '七里香',
+                artists: [],
+                album: { id: 0, name: '' },
+                duration: 1,
+                musicProvider: 'qishui',
+            }],
+            hasMore: false,
+        });
+        await submit;
+
+        expect(useSearchNavigationStore.getState().searchResults?.map(song => song.musicProvider))
+            .toEqual(['qq', 'qishui']);
+        expect(useSearchNavigationStore.getState().isSearching).toBe(false);
+    });
+
+    it('keeps existing results visible while a replacement search runs', async () => {
+        const pending = deferred<MusicProviderSearchResult>();
+        getMusicProviderMock.mockReturnValue({
+            id: 'qishui',
+            search: vi.fn(() => pending.promise),
+            getAudioUrl: vi.fn(),
+            getLyrics: vi.fn(),
+        });
+        useSearchNavigationStore.setState({
+            searchResults: [{
+                id: 1,
+                name: '旧结果',
+                artists: [],
+                album: { id: 0, name: '' },
+                duration: 1,
+                musicProvider: 'qishui',
+            }],
+        });
+
+        const submit = useSearchNavigationStore.getState().submitSearch({
+            query: '新结果',
+            sourceTab: 'qishui',
+            providers: ['qishui'],
+            deps,
+        });
+
+        expect(useSearchNavigationStore.getState().searchResults?.[0].name).toBe('旧结果');
+        pending.resolve({ songs: [], hasMore: false });
+        await submit;
+    });
+
+    it('deduplicates identical provider requests in flight', async () => {
+        const pending = deferred<MusicProviderSearchResult>();
+        const search = vi.fn(() => pending.promise);
+        getMusicProviderMock.mockReturnValue({
+            id: 'qishui',
+            search,
+            getAudioUrl: vi.fn(),
+            getLyrics: vi.fn(),
+        });
+
+        const first = useSearchNavigationStore.getState().submitSearch({
+            query: '大头针',
+            sourceTab: 'qishui',
+            providers: ['qishui'],
+            deps,
+        });
+        const second = useSearchNavigationStore.getState().submitSearch({
+            query: '大头针',
+            sourceTab: 'qishui',
+            providers: ['qishui'],
+            deps,
+        });
+
+        expect(search).toHaveBeenCalledTimes(1);
+        pending.resolve({ songs: [], hasMore: false });
+        await Promise.all([first, second]);
+    });
+
+    it('aborts the previous provider signal when a new query starts', async () => {
+        const requests: Array<{
+            signal?: AbortSignal;
+            deferred: ReturnType<typeof deferred<MusicProviderSearchResult>>;
+        }> = [];
+        getMusicProviderMock.mockReturnValue({
+            id: 'qishui',
+            search: vi.fn((_query, options) => {
+                const request = deferred<MusicProviderSearchResult>();
+                requests.push({ signal: options.signal, deferred: request });
+                return request.promise;
+            }),
+            getAudioUrl: vi.fn(),
+            getLyrics: vi.fn(),
+        });
+
+        void useSearchNavigationStore.getState().submitSearch({
+            query: '第一次',
+            sourceTab: 'qishui',
+            providers: ['qishui'],
+            deps,
+        });
+        const second = useSearchNavigationStore.getState().submitSearch({
+            query: '第二次',
+            sourceTab: 'qishui',
+            providers: ['qishui'],
+            deps,
+        });
+
+        expect(requests[0]?.signal?.aborted).toBe(true);
+        requests[0]?.deferred.resolve({ songs: [], hasMore: false });
+        requests[1]?.deferred.resolve({ songs: [], hasMore: false });
+        await second;
+    });
+
+    it('clears loading state when hiding an in-flight search', () => {
+        useSearchNavigationStore.setState({
+            isSearchOpen: true,
+            isSearching: true,
+            isLoadingMore: true,
+        });
+
+        useSearchNavigationStore.getState().hideSearchOverlay();
+
+        expect(useSearchNavigationStore.getState()).toMatchObject({
+            isSearchOpen: false,
+            isSearching: false,
+            isLoadingMore: false,
+        });
     });
 
     it('submits a Qishui share-link provider search through sidecar', async () => {
@@ -510,7 +820,7 @@ describe('useSearchNavigationStore', () => {
         useSearchNavigationStore.setState({
             homeSearchQuery: '',
             searchQuery: '大头针',
-            peerSearchQueries: { coco: '', qishui: '大头针' },
+            peerSearchQueries: { coco: '', qishui: '大头针', kugou: '', bilibili: '', kuwo: '' },
             searchSourceTab: 'qishui',
             searchProviders: ['qishui'],
             isSearchOpen: false,
@@ -532,7 +842,7 @@ describe('useSearchNavigationStore', () => {
         useSearchNavigationStore.setState({
             homeSearchQuery: '你好',
             searchQuery: '',
-            peerSearchQueries: { coco: '', qishui: '' },
+            peerSearchQueries: { coco: '', qishui: '', kugou: '', bilibili: '', kuwo: '' },
             isSearchOpen: false,
         });
 

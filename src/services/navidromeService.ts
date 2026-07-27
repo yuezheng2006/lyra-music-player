@@ -652,6 +652,7 @@ export const navidromeApi = {
                 path: song.path,
                 bitRate: song.bitRate,
                 suffix: song.suffix,
+                isVideo: song.isVideo === true,
                 starred: song.starred,
             },
         };

@@ -3,12 +3,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Cloud, FolderOpen, Music2, Radio, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { isNavidromeUiEnabled } from '../../utils/featureFlags';
-import { OnboardingShowcase } from './OnboardingShowcase';
-import { OnboardingStage } from './OnboardingStage';
-import type { OnboardingStageStep } from './onboardingStageTheme';
+import { OnboardingBackdrop } from './OnboardingBackdrop';
 
 // src/components/onboarding/OnboardingWizard.tsx
-// Fullscreen premiere onboarding with glass panel over a lightweight 3D stage.
+// Fullscreen onboarding: glass step panel over a quiet textured backdrop.
+
+export type OnboardingStep = 1 | 2 | 3;
 
 export type OnboardingWizardProps = {
     isOpen: boolean;
@@ -34,7 +34,7 @@ export function OnboardingWizard({
     onOpenPlayer,
 }: OnboardingWizardProps) {
     const { t } = useTranslation();
-    const [step, setStep] = useState<OnboardingStageStep>(1);
+    const [step, setStep] = useState<OnboardingStep>(1);
     const [reducedMotion, setReducedMotion] = useState(false);
 
     useEffect(() => {
@@ -71,24 +71,14 @@ export function OnboardingWizard({
         <AnimatePresence>
             {isOpen && (
                 <motion.div
-                    className="fixed inset-0 z-[120]"
+                    className="fixed inset-0 z-[150]"
                     style={{ backgroundColor: '#09090b' }}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.28 }}
                 >
-                    <OnboardingStage step={step} reducedMotion={reducedMotion} />
-                    <OnboardingShowcase step={step} reducedMotion={reducedMotion} />
-
-                    <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 z-[2]"
-                        style={{
-                            background:
-                                'radial-gradient(ellipse 80% 70% at 50% 20%, transparent 0%, rgba(0,0,0,0.28) 65%, rgba(0,0,0,0.62) 100%)',
-                        }}
-                    />
+                    <OnboardingBackdrop reducedMotion={reducedMotion} />
 
                     <div className="pointer-events-none absolute left-6 top-6 z-10">
                         <div
@@ -111,7 +101,7 @@ export function OnboardingWizard({
                     <motion.div
                         role="dialog"
                         aria-modal="true"
-                        className="absolute bottom-6 left-6 right-6 z-20 mx-auto w-full max-w-lg sm:left-8 sm:right-auto sm:bottom-8"
+                        className="pointer-events-auto absolute bottom-6 left-6 right-6 z-20 mx-auto w-full max-w-lg sm:left-8 sm:right-auto sm:bottom-8"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.08, duration: 0.35 }}
@@ -237,7 +227,7 @@ export function OnboardingWizard({
                                             type="button"
                                             className="rounded-full px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
                                             onClick={() =>
-                                                setStep(prev => (prev === 1 ? 1 : ((prev - 1) as OnboardingStageStep)))
+                                                setStep(prev => (prev === 1 ? 1 : ((prev - 1) as OnboardingStep)))
                                             }
                                         >
                                             {t('onboarding.back', 'Back')}
@@ -247,7 +237,7 @@ export function OnboardingWizard({
                                         <button
                                             type="button"
                                             className="rounded-full bg-white px-5 py-2 text-sm font-medium text-zinc-950 transition hover:bg-white/90"
-                                            onClick={() => setStep(prev => ((prev + 1) as OnboardingStageStep))}
+                                            onClick={() => setStep(prev => ((prev + 1) as OnboardingStep))}
                                         >
                                             {t('onboarding.continue', 'Continue')}
                                         </button>

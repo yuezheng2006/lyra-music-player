@@ -1,20 +1,35 @@
 const fs = require('fs');
 const http = require('http');
+const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
+const { createProviderRegistry } = require('./music-provider-plugin/discover.cjs');
 
 // scripts/music-provider-sidecar.cjs
-// Bridges Auralis's provider API to user-configured extractor commands.
+// Bridges Auralis's provider API to built-in + user plugin adapters (protocol v1).
 
 const port = Number(process.env.MUSIC_PROVIDER_SIDECAR_PORT || 3002);
 const host = process.env.MUSIC_PROVIDER_SIDECAR_HOST || '127.0.0.1';
 const timeoutMs = Number(process.env.MUSIC_PROVIDER_EXTRACTOR_TIMEOUT_MS || 30000);
+const adapterCache = new Map();
+
+const builtinAdaptersDir = path.join(__dirname, 'music-provider-adapters');
+const userPluginsDir = (() => {
+  const fromEnv = process.env.MUSIC_PROVIDER_USER_PLUGINS_DIR;
+  if (typeof fromEnv === 'string' && fromEnv.trim()) {
+    return fromEnv.trim();
+  }
+  // Dev fallback when Electron does not inject userData.
+  return path.join(os.homedir(), '.lyra', 'music-providers');
+})();
+
+const registry = createProviderRegistry({
+  builtinAdaptersDir,
+  userPluginsDir,
+});
 
 const providerEnvName = (provider, action) =>
-  `MUSIC_PROVIDER_${provider.toUpperCase()}_${action.toUpperCase()}_CMD`;
-
-const providerAdapterEnvName = (provider) =>
-  `MUSIC_PROVIDER_${provider.toUpperCase()}_ADAPTER`;
+  `MUSIC_PROVIDER_${String(provider).toUpperCase().replace(/-/g, '_')}_${action.toUpperCase()}_CMD`;
 
 const readBody = (req) => new Promise((resolve, reject) => {
   const chunks = [];
@@ -40,48 +55,34 @@ const getExtractorCommand = (provider, action) => {
   return generic && generic.trim() ? generic.trim() : null;
 };
 
-// Resolve adapters next to this sidecar script so packaged apps do not depend on process.cwd().
-const getAdapterModulePath = (provider) => {
-  const specific = process.env[providerAdapterEnvName(provider)];
-  if (specific && specific.trim()) return specific.trim();
-  if (provider === 'qq') {
-    return path.join(__dirname, 'music-provider-adapters', 'qq-provider-adapter.mjs');
-  }
-  if (provider === 'coco') {
-    return path.join(__dirname, 'music-provider-adapters', 'coco-provider-adapter.mjs');
-  }
-  if (provider === 'qishui') {
-    // Same as qq/coco: resolve next to this script so packaged apps do not depend on cwd.
-    return path.join(__dirname, 'music-provider-adapters', 'qishui-provider-adapter.mjs');
-  }
-  const generic = process.env.MUSIC_PROVIDER_ADAPTER;
-  return generic && generic.trim() ? generic.trim() : null;
-};
-
 const loadAdapter = async (provider) => {
-  const modulePath = getAdapterModulePath(provider);
+  const modulePath = registry.getAdapterPath(provider);
   if (!modulePath) return null;
   const resolvedPath = path.isAbsolute(modulePath)
     ? modulePath
     : path.resolve(__dirname, modulePath);
   if (!fs.existsSync(resolvedPath)) {
     const error = new Error(`[music-provider-sidecar] adapter missing for ${provider}: ${resolvedPath}`);
-    // Built-in qq/coco adapters are required; missing files are transport failures, not "song unavailable".
-    if (provider === 'qq' || provider === 'coco') {
+    if (registry.isCuratedBuiltin(provider)) {
       throw error;
     }
     console.warn(error.message);
     return null;
   }
-  // Bust ESM import cache when the adapter file changes (dev-friendly hot reload).
-  let cacheToken = '0';
-  try {
-    cacheToken = String(fs.statSync(resolvedPath).mtimeMs);
-  } catch {
-    cacheToken = String(Date.now());
+  const cached = adapterCache.get(resolvedPath);
+  if (cached && process.env.NODE_ENV === 'production') {
+    return cached.adapter;
   }
-  const mod = await import(`file://${resolvedPath}?t=${cacheToken}`);
-  return mod.default || mod;
+
+  const mtimeMs = fs.statSync(resolvedPath).mtimeMs;
+  if (cached && cached.mtimeMs === mtimeMs) {
+    return cached.adapter;
+  }
+
+  const mod = await import(`file://${resolvedPath}?t=${mtimeMs}`);
+  const adapter = mod.default || mod;
+  adapterCache.set(resolvedPath, { mtimeMs, adapter });
+  return adapter;
 };
 
 const runAdapter = async (provider, action, payload) => {
@@ -153,11 +154,22 @@ const runExtractor = (provider, action, payload) => new Promise((resolve, reject
 });
 
 const parseProviderPath = (pathname) => {
+  if (pathname === '/providers') {
+    return { kind: 'catalog' };
+  }
+  if (pathname === '/providers/reload') {
+    return { kind: 'reload' };
+  }
+  if (pathname === '/providers/dir') {
+    return { kind: 'dir' };
+  }
   const match = pathname.match(/^\/providers\/([^/]+)\/([^/]+)$/);
   if (!match) return null;
   const [, provider, endpoint] = match;
-  if (provider !== 'qq' && provider !== 'qishui' && provider !== 'coco') return null;
-  return { provider, endpoint };
+  if (!registry.hasProvider(provider)) {
+    return null;
+  }
+  return { kind: 'action', provider, endpoint };
 };
 
 const normalizeSearchResponse = (payload) => {
@@ -175,6 +187,8 @@ const normalizeSearchResponse = (payload) => {
     hasMore: Boolean(payload.hasMore),
     ...(payload.kind ? { kind: payload.kind } : {}),
     ...(payload.query ? { query: payload.query } : {}),
+    ...(payload.searchMode ? { searchMode: payload.searchMode } : {}),
+    ...(payload.uploader ? { uploader: payload.uploader } : {}),
   };
 };
 
@@ -249,6 +263,10 @@ const runBuiltInProvider = async (provider, action, payload) => {
   return null;
 };
 
+const clearAdapterCache = () => {
+  adapterCache.clear();
+};
+
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     sendJson(res, 204, {});
@@ -263,6 +281,38 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
+    if (route.kind === 'catalog' && req.method === 'GET') {
+      sendJson(res, 200, {
+        protocolVersion: 1,
+        userPluginsDir: registry.getUserPluginsDir(),
+        providers: registry.listProviders(),
+      });
+      return;
+    }
+
+    if (route.kind === 'dir' && req.method === 'GET') {
+      sendJson(res, 200, {
+        userPluginsDir: registry.getUserPluginsDir(),
+      });
+      return;
+    }
+
+    if (route.kind === 'reload' && req.method === 'POST') {
+      clearAdapterCache();
+      const providers = registry.rescan();
+      sendJson(res, 200, {
+        protocolVersion: 1,
+        userPluginsDir: registry.getUserPluginsDir(),
+        providers,
+      });
+      return;
+    }
+
+    if (route.kind !== 'action') {
+      sendJson(res, 405, { error: 'Method not allowed' });
+      return;
+    }
+
     if (route.endpoint === 'search' && req.method === 'GET') {
       const requestPayload = {
         query: url.searchParams.get('q') || '',
@@ -272,7 +322,13 @@ const server = http.createServer(async (req, res) => {
       const payload = await runAdapter(route.provider, 'search', requestPayload)
         || await runBuiltInProvider(route.provider, 'search', requestPayload)
         || await runExtractor(route.provider, 'search', requestPayload);
-      sendJson(res, 200, normalizeSearchResponse(payload));
+      const normalized = normalizeSearchResponse(payload);
+      normalized.songs = normalized.songs.map((song) => (
+        song && typeof song === 'object'
+          ? { ...song, musicProvider: song.musicProvider || route.provider }
+          : song
+      ));
+      sendJson(res, 200, normalized);
       return;
     }
 
@@ -282,7 +338,16 @@ const server = http.createServer(async (req, res) => {
         || await runBuiltInProvider(route.provider, 'audio', body)
         || await runExtractor(route.provider, 'audio', body);
       const audioUrl = payload?.audioUrl || payload?.url || null;
-      sendJson(res, audioUrl ? 200 : 404, audioUrl ? { audioUrl } : { error: 'Audio URL unavailable' });
+      const videoUrl = typeof payload?.videoUrl === 'string' && payload.videoUrl.trim()
+        ? payload.videoUrl.trim()
+        : null;
+      sendJson(
+        res,
+        audioUrl ? 200 : 404,
+        audioUrl
+          ? { audioUrl, ...(videoUrl ? { videoUrl } : {}) }
+          : { error: 'Audio URL unavailable' },
+      );
       return;
     }
 
@@ -322,5 +387,8 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, host, () => {
+  const loaded = registry.listProviders().map((p) => p.id).join(', ');
   console.log(`[music-provider-sidecar] listening on http://${host}:${port}`);
+  console.log(`[music-provider-sidecar] user plugins: ${registry.getUserPluginsDir()}`);
+  console.log(`[music-provider-sidecar] providers: ${loaded || '(none)'}`);
 });

@@ -16,6 +16,7 @@ import {
     buildLyricOutlineDropShadowFilter,
     buildLyricStageStroke,
     parseLyricVisualEffectIntensity,
+    resolveLyricVisualEffectIntensityScale,
     resolveLyricContrastStrokeColor,
     resolveLyricOutlineWidthPx,
     resolveLyricRimScale,
@@ -35,6 +36,13 @@ describe('lyricVisualEffects', () => {
     it('parses intensity and falls back to default', () => {
         expect(parseLyricVisualEffectIntensity('extreme')).toBe('extreme');
         expect(parseLyricVisualEffectIntensity('nope')).toBe(DEFAULT_LYRIC_VISUAL_EFFECT_INTENSITY);
+    });
+
+    it('maps intensity to a glow scale for non-outline renderers', () => {
+        expect(resolveLyricVisualEffectIntensityScale('subtle')).toBeLessThan(1);
+        expect(resolveLyricVisualEffectIntensityScale('strong')).toBe(1);
+        expect(resolveLyricVisualEffectIntensityScale('extreme')).toBeGreaterThan(1);
+        expect(resolveLyricVisualEffectIntensityScale('nope')).toBe(1);
     });
 
     it('builds valid rgba glow layers for hex and rgba inputs', () => {

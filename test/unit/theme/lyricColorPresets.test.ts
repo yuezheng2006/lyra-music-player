@@ -12,6 +12,8 @@ import {
     resolveLyricStageInkColors,
 } from '@/utils/theme/lyricColorPresets';
 
+// test/unit/theme/lyricColorPresets.test.ts
+
 const baseDualTheme = {
     light: {
         name: 'Light',
@@ -34,85 +36,125 @@ const baseDualTheme = {
 };
 
 describe('lyricColorPresets', () => {
-    it('ships soda neutrals plus vivid stage inks', () => {
-        expect(LYRIC_COLOR_PRESETS).toHaveLength(6);
+    it('ships Chinese traditional mono + combo lyric stage inks', () => {
+        expect(LYRIC_COLOR_PRESETS).toHaveLength(10);
         expect(DEFAULT_LYRIC_COLOR_PRESET_ID).toBe('soda-white');
-        expect(LYRIC_COLOR_PRESETS[0]?.id).toBe('soda-white');
         expect(LYRIC_COLOR_PRESETS.map(preset => preset.id)).toEqual([
             'soda-white',
-            'soda-gray',
-            'douyin-yellow',
             'foil-gold',
-            'xhs-hot-pink',
+            'stage-blue',
             'dazibao-red',
+            'ice-silver',
+            'mint-lime',
+            'hot-pink',
+            'violet-neon',
+            'sunset-orange',
+            'pin-song',
+        ]);
+        expect(LYRIC_COLOR_PRESETS.map(preset => preset.labelFallback)).toEqual([
+            '霜色', '淡茧', '绀青', '茜色', '云峰', '松花', '海棠', '丁香', '橘霁', '品红',
         ]);
         expect(getLyricColorPresetById('soda-white')?.dark).toEqual({
-            primaryColor: '#f4f4f5',
-            accentColor: '#f4f4f5',
-            secondaryColor: '#a1a1aa',
+            primaryColor: '#E8F4F8',
+            accentColor: '#E8F4F8',
+            secondaryColor: '#C1C8D6',
         });
-        expect(getLyricColorPresetById('soda-gray')?.labelFallback).toBe('百搭灰');
-        expect(getLyricColorPresetById('soda-black')).toEqual(getLyricColorPresetById('soda-gray'));
-        expect(getLyricColorPresetById('douyin-yellow')?.dark.primaryColor).toBe('#ffd84d');
-        expect(getLyricColorPresetById('foil-gold')?.dark.primaryColor).toBe('#d4af37');
-        expect(getLyricColorPresetById('foil-gold')?.labelFallback).toBe('金箔高光');
+        expect(getLyricColorPresetById('foil-gold')?.dark.primaryColor).toBe('#F9D770');
+        expect(getLyricColorPresetById('stage-blue')?.dark.primaryColor).toBe('#4F84FF');
+        expect(getLyricColorPresetById('dazibao-red')?.dark.primaryColor).toBe('#FF4D4D');
+        expect(getLyricColorPresetById('ice-silver')?.dark.primaryColor).toBe('#C1C8D6');
+        expect(getLyricColorPresetById('mint-lime')?.dark.primaryColor).toBe('#B2F0D9');
+        expect(getLyricColorPresetById('hot-pink')?.dark).toEqual({
+            primaryColor: '#FF6F61',
+            accentColor: '#AED9D4',
+            secondaryColor: '#C1C8D6',
+        });
+        expect(getLyricColorPresetById('violet-neon')?.dark.accentColor).toBe('#D1B3FF');
+        expect(getLyricColorPresetById('sunset-orange')?.dark.primaryColor).toBe('#FBB957');
+        expect(getLyricColorPresetById('pin-song')?.dark).toEqual({
+            primaryColor: '#EF3473',
+            accentColor: '#A0D6B4',
+            secondaryColor: '#C1C8D6',
+        });
     });
 
-    it('maps legacy colorful ids onto current vivid/soda presets', () => {
+    it('maps legacy colorful ids onto the restored catalog', () => {
         expect(normalizeLyricColorPresetId('midnight-default')).toBe('soda-white');
-        expect(normalizeLyricColorPresetId('soda-black')).toBe('soda-gray');
-        expect(normalizeLyricColorPresetId('douyin-neon')).toBe('douyin-yellow');
-        expect(normalizeLyricColorPresetId('douyin-purple')).toBe('foil-gold');
-        expect(normalizeLyricColorPresetId('xhs-morandi')).toBe('xhs-hot-pink');
-        expect(getLyricColorPresetById('foil-gold')?.id).toBe('foil-gold');
-        expect(getLyricColorPresetById('dazibao-red')?.id).toBe('dazibao-red');
+        expect(normalizeLyricColorPresetId('soda-black')).toBe('soda-white');
+        expect(normalizeLyricColorPresetId('soda-gray')).toBe('soda-white');
+        expect(normalizeLyricColorPresetId('neon-cyan')).toBe('mint-lime');
+        expect(normalizeLyricColorPresetId('douyin-neon')).toBe('mint-lime');
+        expect(normalizeLyricColorPresetId('douyin-yellow')).toBe('foil-gold');
+        expect(normalizeLyricColorPresetId('douyin-purple')).toBe('violet-neon');
+        expect(normalizeLyricColorPresetId('xhs-morandi')).toBe('hot-pink');
+        expect(normalizeLyricColorPresetId('xhs-hot-pink')).toBe('hot-pink');
+        expect(normalizeLyricColorPresetId('deep-red')).toBe('dazibao-red');
+        expect(getLyricColorPresetById('soda-gray')?.id).toBe('soda-white');
+        expect(getLyricColorPresetById('douyin-yellow')?.id).toBe('foil-gold');
+        expect(getLyricColorPresetById('douyin-purple')?.id).toBe('violet-neon');
+        expect(getLyricColorPresetById('deep-red')?.id).toBe('dazibao-red');
     });
 
-    it('keeps stage inks on one body hue', () => {
+    it('keeps mono stage inks on one body hue', () => {
         const inks = resolveLyricStageInkColors(getLyricColorPresetById('soda-white')!.dark);
-        expect(inks.titleColor).toBe('#f4f4f5');
-        expect(inks.activeColor).toBe('#f4f4f5');
-        expect(inks.hintColor).toBe('#a1a1aa');
+        expect(inks.titleColor).toBe('#E8F4F8');
+        expect(inks.activeColor).toBe('#E8F4F8');
+        expect(inks.hintColor).toBe('#C1C8D6');
     });
 
-    it('shows current-mode body + dimmed twin swatches for the picker', () => {
-        const white = getLyricColorPresetById('soda-white')!;
-        const darkSwatches = resolveLyricColorPresetSwatches(white, 'dark');
-        expect(darkSwatches[0]).toBe('#f4f4f5');
-        expect(darkSwatches[1]).toContain('244, 244, 245');
-        expect(darkSwatches[1]).toContain('0.48');
+    it('shows current-mode body + dimmed twin swatches for mono presets', () => {
+        const frost = getLyricColorPresetById('soda-white')!;
+        const darkSwatches = resolveLyricColorPresetSwatches(frost, 'dark');
+        expect(darkSwatches[0]).toBe('#E8F4F8');
+        expect(darkSwatches[1]).toContain('232, 244, 248');
+        expect(darkSwatches[1]).toContain('0.18');
         expect(darkSwatches).toHaveLength(2);
     });
 
-    it('shows foil gold as a metallic highlight + deep foil pair, not washed yellow', () => {
+    it('shows foil gold as a metallic highlight + deep foil pair', () => {
         const foil = getLyricColorPresetById('foil-gold')!;
         const darkSwatches = resolveLyricColorPresetSwatches(foil, 'dark');
-        expect(darkSwatches[0]).toBe('#f2d06b');
-        expect(darkSwatches[1]).toBe('#a67c00');
-        expect(foil.dark.primaryColor).toBe('#d4af37');
-        expect(foil.dark.primaryColor).not.toBe(getLyricColorPresetById('douyin-yellow')!.dark.primaryColor);
+        expect(darkSwatches[0]).toBe('#F9D770');
+        expect(darkSwatches[1]).toBe('#EBB10D');
+        expect(foil.dark.primaryColor).toBe('#F9D770');
+        expect(foil.dark.primaryColor).not.toBe(getLyricColorPresetById('stage-blue')!.dark.primaryColor);
+    });
+
+    it('shows combo presets as body + wipe accent swatches', () => {
+        const begonia = getLyricColorPresetById('hot-pink')!;
+        expect(resolveLyricColorPresetSwatches(begonia, 'dark')).toEqual(['#FF6F61', '#AED9D4']);
+        expect(begonia.motion?.lyricGlowUsesAccent).toBe(true);
     });
 
     it('patches lyric colors on both modes while preserving backgrounds', () => {
-        const preset = getLyricColorPresetById('soda-gray');
+        const preset = getLyricColorPresetById('stage-blue');
         expect(preset).toBeDefined();
 
         const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset!);
 
         expect(next.light.backgroundColor).toBe('#f5f5f4');
         expect(next.dark.backgroundColor).toBe('#09090b');
-        expect(next.light.primaryColor).toBe('#737373');
-        expect(next.dark.primaryColor).toBe('#a1a1aa');
-        expect(next.dark.accentColor).toBe('#a1a1aa');
+        expect(next.light.primaryColor).toBe('#1661AB');
+        expect(next.dark.primaryColor).toBe('#4F84FF');
+        expect(next.dark.accentColor).toBe('#4F84FF');
+    });
+
+    it('applies distinct accent for combo presets', () => {
+        const preset = getLyricColorPresetById('pin-song')!;
+        const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset);
+        expect(next.dark.primaryColor).toBe('#EF3473');
+        expect(next.dark.accentColor).toBe('#A0D6B4');
+        expect(next.light.primaryColor).toBe('#82111F');
+        expect(next.light.accentColor).toBe('#207F4C');
     });
 
     it('defaults to colors-only and keeps font / animation untouched', () => {
-        const preset = getLyricColorPresetById('soda-gray');
+        const preset = getLyricColorPresetById('foil-gold');
         expect(preset).toBeDefined();
 
         const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset!);
 
-        expect(next.dark.primaryColor).toBe('#a1a1aa');
+        expect(next.dark.primaryColor).toBe('#F9D770');
         expect(next.light.animationIntensity).toBe('calm');
         expect(next.light.fontStyle).toBe('serif');
         expect(next.light.lyricRhythmScaleMultiplier).toBeUndefined();
@@ -135,34 +177,34 @@ describe('lyricColorPresets', () => {
     });
 
     it('matches the active lyric color preset from current theme colors', () => {
-        const preset = getLyricColorPresetById('soda-gray')!;
+        const preset = getLyricColorPresetById('stage-blue')!;
         const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset);
 
-        expect(matchLyricColorPresetId(next.light, 'light')).toBe('soda-gray');
-        expect(matchLyricColorPresetId(next.dark, 'dark')).toBe('soda-gray');
+        expect(matchLyricColorPresetId(next.light, 'light')).toBe('stage-blue');
+        expect(matchLyricColorPresetId(next.dark, 'dark')).toBe('stage-blue');
         expect(matchLyricColorPresetId(baseDualTheme.dark, 'dark')).toBeNull();
     });
 
-    it('matches the app default dark theme as soda-white', () => {
+    it('matches the app default dark theme as soda-white frost', () => {
         expect(matchLyricColorPresetId({
-            primaryColor: '#f4f4f5',
-            accentColor: '#f4f4f5',
-            secondaryColor: '#a1a1aa',
+            primaryColor: '#E8F4F8',
+            accentColor: '#E8F4F8',
+            secondaryColor: '#C1C8D6',
         }, 'dark')).toBe('soda-white');
         expect(resolveActiveLyricColorPresetId({
-            primaryColor: '#f4f4f5',
-            accentColor: '#f4f4f5',
-            secondaryColor: '#a1a1aa',
+            primaryColor: '#E8F4F8',
+            accentColor: '#E8F4F8',
+            secondaryColor: '#C1C8D6',
         }, 'dark', null)).toBe('soda-white');
     });
 
     it('falls back to the stored preset id when theme colors no longer match', () => {
-        expect(resolveActiveLyricColorPresetId(baseDualTheme.dark, 'dark', 'soda-black')).toBe('soda-gray');
+        expect(resolveActiveLyricColorPresetId(baseDualTheme.dark, 'dark', 'soda-black')).toBe('soda-white');
         expect(resolveActiveLyricColorPresetId(baseDualTheme.dark, 'dark', null)).toBeNull();
 
-        const preset = getLyricColorPresetById('soda-gray')!;
+        const preset = getLyricColorPresetById('foil-gold')!;
         const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset);
-        expect(resolveActiveLyricColorPresetId(next.dark, 'dark', 'soda-white')).toBe('soda-gray');
+        expect(resolveActiveLyricColorPresetId(next.dark, 'dark', 'soda-white')).toBe('foil-gold');
     });
 
     it('applies a free lyric body color to primary and accent on both modes', () => {
@@ -177,9 +219,11 @@ describe('lyricColorPresets', () => {
     });
 
     it('resolves legacy stored preset ids', () => {
-        expect(getLyricColorPresetById('douyin-neon')?.id).toBe('douyin-yellow');
-        expect(getLyricColorPresetById('douyin-purple')?.id).toBe('foil-gold');
-        expect(getLyricColorPresetById('soda-black')?.id).toBe('soda-gray');
+        expect(getLyricColorPresetById('douyin-neon')?.id).toBe('mint-lime');
+        expect(getLyricColorPresetById('neon-cyan')?.id).toBe('mint-lime');
+        expect(getLyricColorPresetById('douyin-purple')?.id).toBe('violet-neon');
+        expect(getLyricColorPresetById('soda-black')?.id).toBe('soda-white');
         expect(normalizeLyricColorPresetId('midnight-default')).toBe('soda-white');
+        expect(normalizeLyricColorPresetId('deep-red')).toBe('dazibao-red');
     });
 });

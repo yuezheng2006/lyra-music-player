@@ -27,10 +27,12 @@ import OnlineProviderFilterBar from './shared/OnlineProviderFilterBar';
 import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterStore';
 import { hasNeteaseSession, hasQQMusicSession } from '../utils/onlineLibraryAccess';
 import { resolveSearchableLibraryProviders } from '../utils/onlineSearchRouting';
-import { isProviderDefaultPlaylist, QISHUI_DEFAULT_PLAYLIST_ID } from '../utils/onlineDefaultPlaylists';
+import { resolvePeerDefaultDescription, resolvePeerDefaultDisplayName, resolveProviderDefaultChannel } from '../utils/onlineDefaultPlaylists';
+import { isCuratedPeerFreeProviderId } from '../utils/onlinePeerProviders';
 import { SearchClearButton } from './shared/SearchClearButton';
 import { resolveOnlineSearchProvider } from '../utils/onlineSearchRouting';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
+import { resolveHomeSearchPlaceholderKey } from '../utils/home/resolveHomeSearchPlaceholderKey';
 
 // src/components/Grid3D.tsx
 // Peer-provider flat home with sectional playlist grids.
@@ -98,7 +100,14 @@ interface Grid3DProps {
 }
 
 const resolvePlaylistProvider = (playlist: NeteasePlaylist): OnlineMusicProviderId => {
-    if (playlist.musicProvider === 'qq' || playlist.musicProvider === 'qishui' || playlist.musicProvider === 'coco') {
+    if (
+        playlist.musicProvider === 'qq'
+        || playlist.musicProvider === 'qishui'
+        || playlist.musicProvider === 'coco'
+        || playlist.musicProvider === 'kugou'
+        || playlist.musicProvider === 'bilibili'
+        || playlist.musicProvider === 'kuwo'
+    ) {
         return playlist.musicProvider;
     }
     return 'netease';
@@ -141,38 +150,22 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
     })));
     const hasNeteaseLogin = hasNeteaseSession(user);
     const hasQQLogin = hasQQMusicSession();
+    const knownProviderIds = useOnlineLibraryFilterStore(state => state.knownProviderIds);
     const searchableProviders = useMemo(
         () => resolveSearchableLibraryProviders(playlistProviders, {
             netease: hasNeteaseLogin,
             qq: hasQQLogin,
-        }),
-        [hasNeteaseLogin, hasQQLogin, playlistProviders],
+        }, knownProviderIds),
+        [hasNeteaseLogin, hasQQLogin, knownProviderIds, playlistProviders],
     );
-    const homeSearchPlaceholder = useMemo(() => {
-        if (searchableProviders.length > 1) {
-            return t('home.searchMultiSources');
-        }
-        const only = searchableProviders[0] || searchProvider;
-        if (only === 'qq') return t('home.searchQQMusic');
-        if (only === 'qishui') return t('home.searchQishuiMusic');
-        if (only === 'coco') return t('home.searchCocoMusic');
-        return t('home.searchDatabase');
-    }, [searchProvider, searchableProviders, t]);
-
-    const resolveDefaultPlaylistDescription = (provider?: string) => {
-        if (provider === 'qishui') return t('home.qishuiDefaultDescription');
-        return t('home.cocoDefaultDescription');
-    };
-
-    const resolveDefaultPlaylistName = (provider?: string) => {
-        if (provider === 'qishui') return t('home.qishuiProvider');
-        return t('home.cocoProvider');
-    };
+    const homeSearchPlaceholder = t(
+        resolveHomeSearchPlaceholderKey(searchableProviders),
+    );
 
     const playlistCards = useMemo(() => playlists.map(p => ({
         id: p.id,
         name: p.specialType === 'provider-default'
-            ? resolveDefaultPlaylistName(p.musicProvider)
+            ? resolvePeerDefaultDisplayName(p.musicProvider, t)
             : p.name,
         coverUrl: p.coverImgUrl || (p as any).coverUrl,
         trackCount: p.trackCount,
@@ -180,21 +173,21 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
         description: p.specialType === 'cloud'
             ? t('home.cloud')
             : p.specialType === 'provider-default'
-                ? resolveDefaultPlaylistDescription(p.musicProvider)
+                ? resolvePeerDefaultDescription(p.musicProvider, t)
                 : (p.creator?.nickname || t('home.playlists')),
         raw: p,
     })), [playlists, t]);
 
     const openSearchChannel = (provider: OnlineLibraryProviderId) => {
         setSearchProvider(provider);
-        if (provider === 'coco' || provider === 'qishui') {
+        if (isCuratedPeerFreeProviderId(provider)) {
             openPeerSearchChannel({
                 sourceTab: provider,
                 returnView: 'home',
             });
             return;
         }
-        // Independent login-provider entry starts empty — never borrow the home bar draft.
+        // Open-mode plugins and login providers share the independent empty-entry path.
         restoreSearch({
             query: '',
             sourceTab: provider,
@@ -204,12 +197,9 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
 
     const handleSelectCollectionCard = (card: { raw: NeteasePlaylist }) => {
         const playlist = card.raw;
-        if (isProviderDefaultPlaylist(playlist)) {
-            const provider = playlist.musicProvider === 'qishui'
-                || (playlist.musicProvider !== 'coco' && playlist.id === QISHUI_DEFAULT_PLAYLIST_ID)
-                ? 'qishui'
-                : 'coco';
-            openSearchChannel(provider);
+        const peerChannel = resolveProviderDefaultChannel(playlist);
+        if (peerChannel) {
+            openSearchChannel(peerChannel);
             return;
         }
         onOpenGridView?.(createOnlinePlaylistGridViewCollection(playlist));

@@ -47,11 +47,14 @@ type BuildAppOverlaysModelParams = {
     theme: any;
     isDaylight: boolean;
     closeSearchView: () => void;
-    handleSearchOverlaySubmit: (query?: string) => Promise<void>;
+    handleSearchOverlaySubmit: (query?: string, options?: { displayQuery?: string }) => Promise<void>;
     handleSearchLoadMore: () => Promise<void>;
     handleSearchResultPlay: (track: UnifiedSong) => void;
     handleSearchResultArtistSelect: (track: UnifiedSong, artistName: string, artistId?: number) => void;
     handleSearchResultAlbumSelect: (track: UnifiedSong, albumName: string, albumId?: number) => void;
+    onDownloadSong?: (song: SongResult) => void | Promise<boolean>;
+    canDownloadSong?: (song: SongResult | null | undefined) => boolean;
+    downloadSongLabel?: string;
     popOverlay: () => void;
     playSong: (
         song: SongResult,
@@ -136,8 +139,8 @@ type BuildAppOverlaysModelParams = {
     onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
     visualizerMode?: VisualizerMode;
     onVisualizerModeChange?: (mode: VisualizerMode) => void;
-    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
+    onOpenSongSettings?: () => void;
     backgroundMenuLabel?: string;
     backgroundModeInteractive3dLabel?: string;
     backgroundModeCommonLabel?: string;
@@ -145,6 +148,7 @@ type BuildAppOverlaysModelParams = {
     backgroundPresetSectionLabel?: string;
     lyricsStyleSectionLabel?: string;
     lyricColorSectionLabel?: string;
+    openSongSettingsLabel?: string;
     getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
     getVisualizerModeLabel?: (mode: VisualizerMode) => string;
 };
@@ -164,6 +168,9 @@ export const buildAppOverlaysModel = ({
     handleSearchResultPlay,
     handleSearchResultArtistSelect,
     handleSearchResultAlbumSelect,
+    onDownloadSong,
+    canDownloadSong,
+    downloadSongLabel = 'Download',
     popOverlay,
     playSong,
     playOnlineQueueFromStart,
@@ -240,8 +247,8 @@ export const buildAppOverlaysModel = ({
     onInteractive3dSceneTuningChange,
     visualizerMode = 'classic',
     onVisualizerModeChange,
-    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
+    onOpenSongSettings,
     backgroundMenuLabel,
     backgroundModeInteractive3dLabel,
     backgroundModeCommonLabel,
@@ -249,6 +256,7 @@ export const buildAppOverlaysModel = ({
     backgroundPresetSectionLabel,
     lyricsStyleSectionLabel,
     lyricColorSectionLabel,
+    openSongSettingsLabel,
     getBackgroundPresetLabel,
     getVisualizerModeLabel,
 }: BuildAppOverlaysModelParams): AppOverlaysModel => ({
@@ -263,6 +271,9 @@ export const buildAppOverlaysModel = ({
             onAddSongToQueue: addNeteaseSongToQueue,
             onSelectArtist: handleSearchResultArtistSelect,
             onSelectAlbum: handleSearchResultAlbumSelect,
+            onDownloadSong,
+            canDownloadSong,
+            downloadSongLabel,
         }
         : null,
     detailOverlay: isOverlayVisible && topOverlay
@@ -415,8 +426,8 @@ export const buildAppOverlaysModel = ({
             onInteractive3dSceneTuningChange,
             visualizerMode,
             onVisualizerModeChange,
-            onApplyLyricBodyColor,
             onApplyLyricColorPreset,
+            onOpenSongSettings,
             onDockPopoverOpenChange,
             backgroundMenuLabel,
             backgroundModeInteractive3dLabel,
@@ -425,8 +436,13 @@ export const buildAppOverlaysModel = ({
             backgroundPresetSectionLabel,
             lyricsStyleSectionLabel,
             lyricColorSectionLabel,
+            openSongSettingsLabel,
             getBackgroundPresetLabel,
             getVisualizerModeLabel,
+            onDownloadSong: onDownloadSong && canDownloadSong?.(currentSong)
+                ? () => { void onDownloadSong(currentSong); }
+                : undefined,
+            downloadSongLabel,
         }
         : null,
 });

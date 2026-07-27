@@ -37,17 +37,9 @@ const PRESET_META: Record<MineradioVisualPresetId, PresetMeta> = {
         subtitle: 'Legacy cube',
         testId: 'interactive3d-preset-starfield',
     },
-    tunnel: {
-        subtitle: 'Legacy aurora',
-        testId: 'interactive3d-preset-tunnel',
-    },
     nebula: {
         subtitle: 'Fluid nebula',
         testId: 'interactive3d-preset-nebula',
-    },
-    terrain: {
-        subtitle: 'Audio terrain',
-        testId: 'interactive3d-preset-terrain',
     },
     quantumCube: {
         subtitle: 'Quantum box',
@@ -69,8 +61,9 @@ const PRESET_META: Record<MineradioVisualPresetId, PresetMeta> = {
         subtitle: 'Minimal void',
         testId: 'interactive3d-preset-mineradio-void',
     },
+    /** Retired — kept for type completeness; normalize maps to emily. */
     mineradioVinyl: {
-        subtitle: 'Mineradio vinyl',
+        subtitle: 'Retired vinyl',
         testId: 'interactive3d-preset-mineradio-vinyl',
     },
     mineradioGalaxy: {
@@ -103,7 +96,7 @@ const renderPresetPreview = (
         );
     }
 
-    if (preset === 'aurora' || preset === 'tunnel' || preset === 'mineradioGalaxy') {
+    if (preset === 'aurora' || preset === 'mineradioGalaxy') {
         return (
             <div className="relative h-14 overflow-hidden rounded-xl" style={{ backgroundColor: colorWithAlpha(theme.backgroundColor, 0.28) }}>
                 {[0, 1, 2].map(index => (
@@ -154,16 +147,6 @@ const renderPresetPreview = (
         );
     }
 
-    if (preset === 'mineradioVinyl') {
-        return (
-            <div className="relative h-14 overflow-hidden rounded-xl" style={{ backgroundColor: colorWithAlpha(theme.backgroundColor, 0.28) }}>
-                <span className="absolute left-1/2 top-1/2 h-11 w-11 -translate-x-1/2 -translate-y-1/2 rounded-full border" style={{ borderColor: colorWithAlpha(theme.secondaryColor, active ? 0.5 : 0.2), boxShadow: `0 0 18px ${glow}` }} />
-                <span className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ backgroundColor: colorWithAlpha(theme.primaryColor, active ? 0.38 : 0.16) }} />
-                <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ backgroundColor: colorWithAlpha(theme.secondaryColor, active ? 0.7 : 0.3) }} />
-            </div>
-        );
-    }
-
     if (preset === 'mineradioVoid') {
         return (
             <div className="relative h-14 overflow-hidden rounded-xl" style={{ backgroundColor: colorWithAlpha(theme.backgroundColor, 0.28) }}>
@@ -191,28 +174,6 @@ const renderPresetPreview = (
                     />
                 ))}
                 <span className="absolute inset-x-5 top-1/2 h-px rounded-full" style={{ backgroundColor: colorWithAlpha(theme.primaryColor, active ? 0.46 : 0.2) }} />
-            </div>
-        );
-    }
-
-    if (preset === 'terrain') {
-        return (
-            <div className="relative h-14 overflow-hidden rounded-xl" style={{ backgroundColor: colorWithAlpha(theme.backgroundColor, 0.28) }}>
-                {[0, 1, 2, 3].map(index => (
-                    <span
-                        key={index}
-                        className="absolute h-px rounded-full"
-                        style={{
-                            left: `${4 + index * 4}px`,
-                            right: `${4 + index * 6}px`,
-                            bottom: `${9 + index * 8}px`,
-                            backgroundColor: colorWithAlpha(index % 2 ? theme.secondaryColor : theme.primaryColor, active ? 0.58 : 0.25),
-                            boxShadow: `0 0 12px ${glow}`,
-                            transform: `skewX(${-18 + index * 9}deg)`,
-                        }}
-                    />
-                ))}
-                <span className="absolute bottom-2 left-2 h-2 w-24 rounded-full" style={{ backgroundColor: colorWithAlpha(theme.secondaryColor, active ? 0.32 : 0.14) }} />
             </div>
         );
     }

@@ -18,6 +18,7 @@ import {
     LYRIC_STAGE_IMMERSIVE_MARGIN,
     resolveLyricStageMaxWorldWidth,
 } from './resolveLyricStageViewport';
+import { useSettingsUiStore } from '../../../../../stores/useSettingsUiStore';
 
 // src/components/visualizer/geometric/mineradio/lyrics/LyricStageRuntime.ts
 // Mineradio stage lyric system: screen-locked WebGL line mesh with karaoke progress.
@@ -236,6 +237,7 @@ export class LyricStageRuntime {
         const mesh = buildLyricMesh(text, this.renderer, palette, {
             maxWorldWidth: this.maxWorldWidth,
             immersive: this.immersive,
+            fontScale: useSettingsUiStore.getState().lyricsFontScale,
         });
         this.group.add(mesh);
         this.current = mesh;

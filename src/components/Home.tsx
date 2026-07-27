@@ -23,7 +23,8 @@ import {
     resolveHomeContentBottomPaddingClass,
     resolveHomeSolidBackgroundClass,
 } from './app/home/homeSurfaceStyles';
-import { isProviderDefaultPlaylist, QISHUI_DEFAULT_PLAYLIST_ID } from '../utils/onlineDefaultPlaylists';
+import { resolvePeerDefaultDescription, resolvePeerDefaultDisplayName, resolveProviderDefaultChannel } from '../utils/onlineDefaultPlaylists';
+import { isOnlineMusicProviderId } from '../utils/onlinePeerProviders';
 import { SearchClearButton } from './shared/SearchClearButton';
 
 interface HomeProps {
@@ -189,12 +190,13 @@ const Home: React.FC<HomeProps> = ({
     const searchProvider = useOnlineLibraryFilterStore(state => state.searchProvider);
     const setSearchProvider = useOnlineLibraryFilterStore(state => state.setSearchProvider);
     const playlistProviders = useOnlineLibraryFilterStore(state => state.playlistProviders);
+    const knownProviderIds = useOnlineLibraryFilterStore(state => state.knownProviderIds);
     const hasNeteaseLogin = hasNeteaseSession(user);
     const hasQQLogin = hasQQMusicSession();
     const searchableProviders = resolveSearchableLibraryProviders(playlistProviders, {
         netease: hasNeteaseLogin,
         qq: hasQQLogin,
-    });
+    }, knownProviderIds);
     const onlineGuestEntered = useOnlineGuestStore(state => state.entered);
     const hasAnyOnlineLogin = hasAnyOnlineMusicSession(user);
     const showGuestConnect = viewTab === 'playlist' && !hasAnyOnlineLogin && !onlineGuestEntered;
@@ -211,7 +213,13 @@ const Home: React.FC<HomeProps> = ({
                 ? t('home.searchQishuiMusic')
                 : (searchableProviders[0] || searchProvider) === 'coco'
                     ? t('home.searchCocoMusic')
-                    : t('home.searchDatabase');
+                    : (searchableProviders[0] || searchProvider) === 'kugou'
+                        ? t('home.searchKugouMusic')
+                        : (searchableProviders[0] || searchProvider) === 'bilibili'
+                            ? t('home.searchBilibiliMusic')
+                            : (searchableProviders[0] || searchProvider) === 'kuwo'
+                                ? t('home.searchKuwoMusic')
+                                : t('home.searchDatabase');
     // const isDaylight = theme.name === 'Daylight Default'; // Deprecated, passed as prop
 
     useEffect(() => {
@@ -508,32 +516,25 @@ const Home: React.FC<HomeProps> = ({
                                         items={playlistCards.map(p => ({
                                             ...p,
                                             name: p.specialType === 'provider-default'
-                                                ? (p.musicProvider === 'qishui'
-                                                    ? t('home.qishuiProvider')
-                                                    : t('home.cocoProvider'))
+                                                ? resolvePeerDefaultDisplayName(p.musicProvider, t)
                                                 : p.name,
                                             coverUrl: p.coverImgUrl,
-                                            musicProvider: p.musicProvider === 'qq' || p.musicProvider === 'qishui' || p.musicProvider === 'coco'
+                                            musicProvider: isOnlineMusicProviderId(p.musicProvider)
                                                 ? p.musicProvider
                                                 : 'netease' as const,
                                             description: p.specialType === 'cloud'
                                                 ? t('home.cloud')
                                                 : p.specialType === 'provider-default'
-                                                    ? (p.musicProvider === 'qishui'
-                                                        ? t('home.qishuiDefaultDescription')
-                                                        : t('home.cocoDefaultDescription'))
+                                                    ? resolvePeerDefaultDescription(p.musicProvider, t)
                                                     : p.creator?.nickname,
                                         }))}
                                         onSelect={(pl) => {
                                             const playlist = pl as NeteasePlaylist;
-                                            if (isProviderDefaultPlaylist(playlist)) {
-                                                const provider = playlist.musicProvider === 'qishui'
-                                                    || (playlist.musicProvider !== 'coco' && playlist.id === QISHUI_DEFAULT_PLAYLIST_ID)
-                                                    ? 'qishui'
-                                                    : 'coco';
-                                                setSearchProvider(provider);
+                                            const peerChannel = resolveProviderDefaultChannel(playlist);
+                                            if (peerChannel) {
+                                                setSearchProvider(peerChannel);
                                                 openPeerSearchChannel({
-                                                    sourceTab: provider,
+                                                    sourceTab: peerChannel,
                                                     returnView: 'home',
                                                 });
                                                 return;

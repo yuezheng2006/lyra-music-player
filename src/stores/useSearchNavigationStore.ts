@@ -1,8 +1,28 @@
 import { create } from 'zustand';
 import { getNavidromeConfig, navidromeApi } from '../services/navidromeService';
 import { getMusicProvider } from '../services/musicProviders/registry';
-import { isQishuiShareUrl, resolveOnlineSearchProvider } from '../utils/onlineSearchRouting';
+import { isBilibiliShareUrl, isQishuiShareUrl, resolveOnlineSearchProvider } from '../utils/onlineSearchRouting';
+import { isOnlineMusicProviderId, isPeerFreeProviderId, type PeerFreeProviderId } from '../utils/onlinePeerProviders';
 import type { HomeViewTab, LocalSong, OnlineMusicProviderId, SearchSourceId, UnifiedSong } from '../types';
+import { captureRequestFailure, type RequestErrorCode } from '../utils/network';
+import {
+    buildSearchCacheKey,
+    clearSearchInflight,
+    getSearchInflight,
+    readSearchCache,
+    setSearchInflight,
+    writeSearchCache,
+    type CachedSearchPage,
+} from '../utils/search/searchResultCache';
+import {
+    addRecentSearch,
+    buildRecentSearchChannelKey,
+    clearRecentSearchChannel,
+    readRecentSearchHistory,
+    writeRecentSearchHistory,
+    type RecentSearchHistory,
+} from '../utils/search/recentSearchHistory';
+import { startTelemetrySpan, trackTelemetry } from '../utils/telemetry/trackTelemetry';
 
 const LAST_HOME_VIEW_TAB_KEY = 'last_home_view_tab';
 const DEFAULT_SEARCH_LIMIT = 30;
@@ -10,8 +30,10 @@ export type SearchReturnView = 'home' | 'player';
 
 /** Bumps on every submit/restore so stale async responses cannot cross channels. */
 let searchRequestEpoch = 0;
+let activeSearchController: AbortController | null = null;
+let activeSearchSignature = '';
 
-type PeerSearchProviderId = Extract<OnlineMusicProviderId, 'coco' | 'qishui'>;
+type PeerSearchProviderId = PeerFreeProviderId;
 type PeerSearchQueryMap = Record<PeerSearchProviderId, string>;
 
 type SearchExecutorDeps = {
@@ -19,14 +41,15 @@ type SearchExecutorDeps = {
     t: (key: string, fallback?: string) => string;
 };
 
-type SearchExecutionResult = {
-    results: UnifiedSong[];
-    hasMore: boolean;
-    nextOffset: number;
-};
+type SearchExecutionResult = CachedSearchPage;
 
 type SubmitSearchPayload = {
     query?: string;
+    /**
+     * Optional UI label for the overlay input. Routing / execute / peer persistence
+     * still use `query`; when omitted, `searchQuery` matches the routing query.
+     */
+    displayQuery?: string;
     sourceTab: SearchSourceId;
     /** When set, keyword search fans out across these online providers. */
     providers?: OnlineMusicProviderId[];
@@ -42,6 +65,7 @@ interface SearchNavigationState {
     searchQuery: string;
     /** Per-peer keyword memory so coco ↔ qishui never share the input box. */
     peerSearchQueries: PeerSearchQueryMap;
+    recentSearchHistory: RecentSearchHistory;
     searchSourceTab: SearchSourceId;
     searchProviders: OnlineMusicProviderId[];
     searchResults: UnifiedSong[] | null;
@@ -49,6 +73,9 @@ interface SearchNavigationState {
     isSearchOpen: boolean;
     isSearching: boolean;
     isLoadingMore: boolean;
+    searchError: string | null;
+    searchErrorCode: RequestErrorCode | null;
+    searchDiagnostic: string | null;
     offset: number;
     limit: number;
     hasMore: boolean;
@@ -57,6 +84,7 @@ interface SearchNavigationState {
     setHomeSearchQuery: (query: string) => void;
     setSearchQuery: (query: string) => void;
     clearSearchInput: () => void;
+    clearRecentSearchHistory: (channelKey: string) => void;
     setSearchScrollTop: (scrollTop: number) => void;
     restoreSearch: (payload: {
         query: string;
@@ -143,15 +171,15 @@ const searchNavidromeSongs = async (query: string): Promise<SearchExecutionResul
     };
 };
 
-const isOnlineMusicProviderId = (sourceTab: SearchSourceId): sourceTab is OnlineMusicProviderId =>
-    sourceTab === 'netease' || sourceTab === 'qq' || sourceTab === 'qishui' || sourceTab === 'coco';
-
 const isPeerSearchProviderId = (sourceTab: SearchSourceId): sourceTab is PeerSearchProviderId =>
-    sourceTab === 'coco' || sourceTab === 'qishui';
+    isPeerFreeProviderId(sourceTab);
 
 const EMPTY_PEER_SEARCH_QUERIES: PeerSearchQueryMap = {
     coco: '',
     qishui: '',
+    kugou: '',
+    bilibili: '',
+    kuwo: '',
 };
 
 /** Persist the active input into the leaving peer channel before switching away. */
@@ -169,13 +197,32 @@ const withPersistedPeerQuery = (
     };
 };
 
+const cancelActiveSearch = () => {
+    activeSearchController?.abort();
+    activeSearchController = null;
+    activeSearchSignature = '';
+};
+
+const beginSearchRequest = (signature: string) => {
+    if (!activeSearchController || activeSearchSignature !== signature) {
+        cancelActiveSearch();
+        activeSearchController = new AbortController();
+        activeSearchSignature = signature;
+    }
+    return {
+        controller: activeSearchController,
+        requestEpoch: ++searchRequestEpoch,
+    };
+};
+
 const searchOnlineProviderSongs = async (
     providerId: OnlineMusicProviderId,
     query: string,
     limit: number,
-    offset: number
+    offset: number,
+    signal?: AbortSignal,
 ): Promise<SearchExecutionResult> => {
-    const response = await getMusicProvider(providerId).search(query, { limit, offset });
+    const response = await getMusicProvider(providerId).search(query, { limit, offset, signal });
     const results = (response.songs as UnifiedSong[]).map(song => ({
         ...song,
         musicProvider: song.musicProvider || providerId,
@@ -186,6 +233,39 @@ const searchOnlineProviderSongs = async (
         hasMore: response.hasMore ?? (typeof response.total === 'number' ? offset + results.length < response.total : false),
         nextOffset: offset + results.length,
     };
+};
+
+const searchCachedOnlineProviderSongs = async (
+    providerId: OnlineMusicProviderId,
+    query: string,
+    limit: number,
+    offset: number,
+    signal?: AbortSignal,
+    onCachedResult?: (result: SearchExecutionResult) => void,
+): Promise<SearchExecutionResult> => {
+    const key = buildSearchCacheKey(providerId, query, limit, offset);
+    const cached = readSearchCache(key);
+    if (cached) {
+        onCachedResult?.(cached.result);
+        if (cached.freshness === 'fresh') {
+            return cached.result;
+        }
+    }
+
+    const inflight = getSearchInflight(key);
+    if (inflight) {
+        return inflight;
+    }
+
+    const request = searchOnlineProviderSongs(providerId, query, limit, offset, signal);
+    setSearchInflight(key, request, signal);
+    try {
+        const result = await request;
+        writeSearchCache(key, result);
+        return result;
+    } finally {
+        clearSearchInflight(key, request);
+    }
 };
 
 /** Round-robin merge so no single source monopolizes the first page. */
@@ -207,36 +287,58 @@ const searchAggregatedOnlineProviders = async (
     query: string,
     limit: number,
     offset: number,
+    signal?: AbortSignal,
+    onProgress?: (result: SearchExecutionResult) => void,
 ): Promise<SearchExecutionResult> => {
     if (providers.length === 0) {
         return { results: [], hasMore: false, nextOffset: offset };
     }
-    if (providers.length === 1) {
-        return searchOnlineProviderSongs(providers[0], query, limit, offset);
-    }
 
-    const perLimit = Math.max(8, Math.ceil(limit / providers.length));
-    const settled = await Promise.allSettled(
-        providers.map(providerId => searchOnlineProviderSongs(providerId, query, perLimit, offset)),
-    );
-    const batches: UnifiedSong[][] = [];
-    let hasMore = false;
-    let nextOffset = offset;
+    const perLimit = providers.length === 1
+        ? limit
+        : Math.max(8, Math.ceil(limit / providers.length));
+    const batches = new Map<OnlineMusicProviderId, SearchExecutionResult>();
+    const failures: unknown[] = [];
 
-    settled.forEach((result) => {
-        if (result.status !== 'fulfilled') {
-            return;
-        }
-        batches.push(result.value.results);
-        hasMore = hasMore || result.value.hasMore;
-        nextOffset = Math.max(nextOffset, result.value.nextOffset);
-    });
-
-    return {
-        results: interleaveProviderResults(batches),
-        hasMore,
-        nextOffset,
+    const buildMergedResult = (): SearchExecutionResult => {
+        const ordered = providers
+            .map(providerId => batches.get(providerId))
+            .filter((batch): batch is SearchExecutionResult => Boolean(batch));
+        return {
+            results: interleaveProviderResults(ordered.map(batch => batch.results)),
+            hasMore: ordered.some(batch => batch.hasMore),
+            nextOffset: ordered.reduce(
+                (next, batch) => Math.max(next, batch.nextOffset),
+                offset,
+            ),
+        };
     };
+
+    const publish = (providerId: OnlineMusicProviderId, result: SearchExecutionResult) => {
+        batches.set(providerId, result);
+        onProgress?.(buildMergedResult());
+    };
+
+    await Promise.all(providers.map(async (providerId) => {
+        try {
+            const result = await searchCachedOnlineProviderSongs(
+                providerId,
+                query,
+                perLimit,
+                offset,
+                signal,
+                cachedResult => publish(providerId, cachedResult),
+            );
+            publish(providerId, result);
+        } catch (error) {
+            failures.push(error);
+        }
+    }));
+
+    if (batches.size === 0 && failures.length > 0) {
+        throw failures[0];
+    }
+    return buildMergedResult();
 };
 
 const executeSearch = async (
@@ -246,6 +348,8 @@ const executeSearch = async (
     limit: number,
     deps: SearchExecutorDeps,
     providers?: OnlineMusicProviderId[],
+    signal?: AbortSignal,
+    onProgress?: (result: SearchExecutionResult) => void,
 ): Promise<SearchExecutionResult> => {
     if (sourceTab === 'local') {
         return searchLocalSongs(deps.localSongs, query, deps.t);
@@ -259,7 +363,14 @@ const executeSearch = async (
         ? providers
         : [isOnlineMusicProviderId(sourceTab) ? sourceTab : 'netease'];
 
-    return searchAggregatedOnlineProviders(resolvedProviders, query, limit, offset);
+    return searchAggregatedOnlineProviders(
+        resolvedProviders,
+        query,
+        limit,
+        offset,
+        signal,
+        onProgress,
+    );
 };
 
 const getInitialHomeViewTab = (): HomeViewTab => {
@@ -267,12 +378,12 @@ const getInitialHomeViewTab = (): HomeViewTab => {
         return 'playlist';
     }
     const savedTab = localStorage.getItem(LAST_HOME_VIEW_TAB_KEY);
+    // 'daily' is no longer a sidebar destination; fall back to playlist.
     return savedTab === 'playlist'
         || savedTab === 'local'
         || savedTab === 'albums'
         || savedTab === 'navidrome'
         || savedTab === 'radio'
-        || savedTab === 'daily'
         || savedTab === 'podcast'
         ? savedTab
         : 'playlist';
@@ -283,6 +394,7 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
     homeSearchQuery: '',
     searchQuery: '',
     peerSearchQueries: { ...EMPTY_PEER_SEARCH_QUERIES },
+    recentSearchHistory: readRecentSearchHistory(),
     searchSourceTab: 'playlist',
     searchProviders: [],
     searchResults: null,
@@ -290,6 +402,9 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
     isSearchOpen: false,
     isSearching: false,
     isLoadingMore: false,
+    searchError: null,
+    searchErrorCode: null,
+    searchDiagnostic: null,
     offset: 0,
     limit: DEFAULT_SEARCH_LIMIT,
     hasMore: false,
@@ -315,6 +430,8 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
     },
     // Empty the overlay field and drop cached hits; never touch the home bar draft.
     clearSearchInput: () => {
+        cancelActiveSearch();
+        searchRequestEpoch += 1;
         const { searchSourceTab, peerSearchQueries, isSearchOpen } = get();
         set({
             searchQuery: '',
@@ -326,7 +443,15 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             hasMore: false,
             isSearching: false,
             isLoadingMore: false,
+            searchError: null,
+            searchErrorCode: null,
+            searchDiagnostic: null,
         });
+    },
+    clearRecentSearchHistory: (channelKey) => {
+        const next = clearRecentSearchChannel(get().recentSearchHistory, channelKey);
+        set({ recentSearchHistory: next });
+        writeRecentSearchHistory(next);
     },
     setSearchScrollTop: (scrollTop) => set({ scrollTop }),
     restoreSearch: (payload) => {
@@ -350,6 +475,7 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
         const channelChanged = prev.searchSourceTab !== sourceTab
             || prev.searchProviders.join(',') !== nextProviders.join(',');
         // Switching coco ↔ qishui must not reuse the other source's hits.
+        cancelActiveSearch();
         searchRequestEpoch += 1;
         let peerSearchQueries = prev.peerSearchQueries;
         if (prev.isSearchOpen && isPeerSearchProviderId(prev.searchSourceTab)) {
@@ -394,6 +520,7 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
         const nextQuery = peerSearchQueries[sourceTab] || '';
         const channelChanged = prev.searchSourceTab !== sourceTab
             || prev.searchProviders.join(',') !== sourceTab;
+        cancelActiveSearch();
         searchRequestEpoch += 1;
         set({
             searchQuery: nextQuery,
@@ -413,10 +540,14 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
         });
     },
     hideSearchOverlay: () => {
+        cancelActiveSearch();
+        searchRequestEpoch += 1;
         const prev = get();
         set({
             isSearchOpen: false,
             searchReturnView: 'home',
+            isSearching: false,
+            isLoadingMore: false,
             ...(isPeerSearchProviderId(prev.searchSourceTab)
                 ? {
                     peerSearchQueries: withPersistedPeerQuery(
@@ -428,11 +559,13 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
                 : {}),
         });
     },
-    submitSearch: async ({ query, sourceTab, providers, deps, returnView = 'home' }) => {
+    submitSearch: async ({ query, displayQuery, sourceTab, providers, deps, returnView = 'home' }) => {
         const trimmedQuery = (query ?? get().searchQuery).trim();
         if (!trimmedQuery) {
             return false;
         }
+        // Overlay input may strip routing prefixes (cat:/up:) while execute still uses trimmedQuery.
+        const nextSearchQuery = (displayQuery ?? trimmedQuery).trim() || trimmedQuery;
 
         const resolvedSourceTab = sourceTab === 'local' || sourceTab === 'navidrome'
             ? sourceTab
@@ -446,6 +579,9 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             if (isQishuiShareUrl(trimmedQuery)) {
                 return ['qishui'];
             }
+            if (isBilibiliShareUrl(trimmedQuery)) {
+                return ['bilibili'];
+            }
             if (providers && providers.length > 0) {
                 const filtered = providers.filter(isOnlineMusicProviderId);
                 // Dedicated peer channel: caller passed exactly one free peer.
@@ -456,7 +592,27 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
         })();
 
         const nextSourceTab = effectiveProviders.length === 1 ? effectiveProviders[0] : resolvedSourceTab;
-        const requestEpoch = ++searchRequestEpoch;
+        const recentChannelKey = buildRecentSearchChannelKey(nextSourceTab, effectiveProviders);
+        const recentSearchHistory = addRecentSearch(
+            get().recentSearchHistory,
+            recentChannelKey,
+            {
+                query: trimmedQuery,
+                displayQuery: nextSearchQuery,
+                searchedAt: Date.now(),
+            },
+        );
+        if (recentSearchHistory !== get().recentSearchHistory) {
+            writeRecentSearchHistory(recentSearchHistory);
+        }
+        const requestSignature = [
+            nextSourceTab,
+            effectiveProviders.join(','),
+            trimmedQuery,
+            '0',
+            get().limit,
+        ].join('|');
+        const { requestEpoch, controller } = beginSearchRequest(requestSignature);
         const prev = get();
         // Only the already-open peer overlay may update that channel's keyword memory.
         // Home bar fan-out (even single-peer) must stay isolated from independent entries.
@@ -464,8 +620,20 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             && isPeerSearchProviderId(nextSourceTab)
             && isPeerSearchProviderId(prev.searchSourceTab)
             && prev.searchSourceTab === nextSourceTab;
+        trackTelemetry('search.start', {
+            data: {
+                sourceTab: nextSourceTab,
+                providers: effectiveProviders,
+                queryLen: trimmedQuery.length,
+            },
+        });
+        const searchSpan = startTelemetrySpan('search.done', {
+            sourceTab: nextSourceTab,
+            providers: effectiveProviders,
+        });
         set({
-            searchQuery: trimmedQuery,
+            searchQuery: nextSearchQuery,
+            recentSearchHistory,
             ...(shouldPersistPeer
                 ? {
                     peerSearchQueries: withPersistedPeerQuery(
@@ -481,7 +649,9 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             isSearchOpen: true,
             isSearching: true,
             isLoadingMore: false,
-            searchResults: null,
+            searchError: null,
+            searchErrorCode: null,
+            searchDiagnostic: null,
             offset: 0,
             hasMore: false,
             scrollTop: 0,
@@ -495,28 +665,68 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
                 get().limit,
                 deps,
                 effectiveProviders,
+                controller.signal,
+                progress => {
+                    if (requestEpoch !== searchRequestEpoch) return;
+                    set({
+                        searchResults: progress.results,
+                        hasMore: progress.hasMore,
+                        offset: progress.nextOffset,
+                    });
+                },
             );
             if (requestEpoch !== searchRequestEpoch) {
+                searchSpan.end({ level: 'debug', data: { ok: false, reason: 'stale' } });
                 return false;
             }
+            searchSpan.end({
+                data: {
+                    ok: true,
+                    resultCount: result.results.length,
+                    hasMore: result.hasMore,
+                },
+            });
             set({
                 searchResults: result.results,
                 hasMore: result.hasMore,
                 offset: result.nextOffset,
                 isSearching: false,
+                searchError: null,
+                searchErrorCode: null,
+                searchDiagnostic: null,
             });
+            if (activeSearchController === controller) {
+                activeSearchController = null;
+                activeSearchSignature = '';
+            }
             return true;
         } catch (error) {
             if (requestEpoch !== searchRequestEpoch) {
+                searchSpan.end({ level: 'debug', data: { ok: false, reason: 'stale' } });
                 return false;
             }
-            console.error('[SearchStore] submitSearch failed:', error);
+            if (controller.signal.aborted || (error as { code?: string })?.code === 'aborted') {
+                searchSpan.end({ level: 'debug', data: { ok: false, reason: 'aborted' } });
+                set({ isSearching: false });
+                return false;
+            }
+            const failure = captureRequestFailure(error, 'search:submit');
+            searchSpan.end({
+                level: 'error',
+                data: { ok: false, errorCode: failure.code },
+            });
             set({
-                searchResults: [],
                 hasMore: false,
                 offset: 0,
                 isSearching: false,
+                searchError: failure.message,
+                searchErrorCode: failure.code,
+                searchDiagnostic: failure.diagnostic,
             });
+            if (activeSearchController === controller) {
+                activeSearchController = null;
+                activeSearchSignature = '';
+            }
             return true;
         }
     },
@@ -569,8 +779,13 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
             if (requestEpoch !== searchRequestEpoch) {
                 return;
             }
-            console.error('[SearchStore] loadMoreSearchResults failed:', error);
-            set({ isLoadingMore: false });
+            const failure = captureRequestFailure(error, 'search:loadMore');
+            set({
+                isLoadingMore: false,
+                searchError: failure.message,
+                searchErrorCode: failure.code,
+                searchDiagnostic: failure.diagnostic,
+            });
         }
     },
 }));

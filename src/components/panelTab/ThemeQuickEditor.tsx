@@ -14,6 +14,8 @@ import {
     applyLyricColorPresetToDualTheme,
     getLyricColorPresetById,
     resolveActiveLyricColorPresetId,
+    saveStoredLyricBodyColor,
+    saveStoredLyricColorPresetId,
     type LyricColorPresetId,
 } from '../../utils/theme/lyricColorPresets';
 import { useThemeQuickEditorStore, type ThemeQuickEditorKind } from '../../stores/useThemeQuickEditorStore';
@@ -37,9 +39,31 @@ const COLOR_FIELDS: ColorField[] = [
     { key: 'secondaryColor', labelKey: 'options.aiThemeQuickEditSecondary', fallbackLabel: 'Secondary' },
 ];
 
+/** Lyric body uses one hue: keep primary/accent mirrored when either is edited. */
+const LYRIC_BODY_COLOR_KEYS = new Set<EditableColorKey>(['primaryColor', 'accentColor']);
+
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 const normalizeColor = (color: string, fallback = '#ffffff') => normalizeThemeHexColor(color, fallback);
+
+/** Patches one mode color; lyric body keys also write the mirrored partner. */
+const patchModeColor = (
+    theme: DualTheme[EditableMode],
+    key: EditableColorKey,
+    color: string,
+): DualTheme[EditableMode] => {
+    if (LYRIC_BODY_COLOR_KEYS.has(key)) {
+        return {
+            ...theme,
+            primaryColor: color,
+            accentColor: color,
+        };
+    }
+    return {
+        ...theme,
+        [key]: color,
+    };
+};
 
 const normalizePaletteColor = (color: string) => {
     const trimmed = color.trim();
@@ -205,10 +229,7 @@ const ThemeQuickEditor: React.FC<ThemeQuickEditorProps> = ({
                 throttleTimeoutRef.current = null;
                 setDraftTheme(previous => ({
                     ...previous,
-                    [mode]: {
-                        ...previous[mode],
-                        [activeKey]: latestColorRef.current,
-                    },
+                    [mode]: patchModeColor(previous[mode], activeKey, latestColorRef.current),
                 }));
             }, 33); // ~30fps 刷新率
         }
@@ -222,10 +243,7 @@ const ThemeQuickEditor: React.FC<ThemeQuickEditorProps> = ({
         }
         setDraftTheme(previous => ({
             ...previous,
-            [mode]: {
-                ...previous[mode],
-                [activeKey]: color,
-            },
+            [mode]: patchModeColor(previous[mode], activeKey, color),
         }));
     };
 
@@ -234,6 +252,7 @@ const ThemeQuickEditor: React.FC<ThemeQuickEditorProps> = ({
         if (!preset) {
             return;
         }
+        saveStoredLyricColorPresetId(presetId);
         setDraftTheme(previous => applyLyricColorPresetToDualTheme(previous, preset, { includeMotion: false }));
     };
 
@@ -247,7 +266,14 @@ const ThemeQuickEditor: React.FC<ThemeQuickEditorProps> = ({
             light: { ...draftTheme.light, name: finalLightName },
             dark: { ...draftTheme.dark, name: finalDarkName },
         };
-        onSave(sanitizeDualTheme(updatedDraft, normalizedInitialTheme));
+        const sanitized = sanitizeDualTheme(updatedDraft, normalizedInitialTheme);
+        const activePresetId = resolveActiveLyricColorPresetId(sanitized[mode], mode);
+        if (activePresetId) {
+            saveStoredLyricColorPresetId(activePresetId);
+        } else {
+            saveStoredLyricBodyColor(sanitized[mode].primaryColor);
+        }
+        onSave(sanitized);
     };
 
     const handleCopyPrompt = async () => {
@@ -328,7 +354,7 @@ const ThemeQuickEditor: React.FC<ThemeQuickEditorProps> = ({
                 exit={{ opacity: 0, y: 12, scale: 0.985 }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
                 // 添加 transform-gpu 隔离阴影重绘
-                className={`relative w-full max-w-[36rem] overflow-hidden rounded-[1.5rem] border shadow-[0_24px_80px_rgba(0,0,0,0.4)] transform-gpu ${themeTransitionClass}`}
+                className={`relative w-full max-w-[min(44rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.5rem] border shadow-[0_24px_80px_rgba(0,0,0,0.4)] transform-gpu ${themeTransitionClass}`}
                 style={{ backgroundColor: panelBg, borderColor, color: textColor, willChange: 'transform' }}
                 onClick={(event) => event.stopPropagation()}
             >

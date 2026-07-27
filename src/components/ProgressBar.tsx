@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { MotionValue, useMotionValueEvent } from 'framer-motion';
 import { formatTime } from '../utils/appPlaybackHelpers';
+import { resolveProgressFillPercent } from '../utils/playback/mediaClockIsolationMath';
 
 // src/components/ProgressBar.tsx
 // Playback scrubber; edge variant is a Qishui-style top-rail progress for the docked bar.
@@ -35,7 +36,6 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
-    const [previewTime, setPreviewTime] = useState(0);
 
     const trackRef = useRef<HTMLDivElement>(null);
     const progressRef = useRef<HTMLDivElement>(null);
@@ -48,8 +48,14 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         isDraggingRef.current = isDragging;
     }, [isDragging]);
 
+    // Keep the latest media time in a ref so hover tooltips can read it without
+    // React state. Never setState from the MotionValue clock — re-renders reset
+    // the fill `width: 0%` style and freeze the scrubber while the time label still moves.
+    const latestTimeRef = useRef(0);
+
     const applyProgress = (value: number) => {
-        const percent = duration > 0 ? Math.min(100, Math.max(0, (value / duration) * 100)) : 0;
+        latestTimeRef.current = value;
+        const percent = resolveProgressFillPercent(value, duration);
         if (trackRef.current) {
             trackRef.current.style.setProperty('--progress', `${percent}%`);
         }
@@ -64,8 +70,11 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         }
         if (tooltipRef.current) {
             tooltipRef.current.style.left = `${percent}%`;
+            const label = tooltipRef.current.querySelector('[data-testid="progress-edge-tooltip-label"]');
+            if (label) {
+                label.textContent = `${formatTime(value)} / ${formatTime(duration)}`;
+            }
         }
-        setPreviewTime(value);
     };
 
     const updateUI = (value: number, skipDragCheck = false) => {
@@ -109,7 +118,8 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
                 <div
                     ref={progressRef}
                     className={fillClass}
-                    style={{ width: '0%', backgroundColor: primaryColor }}
+                    // Width is owned by applyProgress DOM writes — do not bake width:0% into React style.
+                    style={{ width: undefined, backgroundColor: primaryColor }}
                 />
             ) : (
                 <>
@@ -120,7 +130,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
                     <div
                         ref={progressRef}
                         className={fillClass}
-                        style={{ width: '0%', backgroundColor: edgeFillColor }}
+                        style={{ width: undefined, backgroundColor: edgeFillColor }}
                     />
                     <div
                         className={`pointer-events-none absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white transition-transform duration-150 ${
@@ -139,7 +149,8 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
                         style={{ left: 'var(--progress, 0%)' }}
                         data-testid="progress-edge-tooltip"
                     >
-                        {formatTime(previewTime)} / {formatTime(duration)}
+                        {/* Text painted in applyProgress — avoid React children resetting on hover toggles. */}
+                        <span data-testid="progress-edge-tooltip-label">0:00 / {formatTime(duration)}</span>
                         <span
                             className={`absolute left-1/2 top-full -translate-x-1/2 border-x-4 border-t-4 border-x-transparent ${
                                 isDaylight ? 'border-t-zinc-900/90' : 'border-t-black/85'

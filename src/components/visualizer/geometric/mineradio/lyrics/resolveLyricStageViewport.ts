@@ -26,12 +26,12 @@ export const LYRIC_STAGE_CAMERA_Y = 0.12;
 export const LYRIC_STAGE_DEFAULT_MARGIN = 0.72;
 /** Extra inset per side on top of margin (bloom / glow / sidebar chrome). */
 export const LYRIC_STAGE_DEFAULT_EDGE_INSET = 0.08;
-/** Immersive fullscreen: fill more of the stage like desktop lyrics. */
-export const LYRIC_STAGE_IMMERSIVE_MARGIN = 0.90;
-export const LYRIC_STAGE_IMMERSIVE_EDGE_INSET = 0.03;
+/** Immersive fullscreen: wider than windowed, but leave breathing room. */
+export const LYRIC_STAGE_IMMERSIVE_MARGIN = 0.80;
+export const LYRIC_STAGE_IMMERSIVE_EDGE_INSET = 0.055;
 const MIN_WORLD_WIDTH = 0.9;
 const MAX_WORLD_WIDTH = 4.8;
-const IMMERSIVE_MAX_WORLD_WIDTH = 7.2;
+const IMMERSIVE_MAX_WORLD_WIDTH = 5.8;
 
 /** Visible frustum width at the lyric plane, then clamped for stage layout. */
 export const resolveLyricStageMaxWorldWidth = (viewport: LyricStageViewport): number => {

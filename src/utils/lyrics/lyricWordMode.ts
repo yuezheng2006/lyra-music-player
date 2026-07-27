@@ -2,7 +2,7 @@ import type { Line, LyricWordMode } from '../../types';
 import { LYRIC_LINE_OPACITY } from '../theme/lyricColorPresets';
 
 // src/utils/lyrics/lyricWordMode.ts
-// Lyric-module policy: default hides future text; karaoke previews upcoming words/lines.
+// Lyric-module policy: default hides future text; karaoke previews upcoming; ktv adds traditional wipe.
 
 export type { LyricWordMode };
 
@@ -20,16 +20,22 @@ export type WaitingWordPresentation = {
 };
 
 export const isLyricWordMode = (value: unknown): value is LyricWordMode => (
-    value === 'default' || value === 'karaoke'
+    value === 'default' || value === 'karaoke' || value === 'ktv'
 );
 
 export const parseLyricWordMode = (value: unknown): LyricWordMode => (
     isLyricWordMode(value) ? value : DEFAULT_LYRIC_WORD_MODE
 );
 
-export const shouldShowUpcomingLyrics = (mode: LyricWordMode): boolean => mode === 'karaoke';
+/** Karaoke and ktv both preview upcoming lines/words; default stays current-line only. */
+export const shouldShowUpcomingLyrics = (mode: LyricWordMode): boolean => (
+    mode === 'karaoke' || mode === 'ktv'
+);
 
-/** Monet-style multi-line rails: only preview future rows in karaoke mode. */
+/** Traditional LTR wipe is opt-in via ktv so existing karaoke behavior stays unchanged. */
+export const shouldUseKaraokeWipe = (mode: LyricWordMode): boolean => mode === 'ktv';
+
+/** Monet-style multi-line rails: only preview future rows in karaoke/ktv modes. */
 export const resolveLyricRailAfterCount = (
     mode: LyricWordMode,
     karaokeAfter = KARAOKE_UPCOMING_LINE_COUNT,
@@ -42,7 +48,7 @@ export const resolveUpcomingLyricLines = <T extends Line>(
     mode: LyricWordMode,
 ): T[] => (shouldShowUpcomingLyrics(mode) ? nextLines : []);
 
-/** Intra-line waiting words: hidden in default mode, readable preview in karaoke mode. */
+/** Intra-line waiting words: hidden in default mode, readable preview in karaoke/ktv. */
 export const resolveWaitingWordPresentation = (
     mode: LyricWordMode,
     hiddenOpacity = 0,
@@ -63,12 +69,15 @@ export const resolveWaitingWordPresentation = (
 
 /**
  * Framer Motion animate key for word status.
- * Waiting must include mode so toggling default↔karaoke re-triggers variants
- * (animate="waiting" alone stays stuck when only variant defs change).
+ * Waiting must differ for default vs preview modes so toggles re-trigger variants.
+ * ktv reuses waiting-karaoke variants (same preview park) without duplicating defs.
  */
 export type LyricWordMotionStatus = 'waiting' | 'active' | 'passed';
 
 export const resolveLyricWordAnimateKey = (
     status: LyricWordMotionStatus,
     mode: LyricWordMode,
-): string => (status === 'waiting' ? `waiting-${mode}` : status);
+): string => {
+    if (status !== 'waiting') return status;
+    return shouldShowUpcomingLyrics(mode) ? 'waiting-karaoke' : 'waiting-default';
+};

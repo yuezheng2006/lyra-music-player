@@ -5,13 +5,20 @@ import { LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC } from '@/components/app/root/app
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong, isYtmPlaybackSong } from '@/utils/appPlaybackGuards';
 import { shouldPreserveAutoPlayOnPause } from '@/utils/audioAutoPlayGuard';
 import { resolvePlaybackDurationSec, resolveSongDurationSec } from '@/utils/appPlaybackHelpers';
+import { resolveMediaClocksFromAudioElement } from '@/utils/playback/mediaClockIsolationMath';
+import { isOnlinePlaybackRecoveryExhausted } from '../playback/createOnlineRecoveryController';
 
 export interface AppAudioElementProps {
     audioRef: RefObject<HTMLAudioElement | null>;
     audioSrc: string | null;
+    /** Remount key after Format-error recovery. */
+    audioElementEpoch?: number;
     effectiveLoopMode: StageLoopMode;
     shouldAutoPlay: MutableRefObject<boolean>;
     currentTime: MotionValue<number>;
+    /** Keep lyrics on the same media clock as dock progress (independent of visualizer RAF). */
+    lyricCurrentTime?: MotionValue<number>;
+    lyricTimelineOffsetMs?: number;
     setPlayerState: (state: PlayerState) => void;
     setupAudioAnalyzer: () => void;
     playbackAutoSkipCountRef: MutableRefObject<number>;
@@ -30,9 +37,12 @@ export function AppAudioElement(props: AppAudioElementProps) {
     const {
         audioRef,
         audioSrc,
+        audioElementEpoch = 0,
         effectiveLoopMode,
         shouldAutoPlay,
         currentTime,
+        lyricCurrentTime,
+        lyricTimelineOffsetMs = 0,
         setPlayerState,
         setupAudioAnalyzer,
         playbackAutoSkipCountRef,
@@ -49,18 +59,24 @@ export function AppAudioElement(props: AppAudioElementProps) {
 
     return (
 <audio
+            key={audioElementEpoch}
             ref={audioRef}
             src={audioSrc || undefined}
             preload="auto"
             crossOrigin="anonymous"
             loop={effectiveLoopMode === 'one'}
             onPlay={(e) => {
-                shouldAutoPlay.current = false;
+                // Muted unlock priming must not clear pending autoplay for the next src.
+                if (!e.currentTarget.muted) {
+                    shouldAutoPlay.current = false;
+                }
                 currentTime.set(e.currentTarget.currentTime);
                 setPlayerState(PlayerState.PLAYING);
             }}
             onPlaying={(e) => {
-                shouldAutoPlay.current = false;
+                if (!e.currentTarget.muted) {
+                    shouldAutoPlay.current = false;
+                }
                 currentTime.set(e.currentTarget.currentTime);
                 setupAudioAnalyzer();
                 playbackAutoSkipCountRef.current = 0;
@@ -83,12 +99,25 @@ export function AppAudioElement(props: AppAudioElementProps) {
             onTimeUpdate={(e) => {
                 const audioElement = e.currentTarget;
                 if (!audioElement.paused && !audioElement.ended) {
-                    currentTime.set(audioElement.currentTime);
-                    setPlayerState(PlayerState.PLAYING);
+                    // Media-layer clocks: independent of visualizer RAF / WebGL.
+                    const { currentTimeSec, lyricTimeSec } = resolveMediaClocksFromAudioElement({
+                        audioCurrentTimeSec: audioElement.currentTime,
+                        lyricTimelineOffsetMs,
+                    });
+                    currentTime.set(currentTimeSec);
+                    lyricCurrentTime?.set(lyricTimeSec);
+                    if (playerState !== PlayerState.PLAYING) {
+                        setPlayerState(PlayerState.PLAYING);
+                    }
                 }
             }}
             onSeeked={(e) => {
-                currentTime.set(e.currentTarget.currentTime);
+                const { currentTimeSec, lyricTimeSec } = resolveMediaClocksFromAudioElement({
+                    audioCurrentTimeSec: e.currentTarget.currentTime,
+                    lyricTimelineOffsetMs,
+                });
+                currentTime.set(currentTimeSec);
+                lyricCurrentTime?.set(lyricTimeSec);
             }}
             // Buffer progress debug helper. Uncomment to inspect how much of
             // the current source the browser has actually buffered.
@@ -213,6 +242,12 @@ export function AppAudioElement(props: AppAudioElementProps) {
                 );
 
                 if (shouldRetryOnlineSong) {
+                    if (isOnlinePlaybackRecoveryExhausted(currentSong?.id)) {
+                        shouldAutoPlay.current = false;
+                        pendingResumeTimeRef.current = null;
+                        skipAfterPlaybackFailure();
+                        return;
+                    }
                     void (async () => {
                         const recovered = await recoverOnlinePlaybackSource({
                             failedSrc,

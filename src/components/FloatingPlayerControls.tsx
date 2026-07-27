@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Maximize, Minimize, Maximize2 } from 'lucide-react';
+import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Download, Home, Maximize, Minimize, Maximize2, Minimize2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { MotionValue } from 'framer-motion';
 import ProgressBar from './ProgressBar';
 import FloatingPlayerBackgroundMenu from './FloatingPlayerBackgroundMenu';
@@ -26,6 +27,7 @@ import {
     FLOATING_PLAYER_PROGRESS_INSET_PX,
     resolveFloatingPlayerDockFrameStyle,
 } from './floatingPlayerDockLayout';
+import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 
 // src/components/FloatingPlayerControls.tsx
 // Floating dock: left meta, center transport, right tool chips.
@@ -167,8 +169,8 @@ interface FloatingPlayerControlsProps {
     onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
     visualizerMode?: VisualizerMode;
     onVisualizerModeChange?: (mode: VisualizerMode) => void;
-    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
+    onOpenSongSettings?: () => void;
     backgroundMenuLabel?: string;
     backgroundModeInteractive3dLabel?: string;
     backgroundModeCommonLabel?: string;
@@ -176,10 +178,13 @@ interface FloatingPlayerControlsProps {
     backgroundPresetSectionLabel?: string;
     lyricsStyleSectionLabel?: string;
     lyricColorSectionLabel?: string;
+    openSongSettingsLabel?: string;
     getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
     getVisualizerModeLabel?: (mode: VisualizerMode) => string;
     /** True while a dock popover (background / quality) is open — pauses idle auto-hide. */
     onDockPopoverOpenChange?: (open: boolean) => void;
+    onDownloadSong?: () => void;
+    downloadSongLabel?: string;
 }
 
 const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
@@ -242,8 +247,8 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     onInteractive3dSceneTuningChange,
     visualizerMode = 'classic',
     onVisualizerModeChange,
-    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
+    onOpenSongSettings,
     backgroundMenuLabel = 'Background',
     backgroundModeInteractive3dLabel = '3D',
     backgroundModeCommonLabel = 'Common',
@@ -251,12 +256,18 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     backgroundPresetSectionLabel = '3D style',
     lyricsStyleSectionLabel = 'Lyric style',
     lyricColorSectionLabel = 'Lyric colors',
+    openSongSettingsLabel = 'Song settings',
     getBackgroundPresetLabel,
     getVisualizerModeLabel,
     onDockPopoverOpenChange,
 }) => {
     // Timeline modal kept mounted for minimal churn; dock no longer opens it.
     const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+    // Startup overlays must win pointer hit-testing; otherwise Skip never persists.
+    const startupOverlayOpen = useSettingsUiStore(
+        (s) => s.isOnboardingOpen || s.isWhatsNewOpen,
+    );
+    const dockHidden = isHidden || startupOverlayOpen;
     const effectsModeActive = currentView === 'player';
     const trackColor = isDaylight ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.10)';
     const canSwitchBackground = Boolean(
@@ -266,6 +277,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
         && onVisualizerModeChange,
     );
 
+    // EmotionSelector demoted from primary chrome; mood engine still drives ambient/Lab.
     if (hideControlBar) {
         return null;
     }
@@ -286,7 +298,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
             {/* Outer frame spans the content column; inner dock is width-capped and centered. */}
             <div
                 className="fixed z-[130] flex justify-center overflow-visible"
-                style={resolveFloatingPlayerDockFrameStyle(isHidden)}
+                style={resolveFloatingPlayerDockFrameStyle(dockHidden)}
                 data-testid="floating-player-dock-frame"
             >
                 <motion.div
@@ -295,8 +307,8 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                     }`}
                     initial={false}
                     animate={{
-                        opacity: isHidden ? 0 : 0.94,
-                        y: isHidden ? 16 : 0,
+                        opacity: dockHidden ? 0 : 0.94,
+                        y: dockHidden ? 16 : 0,
                     }}
                     transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                     style={{
@@ -309,7 +321,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         boxShadow: isDaylight
                             ? 'inset 0 0 2px 1px rgba(255,255,255,0.55), inset 0 0 10px 4px rgba(255,255,255,0.22), 0 8px 28px rgba(17,17,26,0.08), 0 16px 48px rgba(17,17,26,0.06)'
                             : 'inset 0 0 2px 1px rgba(255,255,255,0.35), inset 0 0 10px 4px rgba(255,255,255,0.15), 0 8px 28px rgba(17,17,26,0.08), 0 16px 56px rgba(17,17,26,0.08)',
-                        pointerEvents: isHidden ? 'none' : 'auto',
+                        pointerEvents: dockHidden ? 'none' : 'auto',
                     } as React.CSSProperties}
                     onClick={(e) => e.stopPropagation()}
                     data-testid="floating-player-dock"
@@ -337,6 +349,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                             }
                             onNavigateToPlayer();
                         }}
+                        onNavigateToHome={onNavigateToHome}
                         effectsModeActive={effectsModeActive}
                         noTrackText={noTrackText}
                         primaryColor={primaryColor}
@@ -376,8 +389,8 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         visualizerMode={visualizerMode}
                         onVisualizerModeChange={onVisualizerModeChange}
                         theme={theme}
-                        onApplyLyricBodyColor={onApplyLyricBodyColor}
                         onApplyLyricColorPreset={onApplyLyricColorPreset}
+                        onOpenSongSettings={onOpenSongSettings}
                         backgroundMenuLabel={backgroundMenuLabel}
                         backgroundModeInteractive3dLabel={backgroundModeInteractive3dLabel}
                         backgroundModeCommonLabel={backgroundModeCommonLabel}
@@ -385,9 +398,13 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         backgroundPresetSectionLabel={backgroundPresetSectionLabel}
                         lyricsStyleSectionLabel={lyricsStyleSectionLabel}
                         lyricColorSectionLabel={lyricColorSectionLabel}
+                        openSongSettingsLabel={openSongSettingsLabel}
                         getBackgroundPresetLabel={getBackgroundPresetLabel}
                         getVisualizerModeLabel={getVisualizerModeLabel}
                         onDockPopoverOpenChange={onDockPopoverOpenChange}
+                        onEnsurePlayerView={() => {
+                            if (currentView !== 'player') onNavigateToPlayer();
+                        }}
                     />
                 </motion.div>
             </div>
@@ -430,6 +447,7 @@ type DockedBarProps = {
     onNextTrack?: () => void;
     onTogglePlayerLyricsVisible?: () => void;
     onToggleEffectsMode?: () => void;
+    onNavigateToHome?: () => void;
     effectsModeActive?: boolean;
     noTrackText: string;
     primaryColor: string;
@@ -469,8 +487,8 @@ type DockedBarProps = {
     visualizerMode: VisualizerMode;
     onVisualizerModeChange?: (mode: VisualizerMode) => void;
     theme?: Theme;
-    onApplyLyricBodyColor?: (color: string) => void;
     onApplyLyricColorPreset?: (presetId: LyricColorPresetId) => void;
+    onOpenSongSettings?: () => void;
     backgroundMenuLabel: string;
     backgroundModeInteractive3dLabel: string;
     backgroundModeCommonLabel: string;
@@ -478,9 +496,12 @@ type DockedBarProps = {
     backgroundPresetSectionLabel: string;
     lyricsStyleSectionLabel: string;
     lyricColorSectionLabel: string;
+    openSongSettingsLabel: string;
     getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
     getVisualizerModeLabel?: (mode: VisualizerMode) => string;
     onDockPopoverOpenChange?: (open: boolean) => void;
+    /** Reveal player view so heavy backgrounds are not covered by the home shell. */
+    onEnsurePlayerView?: () => void;
 };
 
 const DockedBar: React.FC<DockedBarProps> = ({
@@ -500,6 +521,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
     onNextTrack,
     onTogglePlayerLyricsVisible,
     onToggleEffectsMode,
+    onNavigateToHome,
     effectsModeActive = false,
     noTrackText,
     primaryColor,
@@ -539,8 +561,8 @@ const DockedBar: React.FC<DockedBarProps> = ({
     visualizerMode,
     onVisualizerModeChange,
     theme,
-    onApplyLyricBodyColor,
     onApplyLyricColorPreset,
+    onOpenSongSettings,
     backgroundMenuLabel,
     backgroundModeInteractive3dLabel,
     backgroundModeCommonLabel,
@@ -548,10 +570,13 @@ const DockedBar: React.FC<DockedBarProps> = ({
     backgroundPresetSectionLabel,
     lyricsStyleSectionLabel,
     lyricColorSectionLabel,
+    openSongSettingsLabel,
     getBackgroundPresetLabel,
     getVisualizerModeLabel,
     onDockPopoverOpenChange,
+    onEnsurePlayerView,
 }) => {
+    const { t } = useTranslation();
     const skipDisabled = controlsDisabled || !canSkipTracks;
     const lyricsToggleDisabled = controlsDisabled || !onTogglePlayerLyricsVisible;
     const qualityDisabled = controlsDisabled || !canChangeAudioQuality || !onAudioQualityChange;
@@ -610,10 +635,60 @@ const DockedBar: React.FC<DockedBarProps> = ({
                 />
             </div>
 
-            {/* Mineradio order: cover · quality · loop · prev/play/next · bg · 词 · queue · fullscreen · time */}
+            {/* Mineradio order: cover · quality · loop · prev/play/next · home · bg · 词 · queue · fullscreen · time */}
             <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-5 pt-2.5 sm:gap-3 sm:px-6 md:px-7">
                 <div className="flex min-w-0 items-center gap-2 text-left sm:gap-2.5">
-                    {effectsModeActive || !onToggleEffectsMode ? (
+                    {onToggleEffectsMode ? (
+                        <button
+                            type="button"
+                            onClick={onToggleEffectsMode}
+                            disabled={controlsDisabled}
+                            className={`group relative h-[48px] w-[48px] shrink-0 overflow-hidden rounded-[14px] transition-transform duration-180 ${
+                                controlsDisabled ? 'opacity-45 cursor-not-allowed' : 'hover:scale-[1.04] active:scale-95'
+                            }`}
+                            style={{
+                                boxShadow: isDaylight
+                                    ? '0 8px 20px rgba(0,0,0,0.14)'
+                                    : '0 10px 24px rgba(0,0,0,0.32)',
+                                background: coverArtUrl
+                                    ? 'transparent'
+                                    : (isDaylight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.07)'),
+                            }}
+                            title={effectsModeActive
+                                ? (t('ui.backToHome') || '返回主页')
+                                : listeningModeLabel}
+                            aria-label={effectsModeActive
+                                ? (t('ui.backToHome') || '返回主页')
+                                : listeningModeLabel}
+                            data-testid={effectsModeActive
+                                ? 'floating-player-cover-exit-effects'
+                                : 'floating-player-cover-enter-effects'}
+                        >
+                            {coverArtUrl ? (
+                                <img
+                                    src={coverArtUrl}
+                                    alt=""
+                                    className="absolute inset-0 block h-full w-full scale-[1.02] object-cover"
+                                    draggable={false}
+                                />
+                            ) : (
+                                <div className="flex h-full w-full items-center justify-center opacity-45" style={{ color: titleColor }}>
+                                    <Disc3 size={18} strokeWidth={1.75} />
+                                </div>
+                            )}
+                            {/* Home: shrink cue; library dock: expand into immersive player. */}
+                            <span
+                                aria-hidden
+                                className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 opacity-70 transition-opacity duration-180 group-hover:opacity-100"
+                            >
+                                {effectsModeActive ? (
+                                    <Minimize2 size={16} strokeWidth={2.2} className="text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)]" />
+                                ) : (
+                                    <Maximize2 size={16} strokeWidth={2.2} className="text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)]" />
+                                )}
+                            </span>
+                        </button>
+                    ) : (
                         <div
                             className="relative h-[48px] w-[48px] shrink-0 overflow-hidden rounded-[14px]"
                             style={{
@@ -638,46 +713,6 @@ const DockedBar: React.FC<DockedBarProps> = ({
                                 </div>
                             )}
                         </div>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={onToggleEffectsMode}
-                            disabled={controlsDisabled}
-                            className={`group relative h-[48px] w-[48px] shrink-0 overflow-hidden rounded-[14px] transition-transform duration-180 ${
-                                controlsDisabled ? 'opacity-45 cursor-not-allowed' : 'hover:scale-[1.04] active:scale-95'
-                            }`}
-                            style={{
-                                boxShadow: isDaylight
-                                    ? '0 8px 20px rgba(0,0,0,0.14)'
-                                    : '0 10px 24px rgba(0,0,0,0.32)',
-                                background: coverArtUrl
-                                    ? 'transparent'
-                                    : (isDaylight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.07)'),
-                            }}
-                            title={listeningModeLabel}
-                            aria-label={listeningModeLabel}
-                            data-testid="floating-player-cover-enter-effects"
-                        >
-                            {coverArtUrl ? (
-                                <img
-                                    src={coverArtUrl}
-                                    alt=""
-                                    className="absolute inset-0 block h-full w-full scale-[1.02] object-cover"
-                                    draggable={false}
-                                />
-                            ) : (
-                                <div className="flex h-full w-full items-center justify-center opacity-45" style={{ color: titleColor }}>
-                                    <Disc3 size={18} strokeWidth={1.75} />
-                                </div>
-                            )}
-                            {/* Qishui-style expand cue: tap cover to enter effects mode. */}
-                            <span
-                                aria-hidden
-                                className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 opacity-70 transition-opacity duration-180 group-hover:opacity-100"
-                            >
-                                <Maximize2 size={16} strokeWidth={2.2} className="text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)]" />
-                            </span>
-                        </button>
                     )}
                     <div className="min-w-0 max-w-[120px] sm:max-w-[180px] md:max-w-[220px]">
                         <div className="truncate text-[13px] font-bold leading-snug tracking-tight" style={{ color: titleColor }}>
@@ -806,6 +841,20 @@ const DockedBar: React.FC<DockedBarProps> = ({
                 </div>
 
                 <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-1.5">
+                    {effectsModeActive && onNavigateToHome ? (
+                        <button
+                            type="button"
+                            onClick={onNavigateToHome}
+                            disabled={controlsDisabled}
+                            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-180 ${buildToolButtonClass(isDaylight, controlsDisabled)}`}
+                            title={t('ui.backToHome') || '返回主页'}
+                            aria-label={t('ui.backToHome') || '返回主页'}
+                            data-testid="floating-player-go-home"
+                        >
+                            <Home size={16} strokeWidth={TRANSPORT_ICON_STROKE} />
+                        </button>
+                    ) : null}
+
                     {canSwitchBackground
                         && interactive3dSceneTuning
                         && onVisualizerBackgroundModeChange
@@ -813,7 +862,6 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         && onVisualizerModeChange ? (
                         <FloatingPlayerBackgroundMenu
                             isDaylight={isDaylight}
-                            primaryColor={titleColor}
                             disabled={controlsDisabled}
                             visualizerBackgroundMode={visualizerBackgroundMode}
                             interactive3dSceneTuning={interactive3dSceneTuning}
@@ -822,16 +870,16 @@ const DockedBar: React.FC<DockedBarProps> = ({
                             visualizerMode={visualizerMode}
                             onVisualizerModeChange={onVisualizerModeChange}
                             theme={theme}
-                            onApplyLyricBodyColor={onApplyLyricBodyColor}
                             onApplyLyricColorPreset={onApplyLyricColorPreset}
+                            onOpenSongSettings={onOpenSongSettings}
                             onOpenChange={setBackgroundMenuOpen}
+                            onEnsurePlayerView={onEnsurePlayerView}
                             backgroundMenuLabel={backgroundMenuLabel}
-                            modeInteractive3dLabel={backgroundModeInteractive3dLabel}
-                            modeCommonLabel={backgroundModeCommonLabel}
-                            modeMonetLabel={backgroundModeMonetLabel}
+                            backgroundModeCommonLabel={backgroundModeCommonLabel}
                             presetSectionLabel={backgroundPresetSectionLabel}
                             lyricsStyleSectionLabel={lyricsStyleSectionLabel}
                             lyricColorSectionLabel={lyricColorSectionLabel}
+                            openSongSettingsLabel={openSongSettingsLabel}
                             getPresetLabel={(preset) => getBackgroundPresetLabel?.(preset) || getMineradioPresetLabelFallback(preset)}
                             getVisualizerLabel={(mode) => getVisualizerModeLabel?.(mode) || mode}
                             buildToolButtonClass={(disabled, active) => buildToolButtonClass(isDaylight, disabled, active)}

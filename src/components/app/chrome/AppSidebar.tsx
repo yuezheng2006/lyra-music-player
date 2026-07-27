@@ -8,18 +8,17 @@ import {
     Podcast,
     Radio,
     Settings,
-    Sparkles,
     Music2,
     Clock,
 } from 'lucide-react';
-import { useDailyRecommendStore } from '../../../stores/useDailyRecommendStore';
 import type { Theme } from '../../../types';
 import { isNavidromeUiEnabled, isYtmusicUiEnabled } from '../../../utils/featureFlags';
 
 // src/components/app/chrome/AppSidebar.tsx
 // Expanded: full Qishui rail. Collapsed: zero-width, only a translucent expand toggle.
+// Daily recommend nav is intentionally omitted (NetEase VIP / 30s trial UX).
 
-export type AppSidebarActive = 'home' | 'daily' | 'podcast' | 'local' | 'navidrome' | 'ytmusic' | 'history';
+export type AppSidebarActive = 'home' | 'podcast' | 'local' | 'navidrome' | 'ytmusic' | 'history';
 
 type AppSidebarProps = {
     active: AppSidebarActive;
@@ -31,7 +30,6 @@ type AppSidebarProps = {
     navidromeEnabled?: boolean;
     onToggleCollapsed: () => void;
     onOpenHome: () => void;
-    onOpenDaily: () => void;
     onOpenPodcast: () => void;
     onOpenLocal: () => void;
     onOpenNavidrome?: () => void;
@@ -55,7 +53,6 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
     navidromeEnabled = false,
     onToggleCollapsed,
     onOpenHome,
-    onOpenDaily,
     onOpenPodcast,
     onOpenLocal,
     onOpenNavidrome,
@@ -64,7 +61,6 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
     onOpenSettings,
 }) => {
     const { t } = useTranslation();
-    const preloadDailyRecommend = useDailyRecommendStore(state => state.preload);
     const [showUpdateIndicator, setShowUpdateIndicator] = useState(false);
 
     const shellClass = 'text-[color:var(--shell-text)]';
@@ -183,20 +179,6 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                 >
                     <HomeIcon size={18} strokeWidth={2} />
                     <span>{t('app.sidebarHome')}</span>
-                </button>
-
-                <button
-                    type="button"
-                    onClick={onOpenDaily}
-                    onMouseEnter={preloadDailyRecommend}
-                    onFocus={preloadDailyRecommend}
-                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'daily')}`}
-                    aria-current={active === 'daily' ? 'page' : undefined}
-                    title={t('app.sidebarDaily')}
-                    aria-label={t('app.sidebarDaily')}
-                >
-                    <Sparkles size={18} strokeWidth={2} />
-                    <span>{t('app.sidebarDaily')}</span>
                 </button>
 
                 <button

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, screen, dialog, shell, nativeImage, desktopCapturer, Menu, Tray, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, session, screen, dialog, shell, nativeImage, desktopCapturer, Menu, Tray, nativeTheme, net } = require('electron');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
@@ -16,6 +16,10 @@ const {
   isAllowedLyricProxyHost,
   isAmllDbHost,
 } = require('../shared/lyricProxyHosts.cjs');
+const {
+  resolveMediaRequestOverride,
+  shouldBypassMediaCors,
+} = require('../shared/mediaRequestHeaders.cjs');
 const useLinuxGraphicsDebugMode = process.env.ELECTRON_LINUX_PACKAGED_GRAPHICS === 'true';
 const isAppImageRuntime =
   process.platform === 'linux' &&
@@ -61,6 +65,55 @@ if (process.platform === 'darwin' && process.arch === 'x64') {
 
 const store = new Store({ projectName: 'Lyra' });
 let mainWindow = null;
+
+// interactive3d / WebGL / heavy backgrounds can crash the GPU helper (exit_code=512)
+// and freeze the UI. Notify the renderer so it can drop to a safer background.
+let gpuProcessGoneCount = 0;
+let gpuCrashReloadTimer = null;
+let gpuCrashRelaunchArmed = false;
+// macOS Retina: one GPU death already flips Chromium into software GL, which
+// pegs Electron Helper at ~100% CPU with 0% GPU and freezes the dock clock.
+// Escape on the first death; other platforms keep a 2-strike threshold.
+const GPU_CRASH_RELAUNCH_AFTER = process.platform === 'darwin' ? 1 : 2;
+app.on('child-process-gone', (_event, details) => {
+  if (!details || details.type !== 'GPU') return;
+  gpuProcessGoneCount += 1;
+  const payload = {
+    reason: details.reason || 'unknown',
+    exitCode: details.exitCode ?? null,
+    count: gpuProcessGoneCount,
+  };
+  console.error('[gpu] process gone', payload);
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('gpu-process-gone', payload);
+  // Chromium falls back to --use-gl=disabled after GPU deaths; window reload
+  // cannot restore HW GL and leaves the renderer wedged at 100% CPU.
+  // Packaged: app.relaunch(). Concurrent-dev: exit 75 so scripts/run-electron-dev.mjs
+  // restarts Electron only (vite / sidecars stay up under concurrently -k).
+  if (gpuProcessGoneCount >= GPU_CRASH_RELAUNCH_AFTER && !gpuCrashRelaunchArmed) {
+    gpuCrashRelaunchArmed = true;
+    if (gpuCrashReloadTimer) {
+      clearTimeout(gpuCrashReloadTimer);
+      gpuCrashReloadTimer = null;
+    }
+    const isConcurrentDev = process.env.ELECTRON_DEV === 'true'
+      || process.env.LYRA_EXTERNAL_DEV_APIS === 'true';
+    setTimeout(() => {
+      if (isConcurrentDev) {
+        // Must match ELECTRON_DEV_RESTART_EXIT_CODE in scripts/run-electron-dev.mjs
+        const ELECTRON_DEV_RESTART_EXIT_CODE = 75;
+        console.warn(
+          `[gpu] concurrent-dev: exiting Electron with code ${ELECTRON_DEV_RESTART_EXIT_CODE} for wrapper restart (escape software GL)`,
+        );
+        app.exit(ELECTRON_DEV_RESTART_EXIT_CODE);
+        return;
+      }
+      console.warn('[gpu] relaunching app to escape software-GL fallback after GPU deaths');
+      app.relaunch();
+      app.exit(0);
+    }, 350);
+  }
+});
 let remoteControlWindow = null;
 let appTray = null;
 let latestRemoteControlSnapshot = null;
@@ -94,6 +147,8 @@ const DEFAULT_WINDOW_BOUNDS = {
 };
 const WINDOW_STATE_SAVE_DEBOUNCE_MS = 300;
 const CACHE_DIRECTORY_SETTING_KEY = 'CACHE_DIRECTORY';
+const DOWNLOAD_DIRECTORY_SETTING_KEY = 'DOWNLOAD_DIRECTORY';
+const DOWNLOAD_FOLDER_NAME = 'Lyra';
 const ENABLE_UPDATE_CHECK_SETTING_KEY = 'ENABLE_UPDATE_CHECK';
 const ENABLE_AUTO_UPDATE_SETTING_KEY = 'ENABLE_AUTO_UPDATE';
 const LAST_SEEN_UPDATE_VERSION_SETTING_KEY = 'LAST_SEEN_UPDATE_VERSION';
@@ -706,6 +761,159 @@ function getConfiguredCacheDirectory() {
     : getDefaultCacheDirectory();
 }
 
+/** User-visible download root: ~/Music/Lyra by default (Finder-friendly). */
+function getDefaultDownloadDirectory() {
+  return path.join(app.getPath('music'), DOWNLOAD_FOLDER_NAME);
+}
+
+function getConfiguredDownloadDirectory() {
+  const configured = store.get(DOWNLOAD_DIRECTORY_SETTING_KEY);
+  return typeof configured === 'string' && configured.trim().length > 0
+    ? configured.trim()
+    : getDefaultDownloadDirectory();
+}
+
+function ensureDownloadDirectory(dirPath) {
+  fs.mkdirSync(dirPath, { recursive: true });
+  return dirPath;
+}
+
+function getDownloadDirectoryResult() {
+  const dirPath = ensureDownloadDirectory(getConfiguredDownloadDirectory());
+  return {
+    path: dirPath,
+    isDefault: !store.has(DOWNLOAD_DIRECTORY_SETTING_KEY),
+  };
+}
+
+/** Keep download writes inside the configured root (no path traversal). */
+function resolveSafeDownloadAbsolutePath(relativePath) {
+  const root = path.resolve(getConfiguredDownloadDirectory());
+  const normalizedRelative = String(relativePath || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter(part => part && part !== '.' && part !== '..')
+    .join(path.sep);
+
+  if (!normalizedRelative) {
+    throw new Error('Invalid download relative path');
+  }
+
+  const absolutePath = path.resolve(root, normalizedRelative);
+  const rootWithSep = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
+  if (absolutePath !== root && !absolutePath.startsWith(rootWithSep)) {
+    throw new Error('Download path escapes configured directory');
+  }
+
+  return { root, absolutePath };
+}
+
+async function allocateUniqueDownloadPath(relativePath) {
+  const { root, absolutePath: initialPath } = resolveSafeDownloadAbsolutePath(relativePath);
+  let absolutePath = initialPath;
+  let attempt = 1;
+
+  while (true) {
+    try {
+      await fs.promises.access(absolutePath);
+      const parsed = path.parse(initialPath);
+      absolutePath = path.join(parsed.dir, `${parsed.name} (${attempt})${parsed.ext}`);
+      attempt += 1;
+      if (attempt > 99) {
+        throw new Error('Too many duplicate download filenames');
+      }
+    } catch (error) {
+      if (error && error.code === 'ENOENT') {
+        break;
+      }
+      if (error && error.message === 'Too many duplicate download filenames') {
+        throw error;
+      }
+      // access threw for an unexpected reason — still try writing this path.
+      break;
+    }
+  }
+
+  return { root, absolutePath };
+}
+
+function buildDownloadRequestHeaders(audioUrl) {
+  const headers = {
+    'User-Agent': `Lyra/${app.getVersion()}`,
+    Accept: '*/*',
+  };
+
+  try {
+    const hostname = new URL(audioUrl).hostname.toLowerCase();
+    const override = resolveMediaRequestOverride(hostname);
+    if (override?.referer) {
+      headers.Referer = override.referer;
+    }
+    if (override?.origin) {
+      headers.Origin = override.origin;
+    }
+  } catch {
+    // Keep default headers when URL parsing fails.
+  }
+
+  return headers;
+}
+
+async function downloadSongFileToDirectory(payload = {}) {
+  const relativePath = String(payload.relativePath || '').trim();
+  const audioUrl = typeof payload.audioUrl === 'string' ? payload.audioUrl.trim() : '';
+  const reveal = Boolean(payload.reveal);
+  const mimeType = typeof payload.mimeType === 'string' ? payload.mimeType : null;
+
+  if (!relativePath) {
+    return { ok: false, error: 'missing-relative-path' };
+  }
+
+  ensureDownloadDirectory(getConfiguredDownloadDirectory());
+  const { absolutePath } = await allocateUniqueDownloadPath(relativePath);
+  await fs.promises.mkdir(path.dirname(absolutePath), { recursive: true });
+
+  let buffer = null;
+  let resolvedMime = mimeType;
+
+  if (payload.data != null) {
+    buffer = Buffer.isBuffer(payload.data)
+      ? payload.data
+      : Buffer.from(payload.data instanceof ArrayBuffer ? new Uint8Array(payload.data) : payload.data);
+  } else if (audioUrl) {
+    if (!/^https?:\/\//i.test(audioUrl)) {
+      return { ok: false, error: 'unsupported-audio-url' };
+    }
+
+    const response = await net.fetch(audioUrl, {
+      headers: buildDownloadRequestHeaders(audioUrl),
+    });
+    if (!response.ok) {
+      return { ok: false, error: `http-${response.status}`, path: absolutePath };
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    buffer = Buffer.from(arrayBuffer);
+    if (!resolvedMime) {
+      resolvedMime = response.headers.get('content-type');
+    }
+  } else {
+    return { ok: false, error: 'missing-audio-source' };
+  }
+
+  await fs.promises.writeFile(absolutePath, buffer);
+
+  if (reveal) {
+    shell.showItemInFolder(absolutePath);
+  }
+
+  return {
+    ok: true,
+    path: absolutePath,
+    bytes: buffer.byteLength,
+    mimeType: resolvedMime || null,
+  };
+}
+
 function getAudioCacheDirectory() {
   return path.join(getConfiguredCacheDirectory(), 'audio');
 }
@@ -1037,13 +1245,7 @@ function setupCorsBypassHandlers() {
     let isTargetDomain = false;
     try {
       const parsedUrl = new URL(originUrl);
-      const hostname = parsedUrl.hostname;
-      isTargetDomain =
-        hostname === 'qq.com' ||
-        hostname.endsWith('.qq.com') ||
-        hostname === 'kugou.com' ||
-        hostname.endsWith('.kugou.com') ||
-        hostname === 'amll-ttml-db.stevexmh.net';
+      isTargetDomain = shouldBypassMediaCors(parsedUrl.hostname);
     } catch (error) {
       isTargetDomain = false;
     }
@@ -1056,6 +1258,27 @@ function setupCorsBypassHandlers() {
     }
 
     callback({ cancel: false, responseHeaders });
+  });
+}
+
+/** CDN streams (Kugou / Bilibili / 汽水 douyinvod) reject wrong Referer from the app origin. */
+function setupMediaRefererHandlers() {
+  const ses = session.defaultSession;
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    const requestHeaders = { ...details.requestHeaders };
+    try {
+      const hostname = new URL(details.url).hostname;
+      const override = resolveMediaRequestOverride(hostname);
+      if (override?.referer) {
+        requestHeaders.Referer = override.referer;
+      }
+      if (override?.origin) {
+        requestHeaders.Origin = override.origin;
+      }
+    } catch {
+      // Keep original headers when URL parsing fails.
+    }
+    callback({ cancel: false, requestHeaders });
   });
 }
 
@@ -2157,9 +2380,11 @@ const {
 } = require('@neteasecloudmusicapienhanced/api/util/index');
 const { serveNcmApi } = require('@neteasecloudmusicapienhanced/api/server');
 
-const net = require('net');
+const nodeNet = require('net');
 let assignedPort = 30000; // default fallback
-let assignedMusicProviderPort = 30002;
+// 0 until sidecar binds a real port — avoids renderer caching the stale default.
+let assignedMusicProviderPort = 0;
+let musicProviderSidecarReady = false;
 let musicProviderSidecarProcess = null;
 const NETEASE_API_STATUS_CHANNEL = 'netease-api-status-changed';
 let neteaseApiStatus = {
@@ -2185,7 +2410,7 @@ function updateNeteaseApiStatus(nextStatus) {
 
 async function getFreePort() {
   return new Promise((resolve, reject) => {
-    const srv = net.createServer();
+    const srv = nodeNet.createServer();
     srv.listen(0, () => {
       const port = srv.address().port;
       srv.close((err) => {
@@ -2238,6 +2463,7 @@ function usesExternalDevApis() {
 function bindExternalDevApiPorts() {
   assignedPort = Number(process.env.NETEASE_API_PORT || 3001);
   assignedMusicProviderPort = Number(process.env.MUSIC_PROVIDER_SIDECAR_PORT || 3002);
+  musicProviderSidecarReady = true;
   updateNeteaseApiStatus({ status: 'running', port: assignedPort, error: null });
   console.log('[Dev] Using external Netease API on port', assignedPort);
   console.log('[Dev] Using external music provider sidecar on port', assignedMusicProviderPort);
@@ -2291,7 +2517,48 @@ function resolveNodeReadableAppPath(...relativeParts) {
   return asarCandidate;
 }
 
+function waitForTcpPortOpen(port, timeoutMs = 15000) {
+  const startedAt = Date.now();
+  return new Promise((resolve, reject) => {
+    const attempt = () => {
+      const socket = nodeNet.connect({ host: '127.0.0.1', port }, () => {
+        socket.end();
+        resolve(port);
+      });
+      socket.on('error', () => {
+        socket.destroy();
+        if (Date.now() - startedAt >= timeoutMs) {
+          reject(new Error(`Timed out waiting for 127.0.0.1:${port}`));
+          return;
+        }
+        setTimeout(attempt, 100);
+      });
+    };
+    attempt();
+  });
+}
+
+const waitForMusicProviderPort = async (timeoutMs = 30000) => {
+  if (usesExternalDevApis()) {
+    return assignedMusicProviderPort || Number(process.env.MUSIC_PROVIDER_SIDECAR_PORT || 3002);
+  }
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (musicProviderSidecarReady && assignedMusicProviderPort > 0) {
+      return assignedMusicProviderPort;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  if (assignedMusicProviderPort > 0) {
+    return assignedMusicProviderPort;
+  }
+  throw new Error('Music provider sidecar startup timed out');
+};
+
 async function startMusicProviderSidecar() {
+  musicProviderSidecarReady = false;
   try {
     const freePort = await getFreePort();
     const sidecarScript = resolveNodeReadableAppPath('scripts', 'music-provider-sidecar.cjs');
@@ -2301,11 +2568,18 @@ async function startMusicProviderSidecar() {
     }
 
     assignedMusicProviderPort = freePort;
+    const musicProviderPluginsDir = path.join(app.getPath('userData'), 'music-providers');
+    try {
+      fs.mkdirSync(musicProviderPluginsDir, { recursive: true });
+    } catch (error) {
+      console.warn('[MusicProvider] Failed to ensure plugins directory', error);
+    }
     musicProviderSidecarProcess = spawn(process.execPath, [sidecarScript], {
       env: {
         ...process.env,
         ELECTRON_RUN_AS_NODE: '1',
         MUSIC_PROVIDER_SIDECAR_PORT: String(freePort),
+        MUSIC_PROVIDER_USER_PLUGINS_DIR: musicProviderPluginsDir,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -2317,17 +2591,24 @@ async function startMusicProviderSidecar() {
       console.warn(`[MusicProvider] ${chunk.toString('utf8').trim()}`);
     });
     musicProviderSidecarProcess.on('exit', (code, signal) => {
+      musicProviderSidecarReady = false;
       if (code !== 0 && signal !== 'SIGTERM') {
         console.warn('[MusicProvider] Sidecar exited unexpectedly', { code, signal });
       }
       musicProviderSidecarProcess = null;
     });
+
+    await waitForTcpPortOpen(freePort, 15000);
+    musicProviderSidecarReady = true;
+    console.log('[MusicProvider] Sidecar ready on port', freePort);
   } catch (error) {
+    musicProviderSidecarReady = false;
     console.error('[MusicProvider] Failed to start sidecar', error);
   }
 }
 
 function stopMusicProviderSidecar() {
+  musicProviderSidecarReady = false;
   if (musicProviderSidecarProcess) {
     musicProviderSidecarProcess.kill('SIGTERM');
     musicProviderSidecarProcess = null;
@@ -2402,21 +2683,48 @@ async function ensurePackagedUiServer() {
 }
 
 async function loadAppEntry(win, query = {}) {
-  if (isElectronDevRuntime()) {
-    const url = new URL('http://localhost:3000');
+  const applyQuery = (url) => {
     Object.entries(query).forEach(([key, value]) => {
       url.searchParams.set(key, String(value));
     });
-    win.loadURL(url.toString());
+    return url;
+  };
+
+  if (isElectronDevRuntime()) {
+    const url = applyQuery(new URL('http://localhost:3000'));
+    // wait-on can race Vite bind; retry so we don't leave a blank unclickable window.
+    const target = url.toString();
+    let attempt = 0;
+    const maxAttempts = 40;
+    const tryLoad = () => {
+      if (win.isDestroyed()) return;
+      attempt += 1;
+      win.loadURL(target).catch((error) => {
+        console.warn(`[Dev] loadURL failed (${attempt}/${maxAttempts}):`, error?.message || error);
+      });
+    };
+    const onFail = (_event, errorCode, errorDescription, validatedURL) => {
+      if (win.isDestroyed()) return;
+      if (!String(validatedURL || '').startsWith('http://localhost:3000')) return;
+      if (errorCode !== -102 && errorCode !== -105) return; // CONNECTION_REFUSED / NAME_NOT_RESOLVED
+      if (attempt >= maxAttempts) {
+        win.webContents.removeListener('did-fail-load', onFail);
+        console.error('[Dev] Vite still unreachable after retries:', errorDescription);
+        return;
+      }
+      setTimeout(tryLoad, 250);
+    };
+    win.webContents.on('did-fail-load', onFail);
+    win.webContents.once('did-finish-load', () => {
+      win.webContents.removeListener('did-fail-load', onFail);
+    });
+    tryLoad();
     return;
   }
 
   // Never use file:// for the main UI: IndexedDB is broken there and blocks playSong.
   const port = await ensurePackagedUiServer();
-  const url = new URL(`http://127.0.0.1:${port}/index.html`);
-  Object.entries(query).forEach(([key, value]) => {
-    url.searchParams.set(key, String(value));
-  });
+  const url = applyQuery(new URL(`http://127.0.0.1:${port}/index.html`));
   win.loadURL(url.toString());
 }
 
@@ -3100,6 +3408,7 @@ app.whenReady().then(async () => {
 
   setupFileSystemAccessPermissionHandlers();
   setupCorsBypassHandlers();
+  setupMediaRefererHandlers();
 
   session.defaultSession.on('file-system-access-restricted', (event, details, callback) => {
     if (details.isDirectory) {
@@ -3321,6 +3630,67 @@ ipcMain.handle('reset-cache-directory', () => {
   };
 });
 
+ipcMain.handle('get-download-directory', () => getDownloadDirectoryResult());
+
+ipcMain.handle('choose-download-directory', async () => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return {
+      canceled: true,
+      ...getDownloadDirectoryResult(),
+    };
+  }
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose download directory',
+    properties: ['openDirectory', 'createDirectory'],
+    defaultPath: getConfiguredDownloadDirectory(),
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return {
+      canceled: true,
+      ...getDownloadDirectoryResult(),
+    };
+  }
+
+  const selectedPath = result.filePaths[0];
+  store.set(DOWNLOAD_DIRECTORY_SETTING_KEY, selectedPath);
+  ensureDownloadDirectory(selectedPath);
+
+  return {
+    canceled: false,
+    path: selectedPath,
+    isDefault: false,
+  };
+});
+
+ipcMain.handle('reset-download-directory', () => {
+  store.delete(DOWNLOAD_DIRECTORY_SETTING_KEY);
+  return getDownloadDirectoryResult();
+});
+
+ipcMain.handle('open-download-directory', async () => {
+  const { path: dirPath } = getDownloadDirectoryResult();
+  const openError = await shell.openPath(dirPath);
+  return {
+    ok: !openError,
+    path: dirPath,
+    error: openError || null,
+  };
+});
+
+ipcMain.handle('download-song-file', async (_event, payload) => {
+  try {
+    return await downloadSongFileToDirectory(payload || {});
+  } catch (error) {
+    console.error('[Download] Failed to save song file', error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'download-failed',
+    };
+  }
+});
+
 ipcMain.handle('updates-get-status', () => {
   return getUpdateStatus();
 });
@@ -3414,8 +3784,34 @@ ipcMain.handle('get-netease-api-status', () => {
   return neteaseApiStatus;
 });
 
-ipcMain.handle('get-music-provider-port', () => {
-  return assignedMusicProviderPort;
+ipcMain.handle('get-music-provider-port', async () => {
+  try {
+    return await waitForMusicProviderPort();
+  } catch (error) {
+    console.warn('[MusicProvider] get-music-provider-port wait failed', error);
+    return assignedMusicProviderPort > 0 ? assignedMusicProviderPort : null;
+  }
+});
+
+ipcMain.handle('get-music-provider-plugins-dir', () => {
+  const dir = path.join(app.getPath('userData'), 'music-providers');
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    // Directory may already exist or be unwritable; still return the path.
+  }
+  return dir;
+});
+
+ipcMain.handle('open-music-provider-plugins-dir', async () => {
+  const dir = path.join(app.getPath('userData'), 'music-providers');
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    // Ignore mkdir failures; shell.openPath still reports the real error.
+  }
+  const error = await shell.openPath(dir);
+  return { ok: !error, error: error || null, path: dir };
 });
 
 ipcMain.handle('window-minimize', () => {

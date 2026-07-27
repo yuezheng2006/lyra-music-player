@@ -1,4 +1,5 @@
 import type { Theme } from '../../types';
+import { LYRIC_LINE_OPACITY } from '../../utils/theme/lyricColorPresets';
 import { colorWithAlpha, mixColors } from './colorMix';
 
 // src/components/visualizer/resolveUpcomingLyricPresentation.ts
@@ -34,7 +35,11 @@ export const resolveUpcomingLyricPresentation = (
     theme: Theme,
     subtitleOverlayOpacity = 0.6,
 ): UpcomingLyricPresentation => {
-    const lineOpacity = Math.max(0.88, Math.min(1, subtitleOverlayOpacity + 0.32));
+    // Dim vs active lyric; floor stays readable because overlays carry a dual halo.
+    const lineOpacity = Math.min(
+        LYRIC_LINE_OPACITY.waitingNear + 0.12,
+        Math.max(LYRIC_LINE_OPACITY.waitingNear, subtitleOverlayOpacity * 0.7),
+    );
     const bodyTint = theme.primaryColor;
     const color = mixColors(
         LIGHT_OVERLAY_FILL,

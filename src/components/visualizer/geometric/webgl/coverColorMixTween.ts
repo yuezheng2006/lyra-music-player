@@ -1,14 +1,20 @@
 // src/components/visualizer/geometric/webgl/coverColorMixTween.ts
 // Cross-fades cover particle colors when the active cover changes.
 
+/** Mineradio Emily track-change color mix (CHANGELOG 1.0.1). */
+export const EMILY_COVER_COLOR_MIX_MS = 520;
+
+/** Default mix for non-Emily cover-particle presets. */
+export const DEFAULT_COVER_COLOR_MIX_MS = 720;
+
 export class CoverColorMixTween {
     private rafId: number | null = null;
 
     private startMs = 0;
 
-    private durationMs = 720;
+    private durationMs = DEFAULT_COVER_COLOR_MIX_MS;
 
-    start(onProgress: (mix: number) => void, durationMs = 720) {
+    start(onProgress: (mix: number) => void, durationMs = DEFAULT_COVER_COLOR_MIX_MS) {
         this.cancel();
         this.durationMs = Math.max(1, durationMs);
         this.startMs = performance.now();

@@ -1,10 +1,22 @@
 import type { LyricData, OnlineMusicProviderId, SongResult } from '../../types';
 import { detectTimedLyricFormat } from '../../utils/lyrics/formatDetection';
+import type { ProviderCatalogEntry } from '../../utils/musicProviders/providerManifestMath';
 import { parseLyricsAsync } from '../../utils/lyrics/workerClient';
+import { requestWithStability } from '../../utils/network';
 import { getQQMusicAuth } from './qqMusicAuth';
-import type { MusicProviderSearchResult, ProviderAudioResult } from './types';
+import type {
+    MusicProviderSearchOptions,
+    MusicProviderSearchResult,
+    ProviderAudioResult,
+} from './types';
 
 // src/services/musicProviders/sidecarProviderClient.ts
+
+export type MusicProviderCatalogResponse = {
+    protocolVersion: number;
+    userPluginsDir: string | null;
+    providers: ProviderCatalogEntry[];
+};
 
 type SidecarSongPayload = {
     id?: string | number;
@@ -63,6 +75,15 @@ export const markProviderAudioUnavailable = (
     rememberNegativeAudio(buildAudioLookupKey(providerId, song, quality));
 };
 
+/** Clear negative audio cache so Format-error recovery can mint a fresh signed CDN URL. */
+export const clearProviderAudioUnavailable = (
+    providerId: OnlineMusicProviderId,
+    song: SongResult,
+    quality: string,
+) => {
+    audioNegativeCache.delete(buildAudioLookupKey(providerId, song, quality));
+};
+
 const getElectronMusicProviderPort = async (): Promise<number | null> => {
     const electronBridge = typeof window !== 'undefined' ? (window as any).electron : null;
     if (!electronBridge || typeof electronBridge.getMusicProviderPort !== 'function') {
@@ -77,7 +98,7 @@ const getElectronMusicProviderPort = async (): Promise<number | null> => {
     }
 };
 
-const getConfiguredSidecarBase = async () => {
+const resolveConfiguredSidecarBase = async () => {
     const viteEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
     const value = viteEnv?.VITE_MUSIC_PROVIDER_API_BASE;
     if (typeof value === 'string' && value.trim()) {
@@ -93,6 +114,83 @@ const getConfiguredSidecarBase = async () => {
         ? viteEnv.VITE_MUSIC_PROVIDER_API_PORT.trim()
         : '3002';
     return `http://127.0.0.1:${port}`;
+};
+
+let configuredSidecarBasePromise: Promise<string> | null = null;
+
+const getConfiguredSidecarBase = () => {
+    configuredSidecarBasePromise ??= resolveConfiguredSidecarBase();
+    return configuredSidecarBasePromise;
+};
+
+/** Clear cached sidecar base / audio lookups (boot race recovery + tests). */
+export const resetSidecarProviderClientCache = () => {
+    configuredSidecarBasePromise = null;
+    audioNegativeCache.clear();
+    audioInflight.clear();
+};
+
+export const resetSidecarProviderClientCacheForTests = resetSidecarProviderClientCache;
+
+const normalizeCatalogResponse = (data: unknown): MusicProviderCatalogResponse => {
+    const payload = data && typeof data === 'object' ? data as Record<string, unknown> : {};
+    const providers = Array.isArray(payload.providers)
+        ? payload.providers.filter((entry): entry is ProviderCatalogEntry =>
+            Boolean(entry)
+            && typeof entry === 'object'
+            && typeof (entry as ProviderCatalogEntry).id === 'string')
+        : [];
+    return {
+        protocolVersion: Number(payload.protocolVersion) || 1,
+        userPluginsDir: typeof payload.userPluginsDir === 'string' ? payload.userPluginsDir : null,
+        providers,
+    };
+};
+
+export const fetchMusicProviderCatalog = async (): Promise<MusicProviderCatalogResponse> => {
+    const attempt = async () => {
+        const base = await getConfiguredSidecarBase();
+        if (!base) {
+            return { protocolVersion: 1, userPluginsDir: null, providers: [] };
+        }
+        const { response } = await requestWithStability(
+            `${base}/providers`,
+            {},
+            { source: 'sidecar', endpoint: '/providers' },
+        );
+        if (!response.ok) {
+            throw new Error(`sidecar catalog failed: ${response.status}`);
+        }
+        return normalizeCatalogResponse(await response.json());
+    };
+
+    try {
+        return await attempt();
+    } catch (error) {
+        // Cold start may resolve the Electron port before the sidecar binds; retry once.
+        resetSidecarProviderClientCache();
+        try {
+            return await attempt();
+        } catch {
+            throw error;
+        }
+    }
+};
+
+export const reloadMusicProviderCatalog = async (): Promise<MusicProviderCatalogResponse> => {
+    const base = await getConfiguredSidecarBase();
+    if (!base) {
+        return { protocolVersion: 1, userPluginsDir: null, providers: [] };
+    }
+    const { response } = await requestWithStability(
+        `${base}/providers/reload`,
+        { method: 'POST' },
+        { source: 'sidecar', endpoint: '/providers/reload' },
+    );
+    if (!response.ok) {
+        throw new Error(`sidecar reload failed: ${response.status}`);
+    }
+    return normalizeCatalogResponse(await response.json());
 };
 
 const hashProviderSongId = (providerId: OnlineMusicProviderId, rawId: string): number => {
@@ -166,7 +264,7 @@ export const normalizeSidecarSong = (
 export const requestSidecarSearch = async (
     providerId: OnlineMusicProviderId,
     query: string,
-    options: { limit: number; offset: number }
+    options: MusicProviderSearchOptions,
 ): Promise<MusicProviderSearchResult> => {
     const base = await getConfiguredSidecarBase();
     if (!base) {
@@ -178,7 +276,11 @@ export const requestSidecarSearch = async (
         limit: String(options.limit),
         offset: String(options.offset),
     });
-    const response = await fetch(`${base}/providers/${providerId}/search?${params.toString()}`);
+    const { response } = await requestWithStability(
+        `${base}/providers/${providerId}/search?${params.toString()}`,
+        { signal: options.signal },
+        { source: 'sidecar', endpoint: `/providers/${providerId}/search` },
+    );
     if (!response.ok) {
         throw new Error(`${providerId} sidecar search failed: ${response.status}`);
     }
@@ -196,17 +298,30 @@ export const requestSidecarSearch = async (
 export const requestSidecarAudioUrl = async (
     providerId: OnlineMusicProviderId,
     song: SongResult,
-    options: { quality: string }
+    options: { quality: string; forceRefresh?: boolean }
 ): Promise<ProviderAudioResult> => {
     const lookupKey = buildAudioLookupKey(providerId, song, options.quality);
-    const cachedNegative = getCachedNegativeAudio(lookupKey);
-    if (cachedNegative) {
-        return cachedNegative;
-    }
+    if (options.forceRefresh) {
+        audioNegativeCache.delete(lookupKey);
+        const inflight = audioInflight.get(lookupKey);
+        // Wait out a restore/play lookup so recovery does not reuse the same signed URL.
+        if (inflight) {
+            try {
+                await inflight;
+            } catch {
+                // Ignore — recovery always issues a fresh request below.
+            }
+        }
+    } else {
+        const cachedNegative = getCachedNegativeAudio(lookupKey);
+        if (cachedNegative) {
+            return cachedNegative;
+        }
 
-    const inflight = audioInflight.get(lookupKey);
-    if (inflight) {
-        return inflight;
+        const inflight = audioInflight.get(lookupKey);
+        if (inflight) {
+            return inflight;
+        }
     }
 
     const request = (async (): Promise<ProviderAudioResult> => {
@@ -216,16 +331,20 @@ export const requestSidecarAudioUrl = async (
             return { kind: 'unavailable' };
         }
 
-        const response = await fetch(`${base}/providers/${providerId}/song-url`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                id: song.providerSongId ?? song.id,
-                song,
-                quality: options.quality,
-                ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
-            }),
-        });
+        const { response } = await requestWithStability(
+            `${base}/providers/${providerId}/song-url`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: song.providerSongId ?? song.id,
+                    song,
+                    quality: options.quality,
+                    ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
+                }),
+            },
+            { source: 'sidecar', endpoint: `/providers/${providerId}/song-url` },
+        );
         // 5xx is a sidecar/transport failure — let callers fall back to local providers.
         // 4xx means the provider resolved "no playable URL" for this song.
         if (!response.ok) {
@@ -242,7 +361,10 @@ export const requestSidecarAudioUrl = async (
             rememberNegativeAudio(lookupKey);
             return { kind: 'unavailable' };
         }
-        return { kind: 'ok', audioUrl };
+        const videoUrl = typeof data?.videoUrl === 'string' && data.videoUrl.trim()
+            ? data.videoUrl.trim()
+            : undefined;
+        return videoUrl ? { kind: 'ok', audioUrl, videoUrl } : { kind: 'ok', audioUrl };
     })();
 
     audioInflight.set(lookupKey, request);
@@ -262,15 +384,24 @@ export const requestSidecarLyrics = async (
         return null;
     }
 
-    const response = await fetch(`${base}/providers/${providerId}/lyrics`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            id: String(song.providerSongId ?? song.id),
-            song,
-            ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
-        }),
-    });
+    let response: Response;
+    try {
+        ({ response } = await requestWithStability(
+            `${base}/providers/${providerId}/lyrics`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: String(song.providerSongId ?? song.id),
+                    song,
+                    ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
+                }),
+            },
+            { source: 'sidecar', endpoint: `/providers/${providerId}/lyrics` },
+        ));
+    } catch {
+        return null;
+    }
     if (!response.ok) {
         return null;
     }
@@ -301,14 +432,18 @@ export const requestSidecarRecommend = async (
     }
 
     const limit = Math.max(1, Math.min(options.limit ?? 20, 40));
-    const response = await fetch(`${base}/providers/${providerId}/recommend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            limit,
-            ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
-        }),
-    });
+    const { response } = await requestWithStability(
+        `${base}/providers/${providerId}/recommend`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                limit,
+                ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
+            }),
+        },
+        { source: 'sidecar', endpoint: `/providers/${providerId}/recommend` },
+    );
     if (!response.ok) {
         throw new Error(`${providerId} sidecar recommend failed: ${response.status}`);
     }

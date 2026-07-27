@@ -672,15 +672,15 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                             exit={{ opacity: 0, scale: 0.9 }}
                             data-testid="unified-panel"
                             data-app-ui-surface="true"
-                            className={`pointer-events-auto flex w-80 min-h-0 flex-col overflow-hidden rounded-3xl shadow-2xl backdrop-blur-3xl ${glassBg}`}
+                            className={`pointer-events-auto flex w-[min(26rem,calc(100vw-2rem))] min-h-0 flex-col overflow-hidden rounded-3xl shadow-2xl backdrop-blur-3xl ${glassBg}`}
                             style={{
                                 color: theme.primaryColor,
-                                // Cap panel height so Controls tab cannot dominate the viewport.
-                                maxHeight: 'min(68dvh, calc(100dvh - var(--app-player-bar-height, 84px) - 5.5rem))',
+                                // Tall enough for Controls core sections; still clear of the player bar.
+                                maxHeight: 'min(88dvh, calc(100dvh - var(--app-player-bar-height, 84px) - 2.5rem))',
                             }}
                         >
                             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-3 hide-scrollbar">
-                                {/* Top: Cover Art — full square on Cover tab; compact strip elsewhere so Controls fits. */}
+                                {/* Top: Cover Art — full square on Cover tab; taller strip elsewhere to avoid squash. */}
                                 <div
                                     ref={coverAreaRef}
                                     onClick={(event) => {
@@ -692,7 +692,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                     className={`w-full overflow-hidden shadow-lg relative mb-2 ${placeholderBg} flex items-center justify-center group cursor-pointer ${
                                         currentTab === 'cover'
                                             ? 'aspect-square rounded-2xl mb-3'
-                                            : 'h-[72px] rounded-xl'
+                                            : 'aspect-[2.2/1] max-h-[168px] rounded-xl'
                                     }`}
                                 >
                                     <LazyCoverImage
@@ -700,8 +700,8 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                         alt="Art"
                                         placeholderLabel={currentSong?.name}
                                         placeholderArtist={(currentSong?.ar || currentSong?.artists || []).map(a => a.name).join(', ')}
-                                        sizePx={currentTab === 'cover' ? 480 : 144}
-                                        className="w-full h-full object-cover"
+                                        sizePx={currentTab === 'cover' ? 480 : 320}
+                                        className="absolute inset-0 h-full w-full object-cover"
                                     />
 
                                     <div className={`absolute inset-0 pointer-events-none transition-opacity duration-200 ${
@@ -969,19 +969,20 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                     description={t('home.playlists') || 'Playlists'}
                     playlists={availablePlaylists}
                     onSelect={async (playlistId) => {
-                        if (isLocal) {
-                            await onAddCurrentSongToLocalPlaylist(String(playlistId));
-                            return;
-                        }
-
-                        if (isNetease) {
-                            await onAddCurrentSongToNeteasePlaylist(Number(playlistId));
-                            return;
-                        }
-
-                        if (isNavidrome) {
-                            await onAddCurrentSongToNavidromePlaylist(String(playlistId));
-                            await refreshNavidromePlaylists();
+                        try {
+                            if (isLocal) {
+                                await onAddCurrentSongToLocalPlaylist(String(playlistId));
+                            } else if (isNetease) {
+                                await onAddCurrentSongToNeteasePlaylist(Number(playlistId));
+                            } else if (isNavidrome) {
+                                await onAddCurrentSongToNavidromePlaylist(String(playlistId));
+                                await refreshNavidromePlaylists();
+                            } else {
+                                return;
+                            }
+                            setIsPlaylistPickerOpen(false);
+                        } catch (error) {
+                            console.error('Failed to add current song to playlist', error);
                         }
                     }}
                     onCreate={(isLocal || isNavidrome) ? () => {
@@ -1000,14 +1001,18 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                     placeholder={t('localMusic.enterPlaylistName') || '输入歌单名称'}
                     confirmLabel={t('options.save') || '保存'}
                     onConfirm={async (name) => {
-                        if (isLocal) {
-                            await onCreateCurrentLocalPlaylist(name);
-                            return;
-                        }
-
-                        if (isNavidrome) {
-                            await onCreateCurrentNavidromePlaylist(name);
-                            await refreshNavidromePlaylists();
+                        try {
+                            if (isLocal) {
+                                await onCreateCurrentLocalPlaylist(name);
+                            } else if (isNavidrome) {
+                                await onCreateCurrentNavidromePlaylist(name);
+                                await refreshNavidromePlaylists();
+                            } else {
+                                return;
+                            }
+                            setIsCreatePlaylistOpen(false);
+                        } catch (error) {
+                            console.error('Failed to create playlist for current song', error);
                         }
                     }}
                 />
@@ -1025,6 +1030,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                         }
                         transition={{ duration: 0.24, ease: 'easeOut' }}
                         className="pointer-events-auto fixed bottom-[calc(var(--app-player-bar-height,72px)+12px)] right-0 z-[60] pr-4 md:pr-8 group w-20 flex justify-end"
+                        data-testid="unified-panel-toggle"
                     >
                         {/* Wrapper for both track and button to guarantee perfect alignment across browsers */}
                         <div className={`relative w-12 h-12 transition-all duration-300 transform ${toggleButtonMotionClass}`}>

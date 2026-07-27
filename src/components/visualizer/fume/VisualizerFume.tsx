@@ -1864,6 +1864,8 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
         showSubtitleTranslation = true,
         paused = false,
         resolvedVisualizerBackgroundMode,
+        transparentBackground = false,
+        videoStageActive = false,
     } = props;
     const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
     const previewWaitingGlyphs = shouldShowUpcomingLyrics(lyricWordMode);
@@ -2085,6 +2087,7 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
     const drawFumeCanvasBackground = shouldDrawFumeCanvasBackground(
         resolvedVisualizerBackgroundMode,
         staticMode,
+        { transparentBackground, videoStageActive },
     );
 
     useEffect(() => {

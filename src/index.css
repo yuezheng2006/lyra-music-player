@@ -169,6 +169,27 @@ body {
   height: 11px;
 }
 
+/* Subtle grain drift for the onboarding backdrop (see OnboardingBackdrop.tsx). Disabled under reduced motion. */
+@keyframes onboarding-grain-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  25% {
+    transform: translate3d(-1.5%, 1%, 0);
+  }
+  50% {
+    transform: translate3d(1%, -1.5%, 0);
+  }
+  75% {
+    transform: translate3d(-1%, -1%, 0);
+  }
+}
+
+.onboarding-grain {
+  animation: onboarding-grain-drift 18s steps(4) infinite;
+}
+
 .folia-eq__bar {
   width: 2.5px;
   height: 100%;
@@ -242,4 +263,30 @@ body {
 
 .lyric-active-line .lyric-karaoke-rim {
   z-index: 0;
+}
+
+/* Lyric effect pack: soft neon scan (garnish; beat via --lyric-pack-scan-mul). */
+@keyframes lyric-effect-neon-scan {
+  0% { background-position: 120% 0; }
+  100% { background-position: -20% 0; }
+}
+
+.lyric-effect-neon-scan {
+  background-image: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgb(255 255 255 / calc(0.16 * var(--lyric-pack-scan-mul, 1))) 50%,
+    transparent 62%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: lyric-effect-neon-scan 1.35s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lyric-effect-neon-scan {
+    animation: none;
+    background-image: none;
+  }
 }

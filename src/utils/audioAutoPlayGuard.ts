@@ -30,7 +30,33 @@ type UnlockAutoplayOptions = {
 /**
  * Spend remaining user activation on AudioContext + a muted play/pause prime
  * so a later play() after await is more likely to be allowed.
+ *
+ * Must not pause after a src swap: clicking Next while already playing used to
+ * arm unlock on song A, then unlock's deferred pause() hit song B and aborted
+ * its play() ("interrupted by a call to pause()").
  */
+/**
+ * Src-swap races often reject play() before the new media is attached.
+ * Keep shouldAutoPlay armed so canplay / the autoplay effect can retry.
+ */
+export function isTransientAutoplayFailure(error: unknown): boolean {
+    if (!(error instanceof DOMException)) {
+        return false;
+    }
+    return error.name === 'AbortError' || error.name === 'NotSupportedError';
+}
+
+/** True when the element has a non-empty source URL worth calling play() on. */
+export function hasPlayableHtmlMediaSource(
+    media: Pick<HTMLMediaElement, 'currentSrc' | 'src'> | null | undefined,
+): boolean {
+    if (!media) {
+        return false;
+    }
+    const src = (media.currentSrc || media.src || '').trim();
+    return src.length > 0;
+}
+
 export function unlockHtmlAudioForAutoplay(options: UnlockAutoplayOptions): void {
     const audioContext = options.audioContextRef?.current;
     if (audioContext && audioContext.state === 'suspended') {
@@ -42,8 +68,14 @@ export function unlockHtmlAudioForAutoplay(options: UnlockAutoplayOptions): void
         return;
     }
 
-    const hasSource = Boolean(audio.currentSrc || audio.src);
-    if (!hasSource) {
+    // Already playing: the click already unlocked media. A muted play/pause
+    // prime would race the next track's src commit and pause the new source.
+    if (!audio.paused && !audio.ended) {
+        return;
+    }
+
+    const srcAtStart = audio.currentSrc || audio.src;
+    if (!srcAtStart) {
         return;
     }
 
@@ -57,6 +89,12 @@ export function unlockHtmlAudioForAutoplay(options: UnlockAutoplayOptions): void
 
     void playPromise
         .then(() => {
+            // Src may have changed to the next track while this prime was in flight.
+            const srcNow = audio.currentSrc || audio.src;
+            if (srcNow !== srcAtStart) {
+                audio.muted = wasMuted;
+                return;
+            }
             audio.pause();
             audio.muted = wasMuted;
         })

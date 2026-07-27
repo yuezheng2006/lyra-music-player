@@ -3,7 +3,7 @@ import type { OnlineMusicProviderId } from '../types';
 // src/utils/onlineSearchShortcuts.ts
 // Static popular / common search chips for free peer channels (placeholder lists).
 
-export type OnlineSearchShortcutGroupId = 'hot' | 'common';
+export type OnlineSearchShortcutGroupId = 'hot' | 'common' | 'accounts' | 'category' | 'song';
 
 export type OnlineSearchShortcutGroup = {
     id: OnlineSearchShortcutGroupId;
@@ -11,7 +11,11 @@ export type OnlineSearchShortcutGroup = {
 };
 
 /** Providers that show empty-state search shortcut chips. */
-export const SEARCH_SHORTCUT_PROVIDER_IDS = ['coco', 'qishui'] as const;
+export const SEARCH_SHORTCUT_PROVIDER_IDS = ['coco', 'qishui', 'bilibili'] as const;
+
+/** Strip routing prefixes before showing shortcut labels or filling the input box. */
+export const stripShortcutDisplayLabel = (query: string): string =>
+    query.replace(/^(?:up:|账号:|用户:|@|cat:|分类:|song:|歌曲:)\s*/i, '');
 
 export type SearchShortcutProviderId = (typeof SEARCH_SHORTCUT_PROVIDER_IDS)[number];
 
@@ -29,20 +33,40 @@ const COCO_SHORTCUTS: readonly OnlineSearchShortcutGroup[] = [
 
 const QISHUI_SHORTCUTS: readonly OnlineSearchShortcutGroup[] = [
     {
-        id: 'hot',
-        // Qishui-first: Jay Chou, Pins (大头针), and AI-song discovery.
-        queries: ['周杰伦', '大头针', 'AI歌曲', 'AI翻唱', 'AI孙燕姿'],
+        id: 'category',
+        // Playlist/category discovery — adapter resolves via search/playlist (cat: prefix).
+        queries: ['cat:周杰伦', 'cat:大头针', 'cat:AI歌曲', 'cat:AI翻唱', 'cat:AI孙燕姿'],
     },
     {
-        id: 'common',
+        id: 'song',
         queries: ['周杰伦 晴天', '大头针', 'AI周杰伦', 'AI邓紫棋', 'AI陈奕迅'],
+    },
+];
+
+/** Popular Bilibili AI-song UP names — tap to run video search. */
+const BILIBILI_SHORTCUTS: readonly OnlineSearchShortcutGroup[] = [
+    {
+        id: 'accounts',
+        // Force UP mode so chips never fall through to keyword video search.
+        queries: [
+            'up:天花板上吊着猫',
+            'up:溪谷之风',
+            'up:阿德托昆博带件衣服',
+            'up:黑蓝墨水就爱搞事儿',
+            'up:漫游会议室',
+            'up:狼叔-回声电台',
+        ],
+    },
+    {
+        id: 'hot',
+        queries: ['AI歌曲', 'AI翻唱', 'AI周杰伦', 'AI邓紫棋', 'AI孙燕姿'],
     },
 ];
 
 export const isSearchShortcutProvider = (
     provider?: string | null,
 ): provider is SearchShortcutProviderId =>
-    provider === 'coco' || provider === 'qishui';
+    provider === 'coco' || provider === 'qishui' || provider === 'bilibili';
 
 /** Resolve static shortcut groups for a peer search channel. */
 export const getOnlineSearchShortcutGroups = (
@@ -50,5 +74,6 @@ export const getOnlineSearchShortcutGroups = (
 ): readonly OnlineSearchShortcutGroup[] => {
     if (provider === 'qishui') return QISHUI_SHORTCUTS;
     if (provider === 'coco') return COCO_SHORTCUTS;
+    if (provider === 'bilibili') return BILIBILI_SHORTCUTS;
     return [];
 };

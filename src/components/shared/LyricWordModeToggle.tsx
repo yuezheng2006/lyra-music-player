@@ -2,13 +2,14 @@ import React from 'react';
 import type { LyricWordMode } from '../../types';
 
 // src/components/shared/LyricWordModeToggle.tsx
-// Two-way toggle for default vs karaoke upcoming-lyric policy.
+// Three-way toggle: default / karaoke preview / traditional ktv wipe.
 
 export type LyricWordModeToggleProps = {
     value: LyricWordMode;
     onChange: (mode: LyricWordMode) => void;
     defaultLabel: string;
     karaokeLabel: string;
+    ktvLabel: string;
     sectionLabel?: string;
     isDaylight?: boolean;
     wellClassName?: string;
@@ -21,6 +22,7 @@ const LyricWordModeToggle: React.FC<LyricWordModeToggleProps> = ({
     onChange,
     defaultLabel,
     karaokeLabel,
+    ktvLabel,
     sectionLabel,
     wellClassName = '',
     buttonClassName,
@@ -29,6 +31,7 @@ const LyricWordModeToggle: React.FC<LyricWordModeToggleProps> = ({
     const options: Array<{ mode: LyricWordMode; label: string }> = [
         { mode: 'default', label: defaultLabel },
         { mode: 'karaoke', label: karaokeLabel },
+        { mode: 'ktv', label: ktvLabel },
     ];
 
     return (
@@ -38,7 +41,7 @@ const LyricWordModeToggle: React.FC<LyricWordModeToggleProps> = ({
                     {sectionLabel}
                 </label>
             ) : null}
-            <div className={`grid grid-cols-2 gap-0.5 p-0.5 rounded-lg ${wellClassName}`} data-testid={`${testIdPrefix}-group`}>
+            <div className={`grid grid-cols-3 gap-0.5 p-0.5 rounded-lg ${wellClassName}`} data-testid={`${testIdPrefix}-group`}>
                 {options.map(({ mode, label }) => {
                     const selected = value === mode;
                     return (

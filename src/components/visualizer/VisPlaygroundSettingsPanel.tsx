@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { CaptionsOff, Languages, Monitor, RotateCcw, type LucideIcon } from 'lucide-react';
+import { CaptionsOff, Languages, Monitor, PanelTop, RotateCcw, type LucideIcon } from 'lucide-react';
 import {
+    DEFAULT_LATENT_BACKGROUND_TUNING,
     DEFAULT_MONET_BACKGROUND_TUNING,
     DEFAULT_INTERACTIVE3D_SCENE_TUNING,
     type CappellaAvatarImage,
@@ -10,6 +11,7 @@ import {
     type CladdaghTuning,
     type FumeTuning,
     type Interactive3dSceneTuning,
+    type LatentBackgroundTuning,
     type MonetBackgroundImage,
     type MonetBackgroundTuning,
     type MonetPortraitImage,
@@ -24,6 +26,7 @@ import {
 import { colorWithAlpha } from './colorMix';
 import { MonetBackgroundSettingsCard } from './MonetBackgroundSettingsCard';
 import { Interactive3dBackgroundSettingsCard } from './backgrounds/Interactive3dBackgroundSettingsCard';
+import LatentBackgroundSettingsCard from './backgrounds/latent/LatentBackgroundSettingsCard';
 import { UrlBackgroundSettingsCard } from './backgrounds/UrlBackgroundSettingsCard';
 import { VISUALIZER_REGISTRY, getVisualizerModeLabel, type VisualizerRegistryEntry } from './registry';
 import { type VisPlaygroundEditSection } from './VisPlaygroundPreviewHotspots';
@@ -110,6 +113,8 @@ interface VisPlaygroundSettingsPanelProps {
     onTiltTuningChange?: (patch: Partial<TiltTuning>) => void;
     monetBackgroundTuning?: MonetBackgroundTuning;
     onMonetBackgroundTuningChange?: (patch: Partial<MonetBackgroundTuning>) => void;
+    latentBackgroundTuning?: LatentBackgroundTuning;
+    onLatentBackgroundTuningChange?: (patch: Partial<LatentBackgroundTuning>) => void;
     interactive3dSceneTuning?: Interactive3dSceneTuning;
     onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
     onResetInteractive3dSceneTuning?: () => void;
@@ -134,6 +139,12 @@ interface VisPlaygroundSettingsPanelProps {
     onToggleHideTranslationSubtitle?: (hidden: boolean) => void;
     showSubtitleTranslation: boolean;
     onToggleShowSubtitleTranslation?: (shown: boolean) => void;
+    subtitleOverlayBackground: boolean;
+    onToggleSubtitleOverlayBackground?: (enabled: boolean) => void;
+    subtitleFontInheritsLyrics: boolean;
+    onSubtitleFontInheritsLyricsChange?: (inherits: boolean) => void;
+    subtitleFontStyle: Theme['fontStyle'];
+    onSubtitleFontStyleChange?: (fontStyle: Theme['fontStyle']) => void;
     subtitleOverlayOpacity: number;
     onSubtitleOverlayOpacityChange?: (opacity: number) => void;
     onResetSubtitleSettings?: () => void;
@@ -343,6 +354,8 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
         onTiltTuningChange,
         monetBackgroundTuning = DEFAULT_MONET_BACKGROUND_TUNING,
         onMonetBackgroundTuningChange,
+        latentBackgroundTuning = DEFAULT_LATENT_BACKGROUND_TUNING,
+        onLatentBackgroundTuningChange,
         interactive3dSceneTuning = DEFAULT_INTERACTIVE3D_SCENE_TUNING,
         onInteractive3dSceneTuningChange,
         onResetInteractive3dSceneTuning,
@@ -366,6 +379,12 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
         onToggleHideTranslationSubtitle,
         showSubtitleTranslation,
         onToggleShowSubtitleTranslation,
+        subtitleOverlayBackground,
+        onToggleSubtitleOverlayBackground,
+        subtitleFontInheritsLyrics,
+        onSubtitleFontInheritsLyricsChange,
+        subtitleFontStyle,
+        onSubtitleFontStyleChange,
         subtitleOverlayOpacity,
         onSubtitleOverlayOpacityChange,
         onResetSubtitleSettings,
@@ -384,8 +403,14 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
         { value: 'common', label: t('options.visualizerBackgroundModeCommon') || '通用' },
         { value: 'interactive3d', label: t('options.visualizerBackgroundModeInteractive3d') || '3D 交互' },
         { value: 'monet', label: t('options.visualizerBackgroundModeMonet') || '莫奈' },
+        { value: 'latent', label: t('options.visualizerBackgroundModeLatent') || 'Latent' },
         { value: 'url', label: t('options.visualizerBackgroundModeUrl') || 'URL' },
         { value: 'sora', label: t('options.visualizerBackgroundModeSora') || '空' },
+    ]), [t]);
+    const subtitleFontStyleOptions = useMemo<PresetOption<Theme['fontStyle']>[]>(() => ([
+        { value: 'sans', label: t('options.fontSans') || 'Sans' },
+        { value: 'serif', label: t('options.fontSerif') || 'Serif' },
+        { value: 'mono', label: t('options.fontMono') || 'Mono' },
     ]), [t]);
 
     return (
@@ -599,6 +624,18 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
                                 onSliderPointerDown={onSliderPointerDown}
                                 onSliderCommit={onSliderCommit}
                                 />
+                        ) : resolvedBackgroundMode === 'latent' ? (
+                            <LatentBackgroundSettingsCard
+                                t={t}
+                                isDaylight={isDaylight}
+                                theme={theme}
+                                controlCardBg={controlCardBg}
+                                rangeInputClass={rangeInputClass}
+                                tuning={latentBackgroundTuning}
+                                onTuningChange={onLatentBackgroundTuningChange}
+                                onSliderPointerDown={onSliderPointerDown}
+                                onSliderCommit={onSliderCommit}
+                            />
                         ) : null}
                     </>
                 )}
@@ -708,6 +745,37 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
                             theme={theme}
                             icon={Languages}
                         />
+
+                        <ToggleRow
+                            label={t('options.subtitleOverlayBackground') || '字幕背景'}
+                            description={t('options.subtitleOverlayBackgroundDesc') || '为底部字幕添加主题自适应的半透明背景，提高复杂画面中的可读性。'}
+                            checked={subtitleOverlayBackground}
+                            onChange={onToggleSubtitleOverlayBackground}
+                            theme={theme}
+                            icon={PanelTop}
+                        />
+
+                        <ToggleRow
+                            label={t('options.subtitleFontInheritsLyrics') || '字幕继承歌词字体'}
+                            description={t('options.subtitleFontInheritsLyricsDesc') || '关闭后可为字幕单独设置字体。'}
+                            checked={subtitleFontInheritsLyrics}
+                            onChange={onSubtitleFontInheritsLyricsChange}
+                            theme={theme}
+                            icon={Monitor}
+                        />
+
+                        {!subtitleFontInheritsLyrics ? (
+                            <PresetGroup
+                                label={t('options.subtitleFontFamily') || t('options.fontFamily') || '字幕字体'}
+                                value={subtitleFontStyle}
+                                options={subtitleFontStyleOptions}
+                                onChange={(next) => {
+                                    onSubtitleFontStyleChange?.(next);
+                                }}
+                                isDaylight={isDaylight}
+                                theme={theme}
+                            />
+                        ) : null}
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between text-sm" style={{ color: theme.primaryColor }}>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { getAtmosphereSongKey, useAtmosphereEngine } from '@/hooks/useAtmosphereEngine';
+import { useMoodEngineSongSync } from '@/hooks/atmosphere/useMoodEngineSongSync';
 import { useElectronPlaybackBridge } from '@/hooks/useElectronPlaybackBridge';
 import { useElectronVideoExportController } from '@/hooks/useElectronVideoExportController';
 import { useMediaSessionBridge } from '@/hooks/useMediaSessionBridge';
@@ -8,8 +9,10 @@ import { usePlaybackAudioBridge } from '@/hooks/usePlaybackAudioBridge';
 import { usePlaybackInteractionBridge } from '@/hooks/usePlaybackInteractionBridge';
 import { usePlaybackTransportController } from '@/hooks/usePlaybackTransportController';
 import { usePlaybackVisualizerBridge } from '@/hooks/usePlaybackVisualizerBridge';
+import { PlayerState } from '@/types';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, resolveNavidromePlaybackCarrier } from '@/utils/appPlaybackGuards';
 import { resolveAtmosphereTrackHints } from '@/utils/atmosphere/resolveAtmosphereTrackHints';
+import { isVideoPlaybackStageActive } from '@/utils/playback/resolveVideoPlaybackStage';
 import type { AppControllerCoreResult, AppControllerLibraryResult } from './useAppController.types';
 
 export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & AppControllerLibraryResult) {
@@ -21,6 +24,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         audioContextRef,
         audioPower,
         audioRef,
+        audioElementEpoch,
         audioSrc,
         cachedCoverUrl,
         coverUrl,
@@ -31,6 +35,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         effectiveLoopMode,
         enableMediaCache,
         enableSmartAtmosphere,
+        enableBilibiliVideoBackground,
         gainNodeRef,
         getCoverUrl,
         getNowPlayingDisplayTime,
@@ -39,6 +44,8 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         handleLike,
         handleNextTrack,
         handlePrevTrack,
+        handleSetVolume,
+        handleToggleMute,
         handleStageExternalPlayRequest,
         handleToggleLoopMode,
         isDaylight,
@@ -60,6 +67,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         navigateToPlayer,
         panelTab,
         playQueue,
+        playSong,
         playerState,
         recoverOnlinePlaybackSource,
         replayGainLinearRef,
@@ -85,15 +93,21 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         staticMode,
         syncNowPlayingClock,
         syncOutputGain,
+        rampOutputGain,
         syncStageLyricsClock,
         t,
         transparentPlayerBackground,
         updateCacheSize,
+        videoRef,
+        videoSrc,
+        volume,
+        isMuted,
     } = core;
 
     const { setupAudioAnalyzer, cacheSongAssets } = usePlaybackAudioBridge({
         audioRef,
         audioSrc,
+        audioElementEpoch,
         currentSong,
         isLyricsLoading,
         enableMediaCache,
@@ -119,6 +133,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         activePlaybackContext,
         stageActiveEntryKind,
         isNowPlayingStageActive,
+        currentSongId: currentSong?.id ?? null,
         audioSrc,
         duration,
         audioRef,
@@ -130,6 +145,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         setStatusMsg,
         setupAudioAnalyzer,
         syncOutputGain,
+        rampOutputGain,
         getTargetPlaybackVolume,
         shouldRefreshCurrentOnlineAudioSource,
         recoverOnlinePlaybackSource,
@@ -191,9 +207,12 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
     const {
         exportState,
         handleExportCommand,
+        startVideoExport,
     } = useElectronVideoExportController({
         isElectronWindow,
         audioRef,
+        videoRef,
+        videoSrc,
         currentTime,
         duration,
         currentSong,
@@ -263,8 +282,12 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         () => resolveAtmosphereTrackHints(currentSong),
         [currentSong],
     );
+    // Dual decode (DASH video + audio) is already heavy; pause atmosphere RAF while video stage is up.
+    const videoStageActive = isVideoPlaybackStageActive(currentView, videoSrc)
+        && enableBilibiliVideoBackground;
     const atmosphereEngine = useAtmosphereEngine({
-        enabled: enableSmartAtmosphere && !staticMode,
+        enabled: enableSmartAtmosphere && !staticMode && !videoStageActive,
+        isPlaying: playerState === PlayerState.PLAYING,
         audioSrc,
         songKey: atmosphereSongKey,
         audioContextRef,
@@ -273,11 +296,15 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         precomputedBeatMap: atmosphereTrackHints.precomputedBeatMap,
     });
 
+    useMoodEngineSongSync(currentSong);
+
     usePlaybackVisualizerBridge({
         audioRef,
         analyserRef,
         animationFrameRef,
         activePlaybackContext,
+        audioSrc,
+        audioElementEpoch,
         audioPower,
         audioBands,
         currentTime,
@@ -333,6 +360,16 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         handleToggleLoopMode,
         pausePlayback,
         resumePlayback,
+        volume,
+        isMuted,
+        handleSetVolume,
+        handleToggleMute,
+        replayCurrentSong: () => {
+            if (!currentSong) return;
+            void playSong(currentSong, playQueue.length > 0 ? playQueue : [currentSong], isFmMode, {
+                shouldNavigateToPlayer: false,
+            });
+        },
         syncStageLyricsClock,
     });
 
@@ -341,6 +378,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         atmosphereSongKey,
         atmosphereTrackHints,
         cacheSongAssets,
+        exportState,
         handleChangeReplayGainMode,
         handleContainerClick,
         handleFmTrash,
@@ -352,6 +390,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         publishStagePlayerPlaybackUpdate,
         resumePlayback,
         setupAudioAnalyzer,
+        startVideoExport,
         taskbarHasTrackRef,
         taskbarPlayerStateRef,
         toggleLoop,

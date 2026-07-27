@@ -1,11 +1,16 @@
 import type { OnlineMusicProviderId, SearchSourceId } from '../types';
 import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
 import { ONLINE_LIBRARY_PROVIDER_IDS } from '../stores/useOnlineLibraryFilterStore';
+import { isOnlineMusicProviderId, isPeerFreeProviderId } from './onlinePeerProviders';
 
 // src/utils/onlineSearchRouting.ts
 // Resolves which online provider(s) should handle a search query.
 
 const QISHUI_SHARE_URL_RE = /^https?:\/\/qishui\.douyin\.com\/s\/[A-Za-z0-9]+/i;
+const BILIBILI_BVID_RE = /^BV1[a-zA-Z0-9]{9}$/i;
+const BILIBILI_VIDEO_URL_RE = /^https?:\/\/(?:www\.)?bilibili\.com\/video\//i;
+const BILIBILI_SHORT_URL_RE = /^https?:\/\/(?:www\.)?b23\.tv\//i;
+const BILIBILI_APP_SHORT_URL_RE = /^https?:\/\/(?:www\.)?bilibili\.com\/s\//i;
 
 export type OnlineSearchSessionAccess = {
     netease?: boolean;
@@ -15,23 +20,34 @@ export type OnlineSearchSessionAccess = {
 export const isQishuiShareUrl = (value?: string | null) =>
     typeof value === 'string' && QISHUI_SHARE_URL_RE.test(value.trim());
 
-/** Coco / Qishui are always searchable; Netease/QQ require an active login session. */
+/** Pasted BV id / bilibili.com / b23.tv inputs route to the bilibili adapter. */
+export const isBilibiliShareUrl = (value?: string | null) => {
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    if (!trimmed) return false;
+    return BILIBILI_BVID_RE.test(trimmed)
+        || BILIBILI_SHORT_URL_RE.test(trimmed)
+        || BILIBILI_APP_SHORT_URL_RE.test(trimmed)
+        || BILIBILI_VIDEO_URL_RE.test(trimmed);
+};
+
+/** Peer-free channels are always searchable; Netease/QQ require an active login session. */
 export const isProviderSearchable = (
     id: OnlineLibraryProviderId,
     sessions: OnlineSearchSessionAccess,
 ): boolean => {
-    if (id === 'coco' || id === 'qishui') return true;
+    if (isPeerFreeProviderId(id)) return true;
     if (id === 'netease') return Boolean(sessions.netease);
     if (id === 'qq') return Boolean(sessions.qq);
     return false;
 };
 
-/** Enabled library pills ∩ login-ready providers (Coco always counts as ready). */
+/** Enabled library pills ∩ login-ready providers (peer-free always counts as ready). */
 export const resolveSearchableLibraryProviders = (
-    enabledProviders: Partial<Record<OnlineLibraryProviderId, boolean>>,
+    enabledProviders: Partial<Record<string, boolean>>,
     sessions: OnlineSearchSessionAccess,
+    knownIds: readonly string[] = ONLINE_LIBRARY_PROVIDER_IDS,
 ): OnlineLibraryProviderId[] =>
-    ONLINE_LIBRARY_PROVIDER_IDS.filter(id => enabledProviders[id] && isProviderSearchable(id, sessions));
+    knownIds.filter(id => enabledProviders[id] && isProviderSearchable(id, sessions)) as OnlineLibraryProviderId[];
 
 /** Prefer explicit qishui share-link parsing; otherwise keep the selected channel. */
 export const resolveOnlineSearchProvider = (
@@ -41,7 +57,10 @@ export const resolveOnlineSearchProvider = (
     if (isQishuiShareUrl(query)) {
         return 'qishui';
     }
-    if (preferred === 'qq' || preferred === 'coco' || preferred === 'qishui' || preferred === 'netease') {
+    if (isBilibiliShareUrl(query)) {
+        return 'bilibili';
+    }
+    if (isOnlineMusicProviderId(preferred)) {
         return preferred;
     }
     return 'netease';
@@ -54,15 +73,19 @@ export const resolveOnlineSearchProvider = (
  */
 export const resolveEnabledSearchProviders = (
     query: string,
-    enabledProviders: Partial<Record<OnlineLibraryProviderId, boolean>>,
+    enabledProviders: Partial<Record<string, boolean>>,
     preferred?: OnlineMusicProviderId | SearchSourceId,
     sessions: OnlineSearchSessionAccess = {},
+    knownIds: readonly string[] = ONLINE_LIBRARY_PROVIDER_IDS,
 ): OnlineMusicProviderId[] => {
     if (isQishuiShareUrl(query)) {
         return ['qishui'];
     }
+    if (isBilibiliShareUrl(query)) {
+        return ['bilibili'];
+    }
 
-    const searchable = resolveSearchableLibraryProviders(enabledProviders, sessions);
+    const searchable = resolveSearchableLibraryProviders(enabledProviders, sessions, knownIds);
     if (searchable.length > 0) {
         return searchable;
     }
@@ -71,55 +94,50 @@ export const resolveEnabledSearchProviders = (
     if (fallback === 'qishui') {
         return ['qishui'];
     }
-    if (
-        (fallback === 'netease' || fallback === 'qq' || fallback === 'coco')
-        && isProviderSearchable(fallback, sessions)
-    ) {
+    if (fallback === 'bilibili') {
+        return ['bilibili'];
+    }
+    if (isProviderSearchable(fallback, sessions)) {
         return [fallback];
     }
     return ['coco'];
 };
 
-const isPeerFreeProvider = (
-    id?: string | null,
-): id is Extract<OnlineMusicProviderId, 'coco' | 'qishui'> =>
-    id === 'coco' || id === 'qishui';
-
 /**
  * Overlay search provider resolution.
  * - Dedicated peer channel (exactly one free peer active): stay isolated.
- * - Home aggregate (multiple actives): keep the full set, including coco + qishui together.
+ * - Home aggregate (multiple actives): keep the full set.
  * - Empty active + peer sourceTab: independent entry fallback.
  */
 export const resolveOverlaySearchProviders = (input: {
     query: string;
     sourceTab: SearchSourceId;
     activeProviders?: OnlineMusicProviderId[];
-    enabledProviders: Partial<Record<OnlineLibraryProviderId, boolean>>;
+    enabledProviders: Partial<Record<string, boolean>>;
     sessions?: OnlineSearchSessionAccess;
+    knownIds?: readonly string[];
 }): OnlineMusicProviderId[] => {
     if (isQishuiShareUrl(input.query)) {
         return ['qishui'];
     }
+    if (isBilibiliShareUrl(input.query)) {
+        return ['bilibili'];
+    }
 
-    const active = (input.activeProviders || []).filter(
-        (id): id is OnlineMusicProviderId => (
-            id === 'netease' || id === 'qq' || id === 'qishui' || id === 'coco'
-        ),
-    );
+    const active = (input.activeProviders || []).filter(isOnlineMusicProviderId);
 
     // Dedicated peer channel: exactly one free peer active.
-    if (active.length === 1 && isPeerFreeProvider(active[0])) {
+    if (active.length === 1 && isPeerFreeProviderId(active[0])) {
         return [active[0]];
     }
 
-    // Home multi-source session — preserve coco + qishui together when both are active.
+    // Home multi-source session — preserve peer channels together when both are active.
     if (active.length > 1) {
         return active;
     }
 
     // Independent peer entry before the first submit stamped searchProviders.
-    if (active.length === 0 && isPeerFreeProvider(input.sourceTab)) {
+    if (active.length === 0 && isPeerFreeProviderId(input.sourceTab)) {
         return [input.sourceTab];
     }
 
@@ -128,5 +146,6 @@ export const resolveOverlaySearchProviders = (input: {
         input.enabledProviders,
         input.sourceTab,
         input.sessions,
+        input.knownIds,
     );
 };

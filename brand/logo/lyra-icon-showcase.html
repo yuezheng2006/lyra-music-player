@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lyra Icon Variants — 音波</title>
+  <style>
+    :root {
+      --bg: #121214;
+      --card: #1c1c1f;
+      --text: #f5f0ea;
+      --muted: rgba(245, 240, 234, 0.55);
+      --accent: #FFA85A;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+      background: radial-gradient(1200px 600px at 20% -10%, #2a1a12 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 48px 32px 80px;
+    }
+    header { max-width: 1080px; margin: 0 auto 40px; }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      font-weight: 620;
+      letter-spacing: -0.02em;
+    }
+    .tagline {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .tagline strong { color: var(--accent); font-weight: 560; }
+    .grid {
+      max-width: 1080px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px;
+      padding: 22px 20px 18px;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 168, 90, 0.35);
+    }
+    .card.recommended {
+      border-color: rgba(255, 168, 90, 0.55);
+      box-shadow: 0 0 0 1px rgba(255, 168, 90, 0.15);
+    }
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #1a0f0a;
+      background: var(--accent);
+      border-radius: 999px;
+      padding: 3px 8px;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+    .preview {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+    .preview img.large {
+      width: 140px;
+      height: 140px;
+      border-radius: 28px;
+    }
+    .sizes {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .sizes img {
+      border-radius: 22%;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    }
+    h2 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+    footer {
+      max-width: 1080px;
+      margin: 36px auto 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Lyra / 音波 — App Icon</h1>
+    <p class="tagline">
+      音符 + 精致扁平 · 舞台暖光 + 音波弧 · <strong>声随境转</strong><br />
+      正式定稿：<strong>imagen-v01</strong>（已写入 <code>build/icon.png</code> / <code>public/icon.png</code>）。下方 SVG 为结构探索稿。
+    </p>
+  </header>
+
+  <div class="grid">
+    <article class="card recommended">
+      <span class="badge">Shipped</span>
+      <div class="preview">
+        <img class="large" src="lyra-icon-imagen-v01.png" alt="imagen-v01" />
+        <div class="sizes">
+          <img src="lyra-icon-imagen-v01.png" width="48" height="48" alt="" />
+          <img src="lyra-icon-imagen-v01.png" width="32" height="32" alt="" />
+          <img src="lyra-icon-imagen-v01.png" width="16" height="16" alt="" />
+        </div>
+      </div>
+      <h2>imagen-v01 · Stage Halo Note</h2>
+      <p>正式生图定稿：单音符 + 舞台同心弧，暖橙舞台光，已同步 Electron/PWA。</p>
+    </article>
+
+    <article class="card">
+      <div class="preview">
+        <img class="large" src="lyra-icon-imagen-v02.png" alt="imagen-v02" />
+        <div class="sizes">
+          <img src="lyra-icon-imagen-v02.png" width="48" height="48" alt="" />
+          <img src="lyra-icon-imagen-v02.png" width="32" height="32" alt="" />
+          <img src="lyra-icon-imagen-v02.png" width="16" height="16" alt="" />
+        </div>
+      </div>
+      <h2>imagen-v02 · Wave Pedestal</h2>
+      <p>备选：音符立在音波弧底座上，节奏底座感更强。</p>
+    </article>
+
+    <article class="card">
+      <div class="preview">
+        <img class="large" src="lyra-icon-v01.svg" alt="v01" />
+        <div class="sizes">
+          <img src="lyra-icon-v01.svg" width="48" height="48" alt="" />
+          <img src="lyra-icon-v01.svg" width="32" height="32" alt="" />
+          <img src="lyra-icon-v01.svg" width="16" height="16" alt="" />
+        </div>
+      </div>
+      <h2>SVG v01 · Stage Halo Note</h2>
+      <p>单八分音符落在舞台弧光上，直接表达「声随境转」的舞台感。</p>
+    </article>
+
+    <article class="card">
+      <div class="preview">
+        <img class="large" src="lyra-icon-v02.svg" alt="v02" />
+        <div class="sizes">
+          <img src="lyra-icon-v02.svg" width="48" height="48" alt="" />
+          <img src="lyra-icon-v02.svg" width="32" height="32" alt="" />
+          <img src="lyra-icon-v02.svg" width="16" height="16" alt="" />
+        </div>
+      </div>
+      <h2>v02 · Wave Pedestal</h2>
+      <p>音符立在音波线上，强调「音波」字面意象与节奏底座。</p>
+    </article>
+
+    <article class="card">
+      <div class="preview">
+        <img class="large" src="lyra-icon-v03.svg" alt="v03" />
+        <div class="sizes">
+          <img src="lyra-icon-v03.svg" width="48" height="48" alt="" />
+          <img src="lyra-icon-v03.svg" width="32" height="32" alt="" />
+          <img src="lyra-icon-v03.svg" width="16" height="16" alt="" />
+        </div>
+      </div>
+      <h2>v03 · Orbit Arc Note</h2>
+      <p>半环轻托音符，扁平呼应应用内 orbit / 舞台环绕感。</p>
+    </article>
+
+    <article class="card">
+      <div class="preview">
+        <img class="large" src="lyra-icon-v04.svg" alt="v04" />
+        <div class="sizes">
+          <img src="lyra-icon-v04.svg" width="48" height="48" alt="" />
+          <img src="lyra-icon-v04.svg" width="32" height="32" alt="" />
+          <img src="lyra-icon-v04.svg" width="16" height="16" alt="" />
+        </div>
+      </div>
+      <h2>v04 · Lyric Spotlight</h2>
+      <p>上方柔光椭圆 + 舞台唇线，贴近歌词台聚光氛围。</p>
+    </article>
+
+    <article class="card">
+      <div class="preview">
+        <img class="large" src="lyra-icon-v05.svg" alt="v05" />
+        <div class="sizes">
+          <img src="lyra-icon-v05.svg" width="48" height="48" alt="" />
+          <img src="lyra-icon-v05.svg" width="32" height="32" alt="" />
+          <img src="lyra-icon-v05.svg" width="16" height="16" alt="" />
+        </div>
+      </div>
+      <h2>v05 · Twin Pulse</h2>
+      <p>精简连音配侧向脉冲弧，节奏感更强，略偏「播放器」通用语汇。</p>
+    </article>
+
+    <article class="card">
+      <div class="preview">
+        <img class="large" src="lyra-icon-v06.svg" alt="v06" />
+        <div class="sizes">
+          <img src="lyra-icon-v06.svg" width="48" height="48" alt="" />
+          <img src="lyra-icon-v06.svg" width="32" height="32" alt="" />
+          <img src="lyra-icon-v06.svg" width="16" height="16" alt="" />
+        </div>
+      </div>
+      <h2>v06 · Mark Bridge</h2>
+      <p>旗与弧桥接成更标识化的负形，仍一眼可读为音符。</p>
+    </article>
+  </div>
+
+  <footer>
+    Palette: #FF8B63 → #FFA85A → #FFC56E · Foreground #FFF8F1 · Flat only, no glass.
+  </footer>
+</body>
+</html>

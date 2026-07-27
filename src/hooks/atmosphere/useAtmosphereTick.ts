@@ -29,7 +29,16 @@ import {
     tickRealtimeBeatEngine,
     type RealtimeBeatState,
 } from '../../utils/atmosphere/realtimeBeatEngine';
+import {
+    setAtmospherePresentationBeatOnset,
+    setAtmospherePresentationBeatPulse,
+} from '../../utils/atmosphere/atmospherePresentationBus';
 import type { AtmosphereTickParams } from './types';
+
+/** Lyric garnish: faster attack / shorter release than stage pulse (still smooth). */
+const LYRIC_ONSET_ATTACK_TAU = 0.022;
+const LYRIC_ONSET_RELEASE_TAU = 0.09;
+const LYRIC_ONSET_IDLE_ATTACK_TAU = 0.055;
 
 // src/hooks/atmosphere/useAtmosphereTick.ts
 // Runs one atmosphere analysis frame from analyser data.
@@ -72,6 +81,7 @@ export const useAtmosphereTick = ({
     const frequencyDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
     const timeDomainDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
     const presentationPulseRef = useRef(0);
+    const lyricOnsetRef = useRef(0);
 
     return useCallback(({ analyser, audioElement, sampleRate, dt }: AtmosphereTickParams) => {
         if (!enabled) return;
@@ -149,9 +159,30 @@ export const useAtmosphereTick = ({
             RHYTHM_SMOOTH_ATTACK_TAU,
             RHYTHM_SMOOTH_RELEASE_TAU,
         );
+
+        // Dual channel for lyrics: keep stage pulse smooth, but publish a sharper onset
+        // so pack garnish can sit on downbeats without raising peak multipliers.
+        const onsetTarget = preferScheduledBeatMap
+            ? scheduledPulse
+            : (result.hit
+                ? Math.max(result.pulse, result.score, scheduledPulse)
+                : Math.max(result.pulse * 0.55, scheduledPulse * 0.8));
+        const onsetAttack = (result.hit || scheduledPulse > 0.55)
+            ? LYRIC_ONSET_ATTACK_TAU
+            : LYRIC_ONSET_IDLE_ATTACK_TAU;
+        lyricOnsetRef.current = follow(
+            lyricOnsetRef.current,
+            onsetTarget,
+            dt,
+            onsetAttack,
+            LYRIC_ONSET_RELEASE_TAU,
+        );
+
         const punchedScale = profileScale * (1 + cameraFrame.radiusKick * 0.18);
 
         beatPulse.set(presentationPulseRef.current);
+        setAtmospherePresentationBeatPulse(presentationPulseRef.current);
+        setAtmospherePresentationBeatOnset(lyricOnsetRef.current);
         cinemaScale.set(punchedScale);
         atmosphereEnergy.set(mood.energy);
         atmosphereGroove.set(mood.groove);
