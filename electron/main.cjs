@@ -3433,6 +3433,15 @@ app.whenReady().then(async () => {
     app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
   }
 
+  // Dev 运行时 dock 会显示 Electron 默认图标；打包版由 .app 的 icns 提供，无需覆盖。
+  if (process.platform === 'darwin' && isElectronDevRuntime() && app.dock && fs.existsSync(APP_ICON_PATH)) {
+    try {
+      app.dock.setIcon(nativeImage.createFromPath(APP_ICON_PATH));
+    } catch (error) {
+      console.warn('[Electron] Failed to set dev dock icon', error);
+    }
+  }
+
   await ensureProxyFallbackHelper();
   await neutralizeDeadEnvProxy();
 

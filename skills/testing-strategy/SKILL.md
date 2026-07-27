@@ -72,6 +72,9 @@ description: Use when the task involves choosing how to validate a change in thi
 
 发版前至少跑过 L1；修 asar/安装路径问题或准备打 GitHub release 时跑 L2。
 
+**人工验收 / 视觉确认必须用 release 真包（L2 产物 `release/verify-mac/`），不要用 dev 壳：**
+dev 运行时 dock 图标、菜单栏名称等应用外壳信息与正式包不一致（例如 dev dock 图标依赖 `app.dock.setIcon` 兜底），只有 `.app` 真包能代表用户实际看到的形态。
+
 涉及文件通常包括：
 
 - `.github/workflows/*.yml`
