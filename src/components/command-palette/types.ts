@@ -97,6 +97,6 @@ export type CommandPaletteContext = {
     desktopLyricsEnabled: boolean;
     desktopLyricsLocked: boolean;
     downloadCurrentSong: () => Promise<boolean>;
-    startVideoExport: (startMode?: import('../types/videoExport').VideoExportStartMode) => void;
+    startVideoExport: (startMode?: import('../../types/videoExport').VideoExportStartMode) => void;
     isElectronWindow: boolean;
 };

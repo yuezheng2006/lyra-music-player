@@ -118,6 +118,7 @@ describe('useDailyRecommendStore error mapping', () => {
                 musicProvider: 'netease',
                 artists: [],
                 album: { id: 0, name: 'a' },
+                duration: 180000,
             }],
             needLoginNetease: false,
             sources: [{
@@ -128,6 +129,7 @@ describe('useDailyRecommendStore error mapping', () => {
                     musicProvider: 'netease',
                     artists: [],
                     album: { id: 0, name: 'a' },
+                    duration: 180000,
                 }],
                 kind: 'personalized',
             }],

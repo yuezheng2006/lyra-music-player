@@ -62,6 +62,9 @@ interface SearchResultsOverlayProps {
     onAddSongToQueue: (track: UnifiedSong) => void;
     onSelectArtist: (track: UnifiedSong, artistName: string, artistId?: number) => void;
     onSelectAlbum: (track: UnifiedSong, albumName: string, albumId?: number) => void;
+    onDownloadSong?: (song: UnifiedSong) => void | Promise<boolean>;
+    canDownloadSong?: (song: UnifiedSong | null | undefined) => boolean;
+    downloadSongLabel?: string;
 }
 
 const SearchResultCover: React.FC<{ track: UnifiedSong }> = ({ track }) => {

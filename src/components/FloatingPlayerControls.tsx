@@ -183,6 +183,8 @@ interface FloatingPlayerControlsProps {
     getVisualizerModeLabel?: (mode: VisualizerMode) => string;
     /** True while a dock popover (background / quality) is open — pauses idle auto-hide. */
     onDockPopoverOpenChange?: (open: boolean) => void;
+    onDownloadSong?: () => void;
+    downloadSongLabel?: string;
 }
 
 const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
