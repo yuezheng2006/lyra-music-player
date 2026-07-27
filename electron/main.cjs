@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, session, screen, dialog, shell, nativeImage
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const Store = require('electron-store').default || require('electron-store');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
@@ -20,6 +21,35 @@ const {
   resolveMediaRequestOverride,
   shouldBypassMediaCors,
 } = require('../shared/mediaRequestHeaders.cjs');
+
+// Dead Clash/V2Ray env proxy must not brick peer search / lyric proxy.
+let fetchWithProxyFallback = (...args) => fetch(...args);
+let neutralizeDeadEnvProxy = async () => ({ cleared: false, reason: 'unloaded' });
+let proxyFallbackHelperReady = null;
+
+const ensureProxyFallbackHelper = () => {
+  if (!proxyFallbackHelperReady) {
+    proxyFallbackHelperReady = (async () => {
+      try {
+        const helperPath = resolveNodeReadableAppPath(
+          'scripts',
+          'music-provider-adapters',
+          'fetchWithProxyFallback.mjs',
+        );
+        const mod = await import(pathToFileURL(helperPath).href);
+        if (typeof mod.fetchWithProxyFallback === 'function') {
+          fetchWithProxyFallback = mod.fetchWithProxyFallback;
+        }
+        if (typeof mod.neutralizeDeadEnvProxy === 'function') {
+          neutralizeDeadEnvProxy = mod.neutralizeDeadEnvProxy;
+        }
+      } catch (error) {
+        console.warn('[ProxyFallback] helper unavailable', error);
+      }
+    })();
+  }
+  return proxyFallbackHelperReady;
+};
 const useLinuxGraphicsDebugMode = process.env.ELECTRON_LINUX_PACKAGED_GRAPHICS === 'true';
 const isAppImageRuntime =
   process.platform === 'linux' &&
@@ -1340,7 +1370,8 @@ async function proxyLyricRequest(targetUrlStr, init = {}) {
   // Keep Referer/Cookie: Chromium forbids setting them in the renderer, but QQ
   // playlist APIs reject requests without a y.qq.com referer.
 
-  const response = await fetch(targetUrl.toString(), {
+  await ensureProxyFallbackHelper();
+  const response = await fetchWithProxyFallback(targetUrl.toString(), {
     method: typeof init?.method === 'string' ? init.method : 'GET',
     headers,
     body: init?.body,
@@ -2560,6 +2591,8 @@ const waitForMusicProviderPort = async (timeoutMs = 30000) => {
 async function startMusicProviderSidecar() {
   musicProviderSidecarReady = false;
   try {
+    await ensureProxyFallbackHelper();
+    await neutralizeDeadEnvProxy();
     const freePort = await getFreePort();
     const sidecarScript = resolveNodeReadableAppPath('scripts', 'music-provider-sidecar.cjs');
     if (!fs.existsSync(sidecarScript)) {
@@ -3399,6 +3432,9 @@ app.whenReady().then(async () => {
   if (process.platform === 'win32') {
     app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
   }
+
+  await ensureProxyFallbackHelper();
+  await neutralizeDeadEnvProxy();
 
   await ytmusicBridge.registerProtocolHandler();
 

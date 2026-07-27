@@ -2,6 +2,8 @@
 // Keyword search + audition playback for Qishui (Soda), following musicdl's LunaPC path.
 // Cookie / track_v2 / play_auth decrypt are intentionally out of scope for this first cut.
 
+import { fetchWithProxyFallback } from './fetchWithProxyFallback.mjs';
+
 const DEVICE_ID = process.env.MUSIC_PROVIDER_QISHUI_DEVICE_ID || '3753066532709850';
 const INSTALL_ID = process.env.MUSIC_PROVIDER_QISHUI_IID || '3753066532713946';
 const LUNA_UA = 'LunaPC/3.5.1(408871041)';
@@ -272,7 +274,7 @@ const collectFilteredPlaylistTracks = async (playlist, { artistName, limit, offs
 };
 
 const fetchJson = async (url, headers = {}) => {
-  const response = await fetch(url, { headers });
+  const response = await fetchWithProxyFallback(url, { headers });
   if (!response.ok) {
     throw new Error(`Qishui request failed: ${response.status}`);
   }
@@ -280,7 +282,7 @@ const fetchJson = async (url, headers = {}) => {
 };
 
 const fetchText = async (url, headers = {}) => {
-  const response = await fetch(url, { headers });
+  const response = await fetchWithProxyFallback(url, { headers });
   if (!response.ok) {
     throw new Error(`Qishui request failed: ${response.status}`);
   }

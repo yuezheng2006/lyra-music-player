@@ -4,9 +4,24 @@ const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 const { createProviderRegistry } = require('./music-provider-plugin/discover.cjs');
+const { pathToFileURL } = require('url');
 
 // scripts/music-provider-sidecar.cjs
 // Bridges Auralis's provider API to built-in + user plugin adapters (protocol v1).
+
+let fetchWithProxyFallback = globalThis.fetch.bind(globalThis);
+let neutralizeDeadEnvProxy = async () => ({ cleared: false, reason: 'unloaded' });
+
+const loadProxyFallbackHelper = async () => {
+  const helperPath = path.join(__dirname, 'music-provider-adapters', 'fetchWithProxyFallback.mjs');
+  const mod = await import(pathToFileURL(helperPath).href);
+  if (typeof mod.fetchWithProxyFallback === 'function') {
+    fetchWithProxyFallback = mod.fetchWithProxyFallback;
+  }
+  if (typeof mod.neutralizeDeadEnvProxy === 'function') {
+    neutralizeDeadEnvProxy = mod.neutralizeDeadEnvProxy;
+  }
+};
 
 const port = Number(process.env.MUSIC_PROVIDER_SIDECAR_PORT || 3002);
 const host = process.env.MUSIC_PROVIDER_SIDECAR_HOST || '127.0.0.1';
@@ -204,7 +219,7 @@ const parseQishuiUrl = async (url) => {
   const requestUrl = new URL(apiUrl);
   requestUrl.searchParams.set('url', url.trim());
 
-  const response = await fetch(requestUrl, {
+  const response = await fetchWithProxyFallback(requestUrl, {
     headers: {
       'User-Agent': 'Auralis/1.0',
       'Referer': 'https://www.baidu.com/',
@@ -386,9 +401,27 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, host, () => {
-  const loaded = registry.listProviders().map((p) => p.id).join(', ');
-  console.log(`[music-provider-sidecar] listening on http://${host}:${port}`);
-  console.log(`[music-provider-sidecar] user plugins: ${registry.getUserPluginsDir()}`);
-  console.log(`[music-provider-sidecar] providers: ${loaded || '(none)'}`);
+const startServer = async () => {
+  try {
+    await loadProxyFallbackHelper();
+    await neutralizeDeadEnvProxy();
+    // Adapters call global fetch; wrap so a dead Clash port cannot 500 every search.
+    if (typeof fetchWithProxyFallback === 'function') {
+      globalThis.fetch = fetchWithProxyFallback;
+    }
+  } catch (error) {
+    console.warn('[music-provider-sidecar] proxy fallback helper unavailable', error);
+  }
+
+  server.listen(port, host, () => {
+    const loaded = registry.listProviders().map((p) => p.id).join(', ');
+    console.log(`[music-provider-sidecar] listening on http://${host}:${port}`);
+    console.log(`[music-provider-sidecar] user plugins: ${registry.getUserPluginsDir()}`);
+    console.log(`[music-provider-sidecar] providers: ${loaded || '(none)'}`);
+  });
+};
+
+startServer().catch((error) => {
+  console.error('[music-provider-sidecar] failed to start', error);
+  process.exit(1);
 });
