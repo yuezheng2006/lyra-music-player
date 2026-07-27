@@ -1,9 +1,12 @@
+import http from 'node:http';
+import https from 'node:https';
 import net from 'node:net';
-import { Agent, setGlobalDispatcher } from 'undici';
+import { URL } from 'node:url';
 
 // scripts/music-provider-adapters/fetchWithProxyFallback.mjs
 // When Clash/V2Ray leaves HTTP(S)_PROXY pointing at a dead loopback port, Node's
 // NODE_USE_ENV_PROXY fetch fails in ~0ms. Retry direct so peer providers stay usable.
+// Intentionally avoids `undici` so packaged Electron sidecars (asar.unpacked) resolve.
 
 const PROXY_ENV_KEYS = [
   'HTTP_PROXY',
@@ -15,7 +18,6 @@ const PROXY_ENV_KEYS = [
   'NODE_USE_ENV_PROXY',
 ];
 
-const directAgent = new Agent();
 // Captured at module load so sidecar can safely assign this helper to globalThis.fetch.
 const nativeFetch = globalThis.fetch.bind(globalThis);
 // Remember last-seen proxy URL so retries still work after neutralize clears env.
@@ -80,13 +82,61 @@ export const isEnvProxyConnectionError = (error) => {
         return true;
       }
     } else if (isLoopbackHost(address) && Number(port) > 0) {
-      // Env already cleared, but undici may still be dispatching via a dead local proxy.
+      // Env already cleared, but Node may still be dispatching via a dead local proxy.
       return true;
     }
     current = current.cause;
   }
   return false;
 };
+
+const normalizeHeaders = (headers) => {
+  if (!headers) return {};
+  if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+  return { ...headers };
+};
+
+/** Proxy-free fetch via node:http(s) — works in packaged Electron sidecars. */
+export const directHttpFetch = (input, init = {}) => new Promise((resolve, reject) => {
+  const url = new URL(typeof input === 'string' ? input : String(input?.url || input));
+  const lib = url.protocol === 'http:' ? http : https;
+  const method = typeof init.method === 'string' ? init.method : 'GET';
+  const headers = normalizeHeaders(init.headers);
+  const req = lib.request(url, {
+    method,
+    headers,
+    // Explicitly omit agent so HTTP(S)_PROXY is not applied.
+    agent: false,
+  }, (res) => {
+    const chunks = [];
+    res.on('data', (chunk) => chunks.push(chunk));
+    res.on('end', () => {
+      const body = Buffer.concat(chunks);
+      resolve(new Response(body, {
+        status: res.statusCode || 0,
+        statusText: res.statusMessage || '',
+        headers: res.headers,
+      }));
+    });
+  });
+  req.on('error', reject);
+  if (init.signal) {
+    if (init.signal.aborted) {
+      req.destroy(new Error('Aborted'));
+      return;
+    }
+    init.signal.addEventListener('abort', () => req.destroy(new Error('Aborted')), { once: true });
+  }
+  if (init.body != null) {
+    req.write(init.body);
+  }
+  req.end();
+});
 
 /**
  * Build a fetch wrapper around `baseFetch`.
@@ -108,13 +158,13 @@ export const createFetchWithProxyFallback = (baseFetch) => {
       }
       const proxyUrl = readConfiguredProxyUrl();
       console.warn(
-        `[fetchWithProxyFallback] env proxy unreachable (${proxyUrl}); retrying direct`,
+        `[fetchWithProxyFallback] env proxy unreachable (${proxyUrl || 'loopback'}); retrying direct`,
       );
-      // Passing an undici Agent dispatcher bypasses NODE_USE_ENV_PROXY.
-      return doFetch(input, {
-        ...init,
-        dispatcher: directAgent,
-      });
+      if (typeof baseFetch === 'function') {
+        // Test inject path — second call signals direct retry.
+        return baseFetch(input, { ...init, dispatcher: 'direct' });
+      }
+      return directHttpFetch(input, init);
     }
   };
   return fetchWithProxyFallback;
@@ -156,13 +206,6 @@ export async function neutralizeDeadEnvProxy({ timeoutMs = 250 } = {}) {
   lastSeenProxyUrl = proxyUrl;
   for (const key of PROXY_ENV_KEYS) {
     delete process.env[key];
-  }
-  // NODE_USE_ENV_PROXY installs an EnvHttpProxyAgent as the global dispatcher;
-  // clearing env alone does not uninstall it.
-  try {
-    setGlobalDispatcher(new Agent());
-  } catch (error) {
-    console.warn('[fetchWithProxyFallback] failed to reset undici dispatcher', error);
   }
   console.warn(
     `[fetchWithProxyFallback] cleared unreachable loopback proxy env (${proxyUrl})`,

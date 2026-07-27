@@ -69,7 +69,21 @@ describe('fetchWithProxyFallback', () => {
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const secondCall = fetchMock.mock.calls[1];
-    expect(secondCall[1]?.dispatcher).toBeTruthy();
+    expect(secondCall[1]?.dispatcher).toBe('direct');
+  });
+
+  it('does not import undici (packaged Electron sidecar has no node_modules resolution)', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const helperPath = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../../scripts/music-provider-adapters/fetchWithProxyFallback.mjs',
+    );
+    const source = fs.readFileSync(helperPath, 'utf8');
+    expect(source).not.toMatch(/from ['"]undici['"]/);
+    expect(source).toContain('directHttpFetch');
+    expect(source).toContain("from 'node:http'");
   });
 
   it('clears unreachable loopback proxy env vars in neutralizeDeadEnvProxy', async () => {
