@@ -13,6 +13,7 @@ import {
     resolveActiveLyricColorPresetId,
     type LyricColorPresetId,
 } from '../../utils/theme/lyricColorPresets';
+import { LYRICS_FONT_SCALE_QUICK_OPTIONS } from '../../utils/lyrics/lyricsFontScaleMath';
 import { getControlsTabOptionButtonClass, type ControlsTabOptionStyles } from './controlsTabOptionStyles';
 import QuickEffectPicker from './QuickEffectPicker';
 import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
@@ -38,14 +39,6 @@ type ControlsTabCoreSectionProps = {
 };
 
 const labelClass = 'text-[10px] font-bold uppercase tracking-widest opacity-40';
-
-/** Compact quick steps shared with VisPlayground font-scale presets. */
-const FONT_SCALE_QUICK_OPTIONS = [
-    { label: '100%', value: 1 },
-    { label: '115%', value: 1.15 },
-    { label: '125%', value: 1.25 },
-    { label: '140%', value: 1.4 },
-] as const;
 
 const nearScale = (left: number, right: number) => Math.abs(left - right) < 0.02;
 
@@ -177,7 +170,7 @@ const ControlsTabCoreSection: React.FC<ControlsTabCoreSectionProps> = ({
                     </span>
                 </div>
                 <div className={`grid grid-cols-4 gap-0.5 ${wellBg} p-0.5 rounded-lg`}>
-                    {FONT_SCALE_QUICK_OPTIONS.map(option => {
+                    {LYRICS_FONT_SCALE_QUICK_OPTIONS.map(option => {
                         const isActive = nearScale(lyricsFontScale, option.value);
                         return (
                             <button

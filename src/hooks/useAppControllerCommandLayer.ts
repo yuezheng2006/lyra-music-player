@@ -594,8 +594,9 @@ export function useAppControllerCommandLayer(
             return;
         }
         // Color chips only change lyric body hues — not animation intensity / glow / rhythm.
+        // Seed from Theme Park (covers legacy/ai/custom), not the debug-only activeDualTheme.
         // No toast — same silent UX as font preset / lyric intensity.
-        const nextDualTheme = applyLyricColorPresetToDualTheme(activeDualTheme, preset);
+        const nextDualTheme = applyLyricColorPresetToDualTheme(getThemeParkSeedTheme(), preset);
         saveStoredLyricColorPresetId(presetId);
         saveLyricColorDualTheme(nextDualTheme, currentSong?.id ?? null);
         void import('../utils/telemetry/trackTelemetry').then(({ trackTelemetry }) => {
@@ -603,16 +604,16 @@ export function useAppControllerCommandLayer(
                 data: { key: 'lyricColorPreset', value: presetId },
             });
         });
-    }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme]);
+    }, [currentSong?.id, getThemeParkSeedTheme, saveLyricColorDualTheme]);
 
     const handleApplyLyricBodyColor = useCallback((color: string) => {
-        const nextDualTheme = applyLyricBodyColorToDualTheme(activeDualTheme, color);
+        const nextDualTheme = applyLyricBodyColorToDualTheme(getThemeParkSeedTheme(), color);
         if (!nextDualTheme) {
             return;
         }
         saveStoredLyricBodyColor(color);
         saveLyricColorDualTheme(nextDualTheme, currentSong?.id ?? null);
-    }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme]);
+    }, [currentSong?.id, getThemeParkSeedTheme, saveLyricColorDualTheme]);
 
     useSongThemeAutoGeneration({
         enabled: songThemeAutoSwitchEnabled && songThemeAutoGenerateEnabled,

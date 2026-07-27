@@ -68,7 +68,8 @@ export const buildDesktopLyricsState = ({
     beatMapKey,
     beatMap,
 }: BuildDesktopLyricsStateArgs): DesktopLyricsState => {
-    const lyricTime = currentTimeSec + lyricOffsetMs / 1000;
+    // Same polarity as the main lyric clock (resolveLyricPlaybackTimes): positive offset delays lyrics.
+    const lyricTime = currentTimeSec - lyricOffsetMs / 1000;
     const activeLine = currentLineIndex >= 0 ? lyrics?.lines[currentLineIndex] : null;
     const lineText = activeLine?.fullText?.replace(/\s+/g, ' ').trim()
         || fallbackTitle?.trim()

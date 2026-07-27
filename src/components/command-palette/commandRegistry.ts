@@ -461,6 +461,32 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createPerformanceModeCommand('balanced', 'Performance: Balanced', 'Balanced visual quality', ['performance balanced', '均衡性能', 'junheng', 'jhxn']),
     createPerformanceModeCommand('lite', 'Performance: Lite', 'Minimal visual quality', ['performance lite', 'low performance', '低性能', '省电', 'dixingneng', 'dxn']),
     {
+        id: 'toggle-performance-hud',
+        group: 'settings',
+        title: 'Toggle performance HUD',
+        description: 'Show or hide the FPS / memory readout in the corner',
+        keywords: [
+            'performance hud',
+            'fps hud',
+            'fps overlay',
+            'hide fps',
+            '性能面板',
+            '性能监控',
+            '帧率显示',
+            'FPS显示',
+            'xingnengmianban',
+            'xingnengjiankong',
+            'zhenlv',
+            'xnmb',
+            'xnjk',
+        ],
+        execute: () => {
+            const store = usePerformanceMonitorStore.getState();
+            store.setShowHud(!store.showHud);
+            return true;
+        },
+    },
+    {
         id: 'toggle-ambient-visual',
         group: 'visualizer',
         title: 'Toggle ambient visual',

@@ -214,6 +214,7 @@ export default {
       "settings-language-system": { "title": "Follow system language", "description": "Use the browser or system language" },
       "settings-language-zh-CN": { "title": "Switch language to Chinese", "description": "Use Simplified Chinese in the interface" },
       "settings-language-en": { "title": "Switch language to English", "description": "Use English in the interface" },
+      "toggle-performance-hud": { "title": "Toggle performance HUD", "description": "Show or hide the FPS / memory readout in the corner" },
       "toggle-ambient-visual": { "title": "Toggle ambient visual", "description": "Show or hide mood-driven ambient visual strategies above cover particles" },
       "toggle-interactive-character": { "title": "Toggle interactive character", "description": "Show or hide the fox companion on the player stage" },
       "toggle-magnetic-pull": { "title": "Toggle magnetic emotion chip", "description": "Soft pointer-follow on the floating mood chip" },
@@ -1260,7 +1261,7 @@ export default {
     "replayGainUnavailable": "No ReplayGain detected",
     "lyricsSource": "Lyrics",
     "lyricTimelineOffset": "Timeline Offset",
-    "lyricTimelineOffsetHint": "Temporary for this playback session. Positive values make lyrics later.",
+    "lyricTimelineOffsetHint": "Remembered per song. Positive values make lyrics later.",
     "resetLyricTimelineOffset": "Reset timeline offset",
     "coverSource": "Cover",
     "metadataSource": "Metadata",
@@ -1383,28 +1384,17 @@ export default {
     "noLyrics": "No lyrics"
   },
   "boot": {
-    "starting": "The night begins to listen…",
-    "connectingServices": "Calling melodies from afar…",
-    "preparingUi": "Setting the stage for tonight…"
+    "starting": "Starting…",
+    "connectingServices": "Starting…",
+    "preparingUi": "Preparing…"
   },
   "onboarding": {
-    "badge": "Premiere",
-    "welcomeTitle": "Enter the soundscape",
-    "welcomeBody": "Lyra turns your library into an immersive lyric stage.",
-    "connectTitle": "Connect your music",
-    "connectBody": "Sign in or add a library so the stage has songs to play.",
+    "connectTitle": "Add music",
     "connectNetease": "NetEase",
     "connectQQ": "QQ Music",
     "connectLocal": "Local files",
     "connectNavidrome": "Navidrome",
-    "listenTitle": "Step onto the stage",
-    "listenBody": "Open daily recommend, or jump straight into the player.",
-    "openDailyRecommend": "Daily recommend",
-    "openPlayer": "Enter player",
-    "continue": "Continue",
-    "back": "Back",
-    "skip": "Skip",
-    "done": "Done",
+    "skip": "Not now",
     "reopen": "Getting started"
   },
   "whatsNew": {

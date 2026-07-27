@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { APP_VERSION } from './helpers/appVersion';
 import {
     clearPageTelemetry,
     readTelemetrySnapshot,
@@ -12,7 +13,7 @@ const FIXTURE_COVER =
     'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22256%22 height=%22256%22%3E%3Crect width=%22256%22 height=%22256%22 fill=%22%2309172f%22/%3E%3C/svg%3E';
 
 async function installTelemetryPlaybackHarness(page: Page) {
-    await page.addInitScript((coverUrl: string) => {
+    await page.addInitScript(({ coverUrl, appVersion }: { coverUrl: string; appVersion: string }) => {
         localStorage.clear();
         localStorage.setItem('i18nextLng', 'en');
         localStorage.setItem('default_theme_daylight', 'false');
@@ -20,7 +21,7 @@ async function installTelemetryPlaybackHarness(page: Page) {
         localStorage.setItem('last_app_view', 'player');
         localStorage.setItem('open_player_on_launch', 'true');
         localStorage.setItem('lyra_onboarding_completed', 'true');
-        localStorage.setItem('folia_last_seen_guide_version', '1.0.3');
+        localStorage.setItem('folia_last_seen_guide_version', appVersion);
         localStorage.setItem('visualizer_mode', 'classic');
         localStorage.setItem('visualizer_background_mode', 'common');
         localStorage.setItem('player_volume', '0.5');
@@ -60,7 +61,7 @@ async function installTelemetryPlaybackHarness(page: Page) {
 
         // Seed IndexedDB after first paint via dynamic import in page setup below.
         (window as unknown as { __TELEMETRY_E2E_COVER__?: string }).__TELEMETRY_E2E_COVER__ = coverUrl;
-    }, FIXTURE_COVER);
+    }, { coverUrl: FIXTURE_COVER, appVersion: APP_VERSION });
 }
 
 async function seedLastSong(page: Page) {

@@ -5,10 +5,10 @@
  * Gap between the lowest subtitle line and the top of the docked player bar.
  * Includes room for the edge progress hit area that overhangs above the bar.
  */
-export const VISUALIZER_SUBTITLE_BAR_GAP_PX = 36;
+export const VISUALIZER_SUBTITLE_BAR_GAP_PX = 72;
 
 /** Bottom padding when the player chrome / docked bar is hidden. */
-export const VISUALIZER_SUBTITLE_IMMERSIVE_PADDING_PX = 36;
+export const VISUALIZER_SUBTITLE_IMMERSIVE_PADDING_PX = 72;
 
 /**
  * Padding under the subtitle stack so both upcoming lines sit fully above the docked bar.

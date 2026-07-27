@@ -156,6 +156,7 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         setSearchScrollTop: state.setSearchScrollTop,
     })));
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+    const searchInputRef = useRef<HTMLInputElement | null>(null);
 
     const activeProviders = searchProviders.filter(isOnlineMusicProviderId);
     const sourceFallback = isOnlineMusicProviderId(searchSourceTab) ? searchSourceTab : null;
@@ -223,15 +224,28 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
 
     useEffect(() => {
         if (!isSearchOpen) return;
+        const frame = window.requestAnimationFrame(() => {
+            searchInputRef.current?.focus({ preventScroll: true });
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [isSearchOpen, activeProvider]);
+
+    useEffect(() => {
+        if (!isSearchOpen) return;
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                onClose();
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            // First Esc clears the field / results back to shortcuts; second closes.
+            if (searchQuery.trim() || (searchResults && searchResults.length > 0) || searchError) {
+                clearSearchInput();
+                searchInputRef.current?.focus({ preventScroll: true });
+                return;
             }
+            onClose();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isSearchOpen, onClose]);
+    }, [clearSearchInput, isSearchOpen, onClose, searchError, searchQuery, searchResults]);
 
     const showProviderBadge = isMultiSource || !isPeerOnly;
     // Peer channels only render their own hits — ignore any leaked cross-source cache.
@@ -301,19 +315,34 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                             className={`mt-4 flex flex-col sm:flex-row items-stretch gap-2 rounded-2xl border p-2 ${panelBg}`}
                         >
 
-                            <div className={`relative flex-1 rounded-xl border ${inputBg}`}>
-                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40" />
+                            <div
+                                className={`relative flex-1 rounded-xl border transition-[box-shadow,border-color] focus-within:border-[#3b82f6]/55 focus-within:ring-2 focus-within:ring-[#3b82f6]/25 ${inputBg}`}
+                            >
+                                <Search
+                                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40"
+                                    aria-hidden
+                                />
                                 <input
+                                    ref={searchInputRef}
                                     type="text"
+                                    name="search-query"
                                     value={searchQuery}
                                     onChange={(event) => setSearchQuery(event.target.value)}
                                     placeholder={searchPlaceholder}
-                                    className="w-full bg-transparent rounded-xl min-h-11 py-2.5 pl-10 pr-10 text-sm focus:outline-none"
-                                    autoFocus
+                                    aria-label={searchPlaceholder}
+                                    data-testid="search-overlay-input"
+                                    autoComplete="off"
+                                    spellCheck={false}
+                                    enterKeyHint="search"
+                                    disabled={isSearching}
+                                    className="w-full bg-transparent rounded-xl min-h-11 py-2.5 pl-10 pr-10 text-sm focus:outline-none disabled:opacity-70"
                                 />
                                 <SearchClearButton
-                                    visible={Boolean(searchQuery)}
-                                    onClear={clearSearchInput}
+                                    visible={Boolean(searchQuery.trim()) || Boolean(visibleResults?.length) || Boolean(searchError)}
+                                    onClear={() => {
+                                        clearSearchInput();
+                                        searchInputRef.current?.focus({ preventScroll: true });
+                                    }}
                                     label={t('app.clearSearch')}
                                     className="absolute right-2.5 top-1/2 -translate-y-1/2"
                                 />
@@ -322,9 +351,11 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                             <button
                                 type="submit"
                                 disabled={isSearching || !searchQuery.trim()}
+                                aria-busy={isSearching}
+                                data-testid="search-overlay-submit"
                                 className={`inline-flex items-center justify-center gap-2 rounded-xl min-h-11 px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 touch-manipulation active:scale-[0.98] ${accentBtn}`}
                             >
-                                <Search size={16} />
+                                <Search size={16} aria-hidden />
                                 {isSearching
                                     ? t('localMusic.searching', '搜索中...')
                                     : t('search.submit')}

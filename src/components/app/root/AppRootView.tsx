@@ -152,7 +152,6 @@ export function AppRootView({ controller }: AppRootViewProps) {
         monetTuning,
         navigateToHome,
         navigateDirectHome,
-        navigateToPlayer,
         openSettings,
         navidromeEnabled,
         nowPlayingConnectionStatus,
@@ -563,16 +562,6 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         return;
                     }
                     openSettings('options', 'integration');
-                }}
-                onOpenDailyRecommend={() => {
-                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
-                    completeOnboarding(appVersion);
-                    setHomeViewTab('daily');
-                }}
-                onOpenPlayer={() => {
-                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
-                    completeOnboarding(appVersion);
-                    navigateToPlayer();
                 }}
             />
             <WhatsNewModal

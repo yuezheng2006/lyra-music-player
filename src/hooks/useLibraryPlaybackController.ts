@@ -83,6 +83,7 @@ type UseLibraryPlaybackControllerParams = {
     setCurrentLineIndex: SetState<number>;
     setDuration: SetState<number>;
     setIsLyricsLoading: SetState<boolean>;
+    setIsAudioSourceLoading: (loading: boolean) => void;
     setStatusMsg: SetState<StatusMessage | null>;
     setIsPanelOpen: SetState<boolean>;
     setLikedSongIds: Dispatch<SetStateAction<Set<number>>>;
@@ -123,6 +124,7 @@ export function useLibraryPlaybackController({
     setCurrentLineIndex,
     setDuration,
     setIsLyricsLoading,
+    setIsAudioSourceLoading,
     setStatusMsg,
     setIsPanelOpen,
     setLikedSongIds,
@@ -144,6 +146,8 @@ export function useLibraryPlaybackController({
     const [showOnlineLyricMatchModal, setShowOnlineLyricMatchModal] = useState(false);
     const localCoverObjectUrlsRef = useRef<Map<string, LocalCoverObjectUrlEntry>>(new Map());
     const managedCachedCoverObjectUrlRef = useRef<string | null>(null);
+    /** Guards setIsAudioSourceLoading(false) against stale local/navidrome/ytm resolves. */
+    const audioSourceLoadGenerationRef = useRef(0);
 
     const isRegisteredLocalCoverObjectUrl = useCallback((url: string) => {
         for (const entry of localCoverObjectUrlsRef.current.values()) {
@@ -644,9 +648,15 @@ export function useLibraryPlaybackController({
         interruptStagePlaybackForMainTransition();
         armAutoPlayIntent(shouldAutoPlayRef);
         unlockHtmlAudioForAutoplay({ audioRef });
+        const loadGeneration = ++audioSourceLoadGenerationRef.current;
+        setIsAudioSourceLoading(true);
+        currentTime.set(0);
 
         const blobUrl = await getAudioFromLocalSong(localSong);
         if (!blobUrl) {
+            if (audioSourceLoadGenerationRef.current === loadGeneration) {
+                setIsAudioSourceLoading(false);
+            }
             setStatusMsg({ type: 'error', text: '无法访问文件，请重新扫描文件夹' });
             return;
         }
@@ -668,6 +678,9 @@ export function useLibraryPlaybackController({
             setAudioSrc(blobUrl);
             // Same blob drives muted <video> under lyrics when the file is video.
             setVideoSrc(localVideoSrc);
+            if (audioSourceLoadGenerationRef.current === loadGeneration) {
+                setIsAudioSourceLoading(false);
+            }
         });
         const audioElement = audioRef.current;
         if (audioElement) {
@@ -759,6 +772,7 @@ export function useLibraryPlaybackController({
         setCurrentLineIndex,
         setCurrentSong,
         setIsLyricsLoading,
+        setIsAudioSourceLoading,
         setLyrics,
         setPlayQueue,
         setPlayerState,
@@ -781,6 +795,10 @@ export function useLibraryPlaybackController({
             setStatusMsg({ type: 'error', text: 'Navidrome not configured' });
             return;
         }
+
+        const loadGeneration = ++audioSourceLoadGenerationRef.current;
+        setIsAudioSourceLoading(true);
+        currentTime.set(0);
 
         const navidromeId = navidromeSong.navidromeData.id;
         const streamUrl = navidromeApi.getStreamUrl(config, navidromeId);
@@ -845,6 +863,9 @@ export function useLibraryPlaybackController({
         flushSync(() => {
             setAudioSrc(streamUrl);
             setVideoSrc(navidromeVideoSrc);
+            if (audioSourceLoadGenerationRef.current === loadGeneration) {
+                setIsAudioSourceLoading(false);
+            }
         });
         const audioElement = audioRef.current;
         if (audioElement) {
@@ -1047,6 +1068,7 @@ export function useLibraryPlaybackController({
         setCurrentLineIndex,
         setCurrentSong,
         setIsLyricsLoading,
+        setIsAudioSourceLoading,
         setLyrics,
         setPlayQueue,
         setPlayerState,
@@ -1081,6 +1103,10 @@ export function useLibraryPlaybackController({
             return;
         }
 
+        const loadGeneration = ++audioSourceLoadGenerationRef.current;
+        setIsAudioSourceLoading(true);
+        currentTime.set(0);
+
         let streamUrl = (track as YtmSong).ytmData?.streamUrl || null;
         let streamExpireAt = (track as YtmSong).ytmData?.streamExpireAt ?? null;
         // Always play through localhost YTM proxy — googlevideo has no CORS for <audio crossOrigin>.
@@ -1091,6 +1117,9 @@ export function useLibraryPlaybackController({
                 streamExpireAt = stream.expireAt ?? null;
             } catch (error) {
                 console.warn('[ytmusic] resolveStream failed', error);
+                if (audioSourceLoadGenerationRef.current === loadGeneration) {
+                    setIsAudioSourceLoading(false);
+                }
                 setStatusMsg({
                     type: 'error',
                     text: error instanceof Error ? error.message : (t('ytmusic.playFailed') || 'Unable to play YouTube Music track'),
@@ -1118,6 +1147,9 @@ export function useLibraryPlaybackController({
             setAudioSrc(streamUrl);
             // YTM is audio-only in this player; clear any prior bilibili/local video stage.
             setVideoSrc(null);
+            if (audioSourceLoadGenerationRef.current === loadGeneration) {
+                setIsAudioSourceLoading(false);
+            }
         });
         const audioElement = audioRef.current;
         if (audioElement) {
@@ -1201,6 +1233,7 @@ export function useLibraryPlaybackController({
         setCurrentLineIndex,
         setCurrentSong,
         setIsLyricsLoading,
+        setIsAudioSourceLoading,
         setLyrics,
         setPlayQueue,
         setPlayerState,

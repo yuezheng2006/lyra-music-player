@@ -28,6 +28,7 @@ import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
 import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
 import { useShallow } from 'zustand/react/shallow';
 import { isLocalPlaybackSong } from '@/utils/appPlaybackGuards';
+import { buildLyricOffsetSongKey, persistLyricTimelineOffsetMs, readLyricTimelineOffsetMs } from '@/utils/playback/lyricOffsetStore';
 import { useAppAudioOutput } from '@/hooks/useAppAudioOutput';
 
 
@@ -51,7 +52,7 @@ export function useAppControllerCore() {
     const [videoSrc, setVideoSrc] = useState<string | null>(null);
     const [currentSong, setCurrentSong] = useState<SongResult | null>(null);
     const [lyrics, setLyricsState] = useState<LyricData | null>(null);
-    const [lyricTimelineOffsetMs, setLyricTimelineOffsetMs] = useState(0);
+    const [lyricTimelineOffsetMs, setLyricTimelineOffsetMsState] = useState(0);
     const [cachedCoverUrl, setCachedCoverUrl] = useState<string | null>(null);
     const [activePlaybackContext, setActivePlaybackContext] = useState<PlaybackContext>('main');
 
@@ -243,6 +244,13 @@ export function useAppControllerCore() {
     // and the audio `onProgress` handler to log buffered percent again.
     // const lastBufferedPercentLogRef = useRef<number | null>(null);
     const [isLyricsLoading, setIsLyricsLoading] = useState(false);
+    // True from song switch commit until the next HTMLAudioElement src is armed.
+    const [isAudioSourceLoading, setIsAudioSourceLoadingState] = useState(false);
+    const isAudioSourceLoadingRef = useRef(false);
+    const setIsAudioSourceLoading = useCallback((loading: boolean) => {
+        isAudioSourceLoadingRef.current = loading;
+        setIsAudioSourceLoadingState(loading);
+    }, []);
     const isNowPlayingControlDisabledRef = useRef(false);
 
     const [replayGainMode, setReplayGainMode] = useState<ReplayGainMode>(() => {
@@ -387,9 +395,16 @@ export function useAppControllerCore() {
     );
     const lyricCurrentTime = useMotionValue(0);
 
+    // Restore the calibrated per-song offset on song change instead of resetting to 0.
+    const lyricOffsetSongKey = buildLyricOffsetSongKey(currentSong);
     useEffect(() => {
-        setLyricTimelineOffsetMs(0);
-    }, [currentSong?.id]);
+        setLyricTimelineOffsetMsState(readLyricTimelineOffsetMs(lyricOffsetSongKey));
+    }, [lyricOffsetSongKey]);
+
+    const setLyricTimelineOffsetMs = useCallback((offsetMs: number) => {
+        setLyricTimelineOffsetMsState(offsetMs);
+        persistLyricTimelineOffsetMs(buildLyricOffsetSongKey(currentSongFullRef.current), offsetMs);
+    }, []);
 
     const effectiveLoopMode: StageLoopMode = loopMode;
 
@@ -692,6 +707,8 @@ export function useAppControllerCore() {
         isFmMode,
         isGeneratingTheme,
         isLyricsLoading,
+        isAudioSourceLoading,
+        isAudioSourceLoadingRef,
         isMuted,
         isMainWindowClickThroughEnabled,
         isNowPlayingControlDisabledRef,
@@ -759,6 +776,7 @@ export function useAppControllerCore() {
         setIsDevDebugOverlayVisible,
         setIsFmMode,
         setIsLyricsLoading,
+        setIsAudioSourceLoading,
         setIsMainWindowClickThroughEnabled,
         setIsPanelOpen,
         setIsPlayerChromeHidden,

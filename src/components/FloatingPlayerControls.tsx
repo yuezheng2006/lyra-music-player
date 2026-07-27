@@ -118,6 +118,8 @@ interface FloatingPlayerControlsProps {
     playerLyricsVisible?: boolean;
     currentView: 'home' | 'player';
     audioSrc: string | null;
+    /** True while the next track URL is still resolving. */
+    isAudioSourceLoading?: boolean;
     canTogglePlay?: boolean;
     canSkipTracks?: boolean;
     lyrics: LyricData | null;
@@ -197,6 +199,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     loopMode,
     playerLyricsVisible = true,
     currentView,
+    isAudioSourceLoading = false,
     canTogglePlay = false,
     canSkipTracks = false,
     lyrics,
@@ -332,6 +335,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         playerState={playerState}
                         currentTime={currentTime}
                         duration={duration}
+                        isAudioSourceLoading={isAudioSourceLoading}
                         loopMode={loopMode}
                         playerLyricsVisible={playerLyricsVisible}
                         canTogglePlay={canTogglePlay}
@@ -436,6 +440,7 @@ type DockedBarProps = {
     playerState: PlayerState;
     currentTime: MotionValue<number>;
     duration: number;
+    isAudioSourceLoading?: boolean;
     loopMode: 'off' | 'all' | 'one';
     playerLyricsVisible: boolean;
     canTogglePlay: boolean;
@@ -510,6 +515,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
     playerState,
     currentTime,
     duration,
+    isAudioSourceLoading = false,
     loopMode,
     playerLyricsVisible,
     canTogglePlay,
@@ -630,6 +636,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
                     secondaryColor={secondaryColor}
                     trackColor={trackColor}
                     disabled={controlsDisabled}
+                    isLoading={isAudioSourceLoading}
                     isDaylight={isDaylight}
                     variant="edge"
                 />
@@ -936,6 +943,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         currentTime={currentTime}
                         duration={duration}
                         isDaylight={isDaylight}
+                        isLoading={isAudioSourceLoading}
                     />
                 </div>
             </div>

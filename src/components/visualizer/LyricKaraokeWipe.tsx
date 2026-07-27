@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { motion, useTransform, type MotionValue } from 'framer-motion';
 import type { GraphemeTiming } from '../../utils/lyrics/graphemeTiming';
 import {
+    KARAOKE_WIPE_RENDER_LEAD_SEC,
     buildKaraokeWipeMaskImage,
     resolveKaraokeWipeFillWidth,
 } from '../../utils/lyrics/karaokeWipeMath';
@@ -63,6 +64,7 @@ const LyricKaraokeWipe: React.FC<LyricKaraokeWipeProps> = ({
             graphemeOffsets,
             graphemeTimings,
             active,
+            renderLeadSec: KARAOKE_WIPE_RENDER_LEAD_SEC,
         })
     ));
 

@@ -43,7 +43,10 @@ const QISHUI_SHORTCUTS: readonly OnlineSearchShortcutGroup[] = [
     },
 ];
 
-/** Popular Bilibili AI-song UP names — tap to run video search. */
+/**
+ * Bilibili shortcuts — only keep queries verified to return real hits.
+ * Hot keywords must not collide with account display labels.
+ */
 const BILIBILI_SHORTCUTS: readonly OnlineSearchShortcutGroup[] = [
     {
         id: 'accounts',
@@ -59,9 +62,34 @@ const BILIBILI_SHORTCUTS: readonly OnlineSearchShortcutGroup[] = [
     },
     {
         id: 'hot',
-        queries: ['AI歌曲', 'AI翻唱', 'AI周杰伦', 'AI邓紫棋', 'AI孙燕姿'],
+        // Probed 2026-07-27: plain "AI歌曲/AI周杰伦/AI邓紫棋" often return 0 hits.
+        queries: [
+            'AI翻唱 周杰伦',
+            'AI翻唱 邓紫棋',
+            'AI孙燕姿',
+            'AI陈奕迅',
+            'SUNO翻唱',
+        ],
     },
 ];
+
+/** Drop empty / duplicate display labels across groups (first occurrence wins). */
+export const dedupeShortcutGroupsByDisplayLabel = (
+    groups: readonly OnlineSearchShortcutGroup[],
+): OnlineSearchShortcutGroup[] => {
+    const seen = new Set<string>();
+    return groups
+        .map((group) => {
+            const queries = group.queries.filter((query) => {
+                const label = stripShortcutDisplayLabel(query).trim().toLowerCase();
+                if (!label || seen.has(label)) return false;
+                seen.add(label);
+                return true;
+            });
+            return { id: group.id, queries };
+        })
+        .filter((group) => group.queries.length > 0);
+};
 
 export const isSearchShortcutProvider = (
     provider?: string | null,
@@ -72,8 +100,8 @@ export const isSearchShortcutProvider = (
 export const getOnlineSearchShortcutGroups = (
     provider: OnlineMusicProviderId | string | null | undefined,
 ): readonly OnlineSearchShortcutGroup[] => {
-    if (provider === 'qishui') return QISHUI_SHORTCUTS;
-    if (provider === 'coco') return COCO_SHORTCUTS;
-    if (provider === 'bilibili') return BILIBILI_SHORTCUTS;
+    if (provider === 'qishui') return dedupeShortcutGroupsByDisplayLabel(QISHUI_SHORTCUTS);
+    if (provider === 'coco') return dedupeShortcutGroupsByDisplayLabel(COCO_SHORTCUTS);
+    if (provider === 'bilibili') return dedupeShortcutGroupsByDisplayLabel(BILIBILI_SHORTCUTS);
     return [];
 };

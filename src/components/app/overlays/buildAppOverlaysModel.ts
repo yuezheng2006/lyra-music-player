@@ -86,6 +86,7 @@ type BuildAppOverlaysModelParams = {
     playQueueLength: number;
     playQueue: SongResult[];
     audioSrc: string | null;
+    isAudioSourceLoading?: boolean;
     canToggleCurrentPlayback: boolean;
     isNowPlayingControlDisabled: boolean;
     lyrics: LyricData | null;
@@ -194,6 +195,7 @@ export const buildAppOverlaysModel = ({
     playQueueLength,
     playQueue,
     audioSrc,
+    isAudioSourceLoading = false,
     canToggleCurrentPlayback,
     isNowPlayingControlDisabled,
     lyrics,
@@ -394,6 +396,7 @@ export const buildAppOverlaysModel = ({
             loopListLabel,
             loopOneLabel,
             playQueue,
+            isAudioSourceLoading,
             onPlayQueueSong: (song, queue) => {
                 return playSong(song, queue, false, { shouldNavigateToPlayer: false });
             },

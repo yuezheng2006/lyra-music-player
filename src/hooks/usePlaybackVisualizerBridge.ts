@@ -51,6 +51,8 @@ type UsePlaybackVisualizerBridgeParams = {
     syncNowPlayingClock: (progressSec: number, durationSec: number, paused: boolean) => void;
     lyricTimelineOffsetMs: number;
     lyricCurrentTime: MotionValue<number>;
+    /** When true, freeze dock/lyric clocks — previous <audio> may still emit timeupdates. */
+    isAudioSourceLoadingRef?: MutableRefObject<boolean>;
     onAtmosphereTick?: (params: {
         analyser: AnalyserNode;
         audioElement: HTMLAudioElement;
@@ -86,6 +88,7 @@ export function usePlaybackVisualizerBridge({
     syncNowPlayingClock,
     lyricTimelineOffsetMs,
     lyricCurrentTime,
+    isAudioSourceLoadingRef,
     onAtmosphereTick,
 }: UsePlaybackVisualizerBridgeParams) {
     const currentLineIndexRef = useRef(-1);
@@ -93,6 +96,10 @@ export function usePlaybackVisualizerBridge({
 
     const updateLoop = useCallback(() => {
         const audioElement = audioRef.current;
+        if (isAudioSourceLoadingRef?.current) {
+            animationFrameRef.current = requestAnimationFrame(updateLoop);
+            return;
+        }
         const isActuallyPlaying = Boolean(audioElement && !audioElement.paused && !audioElement.ended);
         const now = performance.now();
         const dt = lastLoopTimeRef.current == null
@@ -258,6 +265,7 @@ export function usePlaybackVisualizerBridge({
         syncStageLyricsClock,
         lyricTimelineOffsetMs,
         lyricCurrentTime,
+        isAudioSourceLoadingRef,
         onAtmosphereTick,
     ]);
 
@@ -279,6 +287,7 @@ export function usePlaybackVisualizerBridge({
         if (!audioElement) return undefined;
 
         const syncFromAudio = () => {
+            if (isAudioSourceLoadingRef?.current) return;
             if (audioElement.paused || audioElement.ended) return;
             if (activePlaybackContext !== 'main') return;
             if (isNowPlayingStageActive) return;
@@ -308,6 +317,7 @@ export function usePlaybackVisualizerBridge({
         audioSrc,
         audioElementEpoch,
         currentTime,
+        isAudioSourceLoadingRef,
         isNowPlayingStageActive,
         lyrics,
         lyricCurrentTime,

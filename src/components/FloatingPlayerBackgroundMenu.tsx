@@ -25,6 +25,7 @@ import {
     type LyricColorPresetId,
 } from '../utils/theme/lyricColorPresets';
 import { readGpuUnstableFlag } from '../utils/performance/gpuUnstableStorage';
+import { LYRICS_FONT_SCALE_QUICK_OPTIONS } from '../utils/lyrics/lyricsFontScaleMath';
 import GpuBackgroundFallbackNote, {
     shouldShowGpuBackgroundFallbackNote,
 } from './shared/GpuBackgroundFallbackNote';
@@ -58,13 +59,6 @@ type FloatingPlayerBackgroundMenuProps = {
     getVisualizerLabel: (mode: VisualizerMode) => string;
     buildToolButtonClass: (disabled: boolean, active?: boolean) => string;
 };
-
-const FONT_SCALE_QUICK_OPTIONS = [
-    { label: '100%', value: 1 },
-    { label: '115%', value: 1.15 },
-    { label: '125%', value: 1.25 },
-    { label: '140%', value: 1.4 },
-] as const;
 
 const nearScale = (left: number, right: number) => Math.abs(left - right) < 0.02;
 
@@ -318,7 +312,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                         className={`mb-3 grid grid-cols-4 gap-1 rounded-xl p-1 ${isDaylight ? 'bg-black/[0.05]' : 'bg-white/[0.07]'}`}
                         data-testid="floating-player-font-scale-group"
                     >
-                        {FONT_SCALE_QUICK_OPTIONS.map(option => {
+                        {LYRICS_FONT_SCALE_QUICK_OPTIONS.map(option => {
                             const selected = nearScale(lyricsFontScale, option.value);
                             return (
                                 <button

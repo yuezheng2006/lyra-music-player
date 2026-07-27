@@ -81,6 +81,7 @@ type UsePlaybackQueueControllerParams = {
     setCurrentLineIndex: SetState<number>;
     setDuration: SetState<number>;
     setIsLyricsLoading: SetState<boolean>;
+    setIsAudioSourceLoading: (loading: boolean) => void;
     setStatusMsg: SetState<StatusMessage | null>;
     setIsFmMode: SetState<boolean>;
     setPanelTab: SetState<'cover' | 'controls' | 'queue' | 'account' | 'local' | 'navi' | 'onlineLyrics'>;
@@ -187,6 +188,7 @@ export function usePlaybackQueueController({
     setCurrentLineIndex,
     setDuration,
     setIsLyricsLoading,
+    setIsAudioSourceLoading,
     setStatusMsg,
     setIsFmMode,
     setPanelTab,
@@ -614,6 +616,8 @@ export function usePlaybackQueueController({
         })();
         setCachedCoverUrl(seedCover);
         setIsLyricsLoading(true);
+        // Keep dock progress frozen until the new <audio> src is committed.
+        setIsAudioSourceLoading(true);
         setStatusMsg({ type: 'info', text: t('status.loadingSong') });
         setPlayerState(PlayerState.IDLE);
 
@@ -671,7 +675,8 @@ export function usePlaybackQueueController({
                         ...options,
                         unavailableSkipCount: skipCount + 1,
                     });
-                } else {
+                } else if (isLatestPlaybackRequest()) {
+                    setIsAudioSourceLoading(false);
                     const hint = preloadedOnlineAudioResult.diagnostic
                         ? ` (${t('status.copyDiagnosticHint')})`
                         : '';
@@ -698,7 +703,8 @@ export function usePlaybackQueueController({
                     ...options,
                     unavailableSkipCount: skipCount + 1,
                 });
-            } else {
+            } else if (isLatestPlaybackRequest()) {
+                setIsAudioSourceLoading(false);
                 setStatusMsg({
                     type: 'error',
                     text: `${t('status.playbackError')} (${t('status.copyDiagnosticHint')})`,
@@ -733,9 +739,12 @@ export function usePlaybackQueueController({
         const audioResult = preloadedOnlineAudioResult;
         if (!audioResult || audioResult.kind !== 'ok') {
             audioResolveSpan.end({ level: 'error', data: { ok: false, reason: 'not-ok' } });
-            setStatusMsg({ type: 'error', text: t('status.playbackError') });
-            setPlayerState(PlayerState.IDLE);
-            setIsLyricsLoading(false);
+            if (isLatestPlaybackRequest()) {
+                setStatusMsg({ type: 'error', text: t('status.playbackError') });
+                setPlayerState(PlayerState.IDLE);
+                setIsLyricsLoading(false);
+                setIsAudioSourceLoading(false);
+            }
             clearPendingIfCurrent();
             return;
         }
@@ -759,6 +768,7 @@ export function usePlaybackQueueController({
             setAudioSrc(audioResult.audioSrc);
             // Any provider returning videoSrc arms the muted video stage under lyrics.
             setVideoSrc(audioResult.videoSrc || null);
+            setIsAudioSourceLoading(false);
         });
         trackTelemetry('audio.src_set', {
             data: {
@@ -896,6 +906,7 @@ export function usePlaybackQueueController({
         setDuration,
         setIsFmMode,
         setIsLyricsLoading,
+        setIsAudioSourceLoading,
         setIsPanelOpen,
         setLyrics,
         setPanelTab,

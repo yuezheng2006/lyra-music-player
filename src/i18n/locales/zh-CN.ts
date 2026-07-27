@@ -215,6 +215,7 @@ export default {
       "settings-language-system": { "title": "跟随系统语言", "description": "使用浏览器或系统语言" },
       "settings-language-zh-CN": { "title": "切换为中文", "description": "界面使用简体中文" },
       "settings-language-en": { "title": "切换为英文", "description": "界面使用 English" },
+      "toggle-performance-hud": { "title": "切换性能监控面板", "description": "显示或隐藏角落的 FPS / 内存读数" },
       "toggle-ambient-visual": { "title": "切换主视觉氛围", "description": "显示或隐藏封面粒子之上的情绪驱动氛围层" },
       "toggle-interactive-character": { "title": "切换互动角色", "description": "显示或隐藏播放舞台上的狐狸同伴" },
       "toggle-magnetic-pull": { "title": "切换情绪按钮磁吸", "description": "浮动情绪按钮跟随指针轻微偏移" },
@@ -1263,7 +1264,7 @@ export default {
     "replayGainUnavailable": "未检测到 ReplayGain",
     "lyricsSource": "歌词",
     "lyricTimelineOffset": "时间轴偏移",
-    "lyricTimelineOffsetHint": "仅本次播放临时生效。正数让歌词更晚出现。",
+    "lyricTimelineOffsetHint": "按当前歌曲记住。正数让歌词更晚出现。",
     "resetLyricTimelineOffset": "重置时间轴偏移",
     "coverSource": "封面",
     "metadataSource": "元数据",
@@ -1386,28 +1387,17 @@ export default {
     "noLyrics": "无歌词"
   },
   "boot": {
-    "starting": "夜色开始倾听…",
-    "connectingServices": "正在唤起远方的旋律…",
-    "preparingUi": "铺开今夜的舞台…"
+    "starting": "正在启动…",
+    "connectingServices": "正在启动…",
+    "preparingUi": "准备界面…"
   },
   "onboarding": {
-    "badge": "声境首映",
-    "welcomeTitle": "进入声境",
-    "welcomeBody": "Lyra 把你的曲库变成沉浸式歌词舞台。",
-    "connectTitle": "接入你的音乐",
-    "connectBody": "登录或添加曲库，让舞台有歌可演。",
+    "connectTitle": "添加音乐",
     "connectNetease": "网易云",
     "connectQQ": "QQ 音乐",
     "connectLocal": "本地文件",
     "connectNavidrome": "Navidrome",
-    "listenTitle": "踏上舞台",
-    "listenBody": "打开每日推荐，或直接进入播放页。",
-    "openDailyRecommend": "每日推荐",
-    "openPlayer": "进入播放页",
-    "continue": "继续",
-    "back": "返回",
-    "skip": "跳过",
-    "done": "完成",
+    "skip": "稍后再说",
     "reopen": "入门引导"
   },
   "whatsNew": {

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { APP_VERSION } from './helpers/appVersion';
 
 const localImportFixture = {
   rootName: 'Controls Fixture',
@@ -21,7 +22,7 @@ const localImportFixture = {
 };
 
 async function installControlsPanelState(page: Page) {
-  await page.addInitScript((fixture: typeof localImportFixture) => {
+  await page.addInitScript(({ fixture, appVersion }: { fixture: typeof localImportFixture; appVersion: string }) => {
     localStorage.clear();
     localStorage.setItem('i18nextLng', 'zh-CN');
     localStorage.setItem('default_theme_daylight', 'false');
@@ -30,8 +31,8 @@ async function installControlsPanelState(page: Page) {
     localStorage.setItem('last_app_view', 'home');
     localStorage.setItem('open_player_on_launch', 'false');
     localStorage.setItem('lyra_onboarding_completed', 'true');
-    // Match screenshot fixtures: suppress What's New overlay (z-[150]).
-    localStorage.setItem('folia_last_seen_guide_version', '1.0.3');
+    // Suppress What's New overlay (z-[150]); must match the real app version.
+    localStorage.setItem('folia_last_seen_guide_version', appVersion);
     localStorage.setItem('visualizer_mode', 'classic');
     localStorage.setItem('player_volume', '0.41');
     localStorage.setItem('player_loop_mode', 'off');
@@ -231,7 +232,7 @@ async function installControlsPanelState(page: Page) {
       configurable: true,
       value: async () => createDirectoryHandle(fixture),
     });
-  }, localImportFixture);
+  }, { fixture: localImportFixture, appVersion: APP_VERSION });
 }
 
 async function openControlsTab(page: Page) {

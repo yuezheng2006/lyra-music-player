@@ -48,7 +48,21 @@ const GLOBAL_ANGLE_TIME_REGEX = /<(\d{2}):(\d{2})[.:](\d{2,3})>/g;
 const LRC_LINE_TIME_REGEX = /^\[(\d{2}):(\d{2})[.:](\d{2,3})\]/;
 const LEADING_LRC_TAGS_REGEX = /^((?:\[(?:\d{2}):(?:\d{2})[.:](?:\d{2,3})\])+)(.*)$/;
 const LRC_METADATA_REGEX = /^\[(ti|ar):([^\]]*)\]$/i;
+const LRC_OFFSET_TAG_REGEX = /\[offset:\s*([+-]?\d+)\s*\]/i;
 export const INTERLUDE_FULL_TEXT = '......';
+
+/**
+ * Global LRC [offset:±ms] tag in seconds.
+ * LRC convention: positive offset makes lyrics appear earlier, so timestamps shift down.
+ */
+const parseLrcOffsetSec = (content: string): number => {
+    const match = content.match(LRC_OFFSET_TAG_REGEX);
+    return match ? parseInt(match[1], 10) / 1000 : 0;
+};
+
+const shiftLrcTimeSec = (timeSec: number, offsetSec: number): number => (
+    Math.max(0, timeSec - offsetSec)
+);
 
 const buildTimedWords = (text: string, startTime: number, endTime: number): Word[] => {
     const duration = Math.max(endTime - startTime, 0.1);
@@ -345,6 +359,7 @@ const parseTimedTextEntries = (content: string): ParsedTimedEntriesResult => {
     let isSorted = true;
     let lastStartTime = Number.NEGATIVE_INFINITY;
 
+    const offsetSec = parseLrcOffsetSec(content);
     const rawLines = content.replace(/^\uFEFF/, '').split(/\r?\n/);
 
     for (const rawLine of rawLines) {
@@ -385,6 +400,13 @@ const parseTimedTextEntries = (content: string): ParsedTimedEntriesResult => {
             continue;
         }
 
+        if (offsetSec !== 0) {
+            entry.startTime = shiftLrcTimeSec(entry.startTime, offsetSec);
+            if (entry.endTime !== undefined) {
+                entry.endTime = shiftLrcTimeSec(entry.endTime, offsetSec);
+            }
+        }
+
         if (entry.startTime < lastStartTime) {
             isSorted = false;
         }
@@ -408,10 +430,16 @@ export const parseLRC = (
     let rawEntriesSorted = true;
     let lastStartTime = Number.NEGATIVE_INFINITY;
 
+    const offsetSec = parseLrcOffsetSec(lrcString);
+
     for (const rawLine of lrcString.replace(/^\uFEFF/, '').split(/\r?\n/)) {
         const entry = parseSimpleTimedTextEntry(rawLine);
         if (!entry || entry.text.length === 0) {
             continue;
+        }
+
+        if (offsetSec !== 0) {
+            entry.startTime = shiftLrcTimeSec(entry.startTime, offsetSec);
         }
 
         if (entry.startTime < lastStartTime) {
@@ -777,9 +805,26 @@ export const parseEnhancedLRC = (
     const metadata: LrcMetadata = {};
     const drafts: DraftLine[] = [];
     const translationEntries = parseTimedTextEntries(translationString).entries;
+    const offsetSec = parseLrcOffsetSec(lrcString);
     const rawLines = lrcString.replace(/^\uFEFF/, '').split(/\r?\n/);
     let isSorted = true;
     let lastStartTime = Number.NEGATIVE_INFINITY;
+
+    const shiftDraft = (draft: DraftLine): DraftLine => {
+        if (offsetSec === 0) {
+            return draft;
+        }
+        return {
+            ...draft,
+            startTime: shiftLrcTimeSec(draft.startTime, offsetSec),
+            endTime: draft.endTime === undefined ? undefined : shiftLrcTimeSec(draft.endTime, offsetSec),
+            words: draft.words.map(word => ({
+                ...word,
+                startTime: shiftLrcTimeSec(word.startTime, offsetSec),
+                endTime: word.endTime === undefined ? undefined : shiftLrcTimeSec(word.endTime, offsetSec),
+            })),
+        };
+    };
 
     for (const rawLine of rawLines) {
         const line = rawLine.trim();
@@ -795,33 +840,36 @@ export const parseEnhancedLRC = (
         const body = lineTagMatch ? line.slice(lineTagMatch[0].length) : line;
         const angleDraft = maybeBuildPreciseLineDraft(body, GLOBAL_ANGLE_TIME_REGEX, body.includes('<'));
         if (angleDraft) {
-            if (angleDraft.startTime < lastStartTime) {
+            const shifted = shiftDraft(angleDraft);
+            if (shifted.startTime < lastStartTime) {
                 isSorted = false;
             }
-            lastStartTime = angleDraft.startTime;
-            drafts.push(angleDraft);
+            lastStartTime = shifted.startTime;
+            drafts.push(shifted);
             continue;
         }
 
         const bracketDraft = maybeBuildPreciseLineDraft(line, GLOBAL_LRC_TIME_REGEX, line.indexOf('[', 1) !== -1);
         if (bracketDraft) {
-            if (bracketDraft.startTime < lastStartTime) {
+            const shifted = shiftDraft(bracketDraft);
+            if (shifted.startTime < lastStartTime) {
                 isSorted = false;
             }
-            lastStartTime = bracketDraft.startTime;
-            drafts.push(bracketDraft);
+            lastStartTime = shifted.startTime;
+            drafts.push(shifted);
             continue;
         }
 
         const simpleEntry = parseSimpleTimedTextEntry(line);
         if (simpleEntry) {
-            if (simpleEntry.startTime < lastStartTime) {
+            const shiftedStartTime = shiftLrcTimeSec(simpleEntry.startTime, offsetSec);
+            if (shiftedStartTime < lastStartTime) {
                 isSorted = false;
             }
-            lastStartTime = simpleEntry.startTime;
+            lastStartTime = shiftedStartTime;
             drafts.push({
                 words: [],
-                startTime: simpleEntry.startTime,
+                startTime: shiftedStartTime,
                 fullText: simpleEntry.text
             });
         }

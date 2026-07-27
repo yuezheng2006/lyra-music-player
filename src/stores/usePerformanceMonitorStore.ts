@@ -8,10 +8,21 @@ import { parsePerformanceMode } from '../utils/performance/performanceMonitorMat
 // Persisted performance mode + throttled live FPS/memory snapshot.
 
 export const PERFORMANCE_MODE_STORAGE_KEY = 'lyra_performance_mode';
+export const PERFORMANCE_HUD_STORAGE_KEY = 'lyra_performance_hud';
 
 const readStoredMode = (): PerformanceMode => {
   if (typeof window === 'undefined') return 'auto';
   return parsePerformanceMode(localStorage.getItem(PERFORMANCE_MODE_STORAGE_KEY));
+};
+
+// HUD 默认仅在 dev 显示；用户手动切换后以 localStorage 记忆为准。
+const readStoredShowHud = (): boolean => {
+  const devDefault = typeof import.meta !== 'undefined' && import.meta.env?.DEV === true;
+  if (typeof window === 'undefined') return devDefault;
+  const stored = localStorage.getItem(PERFORMANCE_HUD_STORAGE_KEY);
+  if (stored === '1') return true;
+  if (stored === '0') return false;
+  return devDefault;
 };
 
 const deviceBaseline = (): GeometricQualityTier => resolveGeometricQualityProfile().tier;
@@ -58,7 +69,7 @@ export const usePerformanceMonitorStore = create<PerformanceMonitorState>((set, 
   memory: null,
   memoryWarning: false,
   autoDegraded: false,
-  showHud: typeof import.meta !== 'undefined' && import.meta.env?.DEV === true,
+  showHud: readStoredShowHud(),
 
   setMode: (mode) => {
     if (typeof window !== 'undefined') {
@@ -101,7 +112,12 @@ export const usePerformanceMonitorStore = create<PerformanceMonitorState>((set, 
     });
   },
 
-  setShowHud: (show) => set({ showHud: show }),
+  setShowHud: (show) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(PERFORMANCE_HUD_STORAGE_KEY, show ? '1' : '0');
+    }
+    set({ showHud: show });
+  },
 }));
 
 function tierIsBelow(a: GeometricQualityTier, b: GeometricQualityTier): boolean {

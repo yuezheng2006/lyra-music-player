@@ -28,4 +28,17 @@ describe('search loading UI', () => {
         expect(source).toContain('onSubmitSearch(entry.query, { displayQuery: entry.displayQuery })');
         expect(source).toContain('clearRecentSearchHistory(recentSearchChannelKey)');
     });
+
+    it('completes search input interaction states for focus, clear, and Esc', () => {
+        const source = fs.readFileSync(overlayPath, 'utf8');
+
+        expect(source).toContain('data-testid="search-overlay-input"');
+        expect(source).toContain('data-testid="search-overlay-submit"');
+        expect(source).toContain('focus-within:ring-2');
+        expect(source).toContain('searchInputRef.current?.focus');
+        expect(source).toContain('clearSearchInput()');
+        expect(source).toContain('First Esc clears the field');
+        expect(source).toContain('aria-label={searchPlaceholder}');
+        expect(source).toContain('enterKeyHint="search"');
+    });
 });

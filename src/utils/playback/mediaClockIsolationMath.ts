@@ -27,6 +27,18 @@ export const resolveProgressFillPercent = (
 );
 
 /**
+ * While the next track URL is still resolving, keep the dock scrubber at 0% —
+ * the previous HTMLAudioElement may still be emitting timeupdates.
+ */
+export const resolveProgressFillPercentForUi = (
+    currentTimeSec: number,
+    durationSec: number,
+    isAudioSourceLoading = false,
+): number => (
+    isAudioSourceLoading ? 0 : resolveProgressFillPercent(currentTimeSec, durationSec)
+);
+
+/**
  * Visual GPU recovery must never pause audio or clear the media source.
  * Call sites that handle gpu.process_gone should only demote background mode.
  */

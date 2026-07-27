@@ -40,6 +40,7 @@ import {
     type VisualizerMode,
 } from '../../types';
 import { resolveThemeFontStack } from '../../utils/fontStacks';
+import { LYRICS_FONT_SCALE_QUICK_OPTIONS } from '../../utils/lyrics/lyricsFontScaleMath';
 import { colorWithAlpha } from './colorMix';
 import {
     findPreviewPlaceholderLineIndex,
@@ -184,10 +185,7 @@ const PREVIEW_THEME: Theme = {
 };
 
 const FONT_SCALE_OPTIONS: PresetOption<number>[] = [
-    { label: '100%', value: 1 },
-    { label: '115%', value: 1.15 },
-    { label: '125%', value: 1.25 },
-    { label: '140%', value: 1.4 },
+    ...LYRICS_FONT_SCALE_QUICK_OPTIONS,
 ];
 
 const FONT_ROW_HEIGHT = 94;

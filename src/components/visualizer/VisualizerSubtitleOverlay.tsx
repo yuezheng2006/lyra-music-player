@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Line, LyricWordMode, Theme } from '../../types';
-import { resolveThemeTranslationFontStack } from '../../utils/fontStacks';
+import { resolveThemeFontStack, resolveThemeTranslationFontStack } from '../../utils/fontStacks';
 import { resolveUpcomingLyricLines } from '../../utils/lyrics/lyricWordMode';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import { colorWithAlpha } from './colorMix';
@@ -61,8 +61,18 @@ export const resolveVisualizerSubtitleOverlayContent = ({
 /** Floats the translation caption under the main lyric zone instead of pinning it to the dock. */
 const resolveTranslationCaptionBottom = (isPlayerChromeHidden: boolean): string => (
     isPlayerChromeHidden
-        ? 'max(20vh, 120px)'
-        : `max(22vh, calc(var(--app-player-bar-height, 72px) + 108px + env(safe-area-inset-bottom, 0px)))`
+        ? 'max(22vh, 150px)'
+        : `max(24vh, calc(var(--app-player-bar-height, 72px) + 148px + env(safe-area-inset-bottom, 0px)))`
+);
+
+/**
+ * Visualizer 传入的 upcoming 字号普遍偏小（最低 12px），这里统一垫一个可读下限；
+ * 第一行是马上要唱的句子，下限更高以突出层级。
+ */
+export const resolveUpcomingLineFontSize = (upcomingFontSize: string, index: number): string => (
+    index === 0
+        ? `max(${upcomingFontSize}, 1.25rem)`
+        : `max(${upcomingFontSize}, 1.05rem)`
 );
 
 const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
@@ -110,6 +120,8 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
             fontFamily: subtitleFontFamily ?? undefined,
         };
     const translationFontFamily = resolveThemeTranslationFontStack(translationFontTheme);
+    // 待唱行是歌词原文，跟随歌词字体（或字幕独立字体配置），而不是系统默认字体。
+    const upcomingFontFamily = resolveThemeFontStack(translationFontTheme);
     const translationShellClassName = subtitleOverlayBackground
         ? 'mx-auto inline-flex max-w-3xl flex-col items-center gap-2.5 rounded-xl px-3 py-2'
         : 'mx-auto inline-flex max-w-3xl flex-col items-center gap-2.5';
@@ -183,7 +195,8 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
                                         className="font-medium leading-snug transition-all duration-500"
                                         style={{
                                             color: upcomingPresentation.color,
-                                            fontSize: upcomingFontSize,
+                                            fontSize: resolveUpcomingLineFontSize(upcomingFontSize, index),
+                                            fontFamily: upcomingFontFamily,
                                             opacity: upcomingPresentation.lineOpacity * (index === 0 ? 1 : 0.82),
                                             textShadow: upcomingPresentation.textShadow,
                                         }}

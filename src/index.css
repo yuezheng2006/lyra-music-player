@@ -148,6 +148,29 @@ body {
   color: var(--text-primary) !important;
 }
 
+/* Indeterminate scrubber while the next track URL is still resolving. */
+@keyframes progress-audio-loading-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.progress-audio-loading-shimmer {
+  animation: progress-audio-loading-shimmer 1.05s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-audio-loading-shimmer {
+    animation: none;
+    opacity: 0.45;
+    left: 33%;
+    transform: none;
+  }
+}
+
 /* Compact equalizer bars for now-playing affordances (CSS-only, no React frame updates). */
 @keyframes folia-eq-bar {
   0%,
@@ -167,27 +190,6 @@ body {
   align-items: flex-end;
   gap: 2.5px;
   height: 11px;
-}
-
-/* Subtle grain drift for the onboarding backdrop (see OnboardingBackdrop.tsx). Disabled under reduced motion. */
-@keyframes onboarding-grain-drift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-  25% {
-    transform: translate3d(-1.5%, 1%, 0);
-  }
-  50% {
-    transform: translate3d(1%, -1.5%, 0);
-  }
-  75% {
-    transform: translate3d(-1%, -1%, 0);
-  }
-}
-
-.onboarding-grain {
-  animation: onboarding-grain-drift 18s steps(4) infinite;
 }
 
 .folia-eq__bar {

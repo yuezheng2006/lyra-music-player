@@ -54,6 +54,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         isFmMode,
         isLocalSongLiked,
         isLyricsLoading,
+        isAudioSourceLoadingRef,
         isMainWindowClickThroughEnabled,
         isNowPlayingControlDisabledRef,
         isNowPlayingStageActive,
@@ -324,6 +325,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         syncNowPlayingClock,
         lyricTimelineOffsetMs,
         lyricCurrentTime,
+        isAudioSourceLoadingRef,
         onAtmosphereTick: atmosphereEngine.tick,
     });
 
