@@ -148,6 +148,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         claddaghTuning,
         cappellaTuning,
         tiltTuning,
+        pendoloTuning,
         monetBackgroundTuning,
         latentBackgroundTuning,
         interactive3dSceneTuning,
@@ -205,6 +206,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         handleResetCappellaTuning: onResetCappellaTuning,
         handleSetTiltTuning: onTiltTuningChange,
         handleResetTiltTuning: onResetTiltTuning,
+        handleSetPendoloTuning: onPendoloTuningChange,
+        handleResetPendoloTuning: onResetPendoloTuning,
         handleSetMonetBackgroundTuning: onMonetBackgroundTuningChange,
         handleResetMonetBackgroundTuning: onResetMonetBackgroundTuning,
         handleSetLatentBackgroundTuning: onLatentBackgroundTuningChange,
@@ -1569,6 +1572,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         claddaghTuning={claddaghTuning}
                         cappellaTuning={cappellaTuning}
                         tiltTuning={tiltTuning}
+                        pendoloTuning={pendoloTuning}
                         monetBackgroundTuning={monetBackgroundTuning}
                         latentBackgroundTuning={latentBackgroundTuning}
                         interactive3dSceneTuning={interactive3dSceneTuning}
@@ -1611,6 +1615,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         onCappellaTuningChange={onCappellaTuningChange}
                         onResetCappellaTuning={onResetCappellaTuning}
                         onTiltTuningChange={onTiltTuningChange}
+                        onPendoloTuningChange={onPendoloTuningChange}
+                        onResetPendoloTuning={onResetPendoloTuning}
                         onResetTiltTuning={onResetTiltTuning}
                         onMonetBackgroundTuningChange={onMonetBackgroundTuningChange}
                         onResetMonetBackgroundTuning={onResetMonetBackgroundTuning}

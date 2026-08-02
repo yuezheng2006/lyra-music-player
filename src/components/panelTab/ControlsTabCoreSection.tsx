@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import type { Theme, VisualizerBackgroundMode, VisualizerMode, Interactive3dSceneTuning } from '../../types';
 import { getVisualizerModeLabel, VISUALIZER_REGISTRY } from '../visualizer/registry';
 import {
-    applyMineradioVisualPreset,
     getMineradioPresetLabelFallback,
     INTERACTIVE3D_VISUAL_PRESET_OPTIONS,
     normalizeInteractive3dVisualPreset,
@@ -111,11 +110,8 @@ const ControlsTabCoreSection: React.FC<ControlsTabCoreSectionProps> = ({
                                     aria-checked={isActive}
                                     data-testid={`controls-interactive3d-preset-${preset}`}
                                     onClick={() => {
-                                        // Always force interactive3d so UI selection matches the live stage.
-                                        onVisualizerBackgroundModeChange?.('interactive3d');
-                                        onInteractive3dSceneTuningChange(
-                                            applyMineradioVisualPreset(preset, interactive3dSceneTuning),
-                                        );
+                                        // Atomic mode+preset — matches floating menu / avoids desync.
+                                        useSettingsUiStore.getState().handleSelectInteractive3dVisualPreset(preset);
                                     }}
                                     className={`py-1 ${getControlsTabOptionButtonClass(isActive, optionStyles)}`}
                                 >

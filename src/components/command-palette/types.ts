@@ -78,9 +78,17 @@ export type CommandPaletteContext = {
     toggleBottomSubtitleOverlay: () => void;
     showSubtitleTranslation: boolean;
     toggleSubtitleTranslation: () => void;
+    subtitleContentMode: import('../../types').SubtitleContentMode;
+    cycleSubtitleContentMode: () => void;
     toggleDaylightMode: () => void;
     enableSmartAtmosphere: boolean;
     toggleSmartAtmosphere: () => void;
+    /** Open local beat-analysis confirm modal for the current local/blob track. */
+    openLocalBeatAnalysis: () => boolean;
+    /** Global cinema/pulse mode for local offline beat analysis (Settings → Playback). */
+    setLocalBeatAnalysisMode: (mode: 'mr' | 'dj') => void;
+    /** auto = silent background analysis; ask = show confirm dialog on local tracks. */
+    setLocalBeatAnalysisPromptPolicy: (policy: 'auto' | 'ask') => void;
     enableBilibiliVideoBackground: boolean;
     toggleBilibiliVideoBackground: () => void;
     setAppLanguagePreference: (preference: AppLanguagePreference) => Promise<void> | void;

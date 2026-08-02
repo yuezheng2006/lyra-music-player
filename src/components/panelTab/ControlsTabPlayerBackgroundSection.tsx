@@ -13,7 +13,7 @@ import { getControlsTabOptionButtonClass, getControlsTabOptionStyles } from './c
 // src/components/panelTab/ControlsTabPlayerBackgroundSection.tsx
 // Compact player-panel controls for visualizer background mode and 3D presets.
 
-const PLAYER_BACKGROUND_MODES: VisualizerBackgroundMode[] = ['interactive3d', 'common', 'monet', 'latent'];
+const PLAYER_BACKGROUND_MODES: VisualizerBackgroundMode[] = ['interactive3d', 'common', 'monet', 'latent', 'turntable'];
 
 type ControlsTabPlayerBackgroundSectionProps = {
     visualizerMode: VisualizerMode;
@@ -44,6 +44,8 @@ const getBackgroundModeLabel = (
             return t('options.visualizerBackgroundModeUrl') || '嵌入';
         case 'sora':
             return t('options.visualizerBackgroundModeSora') || '空';
+        case 'turntable':
+            return t('options.visualizerBackgroundModeTurntable') || '唱盘';
         default:
             return mode;
     }

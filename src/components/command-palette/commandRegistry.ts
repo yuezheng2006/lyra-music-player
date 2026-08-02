@@ -12,6 +12,7 @@ import { usePerformanceMonitorStore } from '../../stores/usePerformanceMonitorSt
 import { useAmbientVisualStore } from '../../stores/useAmbientVisualStore';
 import { useCharacterStore } from '../../stores/useCharacterStore';
 import { useMagneticPullStore } from '../../stores/useMagneticPullStore';
+import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import type { PerformanceMode } from '../../types/performance';
 
 // src/components/command-palette/commandRegistry.ts
@@ -335,6 +336,14 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createSettingsCommand('settings-appearance', 'Appearance settings', 'Open visual and appearance settings', ['appearance', 'visual settings', '外观', '视觉', 'waiguan', 'shijue', 'wg', 'sj'], 'options', 'appearance'),
     createSettingsCommand('settings-general', 'General settings', 'Open general app preferences', ['general', 'language settings', 'locale', '通用', '语言', 'tongyong', 'yuyan', 'ty', 'yy'], 'options', 'general'),
     createSettingsCommand('settings-playback', 'Playback settings', 'Open playback behavior settings', ['playback settings', 'playback', '播放', '播放设置', 'bofang', 'bofangshezhi', 'bf', 'bfsz'], 'options', 'playback'),
+    createSettingsCommand(
+        'settings-lyrics-resolve-service',
+        'Lyrics resolve service',
+        'Open private lyrics resolve service settings',
+        ['lyrics resolve', 'lyric service', 'private lyrics', '歌词服务', '歌词解析服务', '私有歌词', 'gecifuwu', 'gecijiexifu', 'gcfw'],
+        'options',
+        'playback',
+    ),
     createSettingsCommand('settings-integration', 'Integration settings', 'Open music account, Stage, Now Playing, and provider settings', ['integration', 'stage', 'now playing', 'qq music settings', 'qq music cookie', '集成', '连接', 'QQ音乐', 'QQ音乐登录', 'jicheng', 'lianjie', 'qqyinyue', 'qqdenglu', 'jc', 'lj'], 'options', 'integration'),
     createSettingsCommand('settings-music-provider-plugins', 'Music provider plugins', 'Open open-mode music provider plugin settings', ['music provider', 'provider plugin', 'open mode', 'sidecar plugin', '音乐源插件', '开放模式', '插件源', 'yinyueyuan', 'chajian', 'kaifang', 'cjy'], 'options', 'integration'),
     createSettingsCommand('settings-discord-presence', 'Discord playback status', 'Open Discord Rich Presence settings', ['discord', 'rich presence', 'discord presence', 'playing status', '播放状态', 'discord状态', 'discordzhuangtai', 'bofangzhuangtai', 'dc', 'zt'], 'options', 'integration'),
@@ -483,6 +492,31 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         execute: () => {
             const store = usePerformanceMonitorStore.getState();
             store.setShowHud(!store.showHud);
+            return true;
+        },
+    },
+    {
+        id: 'toggle-speaker-stage',
+        group: 'visualizer',
+        title: 'Toggle speaker stage',
+        description: 'Immersive glass-depth stage with MoodLyric floating lyrics',
+        keywords: [
+            'speaker stage',
+            'speaker',
+            'mood lyric',
+            'floating lyrics',
+            'glass stage',
+            '音箱舞台',
+            '悬浮歌词',
+            '玻璃景深',
+            '音箱',
+            'yinxiangwutai',
+            'xuanfugeici',
+            'yxwt',
+            'xfgc',
+        ],
+        execute: () => {
+            useSettingsUiStore.getState().handleToggleSpeakerStage();
             return true;
         },
     },
@@ -690,6 +724,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         execute: (_input, context) => context.toggleImmersiveFullscreen(),
     },
     createHomeTabCommand('playlist', 'Open playlists', 'Open playlist home tab', ['playlist', 'playlists', '歌单', 'gedan', 'gd']),
+    createHomeTabCommand('daily', 'Open Today Picks', 'Open Today Picks recommendations', ['daily', 'today picks', 'daily mix', 'daily recommend', '今日精选', '每日推荐', '每日', 'meirituijian', 'mrtj']),
     createHomeTabCommand('local', 'Open local music', 'Open local music tab', ['local music', 'local', '本地', '本地音乐', 'bendi', 'bendiyinyue', 'bd', 'bdyy']),
     createHomeTabCommand('albums', 'Open albums', 'Open albums tab', ['albums', 'album', '专辑', 'zhuanji', 'zj']),
     createHomeTabCommand('navidrome', 'Open Navidrome', 'Open Navidrome tab', ['navidrome', 'navi', '服务器', 'fuwuqi', 'fwq']),
@@ -909,22 +944,11 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     {
         id: 'lyric-word-mode-karaoke',
         group: 'visualizer',
-        title: 'Lyrics: Karaoke Word Highlight',
-        description: 'Show upcoming lyrics with current-line word highlight',
-        keywords: ['lyric word mode', 'karaoke', 'sing along', 'k歌', '卡拉ok', 'kalake', 'kg', 'k歌逐字', '预告歌词'],
+        title: 'Lyrics: Karaoke / KTV Wipe',
+        description: 'Preview upcoming lyrics with per-character left-to-right KTV wipe fill',
+        keywords: ['lyric word mode', 'karaoke', 'ktv', 'sing along', 'wipe', '扫光', 'k歌', '卡拉ok', 'kalake', 'kg', 'k歌逐字', '预告歌词', '传统k歌', '传统', 'chuantong', 'ct', '扫字'],
         execute: (_input, context) => {
             context.setLyricWordMode('karaoke');
-            return true;
-        },
-    },
-    {
-        id: 'lyric-word-mode-ktv',
-        group: 'visualizer',
-        title: 'Lyrics: Traditional KTV Wipe',
-        description: 'Traditional left-to-right karaoke wipe fill on supported lyric layouts',
-        keywords: ['lyric word mode', 'ktv', 'traditional karaoke', 'wipe', '扫光', '传统k歌', '传统', 'chuantong', 'ct', '扫字'],
-        execute: (_input, context) => {
-            context.setLyricWordMode('ktv');
             return true;
         },
     },
@@ -1033,6 +1057,103 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         },
     },
     {
+        id: 'open-local-beat-analysis',
+        group: 'visualizer',
+        title: 'Local beat analysis',
+        description: 'Run offline rhythm analysis for the current track using the algorithm from Settings',
+        keywords: [
+            'local beat',
+            'beat analysis',
+            'cinema analysis',
+            'strong beat',
+            '本地节奏',
+            '节奏分析',
+            '电影视角',
+            '强节奏',
+            'bendifenxi',
+            'jiezhou',
+        ],
+        execute: (_input, context) => context.openLocalBeatAnalysis(),
+    },
+    {
+        id: 'settings-local-beat-mode-mr',
+        group: 'playback',
+        title: 'Local beat: Cinema',
+        description: 'Use everyday cinema-style rhythm analysis for local tracks',
+        keywords: [
+            'local beat cinema',
+            'cinema mode',
+            'beat analysis cinema',
+            '本地节奏电影视角',
+            '电影视角',
+            '综合节奏',
+            'bendifenxidianying',
+            'dianyingshijiao',
+        ],
+        execute: (_input, context) => {
+            context.setLocalBeatAnalysisMode('mr');
+            return true;
+        },
+    },
+    {
+        id: 'settings-local-beat-mode-dj',
+        group: 'playback',
+        title: 'Local beat: Strong beat',
+        description: 'Use low-band lock analysis for long mixes and kick-heavy tracks',
+        keywords: [
+            'local beat pulse',
+            'strong beat',
+            'beat analysis pulse',
+            '本地节奏强节奏',
+            '强节奏',
+            '长混音',
+            '低频锁拍',
+            'bendifenxiqiang',
+            'qiangjiezou',
+        ],
+        execute: (_input, context) => {
+            context.setLocalBeatAnalysisMode('dj');
+            return true;
+        },
+    },
+    {
+        id: 'settings-local-beat-prompt-auto',
+        group: 'playback',
+        title: 'Local beat: Analyze in background',
+        description: 'Silently analyze local tracks while playing — no dialog',
+        keywords: [
+            'local beat auto',
+            'silent beat analysis',
+            'no beat dialog',
+            '后台节奏分析',
+            '静默分析',
+            '不弹窗',
+            'houtaifenxi',
+        ],
+        execute: (_input, context) => {
+            context.setLocalBeatAnalysisPromptPolicy('auto');
+            return true;
+        },
+    },
+    {
+        id: 'settings-local-beat-prompt-ask',
+        group: 'playback',
+        title: 'Local beat: Ask before analyzing',
+        description: 'Show a confirmation dialog before analyzing local tracks',
+        keywords: [
+            'local beat ask',
+            'prompt beat analysis',
+            '播放时询问',
+            '节奏弹窗',
+            '询问分析',
+            'xunwenfenxi',
+        ],
+        execute: (_input, context) => {
+            context.setLocalBeatAnalysisPromptPolicy('ask');
+            return true;
+        },
+    },
+    {
         id: 'settings-toggle-bilibili-video-background',
         group: 'playback',
         title: 'Toggle Bilibili video background',
@@ -1084,6 +1205,32 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         keywords: ['sora', 'background sora', 'starry sky', 'star', '星空', '空', 'kong', 'xingkong', 'xk', '背景切换到 空', '背景切换到空', '背景切换到Sora', '背景切换到星空'],
         execute: (_input, context) => {
             context.setVisualizerBackgroundMode('sora');
+            return true;
+        },
+    },
+    {
+        id: 'background-turntable',
+        group: 'visualizer',
+        title: 'Background: Turntable',
+        description: 'Switch background to vinyl turntable disc',
+        keywords: [
+            'turntable',
+            'vinyl',
+            'record',
+            'disc',
+            '唱盘',
+            '唱片',
+            '黑胶',
+            'changpan',
+            'changpian',
+            'heijiao',
+            'cp',
+            '背景切换到唱盘',
+            '背景切换到 唱盘',
+            '背景切换到唱片',
+        ],
+        execute: (_input, context) => {
+            context.setVisualizerBackgroundMode('turntable');
             return true;
         },
     },
@@ -1171,6 +1318,29 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         ],
         execute: (_input, context) => {
             context.toggleSubtitleTranslation();
+            return true;
+        },
+    },
+    {
+        id: 'settings-cycle-subtitle-content-mode',
+        group: 'settings',
+        title: 'Cycle subtitle content mode',
+        description: 'Switch between translation and romanization subtitle modes',
+        keywords: [
+            'subtitle translation',
+            'subtitle romanization',
+            'romanized lyrics',
+            'romaji',
+            '副字幕',
+            '罗马音',
+            '罗马字',
+            '字幕翻译',
+            'luomayin',
+            'lmy',
+            'fzm',
+        ],
+        execute: (_input, context) => {
+            context.cycleSubtitleContentMode();
             return true;
         },
     },

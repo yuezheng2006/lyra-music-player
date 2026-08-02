@@ -28,6 +28,12 @@ import { downloadSongToUserDirectory } from '@/services/songDownloadService';
 import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
 import { hasPlayableHtmlMediaSource } from '@/utils/audioAutoPlayGuard';
 import { resolveVolumeStepAdjustment } from '@/utils/playback/adjustVolumeByStepMath';
+import { getAtmosphereSongKey } from '@/hooks/atmosphere/getAtmosphereSongKey';
+import {
+    isLocalBeatPromptSource,
+    resolveLocalBeatPersistKey,
+} from '@/utils/atmosphere/localBeatMapCache';
+import { useLocalBeatAnalysisStore } from '@/stores/useLocalBeatAnalysisStore';
 import type {
     AppControllerCoreResult,
     AppControllerLibraryResult,
@@ -83,6 +89,7 @@ export function useAppControllerCommandLayer(
         handleToggleDaylight,
         handleToggleHidePlayerTranslationSubtitle,
         handleToggleShowSubtitleTranslation,
+        handleSetSubtitleContentMode,
         hidePlayerTranslationSubtitle,
         homeLayoutStyle,
         isDaylight,
@@ -138,6 +145,7 @@ export function useAppControllerCommandLayer(
         showNaviLyricMatchModal,
         showOnlineLyricMatchModal,
         showSubtitleTranslation,
+        subtitleContentMode,
         shuffleQueue,
         songThemeAutoGenerateEnabled,
         songThemeAutoSwitchEnabled,
@@ -187,6 +195,33 @@ export function useAppControllerCommandLayer(
     const toggleSmartAtmosphere = useCallback(() => {
         handleToggleEnableSmartAtmosphere(!enableSmartAtmosphere);
     }, [enableSmartAtmosphere, handleToggleEnableSmartAtmosphere]);
+
+    const openLocalBeatAnalysis = useCallback(() => {
+        if (!currentSong || !audioSrc) return false;
+        const songKey = getAtmosphereSongKey(currentSong.id, audioSrc);
+        const persistKey = resolveLocalBeatPersistKey(songKey);
+        if (!songKey || !persistKey) return false;
+        if (!isLocalBeatPromptSource(audioSrc) && !/^https?:\/\//i.test(audioSrc)) return false;
+        const mode = useSettingsUiStore.getState().localBeatAnalysisMode === 'dj' ? 'dj' : 'mr';
+        useLocalBeatAnalysisStore.getState().openPrompt(
+            {
+                persistKey,
+                songKey,
+                audioSrc,
+                trackTitle: currentSong.name || '',
+            },
+            mode,
+        );
+        return true;
+    }, [audioSrc, currentSong]);
+
+    const setLocalBeatAnalysisMode = useCallback((mode: 'mr' | 'dj') => {
+        useSettingsUiStore.getState().handleSetLocalBeatAnalysisMode(mode);
+    }, []);
+
+    const setLocalBeatAnalysisPromptPolicy = useCallback((policy: 'auto' | 'ask') => {
+        useSettingsUiStore.getState().handleSetLocalBeatAnalysisPromptPolicy(policy);
+    }, []);
 
     const toggleBilibiliVideoBackground = useCallback(() => {
         handleToggleEnableBilibiliVideoBackground(!enableBilibiliVideoBackground);
@@ -412,10 +447,20 @@ export function useAppControllerCommandLayer(
         toggleSubtitleTranslation: () => {
             handleToggleShowSubtitleTranslation(!showSubtitleTranslation);
         },
+        subtitleContentMode,
+        cycleSubtitleContentMode: () => {
+            const next = subtitleContentMode === 'translation'
+                ? 'romanization'
+                : 'translation';
+            handleSetSubtitleContentMode(next);
+        },
         enablePlayerPageNativeBlur,
         toggleDaylightMode,
         enableSmartAtmosphere,
         toggleSmartAtmosphere,
+        openLocalBeatAnalysis,
+        setLocalBeatAnalysisMode,
+        setLocalBeatAnalysisPromptPolicy,
         enableBilibiliVideoBackground,
         toggleBilibiliVideoBackground,
         setAppLanguagePreference: handleSetAppLanguagePreference,
@@ -462,6 +507,7 @@ export function useAppControllerCommandLayer(
         handleSetLyricEffectPackId,
         handleToggleHidePlayerTranslationSubtitle,
         handleToggleShowSubtitleTranslation,
+        handleSetSubtitleContentMode,
         hidePlayerTranslationSubtitle,
         isGeneratingTheme,
         isPlayerChromeHidden,
@@ -470,6 +516,7 @@ export function useAppControllerCommandLayer(
         navigateDirectHome,
         navigateToPlayer,
         navigateToSearch,
+        openLocalBeatAnalysis,
         openSettings,
         openThemeQuickEditor,
         playQueue,
@@ -484,8 +531,12 @@ export function useAppControllerCommandLayer(
         setIsShortcutsCheatSheetOpen,
         setIsOnboardingOpen,
         setIsWhatsNewOpen,
+        setLocalBeatAnalysisMode,
+        setLocalBeatAnalysisPromptPolicy,
         setPanelTab,
         showSubtitleTranslation,
+        subtitleContentMode,
+        handleSetSubtitleContentMode,
         shuffleQueue,
         submitSearch,
         t,

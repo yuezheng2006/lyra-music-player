@@ -38,9 +38,14 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     toggleBottomSubtitleOverlay: vi.fn(),
     showSubtitleTranslation: true,
     toggleSubtitleTranslation: vi.fn(),
+    subtitleContentMode: 'translation',
+    cycleSubtitleContentMode: vi.fn(),
     toggleDaylightMode: vi.fn(),
     enableSmartAtmosphere: true,
     toggleSmartAtmosphere: vi.fn(),
+    openLocalBeatAnalysis: vi.fn(() => true),
+    setLocalBeatAnalysisMode: vi.fn(),
+    setLocalBeatAnalysisPromptPolicy: vi.fn(),
     setAppLanguagePreference: vi.fn(async () => undefined),
     enableAlternativeLyricSources: false,
     runAutoMatchBestLyric: vi.fn(async () => true),
@@ -196,10 +201,15 @@ describe('command palette registry', () => {
         matchBottomSubtitleOverlay.command.execute(matchBottomSubtitleOverlay.input, context);
         expect(context.toggleBottomSubtitleOverlay).toHaveBeenCalled();
 
-        const [matchSubtitleTranslation] = getCommandPaletteMatches('字幕翻译');
+        const [matchSubtitleTranslation] = getCommandPaletteMatches('隐藏翻译');
         expect(matchSubtitleTranslation.command.id).toBe('settings-toggle-subtitle-translation');
         matchSubtitleTranslation.command.execute(matchSubtitleTranslation.input, context);
         expect(context.toggleSubtitleTranslation).toHaveBeenCalled();
+
+        const [matchSubtitleContentMode] = getCommandPaletteMatches('罗马音');
+        expect(matchSubtitleContentMode.command.id).toBe('settings-cycle-subtitle-content-mode');
+        matchSubtitleContentMode.command.execute(matchSubtitleContentMode.input, context);
+        expect(context.cycleSubtitleContentMode).toHaveBeenCalled();
     });
 
     it('executes the current song AI theme generation command', () => {
@@ -415,10 +425,10 @@ describe('command palette registry', () => {
         matchKaraokeWord.command.execute('', context);
         expect(context.setLyricWordMode).toHaveBeenCalledWith('karaoke');
 
-        const [matchKtvWord] = getCommandPaletteMatches('传统k歌');
-        expect(matchKtvWord.command.id).toBe('lyric-word-mode-ktv');
-        matchKtvWord.command.execute('', context);
-        expect(context.setLyricWordMode).toHaveBeenCalledWith('ktv');
+        const [matchKtvWipe] = getCommandPaletteMatches('传统k歌');
+        expect(matchKtvWipe.command.id).toBe('lyric-word-mode-karaoke');
+        matchKtvWipe.command.execute('', context);
+        expect(context.setLyricWordMode).toHaveBeenCalledWith('karaoke');
 
         const [matchFullOverlay] = getCommandPaletteMatches('全屏叠色');
         expect(matchFullOverlay.command.id).toBe('background-monet-full-overlay');
@@ -446,5 +456,10 @@ describe('command palette registry', () => {
         expect(matchLatentPixel.command.id).toBe('background-latent-dithering');
         matchLatentPixel.command.execute('', context);
         expect(context.setLatentBackgroundTuning).toHaveBeenCalledWith({ displayMode: 'dithering' });
+
+        const [matchTurntable] = getCommandPaletteMatches('唱盘');
+        expect(matchTurntable.command.id).toBe('background-turntable');
+        matchTurntable.command.execute('', context);
+        expect(context.setVisualizerBackgroundMode).toHaveBeenCalledWith('turntable');
     });
 });

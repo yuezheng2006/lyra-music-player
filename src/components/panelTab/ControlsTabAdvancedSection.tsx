@@ -11,7 +11,7 @@ import LyricColorPicker from '../shared/LyricColorPicker';
 import LyricVisualEffectSelector from '../shared/LyricVisualEffectSelector';
 import LyricEffectPackSelector from '../shared/LyricEffectPackSelector';
 import ControlsTabThemeSection from './ControlsTabThemeSection';
-import { getControlsTabOptionButtonClass, type ControlsTabOptionStyles } from './controlsTabOptionStyles';
+import { type ControlsTabOptionStyles } from './controlsTabOptionStyles';
 
 // src/components/panelTab/ControlsTabAdvancedSection.tsx
 // Controls tab: collapsed disclosure holding all advanced lyric + theme controls.
@@ -92,12 +92,13 @@ const ControlsTabAdvancedSection: React.FC<ControlsTabAdvancedSectionProps> = ({
                     <LyricWordModeToggle
                         value={lyricWordMode}
                         onChange={handleSetLyricWordMode}
+                        isDaylight={isDaylight}
                         sectionLabel={t('ui.lyricWordMode') || '逐字'}
                         defaultLabel={t('ui.lyricWordModeDefault') || '默认'}
-                        karaokeLabel={t('ui.lyricWordModeKaraoke') || t('ui.visualizerKaraoke') || 'K歌'}
-                        ktvLabel={t('ui.lyricWordModeKtv') || '传统'}
+                        karaokeLabel={t('ui.lyricWordModeKaraoke') || t('ui.visualizerKaraoke') || 'KTV'}
+                        defaultHint={t('ui.lyricWordModeDefaultHint') || '整词点亮'}
+                        karaokeHint={t('ui.lyricWordModeKaraokeHint') || '逐字按时长从 0% 填到 100%'}
                         wellClassName={wellBg}
-                        buttonClassName={selected => getControlsTabOptionButtonClass(selected, optionStyles)}
                         testIdPrefix="controls-lyric-word-mode"
                     />
 
