@@ -22,6 +22,7 @@ import {
     writeRecentSearchHistory,
     type RecentSearchHistory,
 } from '../utils/search/recentSearchHistory';
+import { prefetchQishuiSearchAudio } from '../utils/search/prefetchQishuiSearchAudio';
 import { startTelemetrySpan, trackTelemetry } from '../utils/telemetry/trackTelemetry';
 
 const LAST_HOME_VIEW_TAB_KEY = 'last_home_view_tab';
@@ -673,6 +674,7 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
                         hasMore: progress.hasMore,
                         offset: progress.nextOffset,
                     });
+                    prefetchQishuiSearchAudio(effectiveProviders, progress.results, controller.signal);
                 },
             );
             if (requestEpoch !== searchRequestEpoch) {
@@ -695,6 +697,7 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
                 searchErrorCode: null,
                 searchDiagnostic: null,
             });
+            prefetchQishuiSearchAudio(effectiveProviders, result.results, controller.signal);
             if (activeSearchController === controller) {
                 activeSearchController = null;
                 activeSearchSignature = '';

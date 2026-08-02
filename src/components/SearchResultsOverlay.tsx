@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Play, Plus, Search } from 'lucide-react';
+import { ArrowLeft, ListPlus, Play, Plus, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Theme, UnifiedSong } from '../types';
 import { formatSongName } from '../utils/songNameFormatter';
@@ -45,7 +45,7 @@ const toSafeRemoteUrl = (url: string | null | undefined): string | undefined => 
 };
 
 const formatDuration = (durationMs?: number) => {
-    if (!durationMs || durationMs <= 0) return '--:--';
+    if (!durationMs || durationMs <= 0) return null;
     const totalSeconds = Math.floor(durationMs / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
@@ -58,8 +58,10 @@ interface SearchResultsOverlayProps {
     onClose: () => void;
     onSubmitSearch: (query?: string, options?: { displayQuery?: string }) => void;
     onLoadMore: () => void;
-    onPlayTrack: (track: UnifiedSong) => void;
+    onPlayTrack: (track: UnifiedSong, queue?: UnifiedSong[]) => void;
+    onPlayAll: (tracks: UnifiedSong[]) => void;
     onAddSongToQueue: (track: UnifiedSong) => void;
+    onAddAllToQueue: (tracks: UnifiedSong[]) => void;
     onSelectArtist: (track: UnifiedSong, artistName: string, artistId?: number) => void;
     onSelectAlbum: (track: UnifiedSong, albumName: string, albumId?: number) => void;
     onDownloadSong?: (song: UnifiedSong) => void | Promise<boolean>;
@@ -113,7 +115,9 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
     onSubmitSearch,
     onLoadMore,
     onPlayTrack,
+    onPlayAll,
     onAddSongToQueue,
+    onAddAllToQueue,
     onSelectArtist,
     onSelectAlbum,
 }) => {
@@ -255,6 +259,7 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
             ? searchResults.filter(track => (track.musicProvider || activeProvider) === activeProvider)
             : searchResults);
     const visibleResultCount = visibleResults?.length ?? 0;
+    const playableResults = (visibleResults || []).filter(track => !isSongMarkedUnavailable(track));
 
     const handleShortcutSelect = (query: string) => {
         onSubmitSearch(query, { displayQuery: stripShortcutDisplayLabel(query) });
@@ -334,8 +339,7 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                     autoComplete="off"
                                     spellCheck={false}
                                     enterKeyHint="search"
-                                    disabled={isSearching}
-                                    className="w-full bg-transparent rounded-xl min-h-11 py-2.5 pl-10 pr-10 text-sm focus:outline-none disabled:opacity-70"
+                                    className="w-full bg-transparent rounded-xl min-h-11 py-2.5 pl-10 pr-10 text-sm focus:outline-none"
                                 />
                                 <SearchClearButton
                                     visible={Boolean(searchQuery.trim()) || Boolean(visibleResults?.length) || Boolean(searchError)}
@@ -350,7 +354,7 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
 
                             <button
                                 type="submit"
-                                disabled={isSearching || !searchQuery.trim()}
+                                disabled={!searchQuery.trim()}
                                 aria-busy={isSearching}
                                 data-testid="search-overlay-submit"
                                 className={`inline-flex items-center justify-center gap-2 rounded-xl min-h-11 px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 touch-manipulation active:scale-[0.98] ${accentBtn}`}
@@ -364,7 +368,6 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                         <RecentSearchChips
                             entries={recentSearchEntries}
                             isDaylight={isDaylight}
-                            disabled={isSearching}
                             label={t('search.recent')}
                             clearLabel={t('search.clearRecent')}
                             onSelect={(entry) => {
@@ -398,11 +401,33 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                             label={t('localMusic.searching', '搜索中...')}
                                         />
                                     ) : null}
-                                    <div className="mb-3 flex items-baseline justify-between gap-3">
-                                        <h2 className={`text-sm font-semibold ${headingText}`}>{t('search.resultsTitle')}</h2>
-                                        <p className={`text-xs ${mutedText}`}>
-                                            {t('search.resultsCount', { count: visibleResultCount })}
-                                        </p>
+                                    <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+                                        <div className="min-w-0">
+                                            <h2 className={`text-sm font-semibold ${headingText}`}>{t('search.resultsTitle')}</h2>
+                                            <p className={`text-xs ${mutedText}`}>
+                                                {t('search.resultsCount', { count: visibleResultCount })}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => onPlayAll(playableResults)}
+                                                disabled={playableResults.length === 0}
+                                                className={`inline-flex items-center justify-center gap-1.5 min-h-9 px-3.5 rounded-full text-xs font-semibold transition-colors touch-manipulation disabled:opacity-40 ${isDaylight ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
+                                            >
+                                                <Play size={13} className="ml-0.5" fill="currentColor" />
+                                                {t('playlist.playAll')}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => onAddAllToQueue(playableResults)}
+                                                disabled={playableResults.length === 0}
+                                                className={`inline-flex items-center justify-center gap-1.5 min-h-9 px-3.5 rounded-full text-xs font-medium transition-colors touch-manipulation disabled:opacity-40 ${isDaylight ? 'border border-black/10 bg-white hover:bg-slate-50 text-slate-700' : 'border border-white/10 bg-white/5 hover:bg-white/10 text-white/80'}`}
+                                            >
+                                                <ListPlus size={14} />
+                                                {t('search.addAllToQueue')}
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="space-y-1.5">
@@ -413,18 +438,19 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                 || track.artists?.map(artist => artist.name).filter(Boolean).join(', ')
                                                 || t('player.unknownArtist', '未知歌手');
                                             const albumName = track.al?.name || track.album?.name || t('player.unknownAlbum', '未知专辑');
+                                            const durationLabel = formatDuration(track.dt || track.duration);
 
                                             return (
                                                 <div
                                                     key={`${track.id}-${index}`}
                                                     role="button"
                                                     tabIndex={isUnavailable ? -1 : 0}
-                                                    onClick={() => !isUnavailable && onPlayTrack(track)}
+                                                    onClick={() => !isUnavailable && onPlayTrack(track, playableResults)}
                                                     onKeyDown={(event) => {
                                                         if (isUnavailable) return;
                                                         if (event.key === 'Enter' || event.key === ' ') {
                                                             event.preventDefault();
-                                                            onPlayTrack(track);
+                                                            onPlayTrack(track, playableResults);
                                                         }
                                                     }}
                                                     className={`rounded-xl border px-3 py-2.5 md:px-3.5 transition-colors ${rowBg} ${isUnavailable ? 'opacity-55' : 'cursor-pointer'}`}
@@ -485,16 +511,18 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                         </div>
 
                                                         <div className="flex items-center gap-1 shrink-0">
-                                                            <span className={`hidden sm:inline text-[11px] font-mono tabular-nums mr-1 ${mutedText}`}>
-                                                                {formatDuration(track.dt || track.duration)}
-                                                            </span>
+                                                            {durationLabel ? (
+                                                                <span className={`hidden sm:inline text-[11px] font-mono tabular-nums mr-1 ${mutedText}`}>
+                                                                    {durationLabel}
+                                                                </span>
+                                                            ) : null}
                                                             {!isUnavailable && (
                                                                 <>
                                                                     <button
                                                                         type="button"
                                                                         onClick={(event) => {
                                                                             event.stopPropagation();
-                                                                            onPlayTrack(track);
+                                                                            onPlayTrack(track, playableResults);
                                                                         }}
                                                                         className={`inline-flex items-center justify-center min-h-10 min-w-10 rounded-full transition-colors touch-manipulation active:scale-95 ${isDaylight ? 'bg-[#eff6ff] text-[#2563eb] hover:bg-[#dbeafe]' : 'bg-[#1d4ed8]/20 text-[#93c5fd] hover:bg-[#1d4ed8]/30'}`}
                                                                         title={t('search.play')}
@@ -549,7 +577,6 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                 <SearchShortcutChips
                                     groups={shortcutGroups}
                                     isDaylight={isDaylight}
-                                    disabled={isSearching}
                                     hintKey={
                                         activeProvider === 'bilibili'
                                             ? 'search.bilibiliShortcutsHint'
