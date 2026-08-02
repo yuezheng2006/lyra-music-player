@@ -24,10 +24,12 @@ export const usePlaylistShelfRuntime = ({
     paused = false,
 }: UsePlaylistShelfRuntimeOptions) => {
     const runtimeRef = useRef<PlaylistShelfRuntime | null>(null);
+    const pausedRef = useRef(paused);
     const selectedIndexRef = useRef(0);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [detailItem, setDetailItem] = useState<PlaylistShelfItem | null>(null);
     const signature = buildPlaylistShelfSignature(items);
+    pausedRef.current = paused;
 
     const syncSelection = useCallback((index: number) => {
         selectedIndexRef.current = index;
@@ -39,9 +41,10 @@ export const usePlaylistShelfRuntime = ({
         setDetailItem(null);
     }, []);
 
+    // Mount once for shelf visibility — do not dispose when paused (particle yield / soft pause).
     useEffect(() => {
         const container = containerRef.current;
-        if (!container || paused || !shouldRenderPlaylistShelf(sceneTuning)) return undefined;
+        if (!container || !shouldRenderPlaylistShelf(sceneTuning)) return undefined;
 
         const runtime = new PlaylistShelfRuntime();
         runtimeRef.current = runtime;
@@ -64,7 +67,7 @@ export const usePlaylistShelfRuntime = ({
         observer.observe(container);
 
         const handleWheel = (event: WheelEvent) => {
-            if (items.length === 0) return;
+            if (pausedRef.current || items.length === 0) return;
             event.preventDefault();
             const nextIndex = advanceShelfSelection(
                 selectedIndexRef.current,
@@ -87,7 +90,6 @@ export const usePlaylistShelfRuntime = ({
     }, [
         containerRef,
         items,
-        paused,
         sceneTuning?.shelfMode,
         sceneTuning?.shelfPresence,
         sceneTuning?.shelfCameraMode,

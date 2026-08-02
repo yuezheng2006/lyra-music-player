@@ -13,7 +13,7 @@ describe('Mineradio WebGL migration', () => {
         expect(resolveWebGLPresetIndex('quantumCube')).toBe(0);
         expect(resolveWebGLPresetIndex('aurora')).toBe(0);
         expect(resolveWebGLPresetIndex('mineradioTunnel')).toBe(7);
-        expect(resolveWebGLPresetIndex('mineradioOrbit')).toBe(8);
+        expect(resolveWebGLPresetIndex('mineradioOrbit')).toBe(0);
         expect(resolveWebGLPresetIndex('mineradioVoid')).toBe(0);
         expect(resolveWebGLPresetIndex('mineradioVinyl')).toBe(0);
         expect(resolveWebGLPresetIndex('mineradioGalaxy')).toBe(11);

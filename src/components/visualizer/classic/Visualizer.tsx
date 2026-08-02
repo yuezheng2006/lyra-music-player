@@ -5,7 +5,6 @@ import { DEFAULT_CLASSIC_TUNING, Line, Theme, Word as WordType, AudioBands, type
 import { getLineRenderEndTime, getLineRenderHints } from '../../../utils/lyrics/renderHints';
 import { useVisualizerRuntime } from '../runtime';
 import { type VisualizerSharedProps } from '../definition';
-import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { buildPostLyricLayoutUnits, buildDisplayWordsFromLayoutUnits } from '../../../utils/lyrics/cjkSemanticLayout';
 import { buildWordGraphemeTimings } from '../../../utils/lyrics/graphemeTiming';
@@ -777,12 +776,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
     const lyricInk = useMemo(() => resolveLyricInkFills(theme), [theme]);
 
     return (
-        <VisualizerShell
-            theme={theme}
-            audioPower={audioPower}
-            audioBands={audioBands}
-            sharedProps={props}
-        >
+        <>
             {/* Center the capped stage in the shell — a short relative block would otherwise stick to the top. */}
             <div
                 className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
@@ -888,7 +882,7 @@ const Visualizer: React.FC<VisualizerProps> = (props) => {
                 hideTranslationSubtitle={hideTranslationSubtitle}
                 showSubtitleTranslation={showSubtitleTranslation}
             />
-        </VisualizerShell>
+        </>
     );
 };
 

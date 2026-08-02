@@ -30,7 +30,6 @@ describe('interactive3d settings matrix', () => {
         expect(INTERACTIVE3D_VISUAL_PRESET_OPTIONS).toEqual([
             'emily',
             'mineradioTunnel',
-            'mineradioOrbit',
             'mineradioGalaxy',
         ]);
     });
@@ -49,11 +48,11 @@ describe('interactive3d settings matrix', () => {
     });
 
     it('treats bass ripples as emily-only even when stored tuning enables them', () => {
-        const orbit = applyMineradioVisualPreset('mineradioOrbit');
+        const tunnel = applyMineradioVisualPreset('mineradioTunnel');
         const inactive = resolveInactiveInteractive3dSceneEffects({
             ...baseInput,
             interactive3dSceneTuning: resolveStoredInteractive3dSceneTuning({
-                ...orbit,
+                ...tunnel,
                 enableBassRipples: true,
             }),
         });

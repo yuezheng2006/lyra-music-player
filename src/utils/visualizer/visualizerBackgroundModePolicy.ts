@@ -14,6 +14,7 @@ export const resolveGpuCrashVisualizerFallback = (
         || current === 'monet'
         || current === 'url'
         || current === 'sora'
+        || current === 'turntable'
     ) {
         return 'common';
     }

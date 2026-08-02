@@ -49,7 +49,7 @@ type BuildAppOverlaysModelParams = {
     closeSearchView: () => void;
     handleSearchOverlaySubmit: (query?: string, options?: { displayQuery?: string }) => Promise<void>;
     handleSearchLoadMore: () => Promise<void>;
-    handleSearchResultPlay: (track: UnifiedSong) => void;
+    handleSearchResultPlay: (track: UnifiedSong, queue?: UnifiedSong[]) => void;
     handleSearchResultArtistSelect: (track: UnifiedSong, artistName: string, artistId?: number) => void;
     handleSearchResultAlbumSelect: (track: UnifiedSong, albumName: string, albumId?: number) => void;
     onDownloadSong?: (song: SongResult) => void | Promise<boolean>;
@@ -270,7 +270,11 @@ export const buildAppOverlaysModel = ({
             onSubmitSearch: handleSearchOverlaySubmit,
             onLoadMore: handleSearchLoadMore,
             onPlayTrack: handleSearchResultPlay,
+            onPlayAll: songs => {
+                playOnlineQueueFromStart(songs, { shouldNavigateToPlayer: true });
+            },
             onAddSongToQueue: addNeteaseSongToQueue,
+            onAddAllToQueue: addNeteaseSongsToQueue,
             onSelectArtist: handleSearchResultArtistSelect,
             onSelectAlbum: handleSearchResultAlbumSelect,
             onDownloadSong,

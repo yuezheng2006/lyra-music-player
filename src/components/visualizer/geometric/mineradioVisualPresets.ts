@@ -10,7 +10,6 @@ import {
 export const INTERACTIVE3D_VISUAL_PRESET_OPTIONS: MineradioVisualPresetId[] = [
     'emily',
     'mineradioTunnel',
-    'mineradioOrbit',
     'mineradioGalaxy',
 ];
 
@@ -32,7 +31,8 @@ const LEGACY_VISUAL_PRESET_MAP: Record<string, MineradioVisualPresetId> = {
     aurora: 'emily',
     mineradioVoid: 'emily',
     nebula: 'mineradioGalaxy',
-    orbit: 'mineradioOrbit',
+    orbit: 'emily',
+    mineradioOrbit: 'emily',
     wallpaper: 'mineradioGalaxy',
     requiem: 'emily',
     custom: 'emily',
@@ -149,15 +149,15 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableFloatingParticles: false,
         enableCoverParticles: true,
     },
-    /** Mineradio 原版星球：球面封面采样和缓慢自转。 */
+    /** @deprecated 星球已下线，归一到封面点云。 */
     mineradioOrbit: {
-        visualPreset: 'mineradioOrbit',
-        rhythmIntensity: 0.98,
-        cinemaShake: 0.42,
-        bloomStrength: 0.92,
+        visualPreset: 'emily',
+        rhythmIntensity: 0.85,
+        cinemaShake: 0.5,
+        bloomStrength: 0.62,
         enableBackgroundWash: true,
-        enableOrbitField: false,
-        enableBassRipples: false,
+        enableOrbitField: true,
+        enableBassRipples: true,
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
@@ -240,13 +240,12 @@ export const getMineradioPresetLabelFallback = (preset: MineradioVisualPresetId)
         case 'mineradioVinyl':
         case 'aurora':
         case 'mineradioVoid':
+        case 'mineradioOrbit':
             return '封面';
         case 'nebula':
             return '星云';
         case 'mineradioTunnel':
             return '滚筒';
-        case 'mineradioOrbit':
-            return '星球';
         case 'mineradioGalaxy':
             return '星河';
         default:

@@ -4,7 +4,7 @@ import { ChevronLeft, Loader2, Search, Sparkles, Upload, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next';
 import { List, useListRef } from 'react-window';
 import VisualizerRenderer from './VisualizerRenderer';
-import { resolveVisualizerBackgroundMode } from '../../stores/useSettingsUiStore';
+import { resolveVisualizerBackgroundMode, useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import {
     DEFAULT_CADENZA_TUNING,
     DEFAULT_CAPPELLA_TUNING,
@@ -16,6 +16,7 @@ import {
     DEFAULT_MONET_BACKGROUND_TUNING,
     DEFAULT_MONET_TUNING,
     DEFAULT_PARTITA_TUNING,
+    DEFAULT_PENDOLO_TUNING,
     DEFAULT_TILT_TUNING,
     type AudioBands,
     type CappellaAvatarImage,
@@ -32,6 +33,7 @@ import {
     type MonetPortraitImage,
     type MonetTuning,
     type PartitaTuning,
+    type PendoloTuning,
     type StoredCustomLyricsFont,
     type Theme,
     type TiltTuning,
@@ -70,6 +72,9 @@ interface VisPlaygroundProps {
     coverUrl?: string | null;
     hideTranslationSubtitle?: boolean;
     showSubtitleTranslation?: boolean;
+    subtitleContentMode?: import('../../types').SubtitleContentMode;
+    showHarmonySubtitle?: boolean;
+    harmonySubtitleBackground?: boolean;
     subtitleOverlayBackground?: boolean;
     subtitleFontInheritsLyrics?: boolean;
     subtitleFontStyle?: Theme['fontStyle'];
@@ -81,6 +86,7 @@ interface VisPlaygroundProps {
     claddaghTuning?: CladdaghTuning;
     cappellaTuning?: CappellaTuning;
     tiltTuning?: TiltTuning;
+    pendoloTuning?: PendoloTuning;
     monetBackgroundTuning?: MonetBackgroundTuning;
     latentBackgroundTuning?: LatentBackgroundTuning;
     interactive3dSceneTuning?: Interactive3dSceneTuning;
@@ -110,6 +116,9 @@ interface VisPlaygroundProps {
     onResetVisualizerBackgroundMode?: () => void;
     onToggleHideTranslationSubtitle?: (hidden: boolean) => void;
     onToggleShowSubtitleTranslation?: (shown: boolean) => void;
+    onSubtitleContentModeChange?: (mode: import('../../types').SubtitleContentMode) => void;
+    onToggleShowHarmonySubtitle?: (enabled: boolean) => void;
+    onToggleHarmonySubtitleBackground?: (enabled: boolean) => void;
     onToggleSubtitleOverlayBackground?: (enabled: boolean) => void;
     onSubtitleFontInheritsLyricsChange?: (inherits: boolean) => void;
     onSubtitleFontStyleChange?: (fontStyle: Theme['fontStyle']) => void;
@@ -126,6 +135,8 @@ interface VisPlaygroundProps {
     onResetCappellaTuning?: () => void;
     onTiltTuningChange?: (patch: Partial<TiltTuning>) => void;
     onResetTiltTuning?: () => void;
+    onPendoloTuningChange?: (patch: Partial<PendoloTuning>) => void;
+    onResetPendoloTuning?: () => void;
     onMonetBackgroundTuningChange?: (patch: Partial<MonetBackgroundTuning>) => void;
     onResetMonetBackgroundTuning?: () => void;
     onLatentBackgroundTuningChange?: (patch: Partial<LatentBackgroundTuning>) => void;
@@ -288,6 +299,9 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     coverUrl = null,
     hideTranslationSubtitle = false,
     showSubtitleTranslation = true,
+    subtitleContentMode: subtitleContentModeProp,
+    showHarmonySubtitle: showHarmonySubtitleProp,
+    harmonySubtitleBackground: harmonySubtitleBackgroundProp,
     subtitleOverlayBackground = false,
     subtitleFontInheritsLyrics = true,
     subtitleFontStyle = 'sans',
@@ -299,6 +313,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     claddaghTuning = DEFAULT_CLADDAGH_TUNING,
     cappellaTuning = DEFAULT_CAPPELLA_TUNING,
     tiltTuning = DEFAULT_TILT_TUNING,
+    pendoloTuning = DEFAULT_PENDOLO_TUNING,
     monetBackgroundTuning = DEFAULT_MONET_BACKGROUND_TUNING,
     latentBackgroundTuning = DEFAULT_LATENT_BACKGROUND_TUNING,
     interactive3dSceneTuning = DEFAULT_INTERACTIVE3D_SCENE_TUNING,
@@ -326,6 +341,9 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     onResetVisualizerBackgroundMode,
     onToggleHideTranslationSubtitle,
     onToggleShowSubtitleTranslation,
+    onSubtitleContentModeChange,
+    onToggleShowHarmonySubtitle,
+    onToggleHarmonySubtitleBackground,
     onToggleSubtitleOverlayBackground,
     onSubtitleFontInheritsLyricsChange,
     onSubtitleFontStyleChange,
@@ -342,6 +360,8 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     onResetCappellaTuning,
     onTiltTuningChange,
     onResetTiltTuning,
+    onPendoloTuningChange,
+    onResetPendoloTuning,
     onMonetBackgroundTuningChange,
     onResetMonetBackgroundTuning,
     onLatentBackgroundTuningChange,
@@ -371,6 +391,18 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     onClose,
 }) => {
     const { t } = useTranslation();
+    const storeSubtitleContentMode = useSettingsUiStore(state => state.subtitleContentMode);
+    const storeShowHarmonySubtitle = useSettingsUiStore(state => state.showHarmonySubtitle);
+    const storeHarmonySubtitleBackground = useSettingsUiStore(state => state.harmonySubtitleBackground);
+    const storeHandleSetSubtitleContentMode = useSettingsUiStore(state => state.handleSetSubtitleContentMode);
+    const storeHandleToggleShowHarmonySubtitle = useSettingsUiStore(state => state.handleToggleShowHarmonySubtitle);
+    const storeHandleToggleHarmonySubtitleBackground = useSettingsUiStore(state => state.handleToggleHarmonySubtitleBackground);
+    const subtitleContentMode = subtitleContentModeProp ?? storeSubtitleContentMode;
+    const showHarmonySubtitle = showHarmonySubtitleProp ?? storeShowHarmonySubtitle;
+    const harmonySubtitleBackground = harmonySubtitleBackgroundProp ?? storeHarmonySubtitleBackground;
+    const handleSubtitleContentModeChange = onSubtitleContentModeChange ?? storeHandleSetSubtitleContentMode;
+    const handleToggleShowHarmonySubtitle = onToggleShowHarmonySubtitle ?? storeHandleToggleShowHarmonySubtitle;
+    const handleToggleHarmonySubtitleBackground = onToggleHarmonySubtitleBackground ?? storeHandleToggleHarmonySubtitleBackground;
     const currentTime = useMotionValue(0);
     const audioPower = useMotionValue(0.24);
     const bass = useMotionValue(0.18);
@@ -396,6 +428,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     const [draftFumeTuning, setDraftFumeTuning] = useState<FumeTuning>(fumeTuning);
     const [draftCladdaghTuning, setDraftCladdaghTuning] = useState<CladdaghTuning>(claddaghTuning);
     const [draftTiltTuning, setDraftTiltTuning] = useState<TiltTuning>(tiltTuning);
+    const [draftPendoloTuning, setDraftPendoloTuning] = useState<PendoloTuning>(pendoloTuning);
     const [draftMonetBackgroundTuning, setDraftMonetBackgroundTuning] = useState<MonetBackgroundTuning>(monetBackgroundTuning);
     const [draftLatentBackgroundTuning, setDraftLatentBackgroundTuning] = useState<LatentBackgroundTuning>(latentBackgroundTuning);
     const [draftInteractive3dSceneTuning, setDraftInteractive3dSceneTuning] = useState<Interactive3dSceneTuning>(interactive3dSceneTuning);
@@ -488,6 +521,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     useEffect(() => { setDraftFumeTuning(fumeTuning); }, [fumeTuning]);
     useEffect(() => { setDraftCladdaghTuning(claddaghTuning); }, [claddaghTuning]);
     useEffect(() => { setDraftTiltTuning(tiltTuning); }, [tiltTuning]);
+    useEffect(() => { setDraftPendoloTuning(pendoloTuning); }, [pendoloTuning]);
     useEffect(() => { setDraftMonetBackgroundTuning(monetBackgroundTuning); }, [monetBackgroundTuning]);
     useEffect(() => { setDraftLatentBackgroundTuning(latentBackgroundTuning); }, [latentBackgroundTuning]);
     useEffect(() => { setDraftInteractive3dSceneTuning(interactive3dSceneTuning); }, [interactive3dSceneTuning]);
@@ -569,6 +603,8 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
             resetCladdaghTuning: onResetCladdaghTuning,
             resetCappellaTuning: onResetCappellaTuning,
             resetTiltTuning: onResetTiltTuning,
+            resetPendoloTuning: onResetPendoloTuning,
+            setDraftPendoloTuning,
             resetMonetTuning: onResetMonetTuning,
             setDraftFumeTuning,
             setDraftCladdaghTuning,
@@ -809,6 +845,15 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
         }
     };
 
+    const handlePendoloTuningDraft = (patch: Partial<PendoloTuning>) => {
+        setDraftPendoloTuning(prev => ({ ...prev, ...patch }));
+        if (!isDraggingSlider.current) {
+            onPendoloTuningChange?.(patch);
+        } else {
+            pendingCommitRef.current = () => onPendoloTuningChange?.(patch);
+        }
+    };
+
     const handleMonetBackgroundTuningDraft = (patch: Partial<MonetBackgroundTuning>) => {
         const next = { ...draftMonetBackgroundTuning, ...patch };
         setDraftMonetBackgroundTuning(next);
@@ -969,6 +1014,9 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                                 subtitleOverlayOpacity={draftSubtitleOverlayOpacity}
                                 hideTranslationSubtitle={hideTranslationSubtitle}
                                 showSubtitleTranslation={showSubtitleTranslation}
+                                subtitleContentMode={subtitleContentMode}
+                                showHarmonySubtitle={showHarmonySubtitle}
+                                harmonySubtitleBackground={harmonySubtitleBackground}
                                 classicTuning={draftClassicTuning}
                                 cadenzaTuning={cadenzaTuning}
                                 partitaTuning={resolvedPartitaTuning}
@@ -976,6 +1024,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                                 claddaghTuning={resolvedCladdaghTuning}
                                 cappellaTuning={cappellaTuning}
                                 tiltTuning={draftTiltTuning}
+                                pendoloTuning={draftPendoloTuning}
                                 monetBackgroundTuning={draftMonetBackgroundTuning}
                                 latentBackgroundTuning={draftLatentBackgroundTuning}
                                 interactive3dSceneTuning={draftInteractive3dSceneTuning}
@@ -1052,6 +1101,8 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                         isLoadingCappellaCustomAvatarPack={isLoadingCappellaCustomAvatarPack}
                         tiltTuning={draftTiltTuning}
                         onTiltTuningChange={handleTiltTuningDraft}
+                        pendoloTuning={draftPendoloTuning}
+                        onPendoloTuningChange={handlePendoloTuningDraft}
                         monetBackgroundTuning={draftMonetBackgroundTuning}
                         onMonetBackgroundTuningChange={handleMonetBackgroundTuningDraft}
                         latentBackgroundTuning={draftLatentBackgroundTuning}
@@ -1080,6 +1131,12 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                         onToggleHideTranslationSubtitle={onToggleHideTranslationSubtitle}
                         showSubtitleTranslation={showSubtitleTranslation}
                         onToggleShowSubtitleTranslation={onToggleShowSubtitleTranslation}
+                        subtitleContentMode={subtitleContentMode}
+                        onSubtitleContentModeChange={handleSubtitleContentModeChange}
+                        showHarmonySubtitle={showHarmonySubtitle}
+                        onToggleShowHarmonySubtitle={handleToggleShowHarmonySubtitle}
+                        harmonySubtitleBackground={harmonySubtitleBackground}
+                        onToggleHarmonySubtitleBackground={handleToggleHarmonySubtitleBackground}
                         subtitleOverlayBackground={subtitleOverlayBackground}
                         onToggleSubtitleOverlayBackground={onToggleSubtitleOverlayBackground}
                         subtitleFontInheritsLyrics={subtitleFontInheritsLyrics}

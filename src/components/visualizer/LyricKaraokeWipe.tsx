@@ -13,7 +13,8 @@ import {
 } from '../../utils/lyricVisualEffects';
 
 // src/components/visualizer/LyricKaraokeWipe.tsx
-// Traditional LTR karaoke wipe fill for DOM lyric modes (classic / partita). Monet keeps its private sweep.
+// Traditional LTR karaoke wipe fill for DOM lyric modes (classic / partita).
+// Fill width follows grapheme timings so each character wipes in progressively.
 
 export type LyricKaraokeWipeProps = {
     text: string;
@@ -94,7 +95,8 @@ const LyricKaraokeWipe: React.FC<LyricKaraokeWipeProps> = ({
                     {text}
                 </motion.span>
             ) : null}
-            <span className="relative block" style={{ color: baseColor }}>
+            {/* Dim underlay — keep contrast high so 0%→100% grapheme wipe reads clearly. */}
+            <span className="relative block" style={{ color: baseColor, opacity: 0.34 }}>
                 {text}
             </span>
             {active ? (

@@ -1,17 +1,22 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useMemo } from 'react';
 import { AnimatePresence, motion, MotionValue } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft } from 'lucide-react';
 import { AudioBands, Theme, type UrlBackgroundItem } from '../../types';
 import { resolveThemeFontStack } from '../../utils/fontStacks';
+import { resolveSpeakerParticleYield } from '../../utils/visualizer/speakerStageShellMath';
+import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
+import { usePerformanceMonitorStore } from '../../stores/usePerformanceMonitorStore';
 import { type VisualizerSharedProps } from './definition';
 import FluidBackground from './FluidBackground';
 import GeometricInteractiveBackground from './geometric/GeometricInteractiveBackground';
 import LatentBackground from './backgrounds/latent/LatentBackground';
 import MonetBackgroundLayer from './backgrounds/MonetBackgroundLayer';
+import TurntableBackgroundLayer from './backgrounds/turntable/TurntableBackgroundLayer';
 import UrlBackgroundLayer from './backgrounds/UrlBackgroundLayer';
 import SoraBackground from './SoraBackground';
 import LyricRhythmStage from './shared/LyricRhythmStage';
+import SpeakerStageShell from './speaker/SpeakerStageShell';
 import { shouldApplyLyricRhythmToVisualizerMode, shouldEnableInteractive3dWebGlLyrics } from './resolveInteractive3dFumeLayering';
 
 // Shared outer shell for all visualizers.
@@ -46,6 +51,7 @@ type VisualizerShellSharedProps = Pick<
     | 'enableBeatBursts'
     | 'staticMode'
     | 'paused'
+    | 'particlesYielded'
     | 'onBack'
     | 'isPlayerChromeHidden'
     | 'playlistShelfItems'
@@ -107,6 +113,13 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     className = '',
 }, ref) => {
     const { t } = useTranslation();
+    const playbackPresentation = useSettingsUiStore(state => state.playbackPresentation);
+    const speakerActive = playbackPresentation === 'speaker';
+    const performanceMode = usePerformanceMonitorStore(state => state.mode);
+    const isElectronRenderer = typeof window !== 'undefined' && Boolean(window.electron);
+    const reducedMotion = typeof window !== 'undefined'
+        && typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const resolvedCoverUrl = sharedProps?.coverUrl ?? coverUrl;
     const resolvedShellCanvasBackground = sharedProps?.shellCanvasBackground ?? shellCanvasBackground;
     const resolvedIsDaylight = sharedProps?.isDaylight ?? true;
@@ -120,7 +133,21 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const resolvedBackgroundMode = sharedProps?.resolvedVisualizerBackgroundMode ?? 'interactive3d';
     const resolvedMonetBackgroundTuning = sharedProps?.monetBackgroundTuning;
     const resolvedLatentBackgroundTuning = sharedProps?.latentBackgroundTuning;
-    const resolvedInteractive3dSceneTuning = sharedProps?.interactive3dSceneTuning;
+    const baseInteractive3dSceneTuning = sharedProps?.interactive3dSceneTuning;
+    const resolvedInteractive3dSceneTuning = useMemo(() => {
+        if (!baseInteractive3dSceneTuning) return baseInteractive3dSceneTuning;
+        const yieldTuning = resolveSpeakerParticleYield({
+            speakerActive,
+            bloomStrength: baseInteractive3dSceneTuning.bloomStrength,
+            rhythmIntensity: baseInteractive3dSceneTuning.rhythmIntensity,
+        });
+        if (!speakerActive) return baseInteractive3dSceneTuning;
+        return {
+            ...baseInteractive3dSceneTuning,
+            bloomStrength: yieldTuning.bloomStrength,
+            rhythmIntensity: yieldTuning.rhythmIntensity,
+        };
+    }, [baseInteractive3dSceneTuning, speakerActive]);
     const resolvedIsPreviewMode = sharedProps?.isPreviewMode ?? false;
     const resolvedMonetBackgroundImage = sharedProps?.monetBackgroundImage;
     const resolvedUrlBackgroundList = sharedProps?.urlBackgroundList ?? urlBackgroundList;
@@ -136,6 +163,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const resolvedEnableBeatBursts = sharedProps?.enableBeatBursts ?? sharedProps?.enableAtmosphereLayer ?? true;
     const resolvedStaticMode = sharedProps?.staticMode ?? staticMode;
     const resolvedPaused = sharedProps?.paused ?? paused;
+    const resolvedParticlesYielded = Boolean(sharedProps?.particlesYielded);
     const resolvedOnBack = sharedProps?.onBack ?? onBack;
     const hideBackButton = Boolean(sharedProps?.isPlayerChromeHidden);
     const resolvedVisualizerMode = sharedProps?.visualizerMode;
@@ -143,7 +171,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const resolvedLines = sharedProps?.lines ?? [];
     const resolvedShowText = sharedProps?.showText ?? true;
     const resolvedAudioPlaying = sharedProps?.audioPlaying ?? !resolvedPaused;
-    const resolvedImmersiveLyrics = sharedProps?.immersiveLyrics ?? false;
+    const resolvedImmersiveLyrics = speakerActive || (sharedProps?.immersiveLyrics ?? false);
     const shouldRenderCommonBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'common';
     const shouldRenderInteractive3dBackground = !resolvedTransparentBackground
         && resolvedBackgroundMode === 'interactive3d'
@@ -153,6 +181,9 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const shouldRenderLatentBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'latent';
     const shouldRenderUrlBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'url';
     const shouldRenderSoraBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'sora';
+    const shouldRenderTurntableBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'turntable';
+    // Turntable floats on the same stage wash as Common (no wooden table fill).
+    const shouldRenderStageWash = shouldRenderCommonBackground || shouldRenderTurntableBackground;
     const latentStaticMode = resolvedStaticMode
         || Boolean(resolvedLatentBackgroundTuning?.dynamicOnlyInPlayer && resolvedIsPreviewMode);
     // Left-column rail modes must not rhythm-scale — scale > 1 clips lyrics past the stage edge.
@@ -210,13 +241,15 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 )}
             </AnimatePresence>
 
-            {shouldRenderCommonBackground && (
+            {shouldRenderStageWash && (
                 <div
                     className="absolute inset-0 z-0 transition-all duration-1000"
                     style={{
                         backgroundColor: theme.backgroundColor,
                         backgroundImage: resolvedShellCanvasBackground,
-                        opacity: resolvedUseCoverColorBg ? resolvedBackgroundOpacity : 1,
+                        opacity: shouldRenderCommonBackground && resolvedUseCoverColorBg
+                            ? resolvedBackgroundOpacity
+                            : 1,
                     }}
                 />
             )}
@@ -261,6 +294,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                             seed={resolvedSeed}
                             disableVignette={resolvedDisableVignette}
                             paused={resolvedPaused}
+                            particlesYielded={resolvedParticlesYielded}
                             coverUrl={resolvedCoverUrl}
                             playlistShelfItems={resolvedPlaylistShelfItems}
                             visualizerMode={resolvedVisualizerMode}
@@ -314,12 +348,34 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 </div>
             )}
 
+            {shouldRenderTurntableBackground && (
+                <div className="absolute inset-0 z-[1]">
+                    <TurntableBackgroundLayer
+                        coverUrl={resolvedCoverUrl}
+                        paused={resolvedPaused}
+                        playing={resolvedAudioPlaying}
+                        currentTime={resolvedCurrentTime}
+                    />
+                </div>
+            )}
+
+            <SpeakerStageShell
+                theme={theme}
+                speakerActive={speakerActive}
+                isElectron={isElectronRenderer}
+                qualityTier={performanceMode === 'lite' ? 'lite' : (resolvedInteractive3dSceneTuning?.qualityTier ?? 'auto')}
+                reducedMotion={reducedMotion}
+            />
+
             <div
                 className="relative z-30 isolate w-full h-full overflow-hidden pointer-events-none"
                 data-lyric-stage={shouldRenderSoraBackground ? 'sora' : undefined}
+                data-speaker-stage={speakerActive ? 'true' : undefined}
                 style={shouldRenderSoraBackground ? {
                     // Extra lift so DOM lyrics read as the hero of the starfield stage.
                     filter: 'drop-shadow(0 0 18px rgba(0,0,0,0.55)) drop-shadow(0 2px 10px rgba(0,0,0,0.4))',
+                } : speakerActive ? {
+                    filter: 'drop-shadow(0 0 28px rgba(0,0,0,0.62)) drop-shadow(0 8px 22px rgba(0,0,0,0.4))',
                 } : undefined}
             >
                 {shouldApplyLyricRhythm ? (

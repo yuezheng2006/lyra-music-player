@@ -6,6 +6,7 @@ import { DAYLIGHT_THEME, DEFAULT_THEME, PLAYER_CHROME_HIDDEN_STORAGE_KEY } from 
 import { resolveVisualizerBackgroundMode } from '@/hooks/useAppPreferences';
 import { useElectronDesktopLyrics } from '@/hooks/useElectronDesktopLyrics';
 import { useObsBrowserSourcePublisher } from '@/hooks/useObsBrowserSourcePublisher';
+import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
 import type {
     AppControllerCoreResult,
     AppControllerLibraryResult,
@@ -88,6 +89,13 @@ export function useAppControllerPresentationShell(
         visualizerOpacity,
     } = core;
 
+    const playbackPresentation = useSettingsUiStore(state => state.playbackPresentation);
+    const speakerStageActive = playbackPresentation === 'speaker';
+    const effectiveAutoHidePlayerChrome = autoHidePlayerChrome || speakerStageActive;
+    const speakerDesktopLyricsFontScale = speakerStageActive
+        ? Math.min(2.4, lyricsFontScale * 1.28)
+        : lyricsFontScale;
+
     const usesCustomWindowChrome = isElectronWindow;
     const isPlayerPageTransparent = transparentPlayerBackground || enablePlayerPageNativeBlur;
     const shouldUseTransparentAppBackground = currentView === 'player' && isPlayerPageTransparent;
@@ -126,7 +134,7 @@ export function useAppControllerPresentationShell(
         playerState,
         currentSong,
         theme: visualizerTheme,
-        lyricsFontScale,
+        lyricsFontScale: speakerDesktopLyricsFontScale,
         lyricsCustomFontFamily,
     });
 
@@ -140,10 +148,22 @@ export function useAppControllerPresentationShell(
         localStorage.setItem(PLAYER_CHROME_HIDDEN_STORAGE_KEY, String(isPlayerChromeHidden));
     }, [isPlayerChromeHidden]);
 
+    // Speaker stage enters chrome-hidden immersive immediately on the player view.
+    useEffect(() => {
+        if (!speakerStageActive || currentView !== 'player') return;
+        setIsPlayerChromeHidden(true);
+        setIsFloatingDockRevealed(false);
+    }, [
+        currentView,
+        setIsFloatingDockRevealed,
+        setIsPlayerChromeHidden,
+        speakerStageActive,
+    ]);
+
     // Idle hide: in immersive fullscreen only toggle the floating dock; never clear chrome hide.
     // Dock popovers (3D / lyric style, quality) pause idle hide so the menu does not vanish mid-use.
     useEffect(() => {
-        if (!autoHidePlayerChrome) return;
+        if (!effectiveAutoHidePlayerChrome) return;
 
         let timeoutId: number;
         let isThrottled = false;
@@ -209,7 +229,7 @@ export function useAppControllerPresentationShell(
             window.removeEventListener('mousemove', throttledMouseMove);
         };
     }, [
-        autoHidePlayerChrome,
+        effectiveAutoHidePlayerChrome,
         currentView,
         isFloatingDockPopoverOpen,
         isPlayerChromeHidden,

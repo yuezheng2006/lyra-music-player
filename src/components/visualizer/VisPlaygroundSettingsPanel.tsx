@@ -110,7 +110,9 @@ interface VisPlaygroundSettingsPanelProps {
     onClearCappellaCustomAvatar?: () => Promise<void> | void;
     isLoadingCappellaCustomAvatarPack?: boolean;
     tiltTuning: TiltTuning;
+    pendoloTuning: import('../../types').PendoloTuning;
     onTiltTuningChange?: (patch: Partial<TiltTuning>) => void;
+    onPendoloTuningChange?: (patch: Partial<import('../../types').PendoloTuning>) => void;
     monetBackgroundTuning?: MonetBackgroundTuning;
     onMonetBackgroundTuningChange?: (patch: Partial<MonetBackgroundTuning>) => void;
     latentBackgroundTuning?: LatentBackgroundTuning;
@@ -139,6 +141,12 @@ interface VisPlaygroundSettingsPanelProps {
     onToggleHideTranslationSubtitle?: (hidden: boolean) => void;
     showSubtitleTranslation: boolean;
     onToggleShowSubtitleTranslation?: (shown: boolean) => void;
+    subtitleContentMode: import('../../types').SubtitleContentMode;
+    onSubtitleContentModeChange?: (mode: import('../../types').SubtitleContentMode) => void;
+    showHarmonySubtitle: boolean;
+    onToggleShowHarmonySubtitle?: (enabled: boolean) => void;
+    harmonySubtitleBackground: boolean;
+    onToggleHarmonySubtitleBackground?: (enabled: boolean) => void;
     subtitleOverlayBackground: boolean;
     onToggleSubtitleOverlayBackground?: (enabled: boolean) => void;
     subtitleFontInheritsLyrics: boolean;
@@ -352,6 +360,8 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
         isLoadingCappellaCustomAvatarPack = false,
         tiltTuning,
         onTiltTuningChange,
+        pendoloTuning,
+        onPendoloTuningChange,
         monetBackgroundTuning = DEFAULT_MONET_BACKGROUND_TUNING,
         onMonetBackgroundTuningChange,
         latentBackgroundTuning = DEFAULT_LATENT_BACKGROUND_TUNING,
@@ -379,6 +389,12 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
         onToggleHideTranslationSubtitle,
         showSubtitleTranslation,
         onToggleShowSubtitleTranslation,
+        subtitleContentMode,
+        onSubtitleContentModeChange,
+        showHarmonySubtitle,
+        onToggleShowHarmonySubtitle,
+        harmonySubtitleBackground,
+        onToggleHarmonySubtitleBackground,
         subtitleOverlayBackground,
         onToggleSubtitleOverlayBackground,
         subtitleFontInheritsLyrics,
@@ -406,6 +422,7 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
         { value: 'latent', label: t('options.visualizerBackgroundModeLatent') || 'Latent' },
         { value: 'url', label: t('options.visualizerBackgroundModeUrl') || 'URL' },
         { value: 'sora', label: t('options.visualizerBackgroundModeSora') || '空' },
+        { value: 'turntable', label: t('options.visualizerBackgroundModeTurntable') || '唱盘' },
     ]), [t]);
     const subtitleFontStyleOptions = useMemo<PresetOption<Theme['fontStyle']>[]>(() => ([
         { value: 'sans', label: t('options.fontSans') || 'Sans' },
@@ -698,6 +715,8 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
                             isCappellaCustomAvatarLoading: isLoadingCappellaCustomAvatarPack,
                             tiltTuning,
                             onTiltTuningChange,
+                            pendoloTuning,
+                            onPendoloTuningChange,
                             monetTuning,
                             onMonetTuningChange,
                             monetPortraitImage,
@@ -744,6 +763,37 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
                             onChange={onToggleShowSubtitleTranslation}
                             theme={theme}
                             icon={Languages}
+                        />
+
+                        <PresetGroup
+                            label={t('options.subtitleContentMode') || '副字幕内容'}
+                            value={subtitleContentMode}
+                            options={[
+                                { label: t('options.subtitleContentTranslation') || '翻译', value: 'translation' as const },
+                                { label: t('options.subtitleContentRomanization') || '罗马音', value: 'romanization' as const },
+                                { label: t('options.subtitleContentNone') || '不显示', value: 'none' as const },
+                            ]}
+                            onChange={(mode) => onSubtitleContentModeChange?.(mode)}
+                            isDaylight={isDaylight}
+                            theme={theme}
+                        />
+
+                        <ToggleRow
+                            label={t('options.showHarmonySubtitle') || '显示和声字幕'}
+                            description={t('options.showHarmonySubtitleDesc') || '显示或隐藏顶部的和声歌词层。'}
+                            checked={showHarmonySubtitle}
+                            onChange={onToggleShowHarmonySubtitle}
+                            theme={theme}
+                            icon={Languages}
+                        />
+
+                        <ToggleRow
+                            label={t('options.harmonySubtitleBackground') || '和声字幕背景'}
+                            description={t('options.harmonySubtitleBackgroundDesc') || '为和声字幕添加半透明背景。'}
+                            checked={harmonySubtitleBackground}
+                            onChange={onToggleHarmonySubtitleBackground}
+                            theme={theme}
+                            icon={PanelTop}
                         />
 
                         <ToggleRow

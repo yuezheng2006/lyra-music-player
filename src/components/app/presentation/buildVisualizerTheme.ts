@@ -54,6 +54,7 @@ export const buildVisualizerTheme = ({
             lyricRhythmScaleMultiplier: theme.lyricRhythmScaleMultiplier,
             lyricGlowUsesAccent: theme.lyricGlowUsesAccent,
         },
-        visualizerGeometrySeed: currentSongId ?? `geometry-${visualizerMode}`,
+        // Seed must not include visualizerMode — mode switches must not remount WebGL.
+        visualizerGeometrySeed: currentSongId != null ? String(currentSongId) : 'geometry-stage',
     };
 };

@@ -70,6 +70,15 @@ export const VISUALIZER_REGISTRY_META: VisualizerRegistryMeta[] = [
         tuningKind: 'claddagh',
     },
     {
+        mode: 'pendolo',
+        order: 48,
+        labelKey: 'ui.visualizerPendolo',
+        labelFallback: '时计',
+        previewSeed: 'pendolo',
+        previewStartOffset: 0,
+        tuningKind: 'pendolo',
+    },
+    {
         mode: 'monet',
         order: 45,
         labelKey: 'ui.visualizerMonet',

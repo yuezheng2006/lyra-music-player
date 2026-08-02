@@ -32,6 +32,7 @@ describe('mineradioPresetMap', () => {
     it('resolves removed presets to the cover shader branch', () => {
         expect(resolveWebGLPresetIndex('aurora')).toBe(0);
         expect(resolveWebGLPresetIndex('mineradioVoid')).toBe(0);
+        expect(resolveWebGLPresetIndex('mineradioOrbit')).toBe(0);
         expect(resolveWebGLPresetIndex('mineradioGalaxy')).toBe(11);
         expect(resolveWebGLPresetIndex('mineradioTunnel')).toBe(7);
     });

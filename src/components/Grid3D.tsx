@@ -24,6 +24,7 @@ import {
     resolveHomeSolidBackgroundClass,
 } from './app/home/homeSurfaceStyles';
 import OnlineProviderFilterBar from './shared/OnlineProviderFilterBar';
+import HomeDiscoveryRail from './app/home/HomeDiscoveryRail';
 import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterStore';
 import { hasNeteaseSession, hasQQMusicSession } from '../utils/onlineLibraryAccess';
 import { resolveSearchableLibraryProviders } from '../utils/onlineSearchRouting';
@@ -115,6 +116,7 @@ const resolvePlaylistProvider = (playlist: NeteasePlaylist): OnlineMusicProvider
 
 export const Grid3D: React.FC<Grid3DProps> = (props) => {
     const {
+        onPlaySong,
         onRefreshUser,
         user,
         playlists,
@@ -298,6 +300,11 @@ export const Grid3D: React.FC<Grid3DProps> = (props) => {
                     onRefreshUser={onRefreshUser}
                 />
             </div>
+
+            <HomeDiscoveryRail
+                isDaylight={isDaylight}
+                onPlaySong={onPlaySong}
+            />
 
             <div className={`flex-1 min-h-0 relative ${HOME_CONTENT_TOP_PADDING_CLASS}`}>
                 <OnlineHomeFlatSurface

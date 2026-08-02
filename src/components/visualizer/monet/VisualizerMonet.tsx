@@ -6,7 +6,6 @@ import { DEFAULT_MONET_TUNING } from '../../../types';
 import { colorWithAlpha } from '../colorMix';
 import { type VisualizerSharedProps } from '../definition';
 import { useVisualizerRuntime } from '../runtime';
-import VisualizerShell from '../VisualizerShell';
 import { getLineRenderEndTime } from '../../../utils/lyrics/renderHints';
 import { resolveThemeFontStack } from '../../../utils/fontStacks';
 import { resolveLyricStageInkColors } from '../../../utils/theme/lyricColorPresets';
@@ -183,12 +182,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
         : coverUrl ?? monetPortraitImage?.url;
 
     return (
-        <VisualizerShell
-            theme={theme}
-            audioPower={audioPower}
-            audioBands={audioBands}
-            sharedProps={props}
-        >
+        <>
             {showText && (
                 <motion.div
                     key={`decor-${introKey}`}
@@ -559,7 +553,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                     </div>
                 </motion.div>
             )}
-        </VisualizerShell>
+        </>
     );
 };
 

@@ -16,6 +16,8 @@ import {
     type MonetPortraitImage,
     type MonetTuning,
     type PartitaTuning,
+    type PendoloTuning,
+    type SubtitleContentMode,
     type Theme,
     type TiltTuning,
     type UrlBackgroundItem,
@@ -25,17 +27,22 @@ import {
 
 // src/components/visualizer/definition.ts
 // Shared contracts for discoverable visualizer modes.
-export type VisualizerTuningKind = 'none' | 'classic' | 'cadenza' | 'partita' | 'fume' | 'claddagh' | 'cappella' | 'tilt' | 'monet';
+export type VisualizerTuningKind = 'none' | 'classic' | 'cadenza' | 'partita' | 'fume' | 'claddagh' | 'cappella' | 'tilt' | 'monet' | 'pendolo';
 
 export interface VisualizerSharedProps {
     currentTime: MotionValue<number>;
     currentLineIndex: number;
     lines: Line[];
     theme: Theme;
+    subtitleTheme?: Theme;
     isDaylight?: boolean;
     audioPower: MotionValue<number>;
     audioBands: AudioBands;
     showText?: boolean;
+    subtitleFontScale?: number;
+    showHarmonySubtitle?: boolean;
+    harmonySubtitleBackground?: boolean;
+    subtitleContentMode?: SubtitleContentMode;
     songTitle?: string | null;
     songArtist?: string | null;
     songAlbum?: string | null;
@@ -54,6 +61,7 @@ export interface VisualizerSharedProps {
     disableVignette?: boolean;
     lyricsFontScale?: number;
     subtitleOverlayOpacity?: number;
+    subtitleOverlayBackground?: boolean;
     visualizerBackgroundMode?: VisualizerBackgroundMode | null;
     resolvedVisualizerBackgroundMode?: VisualizerBackgroundMode;
     isPlayerChromeHidden?: boolean;
@@ -62,6 +70,11 @@ export interface VisualizerSharedProps {
     hideTranslationSubtitle?: boolean;
     showSubtitleTranslation?: boolean;
     paused?: boolean;
+    /**
+     * Pause interactive3d particle ticks without treating the whole shell as paused
+     * (keeps playlist shelf / non-particle layers mounted).
+     */
+    particlesYielded?: boolean;
     /** Whether main audio is actively playing (drives WebGL lyric stage). */
     audioPlaying?: boolean;
     onBack?: () => void;
@@ -77,6 +90,7 @@ export interface VisualizerSharedProps {
     cappellaCustomEmojiImages?: CappellaEmojiImage[];
     cappellaCustomAvatarImages?: CappellaAvatarImage[];
     tiltTuning?: TiltTuning;
+    pendoloTuning?: PendoloTuning;
     monetBackgroundTuning?: MonetBackgroundTuning;
     latentBackgroundTuning?: import('../../types').LatentBackgroundTuning;
     interactive3dSceneTuning?: Interactive3dSceneTuning;
@@ -130,6 +144,8 @@ export interface VisualizerSettingsPanelProps {
     isCappellaCustomAvatarLoading?: boolean;
     tiltTuning?: TiltTuning;
     onTiltTuningChange?: (patch: Partial<TiltTuning>) => void;
+    pendoloTuning?: PendoloTuning;
+    onPendoloTuningChange?: (patch: Partial<PendoloTuning>) => void;
     monetTuning?: MonetTuning;
     onMonetTuningChange?: (patch: Partial<MonetTuning>) => void;
     monetBackgroundImage?: MonetBackgroundImage | null;
@@ -165,9 +181,11 @@ export interface VisualizerSettingsResetProps {
     resetCladdaghTuning?: () => void;
     resetCappellaTuning?: () => void;
     resetTiltTuning?: () => void;
+    resetPendoloTuning?: () => void;
     resetMonetTuning?: () => void;
     setDraftFumeTuning?: (tuning: FumeTuning) => void;
     setDraftCladdaghTuning?: (tuning: CladdaghTuning) => void;
+    setDraftPendoloTuning?: (tuning: PendoloTuning) => void;
 }
 
 export interface VisualizerRegistryEntry {

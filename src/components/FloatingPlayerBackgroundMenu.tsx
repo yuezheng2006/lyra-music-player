@@ -10,7 +10,6 @@ import type {
 } from '../types';
 import { resolveVisualizerBackgroundMode } from '../stores/useSettingsUiStore';
 import {
-    applyMineradioVisualPreset,
     getMineradioPresetLabelFallback,
     INTERACTIVE3D_VISUAL_PRESET_OPTIONS,
     normalizeInteractive3dVisualPreset,
@@ -74,7 +73,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
     visualizerBackgroundMode,
     interactive3dSceneTuning,
     onVisualizerBackgroundModeChange,
-    onInteractive3dSceneTuningChange,
+    onInteractive3dSceneTuningChange: _onInteractive3dSceneTuningChange,
     visualizerMode,
     onVisualizerModeChange,
     theme = null,
@@ -102,8 +101,10 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
     );
     const lyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
     const lyricsFontScale = useSettingsUiStore(state => state.lyricsFontScale);
+    const speakerStageActive = useSettingsUiStore(state => state.playbackPresentation === 'speaker');
     const handleSetLyricWordMode = useSettingsUiStore(state => state.handleSetLyricWordMode);
     const handleSetLyricsFontScale = useSettingsUiStore(state => state.handleSetLyricsFontScale);
+    const handleToggleSpeakerStage = useSettingsUiStore(state => state.handleToggleSpeakerStage);
 
     // Heavy backgrounds paint on the player page (home solid shell covers the stage).
     // Selecting interactive3d clears GPU lockout in the store — then enter player.
@@ -186,7 +187,7 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                         isDaylight={isDaylight}
                         variant="menu"
                     />
-                    <div className="mb-3 grid grid-cols-6 gap-1">
+                    <div className="mb-3 grid grid-cols-7 gap-1">
                         <button
                             type="button"
                             role="menuitemradio"
@@ -211,16 +212,15 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                                     aria-checked={selected}
                                     data-testid={`floating-player-background-preset-${preset}`}
                                     onClick={() => {
-                                        if (resolvedMode !== 'interactive3d') {
-                                            selectPlayerBackground('interactive3d');
-                                        } else if (!readGpuUnstableFlag(
+                                        // Atomic mode+preset so 通用↔封面/滚筒/星河 cannot desync.
+                                        useSettingsUiStore.getState().handleSelectInteractive3dVisualPreset(preset);
+                                        const locked = readGpuUnstableFlag(
                                             typeof localStorage !== 'undefined' ? localStorage : null,
-                                        )) {
+                                        );
+                                        setGpuUnstable(locked);
+                                        if (!locked) {
                                             onEnsurePlayerView?.();
                                         }
-                                        onInteractive3dSceneTuningChange(
-                                            applyMineradioVisualPreset(preset, interactive3dSceneTuning),
-                                        );
                                     }}
                                     className={chipClass(selected)}
                                 >
@@ -237,6 +237,16 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                             className={chipClass(resolvedMode === 'latent')}
                         >
                             {t('options.visualizerBackgroundModeLatent') || 'Latent'}
+                        </button>
+                        <button
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={resolvedMode === 'turntable'}
+                            data-testid="floating-player-background-preset-turntable"
+                            onClick={() => selectPlayerBackground('turntable')}
+                            className={chipClass(resolvedMode === 'turntable')}
+                        >
+                            {t('options.visualizerBackgroundModeTurntable') || 'Turntable'}
                         </button>
                     </div>
 
@@ -266,14 +276,43 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                         <LyricWordModeToggle
                             value={lyricWordMode}
                             onChange={handleSetLyricWordMode}
+                            isDaylight={isDaylight}
                             sectionLabel={t('ui.lyricWordMode') || 'Word mode'}
                             defaultLabel={t('ui.lyricWordModeDefault') || 'Default'}
-                            karaokeLabel={t('ui.lyricWordModeKaraoke') || t('ui.visualizerKaraoke') || 'Karaoke'}
-                            ktvLabel={t('ui.lyricWordModeKtv') || 'KTV'}
-                            wellClassName={isDaylight ? 'bg-black/[0.04]' : 'bg-white/[0.06]'}
-                            buttonClassName={selected => chipClass(selected)}
+                            karaokeLabel={t('ui.lyricWordModeKaraoke') || t('ui.visualizerKaraoke') || 'KTV'}
+                            defaultHint={t('ui.lyricWordModeDefaultHint') || 'Whole word lights up'}
+                            karaokeHint={t('ui.lyricWordModeKaraokeHint') || 'Per-character fill 0%→100% over each glyph'}
                             testIdPrefix="floating-player-lyric-word-mode"
                         />
+                    </div>
+
+                    <div className={sectionLabelClass}>
+                        {t('options.speakerStage') || '音箱舞台'}
+                    </div>
+                    <div
+                        className={`mb-3 grid grid-cols-2 gap-1 rounded-xl p-1 ${isDaylight ? 'bg-black/[0.05]' : 'bg-white/[0.07]'}`}
+                        data-testid="floating-player-speaker-stage-group"
+                    >
+                        <button
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={!speakerStageActive}
+                            data-testid="floating-player-speaker-stage-off"
+                            onClick={() => handleToggleSpeakerStage(false)}
+                            className={chipClass(!speakerStageActive)}
+                        >
+                            Off
+                        </button>
+                        <button
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={speakerStageActive}
+                            data-testid="floating-player-speaker-stage-on"
+                            onClick={() => handleToggleSpeakerStage(true)}
+                            className={chipClass(speakerStageActive)}
+                        >
+                            {t('options.speakerStage') || '音箱舞台'}
+                        </button>
                     </div>
 
                     {onApplyLyricColorPreset ? (

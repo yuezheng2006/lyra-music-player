@@ -10,7 +10,6 @@ import { type VisualizerSharedProps } from '../definition';
 import { useVisualizerRuntime } from '../runtime';
 import { colorWithAlpha, mixColors } from '../colorMix';
 import { LYRIC_LINE_OPACITY } from '../../../utils/theme/lyricColorPresets';
-import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { buildWordColorRanges } from '../wordColoring';
 import { resolveWaitingWordPresentation } from '../../../utils/lyrics/lyricWordMode';
@@ -940,12 +939,7 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
     }, [centerLineIndex, lines.length, renderBaseIndex]);
 
     return (
-        <VisualizerShell
-            theme={theme}
-            audioPower={audioPower}
-            audioBands={audioBands}
-            sharedProps={props}
-        >
+        <>
             <motion.div
                 initial={{ opacity: 0, scale: 0.96, filter: 'blur(4px)' }}
                 animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
@@ -1080,7 +1074,7 @@ const VisualizerCladdagh: React.FC<VisualizerSharedProps> = (props) => {
                     showSubtitleTranslation={showSubtitleTranslation}
                 />
             )}
-        </VisualizerShell>
+        </>
     );
 };
 

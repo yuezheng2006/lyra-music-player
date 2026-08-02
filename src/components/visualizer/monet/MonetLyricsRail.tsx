@@ -518,6 +518,8 @@ const MonetWordSweep: React.FC<{
                     className="relative"
                     style={{
                         color: resolvedBaseColor,
+                        // Match LyricKaraokeWipe: dim unsung so progressive fill is obvious.
+                        opacity: 0.34,
                     }}
                 >
                     {text}

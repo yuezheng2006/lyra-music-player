@@ -9,7 +9,6 @@ import { resolveThemeFontStack } from '../../../utils/fontStacks';
 import { colorWithAlpha, mixColors } from '../colorMix';
 import { prepareActiveAndUpcoming, useVisualizerRuntime } from '../runtime';
 import { type VisualizerSharedProps } from '../definition';
-import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { resolveWordColor } from '../wordColoring';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
@@ -1682,13 +1681,7 @@ const VisualizerCadenza: React.FC<VisualizerProps> = (props) => {
     ]);
 
     return (
-        <VisualizerShell
-            ref={containerRef}
-            theme={theme}
-            audioPower={audioPower}
-            audioBands={audioBands}
-            sharedProps={props}
-        >
+        <div ref={containerRef} className="absolute inset-0">
             <div
                 ref={lineLayerRef}
                 className="absolute inset-0 z-10 pointer-events-none"
@@ -1737,7 +1730,7 @@ const VisualizerCadenza: React.FC<VisualizerProps> = (props) => {
                 hideTranslationSubtitle={hideTranslationSubtitle}
                 showSubtitleTranslation={showSubtitleTranslation}
             />
-        </VisualizerShell>
+        </div>
     );
 };
 

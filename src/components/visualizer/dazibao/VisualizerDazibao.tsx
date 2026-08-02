@@ -15,7 +15,6 @@ import { resolveLyricPhrasePresentation } from '../../../utils/lyrics/lyricPhras
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { type VisualizerSharedProps } from '../definition';
 import { useVisualizerRuntime } from '../runtime';
-import VisualizerShell from '../VisualizerShell';
 import {
     resolveLyricContainerFit,
     resolveLyricLineFitScale,
@@ -168,12 +167,7 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
     );
 
     return (
-        <VisualizerShell
-            theme={theme}
-            audioPower={audioPower}
-            audioBands={audioBands}
-            sharedProps={props}
-        >
+        <>
             <div
                 ref={stageRef}
                 className="pointer-events-none absolute inset-0 z-10 flex h-full w-full items-center justify-center overflow-hidden"
@@ -278,7 +272,7 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
                     </div>
                 ) : null}
             </div>
-        </VisualizerShell>
+        </>
     );
 };
 

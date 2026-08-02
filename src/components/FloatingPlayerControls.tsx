@@ -28,6 +28,11 @@ import {
     resolveFloatingPlayerDockFrameStyle,
 } from './floatingPlayerDockLayout';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
+import {
+    extendInteractive3dParticleYield,
+    shouldYieldInteractive3dParticlesForVisualizerModeSwitch,
+} from '../utils/visualizer/yieldInteractive3dParticlesForModeSwitch';
+import { prefetchVisualizerRegistryEntries } from './visualizer/registry';
 
 // src/components/FloatingPlayerControls.tsx
 // Floating dock: left meta, center transport, right tool chips.
@@ -606,6 +611,29 @@ const DockedBar: React.FC<DockedBarProps> = ({
         onDockPopoverOpenChange?.(qualityMenuOpen || backgroundMenuOpen || queueMenuOpen);
         return () => onDockPopoverOpenChange?.(false);
     }, [backgroundMenuOpen, onDockPopoverOpenChange, qualityMenuOpen, queueMenuOpen]);
+
+    // Do not hold particles for the whole menu lifetime — that froze 视觉风格 previews
+    // (chip selected, WebGL stuck on the previous preset). Lyric-mode switches already
+    // arm their own yield; on close, extend yield so teardown does not overlap remounts.
+    useEffect(() => {
+        if (!backgroundMenuOpen) return undefined;
+        return () => {
+            useSettingsUiStore.getState().setHoldInteractive3dParticleYield(false);
+            const backgroundMode = useSettingsUiStore.getState().visualizerBackgroundMode;
+            if (!shouldYieldInteractive3dParticlesForVisualizerModeSwitch(backgroundMode)) return;
+            extendInteractive3dParticleYield({
+                setYielding: (yielding) => {
+                    useSettingsUiStore.setState({ yieldInteractive3dParticles: yielding });
+                },
+            });
+        };
+    }, [backgroundMenuOpen]);
+
+    // Prefetch lyric-mode modules so switching 歌词走位 does not wait on lazy import.
+    useEffect(() => {
+        if (!backgroundMenuOpen) return;
+        prefetchVisualizerRegistryEntries();
+    }, [backgroundMenuOpen]);
 
     useEffect(() => {
         if (!qualityMenuOpen) return;

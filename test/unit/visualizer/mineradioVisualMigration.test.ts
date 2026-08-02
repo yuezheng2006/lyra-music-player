@@ -19,7 +19,7 @@ describe('Mineradio visual migration', () => {
     it('keeps quality tier when switching presets', () => {
         const tuning = applyMineradioVisualPreset('mineradioOrbit', resolveStoredInteractive3dSceneTuning({ qualityTier: 'lite' }));
         expect(tuning.qualityTier).toBe('lite');
-        expect(tuning.visualPreset).toBe('mineradioOrbit');
+        expect(tuning.visualPreset).toBe('emily');
     });
 
     it('applies Mineradio original preset bundles', () => {
@@ -29,7 +29,7 @@ describe('Mineradio visual migration', () => {
         expect(tunnel.visualPreset).toBe('mineradioTunnel');
         expect(tunnel.enableCoverParticles).toBe(true);
         expect(tunnel.enableBassRipples).toBe(false);
-        expect(orbit.visualPreset).toBe('mineradioOrbit');
+        expect(orbit.visualPreset).toBe('emily');
         expect(orbit.enableCoverParticles).toBe(true);
         expect(orbit.enableBloomParticles).toBe(false);
     });
@@ -65,13 +65,15 @@ describe('Mineradio visual migration', () => {
         expect(normalizeInteractive3dVisualPreset('mineradioVoid')).toBe('emily');
         expect(normalizeInteractive3dVisualPreset('void')).toBe('emily');
         expect(normalizeInteractive3dVisualPreset('nebula')).toBe('mineradioGalaxy');
-        expect(normalizeInteractive3dVisualPreset('orbit')).toBe('mineradioOrbit');
+        expect(normalizeInteractive3dVisualPreset('orbit')).toBe('emily');
+        expect(normalizeInteractive3dVisualPreset('mineradioOrbit')).toBe('emily');
         expect(normalizeInteractive3dVisualPreset('wallpaper')).toBe('mineradioGalaxy');
     });
 
     it('falls back removed experimental presets to cover', () => {
         expect(applyMineradioVisualPreset('aurora').visualPreset).toBe('emily');
         expect(applyMineradioVisualPreset('mineradioVoid').visualPreset).toBe('emily');
+        expect(applyMineradioVisualPreset('mineradioOrbit').visualPreset).toBe('emily');
         expect(applyMineradioVisualPreset('emily').enableCoverParticles).toBe(true);
     });
 

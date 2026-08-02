@@ -53,8 +53,9 @@ const PRESET_META: Record<MineradioVisualPresetId, PresetMeta> = {
         subtitle: 'Mineradio tunnel',
         testId: 'interactive3d-preset-mineradio-tunnel',
     },
+    /** Retired — kept for type completeness; normalize maps to emily. */
     mineradioOrbit: {
-        subtitle: 'Mineradio orbit',
+        subtitle: 'Retired orbit',
         testId: 'interactive3d-preset-mineradio-orbit',
     },
     mineradioVoid: {

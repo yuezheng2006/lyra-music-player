@@ -25,7 +25,6 @@ const BASE_INTERACTIVE3D_TUNING = {
 const WEBGL_VISUAL_PRESETS = [
     'emily',
     'mineradioTunnel',
-    'mineradioOrbit',
     'mineradioGalaxy',
 ] as const;
 const TEST_COVER_URL = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22256%22 height=%22256%22 viewBox=%220 0 256 256%22%3E%3Crect width=%22256%22 height=%22256%22 fill=%22%2309172f%22/%3E%3Ccircle cx=%22128%22 cy=%22128%22 r=%2276%22 fill=%22%23ff2d55%22/%3E%3Cpath d=%22M42 186L214 70v116z%22 fill=%22%2300f5d4%22 opacity=%220.82%22/%3E%3C/svg%3E';
@@ -254,5 +253,90 @@ test.describe('interactive3d WebGL cover particles', () => {
         // 后台音源探测在测试环境没有 sidecar，连接被拒属于环境噪音，与 WebGL 渲染无关。
         const renderErrors = pageErrors.filter((text) => !text.includes('ERR_CONNECTION_REFUSED'));
         expect(renderErrors).toEqual([]);
+    });
+
+    test('survives rapid lyric visualizer mode switches without losing WebGL', async ({ page }) => {
+        const pageErrors: string[] = [];
+        page.on('pageerror', (error) => pageErrors.push(error.message));
+
+        await openVisPlaygroundWithInteractive3d(page, 'emily');
+        await expectWebGLStageMounted(page, 'emily');
+
+        const stageBefore = await getWebGLStage(page);
+        const canvasIdentityBefore = await stageBefore.evaluate((node) => {
+            const canvas = node.querySelector('canvas');
+            return {
+                hasCanvas: Boolean(canvas),
+                width: canvas?.width ?? 0,
+                height: canvas?.height ?? 0,
+            };
+        });
+        expect(canvasIdentityBefore.hasCanvas).toBe(true);
+
+        const switchResult = await page.evaluate(async () => {
+            const { useSettingsUiStore } = await import(
+                /* @vite-ignore */ '/src/stores/useSettingsUiStore.ts' as string
+            );
+            const modes = [
+                'classic',
+                'cadenza',
+                'partita',
+                'fume',
+                'tilt',
+                'claddagh',
+                'monet',
+                'pendolo',
+                'cappella',
+                'classic',
+                'fume',
+                'monet',
+            ] as const;
+            const store = useSettingsUiStore.getState();
+            for (const mode of modes) {
+                store.handleSetVisualizerMode(mode);
+            }
+            // Burst again while yield timers may still be armed.
+            for (const mode of ['partita', 'tilt', 'classic'] as const) {
+                useSettingsUiStore.getState().handleSetVisualizerMode(mode);
+            }
+            return {
+                finalMode: useSettingsUiStore.getState().visualizerMode,
+                backgroundMode: useSettingsUiStore.getState().visualizerBackgroundMode,
+                gpuUnstable: localStorage.getItem('lyra_gpu_unstable_v1'),
+                demotedBackground: localStorage.getItem('visualizer_background_mode'),
+            };
+        });
+
+        expect(switchResult.finalMode).toBe('classic');
+        expect(switchResult.backgroundMode).toBe('interactive3d');
+        expect(switchResult.gpuUnstable).toBeNull();
+        expect(switchResult.demotedBackground).toBe('interactive3d');
+
+        // Give DOM lyric remounts a settle window, then prove WebGL is still alive.
+        await page.waitForTimeout(1000);
+        await expectWebGLStageMounted(page, 'emily');
+
+        const stageAfter = await getWebGLStage(page);
+        await expect.poll(async () => stageAfter.evaluate((node) => {
+            const canvas = node.querySelector('canvas');
+            if (!canvas) return { ok: false, reason: 'missing-canvas' };
+            const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+            if (!gl) return { ok: false, reason: 'missing-webgl-context' };
+            const lost = typeof (gl as WebGLRenderingContext).isContextLost === 'function'
+                ? (gl as WebGLRenderingContext).isContextLost()
+                : false;
+            return {
+                ok: !lost && canvas.width > 64 && canvas.height > 64,
+                reason: lost ? 'context-lost' : 'ok',
+                width: canvas.width,
+                height: canvas.height,
+            };
+        }), { timeout: 15_000 }).toMatchObject({ ok: true });
+
+        const fatalErrors = pageErrors.filter((text) => (
+            !text.includes('ERR_CONNECTION_REFUSED')
+            && !/Failed to extract cover colors/i.test(text)
+        ));
+        expect(fatalErrors).toEqual([]);
     });
 });

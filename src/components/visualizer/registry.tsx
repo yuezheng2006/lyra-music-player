@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { type VisualizerMode } from '../../types';
 import {
     type VisualizerEntryModule,
@@ -80,30 +80,48 @@ export async function loadVisualizerRegistryEntry(mode: VisualizerMode): Promise
     return promise;
 }
 
+/** Prefetch lyric-mode entry modules so mode switches do not flash a null slot. */
+export function prefetchVisualizerRegistryEntries(modes?: VisualizerMode[]): void {
+    const targets = modes?.length
+        ? modes
+        : VISUALIZER_REGISTRY.map(entry => entry.mode);
+    for (const mode of targets) {
+        void loadVisualizerRegistryEntry(mode).catch(error => {
+            console.error('[VisualizerRegistry] Prefetch failed', mode, error);
+        });
+    }
+}
+
 /** React helper that resolves a full visualizer entry once the lazy module is ready. */
 export function useVisualizerRegistryEntry(mode: VisualizerMode): VisualizerRegistryEntry | null {
-    const [entry, setEntry] = useState<VisualizerRegistryEntry | null>(
-        () => entryCache.get(hasVisualizerMode(mode) ? mode : DEFAULT_VISUALIZER_MODE) ?? null,
+    const resolvedMode = hasVisualizerMode(mode) ? mode : DEFAULT_VISUALIZER_MODE;
+    // Prefer sync cache hits so mode switches do not wait a paint on useEffect.
+    const cachedEntry = entryCache.get(resolvedMode) ?? null;
+    const [asyncEntry, setAsyncEntry] = useState<VisualizerRegistryEntry | null>(
+        () => cachedEntry,
     );
+    const retainedEntryRef = useRef<VisualizerRegistryEntry | null>(cachedEntry ?? asyncEntry);
 
     useEffect(() => {
         let cancelled = false;
-        const resolvedMode = hasVisualizerMode(mode) ? mode : DEFAULT_VISUALIZER_MODE;
-        const cached = entryCache.get(resolvedMode);
+        const nextMode = hasVisualizerMode(mode) ? mode : DEFAULT_VISUALIZER_MODE;
+        const cached = entryCache.get(nextMode);
         if (cached) {
-            setEntry(cached);
+            retainedEntryRef.current = cached;
+            setAsyncEntry(cached);
             return undefined;
         }
 
-        setEntry(null);
-        void loadVisualizerRegistryEntry(resolvedMode)
+        // Keep the previous lyric module mounted until the next entry resolves (no null flash).
+        void loadVisualizerRegistryEntry(nextMode)
             .then(next => {
                 if (!cancelled) {
-                    setEntry(next);
+                    retainedEntryRef.current = next;
+                    setAsyncEntry(next);
                 }
             })
             .catch(error => {
-                console.error('[VisualizerRegistry] Failed to load entry', resolvedMode, error);
+                console.error('[VisualizerRegistry] Failed to load entry', nextMode, error);
             });
 
         return () => {
@@ -111,7 +129,11 @@ export function useVisualizerRegistryEntry(mode: VisualizerMode): VisualizerRegi
         };
     }, [mode]);
 
-    return entry;
+    if (cachedEntry) {
+        retainedEntryRef.current = cachedEntry;
+        return cachedEntry;
+    }
+    return asyncEntry ?? retainedEntryRef.current;
 }
 
 export const getVisualizerModeLabel = (mode: VisualizerMode, t: (key: string) => string) => {

@@ -35,10 +35,13 @@ export interface LyricBackgroundVocal {
   startTime: number; // Seconds
   endTime: number; // Seconds
   words: Word[];
+  agentId?: string;
   translation?: string;
   romanization?: string;
   alternateTexts?: LyricAlternateText[];
 }
+
+export type SubtitleContentMode = 'translation' | 'romanization' | 'none';
 
 export interface LyricAgent {
   id: string;
@@ -59,6 +62,7 @@ export interface Line {
   romanization?: string;
   alternateTexts?: LyricAlternateText[];
   backgroundVocal?: LyricBackgroundVocal;
+  backgroundVocals?: LyricBackgroundVocal[];
   renderHints?: LineRenderHints;
   isChorus?: boolean;
   chorusEffect?: 'bars' | 'circles' | 'beams';
@@ -83,6 +87,7 @@ export interface Theme {
   secondaryColor: string;
   fontStyle: 'sans' | 'serif' | 'mono';
   fontFamily?: string;
+  fontWeight?: number;
   animationIntensity: 'calm' | 'normal' | 'chaotic';
   /** Optional beat-sync scale boost multiplier for lyric rhythm staging. */
   lyricRhythmScaleMultiplier?: number;
@@ -107,8 +112,11 @@ export type ThemeMode = 'default' | 'ai' | 'custom';
 
 export type BuiltinVisualizerMode = 'classic' | 'cadenza' | 'partita' | 'fume' | 'monet';
 export type VisualizerMode = BuiltinVisualizerMode | (string & {});
-/** default = current line only; karaoke = preview upcoming; ktv = traditional LTR wipe (parallel to karaoke). */
-export type LyricWordMode = 'default' | 'karaoke' | 'ktv';
+/** default = current line only; karaoke = upcoming preview + per-grapheme LTR wipe fill. */
+export type LyricWordMode = 'default' | 'karaoke';
+
+/** Playback presentation: default player chrome vs speaker-stage immersion. */
+export type PlaybackPresentation = 'default' | 'speaker';
 export type VisualizerFrameRate = 'off' | 120 | 90 | 60;
 
 export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'ytmusic' | 'radio' | 'daily' | 'podcast' | 'history';
@@ -501,12 +509,39 @@ export const DEFAULT_TILT_TUNING: TiltTuning = {
   colorScheme: 'default',
 };
 
+export interface PendoloTuning {
+  arcRadius: number;
+  arcAngleDeg: number;
+  wheelCenterX: number;
+  wheelCenterY: number;
+  tickSnappiness: number;
+  activeScale: number;
+  showGearDecor: 'none' | 'subtle' | 'full';
+  showCenterGradient?: boolean;
+  showCoverOnWatchFace?: boolean;
+  enableLineGlow?: boolean;
+}
+
+export const DEFAULT_PENDOLO_TUNING: PendoloTuning = {
+  // Inset wheel so the lyric arc sits in the left-center third (not glued to the left edge).
+  arcRadius: 0.40,
+  arcAngleDeg: 100,
+  wheelCenterX: 0.18,
+  wheelCenterY: 0.50,
+  tickSnappiness: 2.0,
+  activeScale: 1.25,
+  showGearDecor: 'subtle',
+  showCenterGradient: true,
+  showCoverOnWatchFace: false,
+  enableLineGlow: false,
+};
+
 export type MonetBackgroundSource = 'cover-derived' | 'uploaded-global';
 export type MonetBackgroundLayout = 'full-overlay' | 'half-pane-gradient';
 export type MonetBackgroundWashColorMode = 'theme' | 'custom';
 export type MonetAudioStyle = 'bar' | 'line';
 export type MonetPortraitSource = 'cover' | 'custom';
-export type VisualizerBackgroundMode = 'common' | 'interactive3d' | 'monet' | 'url' | 'sora' | 'latent';
+export type VisualizerBackgroundMode = 'common' | 'interactive3d' | 'monet' | 'url' | 'sora' | 'latent' | 'turntable';
 export type LatentBackgroundDisplayMode = 'dithering' | 'mesh' | 'both';
 export type LatentBackgroundColorSource = 'cover-theme' | 'cover-only';
 
