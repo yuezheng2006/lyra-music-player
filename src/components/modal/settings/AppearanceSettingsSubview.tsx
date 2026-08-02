@@ -299,6 +299,11 @@ export const compressConfig = (config: any): string => {
     if (config.visualizerOpacity !== undefined) minified.vo = config.visualizerOpacity;
     if (config.hidePlayerTranslationSubtitle !== undefined) minified.hpts = config.hidePlayerTranslationSubtitle;
     if (config.showSubtitleTranslation !== undefined) minified.sst = config.showSubtitleTranslation;
+    if (config.subtitleContentMode) minified.scm = config.subtitleContentMode;
+    if (config.showHarmonySubtitle !== undefined) minified.shs = config.showHarmonySubtitle;
+    if (config.harmonySubtitleBackground !== undefined) minified.hsb = config.harmonySubtitleBackground;
+    if (config.playbackPresentation) minified.pp = config.playbackPresentation;
+    if (config.subtitleFontScale !== undefined) minified.sfscl = config.subtitleFontScale;
     if (config.subtitleOverlayBackground !== undefined) minified.sob = config.subtitleOverlayBackground;
     if (config.subtitleFontInheritsLyrics !== undefined) minified.sfi = config.subtitleFontInheritsLyrics;
     if (config.subtitleFontStyle) minified.sfs = config.subtitleFontStyle;
@@ -315,6 +320,7 @@ export const compressConfig = (config: any): string => {
     if (config.claddaghTuning) minified.clt = compressCladdagh(config.claddaghTuning);
     if (config.cappellaTuning) minified.cpt = compressCappella(config.cappellaTuning);
     if (config.tiltTuning) minified.tt = compressTilt(config.tiltTuning);
+    if (config.pendoloTuning) minified.pdt = config.pendoloTuning;
     if (config.monetBackgroundTuning) minified.mbt = compressMonetBackground(config.monetBackgroundTuning);
     if (config.latentBackgroundTuning) minified.lbt = compressLatentBackground(config.latentBackgroundTuning);
     if (config.interactive3dSceneTuning) minified.i3st = config.interactive3dSceneTuning;
@@ -377,6 +383,11 @@ export const decompressConfig = (str: string): any => {
         if (parsed.vo !== undefined) decompressed.visualizerOpacity = parsed.vo;
         if (parsed.hpts !== undefined) decompressed.hidePlayerTranslationSubtitle = parsed.hpts;
         if (parsed.sst !== undefined) decompressed.showSubtitleTranslation = parsed.sst;
+        if (parsed.scm) decompressed.subtitleContentMode = parsed.scm;
+        if (parsed.shs !== undefined) decompressed.showHarmonySubtitle = parsed.shs;
+        if (parsed.hsb !== undefined) decompressed.harmonySubtitleBackground = parsed.hsb;
+        if (parsed.pp) decompressed.playbackPresentation = parsed.pp;
+        if (parsed.sfscl !== undefined) decompressed.subtitleFontScale = parsed.sfscl;
         if (parsed.sob !== undefined) decompressed.subtitleOverlayBackground = parsed.sob;
         if (parsed.sfi !== undefined) decompressed.subtitleFontInheritsLyrics = parsed.sfi;
         if (parsed.sfs) decompressed.subtitleFontStyle = parsed.sfs;
@@ -393,6 +404,7 @@ export const decompressConfig = (str: string): any => {
         if (parsed.clt) decompressed.claddaghTuning = decompressCladdagh(parsed.clt);
         if (parsed.cpt) decompressed.cappellaTuning = decompressCappella(parsed.cpt);
         if (parsed.tt) decompressed.tiltTuning = decompressTilt(parsed.tt);
+        if (parsed.pdt) decompressed.pendoloTuning = parsed.pdt;
         if (parsed.mbt) decompressed.monetBackgroundTuning = decompressMonetBackground(parsed.mbt);
         if (parsed.lbt) decompressed.latentBackgroundTuning = decompressLatentBackground(parsed.lbt);
         if (parsed.i3st) decompressed.interactive3dSceneTuning = parsed.i3st;
@@ -414,10 +426,11 @@ export const decompressConfig = (str: string): any => {
         const validKeys = [
             'theme', 'visualizerMode', 'lyricWordMode', 'lyricFontPresetId', 'lyricEffectPackId', 'visualEffectIntensity', 'visualizerBackgroundMode', 'backgroundOpacity',
             'visualizerOpacity', 'hidePlayerTranslationSubtitle', 'showSubtitleTranslation',
+            'subtitleContentMode', 'showHarmonySubtitle', 'harmonySubtitleBackground', 'playbackPresentation', 'subtitleFontScale',
             'subtitleOverlayBackground', 'subtitleFontInheritsLyrics', 'subtitleFontStyle', 'subtitleFontFamily',
             'lyricsFontStyle', 'lyricsFontScale', 'lyricColorPresetId', 'lyricBodyColor', 'classicTuning',
             'cadenzaTuning', 'partitaTuning', 'fumeTuning', 'claddaghTuning', 'cappellaTuning',
-            'tiltTuning', 'monetBackgroundTuning', 'latentBackgroundTuning', 'interactive3dSceneTuning', 'monetTuning',
+            'tiltTuning', 'pendoloTuning', 'monetBackgroundTuning', 'latentBackgroundTuning', 'interactive3dSceneTuning', 'monetTuning',
             'urlBackgroundList', 'urlBackgroundSelectedId',
             'songThemeAutoSwitchEnabled', 'songThemeAutoGenerateEnabled',
             'enableSmartAtmosphere', 'enable3dInteractiveBackground', 'performanceMode', 'ambientVisualEnabled',
@@ -513,6 +526,11 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         visualizerOpacity: state.visualizerOpacity,
         hidePlayerTranslationSubtitle: state.hidePlayerTranslationSubtitle,
         showSubtitleTranslation: state.showSubtitleTranslation,
+        subtitleContentMode: state.subtitleContentMode,
+        showHarmonySubtitle: state.showHarmonySubtitle,
+        harmonySubtitleBackground: state.harmonySubtitleBackground,
+        playbackPresentation: state.playbackPresentation,
+        subtitleFontScale: state.subtitleFontScale,
         subtitleOverlayBackground: state.subtitleOverlayBackground,
         subtitleFontInheritsLyrics: state.subtitleFontInheritsLyrics,
         subtitleFontStyle: state.subtitleFontStyle,
@@ -526,6 +544,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         claddaghTuning: state.claddaghTuning,
         cappellaTuning: state.cappellaTuning,
         tiltTuning: state.tiltTuning,
+        pendoloTuning: state.pendoloTuning,
         monetBackgroundTuning: state.monetBackgroundTuning,
         latentBackgroundTuning: state.latentBackgroundTuning,
         interactive3dSceneTuning: state.interactive3dSceneTuning,
@@ -545,6 +564,12 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         handleSetVisualizerOpacity: state.handleSetVisualizerOpacity,
         handleToggleHidePlayerTranslationSubtitle: state.handleToggleHidePlayerTranslationSubtitle,
         handleToggleShowSubtitleTranslation: state.handleToggleShowSubtitleTranslation,
+        handleSetSubtitleContentMode: state.handleSetSubtitleContentMode,
+        handleToggleShowHarmonySubtitle: state.handleToggleShowHarmonySubtitle,
+        handleToggleHarmonySubtitleBackground: state.handleToggleHarmonySubtitleBackground,
+        handleSetPlaybackPresentation: state.handleSetPlaybackPresentation,
+        handleToggleSpeakerStage: state.handleToggleSpeakerStage,
+        handleSetSubtitleFontScale: state.handleSetSubtitleFontScale,
         handleToggleSubtitleOverlayBackground: state.handleToggleSubtitleOverlayBackground,
         handleSetSubtitleFontInheritsLyrics: state.handleSetSubtitleFontInheritsLyrics,
         handleSetSubtitleFontStyle: state.handleSetSubtitleFontStyle,
@@ -558,6 +583,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         handleSetCladdaghTuning: state.handleSetCladdaghTuning,
         handleSetCappellaTuning: state.handleSetCappellaTuning,
         handleSetTiltTuning: state.handleSetTiltTuning,
+        handleSetPendoloTuning: state.handleSetPendoloTuning,
         handleSetMonetBackgroundTuning: state.handleSetMonetBackgroundTuning,
         handleSetLatentBackgroundTuning: state.handleSetLatentBackgroundTuning,
         handleSetInteractive3dSceneTuning: state.handleSetInteractive3dSceneTuning,
@@ -602,6 +628,11 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             visualizerOpacity: store.visualizerOpacity,
             hidePlayerTranslationSubtitle: store.hidePlayerTranslationSubtitle,
             showSubtitleTranslation: store.showSubtitleTranslation,
+            subtitleContentMode: store.subtitleContentMode,
+            showHarmonySubtitle: store.showHarmonySubtitle,
+            harmonySubtitleBackground: store.harmonySubtitleBackground,
+            playbackPresentation: store.playbackPresentation,
+            subtitleFontScale: store.subtitleFontScale,
             subtitleOverlayBackground: store.subtitleOverlayBackground,
             subtitleFontInheritsLyrics: store.subtitleFontInheritsLyrics,
             subtitleFontStyle: store.subtitleFontStyle,
@@ -617,6 +648,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             claddaghTuning: store.claddaghTuning,
             cappellaTuning: store.cappellaTuning,
             tiltTuning: store.tiltTuning,
+            pendoloTuning: store.pendoloTuning,
             monetBackgroundTuning: store.monetBackgroundTuning,
             latentBackgroundTuning: store.latentBackgroundTuning,
             interactive3dSceneTuning: store.interactive3dSceneTuning,
@@ -704,6 +736,23 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             }
             if (config.showSubtitleTranslation !== undefined) {
                 store.handleToggleShowSubtitleTranslation(Boolean(config.showSubtitleTranslation));
+            }
+            if (config.subtitleContentMode === 'translation'
+                || config.subtitleContentMode === 'romanization'
+                || config.subtitleContentMode === 'none') {
+                store.handleSetSubtitleContentMode(config.subtitleContentMode);
+            }
+            if (config.showHarmonySubtitle !== undefined) {
+                store.handleToggleShowHarmonySubtitle(Boolean(config.showHarmonySubtitle));
+            }
+            if (config.harmonySubtitleBackground !== undefined) {
+                store.handleToggleHarmonySubtitleBackground(Boolean(config.harmonySubtitleBackground));
+            }
+            if (config.playbackPresentation === 'speaker' || config.playbackPresentation === 'default') {
+                store.handleSetPlaybackPresentation(config.playbackPresentation);
+            }
+            if (config.subtitleFontScale !== undefined) {
+                store.handleSetSubtitleFontScale(Number(config.subtitleFontScale));
             }
             if (config.subtitleOverlayBackground !== undefined) {
                 store.handleToggleSubtitleOverlayBackground(Boolean(config.subtitleOverlayBackground));
@@ -1006,6 +1055,24 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
                             style={{ backgroundColor: autoHidePlayerChrome ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
                         >
                             <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${autoHidePlayerChrome ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
+                    <div className={`p-3 rounded-xl border flex items-center justify-between gap-4 ${settingsCardClass}`}>
+                        <div className="space-y-1">
+                            <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                {t('options.speakerStage') || '音箱舞台'}
+                            </div>
+                            <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
+                                {t('options.speakerStageDesc') || '全屏沉浸呈现：弱化播控、玻璃景深与 MoodLyric 悬浮歌词。'}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => store.handleToggleSpeakerStage()}
+                            className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${store.playbackPresentation !== 'speaker' ? toggleOffBackgroundClass : ''}`}
+                            style={{ backgroundColor: store.playbackPresentation === 'speaker' ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
+                        >
+                            <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${store.playbackPresentation === 'speaker' ? 'translate-x-6' : 'translate-x-0'}`} />
                         </button>
                     </div>
                 </SettingsAdvancedSection>
