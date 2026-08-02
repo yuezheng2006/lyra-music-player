@@ -1001,8 +1001,8 @@ export function usePlaybackQueueController({
         });
     }, [localSongs, searchDeps, t]);
 
-    const handleSearchResultPlay = useCallback((track: UnifiedSong) => {
-        // Point-play one search hit: queue is just that track (do not dump all search results).
+    const handleSearchResultPlay = useCallback((track: UnifiedSong, queue?: UnifiedSong[]) => {
+        // Play from search using the visible result list as queue when provided.
         const searchState = useSearchNavigationStore.getState();
         const listenOptions = { shouldNavigateToPlayer: true };
 
@@ -1015,7 +1015,8 @@ export function usePlaybackQueueController({
             });
         }
 
-        void playSong(track, [track], false, listenOptions);
+        const queueContext = queue && queue.length > 0 ? queue : [track];
+        void playSong(track, queueContext, false, listenOptions);
     }, [navigateToSearch, playSong]);
 
     const handleUnavailableReplacementConfirm = useCallback(async () => {

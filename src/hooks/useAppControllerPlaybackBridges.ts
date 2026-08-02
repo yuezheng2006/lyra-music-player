@@ -291,6 +291,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         isPlaying: playerState === PlayerState.PLAYING,
         audioSrc,
         songKey: atmosphereSongKey,
+        trackTitle: currentSong?.name ?? null,
         audioContextRef,
         durationSec: duration,
         contentType: atmosphereTrackHints.contentType,

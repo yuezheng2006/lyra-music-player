@@ -10,9 +10,12 @@ import { detectTimedLyricFormat } from '../utils/lyrics/formatDetection';
 import { parseLyricsAsync } from '../utils/lyrics/workerClient';
 import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState } from '../utils/onlineLyricsState';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
-import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
+import { resolveBestLyric } from '../utils/lyrics/resolveBestLyric';
 import { getMusicProviderForSong, getProviderSongCacheKey, isNeteaseOnlineSong } from './musicProviders/registry';
 import { shouldResolveCompanionVideoForSong } from '../utils/playback/playbackLoadPriorityMath';
+import { isYtmPlaybackSong } from '../utils/appPlaybackGuards';
+import { resolveYtmusicStream } from './ytmusicService';
+import type { YtmSong } from '../types/ytmusic';
 
 const normalizeAudioUrl = (url?: string | null) => {
     if (!url) return null;
@@ -77,6 +80,25 @@ export async function loadOnlineSongAudioSource(
     | { kind: 'unavailable'; diagnostic?: string; errorCode?: string }
 > {
     const forceRefresh = options?.forceRefresh === true;
+
+    if (isYtmPlaybackSong(song)) {
+        const videoId = (song as YtmSong).ytmData?.videoId;
+        if (!videoId) {
+            return { kind: 'unavailable' };
+        }
+        try {
+            const stream = await resolveYtmusicStream(videoId, { forceRefresh });
+            return buildOkAudioSource(stream.playbackUrl);
+        } catch (error) {
+            const { captureRequestFailure } = await import('../utils/network');
+            const failure = captureRequestFailure(error, `onlinePlayback:ytm:${song.name}`);
+            return {
+                kind: 'unavailable',
+                diagnostic: failure.diagnostic,
+                errorCode: failure.code,
+            };
+        }
+    }
 
     // Prefer a valid prefetch streaming URL before reading a full Electron blob into memory —
     // first audible byte beats local IPC for perceived start latency.
@@ -267,7 +289,7 @@ export async function loadOnlineSongLyrics(
         try {
             onAutoMatchStart?.();
             const artistName = song.artists?.map(a => a.name).join(', ') || '';
-            const bestMatch = await autoMatchBestLyric(song.name, artistName, song.duration || song.dt || 0, {
+            const bestMatch = await resolveBestLyric(song.name, artistName, song.duration || song.dt || 0, {
                 album: song.album?.name || song.al?.name,
                 preferredSource: settings.preferredAlternativeLyricSource,
                 neteaseCandidate: {

@@ -631,13 +631,16 @@ declare global {
       ytmusicSearch: (payload: {
         query: string;
         limit?: number;
+        type?: 'song' | 'playlist';
       }) => Promise<{
         ok: boolean;
         tracks: import('./types/ytmusic').YtmSearchTrack[];
+        playlists?: import('./types/ytmusic').YtmHomePlaylist[];
         error?: string;
       }>;
       ytmusicResolveStream: (payload: {
         videoId: string;
+        forceRefresh?: boolean;
       }) => Promise<{
         ok: boolean;
         stream: (import('./types/ytmusic').YtmStreamInfo & { playbackUrl?: string }) | null;

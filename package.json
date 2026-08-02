@@ -17,6 +17,8 @@
     "dev:netease-api": "node scripts/dev-netease-api.cjs",
     "predev:music-provider": "node scripts/kill-port.mjs 3002",
     "dev:music-provider": "node scripts/music-provider-sidecar.cjs",
+    "dev:lyrics-resolve": "npm --prefix services/lyrics-resolve run dev",
+    "test:lyrics-resolve": "npm --prefix services/lyrics-resolve test",
     "provider:validate": "node scripts/music-provider-plugin/validate.cjs",
     "predev:web": "node scripts/kill-port.mjs 3000 3001 3002",
     "dev:web": "concurrently -k \"npm run dev:netease-api\" \"npm run dev:music-provider\" \"wait-on tcp:3001 tcp:3002 && vite --port 3000 --strictPort\"",
