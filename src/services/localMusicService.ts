@@ -5,7 +5,7 @@ import { getLocalPlaylists, saveLocalPlaylists } from './localPlaylistService';
 import { parseEmbeddedMetadataAsync, type EmbeddedMetadataResult } from '../utils/localMetadataWorkerClient';
 import { processNeteaseLyrics } from '../utils/lyrics/neteaseProcessing';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
-import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
+import { resolveBestLyric } from '../utils/lyrics/resolveBestLyric';
 import { normalizeLyricMatchText } from '../utils/lyrics/matchScore';
 import { isBlob } from '../utils/blobGuards';
 import { resolveExplicitFileTimedLyricFormat, type ExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
@@ -1354,7 +1354,7 @@ export async function matchLyrics(song: LocalSong): Promise<LyricData | null> {
         const settings = useSettingsUiStore.getState();
         if (settings.enableAlternativeLyricSources && settings.autoUseBestLyric) {
             const cleanTitle = song.title || song.fileName.replace(/\.(mp3|flac|m4a|wav|ogg|opus|aac)$/i, '');
-            const bestMatch = await autoMatchBestLyric(cleanTitle, song.artist || '', song.duration, {
+            const bestMatch = await resolveBestLyric(cleanTitle, song.artist || '', song.duration, {
                 album: song.album,
                 preferredSource: settings.preferredAlternativeLyricSource,
             });

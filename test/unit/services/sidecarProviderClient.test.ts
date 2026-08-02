@@ -134,4 +134,19 @@ describe('requestSidecarAudioUrl', () => {
             expect.objectContaining({ signal: controller.signal }),
         );
     });
+
+    it('uses a short search retry budget for sidecar search', async () => {
+        const fs = await import('node:fs');
+        const path = await import('node:path');
+        const { fileURLToPath } = await import('node:url');
+        const source = fs.readFileSync(
+            path.resolve(
+                path.dirname(fileURLToPath(import.meta.url)),
+                '../../../src/services/musicProviders/sidecarProviderClient.ts',
+            ),
+            'utf8',
+        );
+        expect(source).toContain('maxAttempts: 2');
+        expect(source).toContain('backoffMs: [200]');
+    });
 });

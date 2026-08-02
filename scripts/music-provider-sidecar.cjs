@@ -26,6 +26,7 @@ const loadProxyFallbackHelper = async () => {
 const port = Number(process.env.MUSIC_PROVIDER_SIDECAR_PORT || 3002);
 const host = process.env.MUSIC_PROVIDER_SIDECAR_HOST || '127.0.0.1';
 const timeoutMs = Number(process.env.MUSIC_PROVIDER_EXTRACTOR_TIMEOUT_MS || 30000);
+const adapterTimeoutMs = Number(process.env.MUSIC_PROVIDER_ADAPTER_TIMEOUT_MS || 8000);
 const adapterCache = new Map();
 
 const builtinAdaptersDir = path.join(__dirname, 'music-provider-adapters');
@@ -100,6 +101,18 @@ const loadAdapter = async (provider) => {
   return adapter;
 };
 
+const withAdapterTimeout = (promise, provider, action) => {
+  let timer = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`Adapter ${provider}/${action} timed out after ${adapterTimeoutMs}ms`));
+    }, adapterTimeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+};
+
 const runAdapter = async (provider, action, payload) => {
   const adapter = await loadAdapter(provider);
   if (!adapter) return null;
@@ -107,11 +120,15 @@ const runAdapter = async (provider, action, payload) => {
   if (typeof handler !== 'function') {
     return null;
   }
-  return handler({
+  return withAdapterTimeout(
+    handler({
+      provider,
+      action,
+      ...payload,
+    }),
     provider,
     action,
-    ...payload,
-  });
+  );
 };
 
 const runExtractor = (provider, action, payload) => new Promise((resolve, reject) => {
@@ -396,8 +413,26 @@ const server = http.createServer(async (req, res) => {
 
     sendJson(res, 405, { error: 'Method not allowed' });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const isTimeout = /timed out/i.test(message);
+    const isUpstream = /\b(412|403|429|502|503|504)\b/.test(message) || /adapter request failed/i.test(message);
+
+    // Search/recommend: degrade to empty rather than 500 — home daily picks flood the console otherwise.
+    if (route?.endpoint === 'search' || route?.endpoint === 'recommend') {
+      console.warn('[music-provider-sidecar] search degraded', route.provider, message);
+      sendJson(res, 200, { songs: [], total: 0, hasMore: false });
+      return;
+    }
+
+    // Audio resolve failures should look unavailable, not crash session restore.
+    if (route?.endpoint === 'song-url' && (isTimeout || isUpstream || /unavailable/i.test(message))) {
+      console.warn('[music-provider-sidecar] audio unavailable', route.provider, message);
+      sendJson(res, 404, { error: 'Audio URL unavailable', detail: message });
+      return;
+    }
+
     console.error('[music-provider-sidecar] request failed', error);
-    sendJson(res, 500, { error: error instanceof Error ? error.message : String(error) });
+    sendJson(res, isTimeout ? 504 : isUpstream ? 502 : 500, { error: message });
   }
 });
 

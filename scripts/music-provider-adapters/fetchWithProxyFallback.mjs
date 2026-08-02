@@ -138,6 +138,58 @@ export const directHttpFetch = (input, init = {}) => new Promise((resolve, rejec
   req.end();
 });
 
+/** Hosts that often stall behind a live local Clash route — race direct in parallel. */
+const PREFER_DIRECT_HOSTS = new Set([
+  'api.qishui.com',
+  'music.douyin.com',
+  'qishui.douyin.com',
+]);
+
+export const shouldPreferDirectForUrl = (input) => {
+  try {
+    const raw = typeof input === 'string' ? input : String(input?.url || input);
+    const hostname = new URL(raw).hostname.toLowerCase();
+    return PREFER_DIRECT_HOSTS.has(hostname);
+  } catch {
+    return false;
+  }
+};
+
+/** True when env points at a loopback proxy (Clash/V2Ray style). */
+export const hasLoopbackProxyConfigured = () => {
+  const proxyUrl = readConfiguredProxyUrl();
+  if (!proxyUrl) return false;
+  const endpoint = parseProxyEndpoint(proxyUrl);
+  return Boolean(endpoint && isLoopbackHost(endpoint.hostname));
+};
+
+const firstSettledOk = async (tasks) => {
+  const errors = [];
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let pending = tasks.length;
+    if (pending === 0) {
+      reject(new Error('No fetch candidates'));
+      return;
+    }
+    for (const task of tasks) {
+      Promise.resolve()
+        .then(task)
+        .then((value) => {
+          if (settled) return;
+          settled = true;
+          resolve(value);
+        }, (error) => {
+          errors.push(error);
+          pending -= 1;
+          if (!settled && pending === 0) {
+            reject(errors[0] || new Error('All fetch candidates failed'));
+          }
+        });
+    }
+  });
+};
+
 /**
  * Build a fetch wrapper around `baseFetch`.
  * Sidecar may install the default export as globalThis.fetch; tests inject a mock.
@@ -150,6 +202,22 @@ export const createFetchWithProxyFallback = (baseFetch) => {
       : (globalThis.fetch && globalThis.fetch !== fetchWithProxyFallback
         ? globalThis.fetch.bind(globalThis)
         : nativeFetch);
+
+    // Live loopback proxies can reach the proxy yet stall on Qishui/Douyin —
+    // race a direct request so search/audition is not blocked by Clash routing.
+    if (shouldPreferDirectForUrl(input) && hasLoopbackProxyConfigured()) {
+      if (typeof baseFetch === 'function') {
+        return firstSettledOk([
+          () => baseFetch(input, { ...init, dispatcher: 'direct' }),
+          () => doFetch(input, init),
+        ]);
+      }
+      return firstSettledOk([
+        () => directHttpFetch(input, init),
+        () => doFetch(input, init),
+      ]);
+    }
+
     try {
       return await doFetch(input, init);
     } catch (error) {

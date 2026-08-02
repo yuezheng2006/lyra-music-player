@@ -17,7 +17,7 @@ import { detectTimedLyricFormat } from '../utils/lyrics/formatDetection';
 import { parseLyricsAsync } from '../utils/lyrics/workerClient';
 import { isPureMusicLyricText } from '../utils/lyrics/pureMusic';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
-import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
+import { resolveBestLyric } from '../utils/lyrics/resolveBestLyric';
 import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState } from '../utils/onlineLyricsState';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isYtmPlaybackSong } from '../utils/appPlaybackGuards';
 
@@ -318,7 +318,7 @@ const prefetchSongLyrics = async (
                 const artistName = song.artists?.map(artist => artist.name).join(', ')
                     || song.ar?.map(artist => artist.name).join(', ')
                     || '';
-                const bestMatch = await autoMatchBestLyric(song.name, artistName, song.duration || song.dt || 0, {
+                const bestMatch = await resolveBestLyric(song.name, artistName, song.duration || song.dt || 0, {
                     album: song.album?.name || song.al?.name,
                     preferredSource: settings.preferredAlternativeLyricSource,
                     neteaseCandidate: {

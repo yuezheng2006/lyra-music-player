@@ -276,10 +276,16 @@ export const requestSidecarSearch = async (
         limit: String(options.limit),
         offset: String(options.offset),
     });
+    // Search UX: fail fast — avoid default 3 attempts + 300/900ms backoff.
     const { response } = await requestWithStability(
         `${base}/providers/${providerId}/search?${params.toString()}`,
         { signal: options.signal },
-        { source: 'sidecar', endpoint: `/providers/${providerId}/search` },
+        {
+            source: 'sidecar',
+            endpoint: `/providers/${providerId}/search`,
+            maxAttempts: 2,
+            backoffMs: [200],
+        },
     );
     if (!response.ok) {
         throw new Error(`${providerId} sidecar search failed: ${response.status}`);

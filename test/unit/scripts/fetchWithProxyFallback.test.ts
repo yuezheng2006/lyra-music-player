@@ -40,6 +40,36 @@ describe('fetchWithProxyFallback', () => {
     expect(helper.isEnvProxyConnectionError(new Error('Qishui request failed: 403'))).toBe(false);
   });
 
+  it('races direct fetch for Qishui hosts when a loopback proxy is configured', async () => {
+    process.env.HTTP_PROXY = 'http://127.0.0.1:7897';
+    process.env.HTTPS_PROXY = 'http://127.0.0.1:7897';
+
+    const helper = await loadHelper();
+    expect(helper.shouldPreferDirectForUrl('https://api.qishui.com/luna/pc/search/track?q=test')).toBe(true);
+    expect(helper.hasLoopbackProxyConfigured()).toBe(true);
+
+    const okResponse = new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit & { dispatcher?: string }) => {
+      if (init?.dispatcher === 'direct') {
+        return okResponse;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      throw new Error('proxy stalled');
+    });
+
+    const resilientFetch = helper.createFetchWithProxyFallback(fetchMock);
+    const response = await resilientFetch('https://api.qishui.com/luna/pc/search/track?q=test');
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ dispatcher: 'direct' }),
+    );
+  });
+
   it('retries with a direct undici Agent when the env proxy connection is refused', async () => {
     process.env.HTTP_PROXY = 'http://127.0.0.1:7897';
     process.env.HTTPS_PROXY = 'http://127.0.0.1:7897';
@@ -64,7 +94,8 @@ describe('fetchWithProxyFallback', () => {
 
     const helper = await loadHelper();
     const resilientFetch = helper.createFetchWithProxyFallback(fetchMock);
-    const response = await resilientFetch('https://api.qishui.com/luna/pc/search/track?q=test');
+    // Non-prefer-direct host keeps sequential proxy-then-direct fallback.
+    const response = await resilientFetch('https://example.com/search?q=test');
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -123,7 +154,11 @@ describe('qishui adapter / sidecar proxy resilience wiring', () => {
     );
 
     expect(adapterSource).toContain('fetchWithProxyFallback');
+    expect(adapterSource).toContain('fetchWithTimeout');
+    expect(adapterSource).toContain('DEFAULT_FETCH_TIMEOUT_MS');
     expect(sidecarSource).toContain('neutralizeDeadEnvProxy');
+    expect(sidecarSource).toContain('withAdapterTimeout');
+    expect(sidecarSource).toContain('MUSIC_PROVIDER_ADAPTER_TIMEOUT_MS');
     expect(electronMain).toContain('neutralizeDeadEnvProxy');
   });
 });

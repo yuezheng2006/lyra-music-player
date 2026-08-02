@@ -33,7 +33,11 @@ function startElectron() {
     child = spawn(electronBin, args, {
         cwd: root,
         stdio: 'inherit',
-        env: process.env,
+        env: {
+            ...process.env,
+            // Must be set in the process env before Electron boots (Vite HMR uses unsafe-eval).
+            ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
+        },
     });
 
     child.on('exit', (code, signal) => {

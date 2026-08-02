@@ -273,8 +273,37 @@ const collectFilteredPlaylistTracks = async (playlist, { artistName, limit, offs
   };
 };
 
+const DEFAULT_FETCH_TIMEOUT_MS = Number(process.env.MUSIC_PROVIDER_QISHUI_FETCH_TIMEOUT_MS || 8000);
+
+/** Abort slow Luna / share-page hops so search UI can fail fast. */
+const fetchWithTimeout = async (url, init = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS) => {
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  if (init.signal) {
+    if (init.signal.aborted) {
+      throw new Error('Qishui request aborted');
+    }
+    init.signal.addEventListener('abort', onAbort, { once: true });
+  }
+  const timer = setTimeout(() => controller.abort(), Math.max(500, timeoutMs));
+  try {
+    return await fetchWithProxyFallback(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`Qishui request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    init.signal?.removeEventListener('abort', onAbort);
+  }
+};
+
 const fetchJson = async (url, headers = {}) => {
-  const response = await fetchWithProxyFallback(url, { headers });
+  const response = await fetchWithTimeout(url, { headers });
   if (!response.ok) {
     throw new Error(`Qishui request failed: ${response.status}`);
   }
@@ -282,7 +311,7 @@ const fetchJson = async (url, headers = {}) => {
 };
 
 const fetchText = async (url, headers = {}) => {
-  const response = await fetchWithProxyFallback(url, { headers });
+  const response = await fetchWithTimeout(url, { headers });
   if (!response.ok) {
     throw new Error(`Qishui request failed: ${response.status}`);
   }
