@@ -11,6 +11,7 @@ import { useSearchNavigationStore } from '../stores/useSearchNavigationStore';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import OnlineMusicGuestConnect from './shared/OnlineMusicGuestConnect';
 import OnlineProviderFilterBar from './shared/OnlineProviderFilterBar';
+import HomeDiscoveryRail from './app/home/HomeDiscoveryRail';
 import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterStore';
 import { hasAnyOnlineMusicSession, hasNeteaseSession, hasQQMusicSession } from '../utils/onlineLibraryAccess';
 import { resolveSearchableLibraryProviders } from '../utils/onlineSearchRouting';
@@ -503,6 +504,10 @@ const Home: React.FC<HomeProps> = ({
                                     onRefreshUser={onRefreshUser}
                                 />
                             </div>
+                            <HomeDiscoveryRail
+                                isDaylight={isDaylight}
+                                onPlaySong={onPlaySong}
+                            />
                             <motion.div
                                 key="playlist"
                                 initial={{ opacity: 0 }}

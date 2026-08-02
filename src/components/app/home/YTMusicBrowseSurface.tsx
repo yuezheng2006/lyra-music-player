@@ -1,24 +1,26 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Loader2, Search, Music2 } from 'lucide-react';
-import type { YtmHomePlaylist, YtmSearchTrack } from '../../../types/ytmusic';
+import { ArrowLeft, Loader2, Music2, Search } from 'lucide-react';
+import type { YtmHomePlaylist, YtmHomeSection, YtmSearchTrack } from '../../../types/ytmusic';
 import {
-    fetchYtmusicHomeShelves,
+    fetchYtmusicHome,
     fetchYtmusicPlaylist,
     isYtmusicRuntimeAvailable,
-    peekYtmusicHomeShelvesCache,
+    peekYtmusicHomeSectionsCache,
     peekYtmusicPlaylistCache,
+    searchYtmusicPlaylists,
     searchYtmusicTracks,
 } from '../../../services/ytmusicService';
 import { YTMUSIC_HOME_CHIPS_CN } from '../../../utils/ytmusicHomeChips';
-import { useYtmusicBrowseStore } from '../../../stores/useYtmusicBrowseStore';
+import { useYtmusicBrowseStore, type YtmusicSearchTab } from '../../../stores/useYtmusicBrowseStore';
 import { SearchClearButton } from '../../shared/SearchClearButton';
 import RemoteLoadState from '../../shared/RemoteLoadState';
 import { captureRequestFailure } from '../../../utils/network';
 import { APP_CONTENT_BOTTOM_PADDING_CLASS, resolveBrowseListRowClass } from './homeSurfaceStyles';
+import YtmusicHomeRails from './ytmusic/YtmusicHomeRails';
 
 // src/components/app/home/YTMusicBrowseSurface.tsx
-// Electron-only YouTube Music browse: session-backed search/playlist + home shelves.
+// Electron-only YouTube Music browse: home rails + Songs/Playlists search.
 
 type YTMusicBrowseSurfaceProps = {
     isDaylight: boolean;
@@ -45,6 +47,10 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
 
     const query = useYtmusicBrowseStore((s) => s.query);
     const tracks = useYtmusicBrowseStore((s) => s.tracks);
+    const playlists = useYtmusicBrowseStore((s) => s.playlists);
+    const searchTab = useYtmusicBrowseStore((s) => s.searchTab);
+    const songsFetched = useYtmusicBrowseStore((s) => s.songsFetched);
+    const playlistsFetched = useYtmusicBrowseStore((s) => s.playlistsFetched);
     const searched = useYtmusicBrowseStore((s) => s.searched);
     const loading = useYtmusicBrowseStore((s) => s.loading);
     const error = useYtmusicBrowseStore((s) => s.error);
@@ -56,8 +62,10 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
     const playlistDiagnostic = useYtmusicBrowseStore((s) => s.playlistDiagnostic);
     const listScrollTop = useYtmusicBrowseStore((s) => s.listScrollTop);
     const setQuery = useYtmusicBrowseStore((s) => s.setQuery);
+    const setSearchTab = useYtmusicBrowseStore((s) => s.setSearchTab);
     const beginSearch = useYtmusicBrowseStore((s) => s.beginSearch);
-    const finishSearch = useYtmusicBrowseStore((s) => s.finishSearch);
+    const finishSongSearch = useYtmusicBrowseStore((s) => s.finishSongSearch);
+    const finishPlaylistSearch = useYtmusicBrowseStore((s) => s.finishPlaylistSearch);
     const failSearch = useYtmusicBrowseStore((s) => s.failSearch);
     const clearSearch = useYtmusicBrowseStore((s) => s.clearSearch);
     const openPlaylistInStore = useYtmusicBrowseStore((s) => s.openPlaylist);
@@ -68,8 +76,10 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
     const closePlaylist = useYtmusicBrowseStore((s) => s.closePlaylist);
     const setListScrollTop = useYtmusicBrowseStore((s) => s.setListScrollTop);
 
-    const [playlists, setPlaylists] = useState<YtmHomePlaylist[]>(() => peekYtmusicHomeShelvesCache() || []);
-    const [homeLoading, setHomeLoading] = useState(() => !peekYtmusicHomeShelvesCache()?.length);
+    const [homeSections, setHomeSections] = useState<YtmHomeSection[]>(
+        () => peekYtmusicHomeSectionsCache() || [],
+    );
+    const [homeLoading, setHomeLoading] = useState(() => !peekYtmusicHomeSectionsCache()?.length);
     const [homeError, setHomeError] = useState<string | null>(null);
     const [homeDiagnostic, setHomeDiagnostic] = useState<string | null>(null);
     const [homeIsEmpty, setHomeIsEmpty] = useState(false);
@@ -86,16 +96,53 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
     const activeRowClass = isDaylight
         ? 'bg-black/[0.08] ring-1 ring-black/10'
         : 'bg-white/[0.12] ring-1 ring-white/14';
+    const tabIdle = isDaylight
+        ? 'text-black/50 hover:text-black/80'
+        : 'text-white/50 hover:text-white/85';
+    const tabActive = isDaylight
+        ? 'text-black border-b-2 border-black/70'
+        : 'text-white border-b-2 border-white/75';
 
     const runtimeOk = isYtmusicRuntimeAvailable();
     const showDiscovery = runtimeOk && !searched && !activePlaylist;
 
+    const applyHomeSections = (sections: YtmHomeSection[]) => {
+        setHomeSections(sections);
+        if (sections.length === 0) {
+            setHomeIsEmpty(true);
+            setHomeError(t('ytmusic.homeEmpty'));
+            return;
+        }
+        setHomeIsEmpty(false);
+        setHomeError(null);
+        setHomeDiagnostic(null);
+    };
+
+    const loadHome = (forceRefresh = false) => {
+        setHomeLoading(true);
+        setHomeError(null);
+        setHomeDiagnostic(null);
+        setHomeIsEmpty(false);
+        return fetchYtmusicHome({ forceRefresh })
+            .then((sections) => {
+                applyHomeSections(sections);
+            })
+            .catch((err) => {
+                const failure = captureRequestFailure(err, forceRefresh ? 'ytm:home:retry' : 'ytm:home');
+                setHomeError(failure.message || t('ytmusic.homeFailed'));
+                setHomeDiagnostic(failure.diagnostic);
+                setHomeIsEmpty(false);
+                setHomeSections([]);
+            })
+            .finally(() => setHomeLoading(false));
+    };
+
     useEffect(() => {
         if (!runtimeOk) return;
 
-        const cached = peekYtmusicHomeShelvesCache();
+        const cached = peekYtmusicHomeSectionsCache();
         if (cached?.length) {
-            setPlaylists(cached);
+            setHomeSections(cached);
             setHomeLoading(false);
             setHomeError(null);
             setHomeDiagnostic(null);
@@ -108,15 +155,10 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
         setHomeError(null);
         setHomeDiagnostic(null);
         setHomeIsEmpty(false);
-
-        void fetchYtmusicHomeShelves()
-            .then((shelves) => {
+        void fetchYtmusicHome()
+            .then((sections) => {
                 if (cancelled) return;
-                setPlaylists(shelves);
-                if (shelves.length === 0) {
-                    setHomeIsEmpty(true);
-                    setHomeError(t('ytmusic.homeEmpty'));
-                }
+                applyHomeSections(sections);
             })
             .catch((err) => {
                 if (cancelled) return;
@@ -124,15 +166,15 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
                 setHomeError(failure.message || t('ytmusic.homeFailed'));
                 setHomeDiagnostic(failure.diagnostic);
                 setHomeIsEmpty(false);
-                setPlaylists([]);
+                setHomeSections([]);
             })
             .finally(() => {
                 if (!cancelled) setHomeLoading(false);
             });
-
         return () => {
             cancelled = true;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- mount / runtime gate only
     }, [runtimeOk, t]);
 
     useEffect(() => {
@@ -141,9 +183,9 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
         if (!node) return;
         node.scrollTop = listScrollTop;
         restoredScrollRef.current = true;
-    }, [listScrollTop, searched, activePlaylist, playlistSection, tracks.length]);
+    }, [listScrollTop, searched, activePlaylist, playlistSection, tracks.length, playlists.length, searchTab]);
 
-    const runSearch = async (raw: string) => {
+    const runSearch = async (raw: string, tab: YtmusicSearchTab = searchTab) => {
         const nextQuery = raw.trim();
         if (!nextQuery) return;
         if (!runtimeOk) {
@@ -151,15 +193,32 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
             return;
         }
 
-        beginSearch(nextQuery);
+        beginSearch(nextQuery, tab);
         restoredScrollRef.current = false;
         if (listRef.current) listRef.current.scrollTop = 0;
+
         try {
-            const results = await searchYtmusicTracks(nextQuery, 30);
-            finishSearch(results);
+            if (tab === 'playlists') {
+                const results = await searchYtmusicPlaylists(nextQuery, 30);
+                finishPlaylistSearch(results);
+            } else {
+                const results = await searchYtmusicTracks(nextQuery, 30);
+                finishSongSearch(results);
+            }
         } catch (err) {
             const failure = captureRequestFailure(err, 'ytm:search');
             failSearch(failure.message || t('ytmusic.searchFailed'), failure.diagnostic);
+        }
+    };
+
+    const switchSearchTab = (tab: YtmusicSearchTab) => {
+        if (tab === searchTab) return;
+        setSearchTab(tab);
+        restoredScrollRef.current = false;
+        if (listRef.current) listRef.current.scrollTop = 0;
+        const alreadyFetched = tab === 'songs' ? songsFetched : playlistsFetched;
+        if (searched && query.trim() && !alreadyFetched && !loading) {
+            void runSearch(query, tab);
         }
     };
 
@@ -199,7 +258,7 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
                     </span>
                     <div className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-black/10 ${coverRing}`}>
                         {track.coverUrl ? (
-                            <img src={track.coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+                            <img src={track.coverUrl} alt="" className="h-full w-full object-contain" loading="lazy" referrerPolicy="no-referrer" />
                         ) : null}
                         {isActive ? (
                             <span className={`absolute inset-x-0 bottom-0 h-0.5 ${isDaylight ? 'bg-zinc-800' : 'bg-white'}`} />
@@ -218,6 +277,36 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
             </li>
         );
     };
+
+    const renderPlaylistRow = (playlist: YtmHomePlaylist) => (
+        <li key={playlist.playlistId}>
+            <button
+                type="button"
+                className={`group flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-colors ${rowClass}`}
+                onClick={() => void openPlaylist(playlist)}
+            >
+                <div className={`h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-black/10 ${coverRing}`}>
+                    {playlist.coverUrl ? (
+                        <img
+                            src={playlist.coverUrl}
+                            alt=""
+                            className="h-full w-full object-contain"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                        />
+                    ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                            <Music2 className={`h-5 w-5 ${muted}`} />
+                        </div>
+                    )}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{playlist.title}</div>
+                    <div className={`truncate text-xs ${muted}`}>{t('ytmusic.playlistSubtitle')}</div>
+                </div>
+            </button>
+        </li>
+    );
 
     return (
         <div className={`flex h-full min-h-0 flex-col px-6 pt-6 ${APP_CONTENT_BOTTOM_PADDING_CLASS}`}>
@@ -253,7 +342,7 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
                     className="relative mb-3"
                     onSubmit={(event) => {
                         event.preventDefault();
-                        void runSearch(query);
+                        void runSearch(query, searchTab);
                     }}
                 >
                     <Search className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${muted}`} />
@@ -283,9 +372,27 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
                             key={chip}
                             type="button"
                             className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${chipClass}`}
-                            onClick={() => void runSearch(chip)}
+                            onClick={() => void runSearch(chip, 'songs')}
                         >
                             {chip}
+                        </button>
+                    ))}
+                </div>
+            ) : null}
+
+            {searched && !activePlaylist ? (
+                <div className={`mb-3 flex gap-4 border-b px-1 ${isDaylight ? 'border-black/8' : 'border-white/10'}`}>
+                    {([
+                        ['songs', t('ytmusic.searchSongs')],
+                        ['playlists', t('ytmusic.searchPlaylists')],
+                    ] as const).map(([tab, label]) => (
+                        <button
+                            key={tab}
+                            type="button"
+                            className={`-mb-px pb-2 text-sm font-medium transition ${searchTab === tab ? tabActive : tabIdle}`}
+                            onClick={() => switchSearchTab(tab)}
+                        >
+                            {label}
                         </button>
                     ))}
                 </div>
@@ -298,19 +405,23 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
                 </div>
             ) : null}
 
-            {error ? (
+            {error && searched && !activePlaylist ? (
                 <RemoteLoadState
                     status="error"
                     isDaylight={isDaylight}
                     errorLabel={error}
-                    onRetry={() => void runSearch(query)}
+                    onRetry={() => void runSearch(query, searchTab)}
                     diagnostic={diagnostic}
                     className="min-h-[160px]"
                 />
             ) : null}
 
-            {!loading && !error && searched && tracks.length === 0 ? (
+            {!loading && !error && searched && !activePlaylist && searchTab === 'songs' && songsFetched && tracks.length === 0 ? (
                 <p className={`text-sm ${muted}`}>{t('ytmusic.empty')}</p>
+            ) : null}
+
+            {!loading && !error && searched && !activePlaylist && searchTab === 'playlists' && playlistsFetched && playlists.length === 0 ? (
+                <p className={`text-sm ${muted}`}>{t('ytmusic.emptyPlaylists')}</p>
             ) : null}
 
             <div
@@ -320,10 +431,16 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
                     setListScrollTop(event.currentTarget.scrollTop);
                 }}
             >
-                {searched ? (
-                    <ul className="space-y-0.5">
-                        {tracks.map((track, index) => renderTrackRow(track, tracks, index))}
-                    </ul>
+                {searched && !activePlaylist ? (
+                    searchTab === 'playlists' ? (
+                        <ul className="space-y-0.5">
+                            {playlists.map((playlist) => renderPlaylistRow(playlist))}
+                        </ul>
+                    ) : (
+                        <ul className="space-y-0.5">
+                            {tracks.map((track, index) => renderTrackRow(track, tracks, index))}
+                        </ul>
+                    )
                 ) : activePlaylist ? (
                     <div className="space-y-3">
                         {activePlaylist.coverUrl ? (
@@ -332,7 +449,7 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
                                     <img
                                         src={activePlaylist.coverUrl}
                                         alt=""
-                                        className="h-full w-full object-cover"
+                                        className="h-full w-full object-contain"
                                         referrerPolicy="no-referrer"
                                     />
                                 </div>
@@ -371,83 +488,22 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
                         ) : null}
                     </div>
                 ) : (
-                    <div className="space-y-4">
-                        <div className="space-y-1 px-1">
-                            <h2 className="text-sm font-semibold tracking-tight">
-                                {t('ytmusic.playlistsHeading')}
-                            </h2>
-                            <p className={`text-xs leading-relaxed ${muted}`}>
-                                {t('ytmusic.playlistsCaption')}
-                            </p>
-                        </div>
-                        {homeLoading && playlists.length === 0 ? (
-                            <RemoteLoadState
-                                status="loading"
-                                isDaylight={isDaylight}
-                                loadingLabel={t('ytmusic.homeLoading')}
-                                className="min-h-[140px]"
-                            />
-                        ) : null}
-                        {homeError && playlists.length === 0 ? (
-                            <RemoteLoadState
-                                status={homeIsEmpty ? 'empty' : 'error'}
-                                isDaylight={isDaylight}
-                                emptyLabel={t('ytmusic.homeEmpty')}
-                                errorLabel={homeError || t('ytmusic.homeFailed')}
-                                onRetry={() => {
-                                    setHomeLoading(true);
-                                    setHomeError(null);
-                                    setHomeDiagnostic(null);
-                                    setHomeIsEmpty(false);
-                                    void fetchYtmusicHomeShelves({ forceRefresh: true })
-                                        .then((shelves) => {
-                                            setPlaylists(shelves);
-                                            if (shelves.length === 0) {
-                                                setHomeIsEmpty(true);
-                                                setHomeError(t('ytmusic.homeEmpty'));
-                                            }
-                                        })
-                                        .catch((err) => {
-                                            const failure = captureRequestFailure(err, 'ytm:home:retry');
-                                            setHomeError(failure.message || t('ytmusic.homeFailed'));
-                                            setHomeDiagnostic(failure.diagnostic);
-                                        })
-                                        .finally(() => setHomeLoading(false));
-                                }}
-                                diagnostic={homeDiagnostic}
-                                className="min-h-[140px]"
-                            />
-                        ) : null}
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                            {playlists.map((playlist) => (
-                                <button
-                                    key={playlist.playlistId}
-                                    type="button"
-                                    className={`group min-w-0 text-left ${rowClass} rounded-2xl p-2`}
-                                    onClick={() => void openPlaylist(playlist)}
-                                >
-                                    <div className={`aspect-square w-full overflow-hidden rounded-xl bg-black/10 ${coverRing}`}>
-                                        {playlist.coverUrl ? (
-                                            <img
-                                                src={playlist.coverUrl}
-                                                alt=""
-                                                className="h-full w-full object-cover transition group-hover:scale-[1.02]"
-                                                loading="lazy"
-                                                referrerPolicy="no-referrer"
-                                            />
-                                        ) : (
-                                            <div className="flex h-full w-full items-center justify-center">
-                                                <Music2 className={`h-8 w-8 ${muted}`} />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="mt-2 truncate px-0.5 text-sm font-medium">
-                                        {playlist.title}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                    <YtmusicHomeRails
+                        sections={homeSections}
+                        loading={homeLoading}
+                        error={homeError}
+                        diagnostic={homeDiagnostic}
+                        isEmpty={homeIsEmpty}
+                        isDaylight={isDaylight}
+                        currentVideoId={currentVideoId}
+                        onRetry={() => {
+                            void loadHome(true);
+                        }}
+                        onSeeAll={(playlist) => {
+                            void openPlaylist(playlist);
+                        }}
+                        onPlayTrack={onPlayTrack}
+                    />
                 )}
             </div>
         </div>

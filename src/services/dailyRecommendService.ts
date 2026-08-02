@@ -1,8 +1,10 @@
 import type { OnlineMusicProviderId, SongResult } from '../types';
-import type { OnlineLibraryProviderId } from '../stores/useOnlineLibraryFilterStore';
-import { isStableRequestError, type RequestErrorCode } from '../utils/network';
-import { fetchDailyRecommendSongs } from './neteasePodcast';
-import { requestSidecarRecommend } from './musicProviders/sidecarProviderClient';
+import {
+    ONLINE_LIBRARY_PROVIDER_IDS,
+    type OnlineLibraryProviderId,
+} from '../stores/useOnlineLibraryFilterStore';
+import type { RequestErrorCode } from '../utils/network';
+import { isSongMarkedUnavailable } from './netease';
 import {
     dedupeSongsByTitle,
     fetchChartMatchedPicks,
@@ -12,7 +14,7 @@ import {
 } from './dailyChartPicks';
 
 // src/services/dailyRecommendService.ts
-// Daily recommend: Netease personalized only (peer QQ/Coco CDN playback is too unstable).
+// Today Picks: hot-chart seeds matched on enabled peer providers (no NetEase personalized daily).
 
 export type DailyRecommendKind = 'personalized' | 'picks';
 
@@ -29,6 +31,7 @@ export type DailyRecommendSourceBucket = {
 export type AggregatedDailyRecommend = {
     sources: DailyRecommendSourceBucket[];
     songs: SongResult[];
+    /** Always false — Today Picks does not use NetEase personalized daily. */
     needLoginNetease: boolean;
 };
 
@@ -42,14 +45,21 @@ export type FetchAggregatedDailyRecommendOptions = {
     ) => void;
 };
 
-/** Empty: QQ open CDN 404 loops; keep daily page on Netease only. */
-const SIDECAR_RECOMMEND_PROVIDERS: OnlineMusicProviderId[] = [];
 const DEFAULT_SOURCE_TIMEOUT_MS = 8_000;
 const PEER_PICK_LIMIT = 8;
 const QQ_PICK_LIMIT = 12;
 
 const songKey = (song: SongResult) =>
     `${song.musicProvider || 'unknown'}:${song.providerSongId || song.id}:${song.name}`;
+
+/** Enabled non-NetEase library providers in stable UI order. */
+export const listTodayPicksProviders = (
+    enabledProviders: Partial<Record<OnlineLibraryProviderId, boolean>>,
+): OnlineMusicProviderId[] => (
+    ONLINE_LIBRARY_PROVIDER_IDS.filter(
+        (id) => id !== 'netease' && enabledProviders[id] !== false,
+    ) as OnlineMusicProviderId[]
+);
 
 /**
  * Round-robin merge across providers.
@@ -69,6 +79,7 @@ export const interleaveDailyRecommendSongs = (
         for (const list of queues) {
             const next = list.shift();
             if (!next) continue;
+            if (isSongMarkedUnavailable(next)) continue;
             const exact = songKey(next);
             const title = recommendTitleKey(next);
             if (seenExact.has(exact)) continue;
@@ -99,36 +110,22 @@ const withTimeout = async <T>(
     }
 };
 
-/** QQ personalized daily when logged in; otherwise chart-matched picks. */
+/** Chart-matched picks for one peer provider. */
 const fetchSidecarBucket = async (
     provider: OnlineMusicProviderId,
     limit: number,
     seeds: ChartSeed[],
 ): Promise<DailyRecommendSourceBucket> => {
-    if (provider === 'qq') {
-        try {
-            const result = await requestSidecarRecommend(provider, { limit });
-            if (result.kind === 'personalized' && result.songs.length > 0) {
-                return {
-                    provider,
-                    songs: dedupeSongsByTitle(result.songs),
-                    kind: 'personalized',
-                    query: result.query,
-                };
-            }
-        } catch {
-            // Fall through to chart matching.
-        }
-    }
-
     try {
         const songs = await fetchChartMatchedPicks(provider, seeds, limit);
+        const playable = songs.filter(song => !isSongMarkedUnavailable(song));
         return {
             provider,
-            songs,
+            songs: playable,
             kind: 'picks',
             query: 'hot-chart',
-            error: songs.length === 0 ? 'empty' : undefined,
+            error: playable.length === 0 ? 'empty' : undefined,
+            errorCode: playable.length === 0 ? 'empty' : undefined,
         };
     } catch (error) {
         return {
@@ -136,72 +133,23 @@ const fetchSidecarBucket = async (
             songs: [],
             kind: 'picks',
             query: 'hot-chart',
-            error: error instanceof Error ? error.message : String(error),
-        };
-    }
-};
-
-const fetchNeteaseBucket = async (): Promise<DailyRecommendSourceBucket> => {
-    try {
-        const neteaseResult = await fetchDailyRecommendSongs();
-        if (neteaseResult.needLogin) {
-            return {
-                provider: 'netease',
-                songs: [],
-                kind: 'personalized',
-                error: 'need-login',
-                errorCode: 'need-login',
-            };
-        }
-        return {
-            provider: 'netease',
-            songs: dedupeSongsByTitle(neteaseResult.songs),
-            kind: 'personalized',
-            error: neteaseResult.songs.length === 0 ? (neteaseResult.message || undefined) : undefined,
-            errorCode: neteaseResult.songs.length === 0 ? 'empty' : undefined,
-        };
-    } catch (error) {
-        if (isStableRequestError(error)) {
-            return {
-                provider: 'netease',
-                songs: [],
-                kind: 'personalized',
-                error: error.message,
-                errorCode: error.code,
-                diagnostic: error.toDiagnosticSummary(),
-            };
-        }
-        return {
-            provider: 'netease',
-            songs: [],
-            kind: 'personalized',
             error: error instanceof Error ? error.message : String(error),
             errorCode: 'unknown',
-            diagnostic: error instanceof Error ? error.message : String(error),
         };
     }
 };
 
 const buildAggregate = (
     sources: DailyRecommendSourceBucket[],
-    wantNetease: boolean,
-): AggregatedDailyRecommend => {
-    const netease = sources.find(s => s.provider === 'netease');
-    return {
-        sources,
-        songs: interleaveDailyRecommendSongs(sources),
-        needLoginNetease: Boolean(
-            wantNetease
-            && netease?.error === 'need-login'
-            && (netease.songs.length === 0),
-        ),
-    };
-};
+): AggregatedDailyRecommend => ({
+    sources,
+    songs: interleaveDailyRecommendSongs(sources),
+    needLoginNetease: false,
+});
 
 /**
- * Fetch personalized daily (Netease) + optional peer picks.
- * Netease is always requested: daily recommend is a Netease surface and must not
- * go blank when the home library filter disables the Netease playlist chip.
+ * Fetch Today Picks from enabled peer providers (hot-chart matched).
+ * NetEase personalized daily is intentionally not used.
  * Each source is independently timed out so a hung peer cannot block the page.
  */
 export const fetchAggregatedDailyRecommend = async (
@@ -209,11 +157,15 @@ export const fetchAggregatedDailyRecommend = async (
     options: FetchAggregatedDailyRecommendOptions = {},
 ): Promise<AggregatedDailyRecommend> => {
     const timeoutMs = options.timeoutMs ?? DEFAULT_SOURCE_TIMEOUT_MS;
-    // Home source toggles filter playlists/search — not this page's only source.
-    const wantNetease = true;
-    const sidecarTargets = SIDECAR_RECOMMEND_PROVIDERS.filter(
-        id => enabledProviders[id as OnlineLibraryProviderId] !== false,
-    );
+    const sidecarTargets = listTodayPicksProviders(enabledProviders);
+
+    if (sidecarTargets.length === 0) {
+        return {
+            sources: [],
+            songs: [],
+            needLoginNetease: false,
+        };
+    }
 
     const sources: DailyRecommendSourceBucket[] = [];
 
@@ -224,52 +176,29 @@ export const fetchAggregatedDailyRecommend = async (
         } else {
             sources.push(bucket);
         }
-        options.onSource?.(bucket, buildAggregate(sources, wantNetease));
+        options.onSource?.(bucket, buildAggregate(sources));
     };
 
     const seedLimit = Math.max(QQ_PICK_LIMIT, PEER_PICK_LIMIT) + 6;
-    const seedsPromise = sidecarTargets.length > 0
-        ? fetchHotChartSeeds(seedLimit)
-        : Promise.resolve([] as ChartSeed[]);
+    const seedsPromise = fetchHotChartSeeds(seedLimit);
 
-    const tasks: Array<Promise<void>> = [];
-
-    if (wantNetease) {
-        tasks.push(
-            withTimeout(
-                fetchNeteaseBucket(),
-                timeoutMs,
-                (): DailyRecommendSourceBucket => ({
-                    provider: 'netease',
-                    songs: [],
-                    kind: 'personalized',
-                    error: 'timeout',
-                    errorCode: 'timeout',
-                    diagnostic: 'source=netease code=timeout endpoint=/recommend/songs',
-                }),
-            ).then(publish),
-        );
-    }
-
-    for (const provider of sidecarTargets) {
+    const tasks = sidecarTargets.map((provider) => {
         const limit = provider === 'qq' ? QQ_PICK_LIMIT : PEER_PICK_LIMIT;
-        tasks.push(
-            withTimeout(
-                seedsPromise.then(seeds => fetchSidecarBucket(provider, limit, seeds)),
-                timeoutMs,
-                (): DailyRecommendSourceBucket => ({
-                    provider,
-                    songs: [],
-                    kind: 'picks',
-                    query: 'hot-chart',
-                    error: 'timeout',
-                    errorCode: 'timeout',
-                    diagnostic: `source=${provider} code=timeout endpoint=/providers/${provider}/recommend`,
-                }),
-            ).then(publish),
-        );
-    }
+        return withTimeout(
+            seedsPromise.then(seeds => fetchSidecarBucket(provider, limit, seeds)),
+            timeoutMs,
+            (): DailyRecommendSourceBucket => ({
+                provider,
+                songs: [],
+                kind: 'picks',
+                query: 'hot-chart',
+                error: 'timeout',
+                errorCode: 'timeout',
+                diagnostic: `source=${provider} code=timeout endpoint=chart-match`,
+            }),
+        ).then(publish);
+    });
 
     await Promise.all(tasks);
-    return buildAggregate(sources, wantNetease);
+    return buildAggregate(sources);
 };

@@ -4,9 +4,16 @@ import type { YtmHomePlaylist, YtmHomeSection, YtmSearchTrack } from '../types/y
 // src/stores/useYtmusicBrowseStore.ts
 // Session-only YTM browse state so player navigation does not wipe search/playlist UI.
 
+export type YtmusicSearchTab = 'songs' | 'playlists';
+
 type YtmusicBrowseState = {
     query: string;
     tracks: YtmSearchTrack[];
+    playlists: YtmHomePlaylist[];
+    searchTab: YtmusicSearchTab;
+    /** Which typed searches already completed for the current query. */
+    songsFetched: boolean;
+    playlistsFetched: boolean;
     searched: boolean;
     loading: boolean;
     error: string | null;
@@ -18,7 +25,11 @@ type YtmusicBrowseState = {
     playlistDiagnostic: string | null;
     listScrollTop: number;
     setQuery: (query: string) => void;
-    beginSearch: (query: string) => void;
+    setSearchTab: (tab: YtmusicSearchTab) => void;
+    beginSearch: (query: string, tab?: YtmusicSearchTab) => void;
+    finishSongSearch: (tracks: YtmSearchTrack[]) => void;
+    finishPlaylistSearch: (playlists: YtmHomePlaylist[]) => void;
+    /** @deprecated Prefer finishSongSearch. */
     finishSearch: (tracks: YtmSearchTrack[]) => void;
     failSearch: (message: string, diagnostic?: string | null) => void;
     clearSearch: () => void;
@@ -31,45 +42,85 @@ type YtmusicBrowseState = {
     setListScrollTop: (scrollTop: number) => void;
 };
 
-export const useYtmusicBrowseStore = create<YtmusicBrowseState>((set) => ({
-    query: '',
-    tracks: [],
+const EMPTY_SEARCH = {
+    tracks: [] as YtmSearchTrack[],
+    playlists: [] as YtmHomePlaylist[],
+    songsFetched: false,
+    playlistsFetched: false,
     searched: false,
     loading: false,
-    error: null,
-    diagnostic: null,
+    error: null as string | null,
+    diagnostic: null as string | null,
+    listScrollTop: 0,
+};
+
+export const useYtmusicBrowseStore = create<YtmusicBrowseState>((set) => ({
+    query: '',
+    searchTab: 'songs',
+    ...EMPTY_SEARCH,
     activePlaylist: null,
     playlistSection: null,
     playlistLoading: false,
     playlistError: null,
     playlistDiagnostic: null,
-    listScrollTop: 0,
 
     setQuery: (query) => set({ query }),
 
-    beginSearch: (query) => set({
-        query,
-        loading: true,
+    setSearchTab: (tab) => set({ searchTab: tab, listScrollTop: 0, error: null, diagnostic: null }),
+
+    beginSearch: (query, tab) => set((state) => {
+        const nextTab = tab ?? state.searchTab;
+        const sameQuery = state.query.trim() === query.trim() && state.searched;
+        return {
+            query,
+            searchTab: nextTab,
+            loading: true,
+            error: null,
+            diagnostic: null,
+            searched: true,
+            // New query resets typed result caches; tab switch refetch keeps the other tab.
+            ...(sameQuery
+                ? {}
+                : {
+                    tracks: [],
+                    playlists: [],
+                    songsFetched: false,
+                    playlistsFetched: false,
+                }),
+            activePlaylist: null,
+            playlistSection: null,
+            playlistError: null,
+            playlistDiagnostic: null,
+            playlistLoading: false,
+            listScrollTop: 0,
+        };
+    }),
+
+    finishSongSearch: (tracks) => set({
+        tracks,
+        songsFetched: true,
+        loading: false,
         error: null,
         diagnostic: null,
-        searched: true,
-        activePlaylist: null,
-        playlistSection: null,
-        playlistError: null,
-        playlistDiagnostic: null,
-        playlistLoading: false,
-        listScrollTop: 0,
+    }),
+
+    finishPlaylistSearch: (playlists) => set({
+        playlists,
+        playlistsFetched: true,
+        loading: false,
+        error: null,
+        diagnostic: null,
     }),
 
     finishSearch: (tracks) => set({
         tracks,
+        songsFetched: true,
         loading: false,
         error: null,
         diagnostic: null,
     }),
 
     failSearch: (message, diagnostic = null) => set({
-        tracks: [],
         loading: false,
         error: message,
         diagnostic,
@@ -77,19 +128,11 @@ export const useYtmusicBrowseStore = create<YtmusicBrowseState>((set) => ({
 
     clearSearch: () => set({
         query: '',
-        tracks: [],
-        searched: false,
-        loading: false,
-        error: null,
-        diagnostic: null,
-        listScrollTop: 0,
+        searchTab: 'songs',
+        ...EMPTY_SEARCH,
     }),
 
     openPlaylist: (playlist) => set({
-        searched: false,
-        tracks: [],
-        error: null,
-        diagnostic: null,
         activePlaylist: playlist,
         playlistError: null,
         playlistDiagnostic: null,
@@ -109,6 +152,7 @@ export const useYtmusicBrowseStore = create<YtmusicBrowseState>((set) => ({
         playlistError: null,
         playlistDiagnostic: null,
     }),
+
     finishPlaylistLoad: (section) => set({
         playlistSection: section,
         playlistLoading: false,

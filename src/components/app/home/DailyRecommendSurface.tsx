@@ -23,7 +23,7 @@ import {
 import { resolveBrowseListRowClass, resolveHomeContentBottomPaddingClass } from './homeSurfaceStyles';
 
 // src/components/app/home/DailyRecommendSurface.tsx
-// Multi-source daily recommend — reads app-level preloaded cache.
+// Today Picks full list — reads app-level preloaded cache.
 
 type DailyRecommendSurfaceProps = {
     user: NeteaseUser | null;
@@ -57,7 +57,6 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
         error,
         errorCode,
         diagnostic,
-        needsAuth,
         ensureLoaded,
     } = useDailyRecommendStore(useShallow(state => ({
         sources: state.sources,
@@ -67,7 +66,6 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
         error: state.error,
         errorCode: state.errorCode,
         diagnostic: state.diagnostic,
-        needsAuth: state.needsAuth,
         ensureLoaded: state.ensureLoaded,
     })));
     const storeProviderKey = useDailyRecommendStore(state => state.providerKey);
@@ -114,8 +112,6 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
         ? 'bg-white text-black shadow-sm ring-1 ring-black/10'
         : 'bg-white text-zinc-950 shadow-sm ring-1 ring-white/30';
 
-    const neteaseNeedLogin = needsAuth
-        || sources.some(s => s.provider === 'netease' && s.error === 'need-login');
     const playQueue = filteredSongs.length > 0 ? filteredSongs : songs;
     const showSourceChips = attemptedProviders.length > 1 || availableFilters.length > 1;
     const cacheMatches = storeProviderKey === providerKey;
@@ -128,7 +124,7 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
             settled,
             itemCount: songs.length,
             error,
-            needsAuth: neteaseNeedLogin && songs.length === 0,
+            needsAuth: false,
         });
 
     if (loadStatus !== 'ready') {
@@ -136,12 +132,17 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
             loadStatus,
             errorCode === 'need-login' || errorCode === 'empty' ? null : errorCode,
         );
+        const emptyNoPeers = settled && songs.length === 0 && sources.length === 0;
         return (
             <RemoteLoadState
                 status={loadStatus}
                 isDaylight={isDaylight}
                 loadingLabel={t('home.dailyRecommendLoading')}
-                emptyLabel={t('home.dailyRecommendEmpty')}
+                emptyLabel={
+                    emptyNoPeers
+                        ? t('home.dailyRecommendLoginRequired')
+                        : t('home.dailyRecommendEmpty')
+                }
                 authLabel={t('home.dailyRecommendLoginRequired')}
                 errorLabel={
                     errorCode && errorCode !== 'empty' && errorCode !== 'need-login'
@@ -218,13 +219,7 @@ const DailyRecommendSurface: React.FC<DailyRecommendSurfaceProps> = ({
                 </div>
             ) : null}
 
-            {neteaseNeedLogin ? (
-                <div className={`mb-2 text-[11px] ${muted}`}>
-                    {t('home.dailyRecommendNeteaseLoginHint')}
-                </div>
-            ) : null}
-
-            {availableFilters.length > 0 && availableFilters.some(id => id !== 'netease') ? (
+            {availableFilters.length > 0 ? (
                 <div className={`mb-2 text-[11px] ${muted}`}>
                     {t('home.dailyRecommendPicksHint')}
                 </div>
