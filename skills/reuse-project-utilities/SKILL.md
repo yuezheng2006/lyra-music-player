@@ -9,7 +9,24 @@ description: Use when implementing, refactoring, or reviewing code in this repos
 
 这个 skill 用于防止“造一个颜色不同的轮子”。写代码前先查已有 helper、组件模式和项目已安装库，优先复用它们。
 
-核心规则：
+## Hard Rule: Open Source First
+
+**能用成熟开源就绝不自己实现，除非现有方案不满足需求，才允许自己实现。**
+
+落地顺序（必须按序判断，禁止跳步直接开写）：
+
+1. **仓库内已有**：`rg` 搜同领域 helper / service / hook / component，能复用就复用；差一点就扩展原模块并补测。
+2. **项目已依赖**：先查 `package.json` 与现有用法（如 zustand、framer-motion、lucide-react、react-window、pretext、i18n）。库已覆盖的能力，禁止手写低配版。
+3. **成熟开源候选**：需求超出当前依赖时，先评估是否应引入维护活跃、社区常用、许可兼容的库；引入前核对体积、Electron/浏览器兼容、与现有栈是否冲突。
+4. **才允许自研**：仅当候选库均不满足需求（功能缺口、性能/时序约束、许可证、维护停摆、与 visualizer/GPU/歌词时钟等核心路径不兼容）时，才自己实现；自研范围尽量小，并在代码或 PR 说明“为何不能用开源”。
+
+禁止：
+
+- 为了“更可控 / 更简单”重复实现已有成熟库能力（日期、虚拟列表、状态机、HTTP 客户端、颜色解析、手势、通用动画插值等）。
+- 在业务文件里内嵌一套通用算法，却不去查 npm / 现有依赖。
+- 以“先写着以后再换”为由落地长期自研轮子。
+
+## Core Rules
 
 - 新增工具函数前，先用 `rg` 搜相同领域的现有函数。
 - 外部库已经覆盖的能力，不要手写低配版。
@@ -201,6 +218,8 @@ const { t } = useTranslation();
 
 审查代码时检查：
 
+- 是否跳过了「仓库内 → 已依赖 → 成熟开源 → 才自研」顺序，直接手写了通用能力？
+- 自研代码是否写明了“为何开源方案不满足”（若没有且能力通用，应改用库）？
 - 是否手写了已由 `@chenglou/pretext`、`fontStacks`、`colorMix`、lyrics utils 覆盖的逻辑？
 - 是否复制了 visualizer runtime 的当前行/下一行扫描？
 - 是否直接使用 `line.endTime`，但应该使用 `getLineRenderEndTime`？
