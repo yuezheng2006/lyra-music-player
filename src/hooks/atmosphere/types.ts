@@ -30,6 +30,8 @@ export type UseAtmosphereEngineParams = {
     isPlaying?: boolean;
     audioSrc: string | null;
     songKey: string | null;
+    /** Display title for local beat-analysis modal. */
+    trackTitle?: string | null;
     audioContextRef: RefObject<AudioContext | null>;
     durationSec?: number;
     contentType?: 'music' | 'podcast' | 'audiobook' | null;

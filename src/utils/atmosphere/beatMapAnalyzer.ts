@@ -12,11 +12,19 @@ import {
 
 export { PODCAST_DJ_DURATION_THRESHOLD_SEC } from './podcastDjBeatMap';
 
+export type BeatAnalysisMode = 'auto' | 'mr' | 'dj';
+
+export type AnalyzeBeatMapOptions = {
+    contentType?: string | null;
+    /** Force MR (cinema) or DJ (podcast-style) instead of duration/content auto. */
+    mode?: BeatAnalysisMode;
+};
+
 const BEAT_MAP_CACHE_LIMIT = 8;
 const beatMapCache = new Map<string, Promise<BeatMap | null>>();
 
-const rememberBeatMapPromise = (audioUrl: string, promise: Promise<BeatMap | null>) => {
-    beatMapCache.set(audioUrl, promise);
+const rememberBeatMapPromise = (cacheKey: string, promise: Promise<BeatMap | null>) => {
+    beatMapCache.set(cacheKey, promise);
     if (beatMapCache.size <= BEAT_MAP_CACHE_LIMIT) {
         return;
     }
@@ -27,9 +35,18 @@ const rememberBeatMapPromise = (audioUrl: string, promise: Promise<BeatMap | nul
     }
 };
 
+const resolveBeatAnalysisMode = (
+    duration: number,
+    options?: AnalyzeBeatMapOptions,
+): 'mr' | 'dj' => {
+    const mode = options?.mode ?? 'auto';
+    if (mode === 'mr' || mode === 'dj') return mode;
+    return shouldUsePodcastDjBeatMap(duration, options?.contentType) ? 'dj' : 'mr';
+};
+
 export const analyzeBeatMapFromAudioBuffer = (
     buffer: AudioBuffer,
-    options?: { contentType?: string | null },
+    options?: AnalyzeBeatMapOptions,
 ) => {
     const duration = buffer.duration || 0;
     if (duration <= 0.5) {
@@ -38,8 +55,9 @@ export const analyzeBeatMapFromAudioBuffer = (
 
     const hopSec = duration > 4200 ? 0.0125 : 0.01;
     const series = extractEnergyFrames(buffer, hopSec);
+    const resolved = resolveBeatAnalysisMode(duration, options);
 
-    if (shouldUsePodcastDjBeatMap(duration, options?.contentType)) {
+    if (resolved === 'dj') {
         return buildPodcastDjBeatMapFromLowEnergy(
             series.lowEnergy,
             series.hitEnergy,
@@ -69,12 +87,15 @@ export const decodeAudioBufferFromUrl = async (
     }
 };
 
-/** Decode + analyze once per URL; concurrent callers share the same fetch. */
+/** Decode + analyze once per URL(+mode); concurrent callers share the same fetch. */
 export const analyzeBeatMapFromUrl = async (
     audioUrl: string,
     audioContext: AudioContext,
+    options?: AnalyzeBeatMapOptions,
 ) => {
-    const cached = beatMapCache.get(audioUrl);
+    const mode = options?.mode ?? 'auto';
+    const cacheKey = `${audioUrl}::${mode}`;
+    const cached = beatMapCache.get(cacheKey);
     if (cached) {
         return cached;
     }
@@ -82,13 +103,13 @@ export const analyzeBeatMapFromUrl = async (
     const promise = (async () => {
         const buffer = await decodeAudioBufferFromUrl(audioUrl, audioContext);
         if (!buffer) return null;
-        return analyzeBeatMapFromAudioBuffer(buffer);
+        return analyzeBeatMapFromAudioBuffer(buffer, options);
     })().catch((error) => {
-        beatMapCache.delete(audioUrl);
+        beatMapCache.delete(cacheKey);
         throw error;
     });
 
-    rememberBeatMapPromise(audioUrl, promise);
+    rememberBeatMapPromise(cacheKey, promise);
     return promise;
 };
 

@@ -45,11 +45,11 @@ describe('deriveAtmosphereThemeHints', () => {
         const dual = withDerivedAtmosphereHints({ light: baseTheme, dark: baseTheme });
         const current = {
             ...DEFAULT_INTERACTIVE3D_SCENE_TUNING,
-            visualPreset: 'mineradioOrbit' as const,
+            visualPreset: 'mineradioTunnel' as const,
         };
         const next = applyAtmosphereThemeHintsToTuning(current, dual.atmosphereHints);
         expect(next).not.toBeNull();
-        expect(next?.visualPreset).toBe('mineradioOrbit');
+        expect(next?.visualPreset).toBe('mineradioTunnel');
         expect(next?.atmosphereSensitivity).toBeTypeOf('number');
         expect(next?.cameraPunchStrength).toBeTypeOf('number');
     });
@@ -58,14 +58,14 @@ describe('deriveAtmosphereThemeHints', () => {
         const next = applyAtmosphereThemeHintsToTuning(
             {
                 ...DEFAULT_INTERACTIVE3D_SCENE_TUNING,
-                visualPreset: 'mineradioOrbit',
+                visualPreset: 'mineradioTunnel',
             },
             {
                 visualPreset: 'mineradioGalaxy',
                 atmosphereSensitivity: 1.1,
             },
         );
-        expect(next?.visualPreset).toBe('mineradioOrbit');
+        expect(next?.visualPreset).toBe('mineradioTunnel');
         expect(next?.atmosphereSensitivity).toBe(1.1);
     });
 
