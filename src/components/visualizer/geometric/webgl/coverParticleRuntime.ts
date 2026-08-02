@@ -49,6 +49,7 @@ import {
     canMorphCoverParticlePresets,
     COVER_PARTICLE_MORPH_MS,
 } from '../../../../utils/visualizer/coverParticleMorphMath';
+import { shouldSkipCoverParticleFrameWhileYielded } from '../../../../utils/visualizer/coverParticleYieldFramePolicy';
 import { LyricStageRuntime, type LyricStageTickInput } from '../mineradio/lyrics/LyricStageRuntime';
 import { drawCoverToSquareCanvas } from './prepareCoverParticleTexture';
 import {
@@ -189,9 +190,19 @@ export class CoverParticleRuntime {
 
     private loadedCoverUrl: string | null = null;
 
+    /**
+     * URL of the most recent load attempt (success or failure), independent of loadedCoverUrl.
+     * Prevents refetch storms: configure() re-enters on every quality-tier/tuning change, and a
+     * failing CORS/proxy URL would otherwise be retried on each re-entry (network + main-thread churn).
+     */
+    private attemptedCoverUrl: string | null = null;
+
     private coverLoadToken = 0;
 
     private coverObjectUrl: string | null = null;
+
+    /** Coalesce configure() paints onto the next frame — never sync-block layout. */
+    private configurePaintRaf: number | null = null;
 
     private vinylSpin = 0;
 
@@ -514,6 +525,10 @@ export class CoverParticleRuntime {
 
     dispose() {
         this.coverLoadToken += 1;
+        if (this.configurePaintRaf != null) {
+            cancelAnimationFrame(this.configurePaintRaf);
+            this.configurePaintRaf = null;
+        }
         this.frameUnsubscribe?.();
         this.frameUnsubscribe = null;
         this.colorMixTween.cancel();
@@ -854,8 +869,24 @@ export class CoverParticleRuntime {
                 this.ensureParticleAlphaVisible();
             }
             this.loadCoverTexture(this.coverUrl);
-            this.renderFrame();
+            this.scheduleConfigurePaint();
         }
+    }
+
+    /**
+     * Defer the post-configure paint so React layout / Strict Mode remounts stay off the GPU critical path.
+     * Always paint once even while particle ticks are yielded (menu / lyric-mode settle) —
+     * otherwise 封面↔滚筒↔星河 only updates chip state and looks like a no-op.
+     */
+    private scheduleConfigurePaint() {
+        if (this.configurePaintRaf != null) {
+            cancelAnimationFrame(this.configurePaintRaf);
+        }
+        this.configurePaintRaf = requestAnimationFrame(() => {
+            this.configurePaintRaf = null;
+            if (!this.renderer) return;
+            this.renderFrame();
+        });
     }
 
     setInputs(inputs: CoverParticleRuntimeInputs) {
@@ -895,16 +926,19 @@ export class CoverParticleRuntime {
             if (this.inputProvider) {
                 this.latestInputs = this.inputProvider();
             }
+            // Mode-switch yield: skip GPU frames (keep context mounted), but keep painting
+            // while a preset morph is live so 封面↔滚筒↔星河 still previews under yield.
+            if (shouldSkipCoverParticleFrameWhileYielded({
+                paused: this.latestInputs.paused,
+                morphLive: this.uniforms.uMorphLive.value > 0.5,
+            })) {
+                return;
+            }
             const frameSkip = Math.max(1, this.qualityProfile?.frameSkip ?? 1);
-            const paused = this.latestInputs.paused;
             const electronCap = Boolean((window as Window & { electron?: unknown }).electron);
             const retinaElectron = electronCap && (window.devicePixelRatio || 1) >= 2;
-            // Paused: slow refresh. Retina Electron: every 3rd frame — denser updates
-            // have crashed the GPU helper into software-GL (Helper 100% / GPU 0%).
-            // Never skip lyric ticks — karaoke must stay locked to the audio clock.
-            const effectiveSkip = paused
-                ? Math.max(frameSkip, 3)
-                : Math.max(frameSkip, retinaElectron ? 3 : electronCap ? 2 : 1);
+            // Retina Electron: paint rarely even when not yielded — lyric DOM already owns the GPU budget.
+            const effectiveSkip = Math.max(frameSkip, retinaElectron ? 8 : electronCap ? 4 : 1);
             const skipParticles = effectiveSkip > 1 && frameIndex % effectiveSkip !== 0;
             this.renderFrame({ skipParticles });
         });
@@ -1014,6 +1048,9 @@ export class CoverParticleRuntime {
 
     private loadCoverTexture(url: string | null) {
         if (url === this.loadedCoverUrl) return;
+        // Same URL already failed on a prior configure() re-entry — do not hammer network/IPC again.
+        if (url && url === this.attemptedCoverUrl) return;
+        this.attemptedCoverUrl = url;
         const loadToken = ++this.coverLoadToken;
         const hasActiveCover = (this.uniforms.uHasCover.value ?? 0) > 0.5 && !!this.coverTexture;
         this.container?.setAttribute('data-cover-url', url ?? '');

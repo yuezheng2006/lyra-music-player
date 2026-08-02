@@ -1,3 +1,9 @@
+// Vite HMR needs unsafe-eval; silence Electron's CSP banner before loading electron.
+// Packaged builds inject a CSP without unsafe-eval (see setupCorsBypassHandlers).
+if (process.env.ELECTRON_DEV === 'true' || process.env.NODE_ENV === 'development') {
+  process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
+}
+
 const { app, BrowserWindow, ipcMain, session, screen, dialog, shell, nativeImage, desktopCapturer, Menu, Tray, nativeTheme, net } = require('electron');
 const fs = require('fs');
 const http = require('http');
@@ -93,18 +99,104 @@ if (process.platform === 'darwin' && process.arch === 'x64') {
   app.commandLine.appendSwitch('enable-gpu-rasterization');
 }
 
+// Store must exist before app-ready so the GPU escalation switches below
+// can be applied on THIS boot's commandLine (switches after ready are ignored).
 const store = new Store({ projectName: 'Lyra' });
 let mainWindow = null;
 
+/**
+ * Repeated GPU-process deaths on macOS even survive the visual demotion in
+ * child-process-gone below — see electron/electron#49904 (ANGLE Metal backend
+ * crashes on command-encoder reset, unresolved upstream as of Electron 41 /
+ * macOS 26 Tahoe). Escalate away from the default Metal ANGLE backend across
+ * boots instead of looping crash → relaunch → crash forever on Apple GPUs.
+ *
+ * Confirmed via live chrome://gpu (SystemInfo.getInfo) probing: on Apple
+ * Silicon, `--use-angle=gl` fails outright (CreateCommandBuffer error) and
+ * Chromium silently falls back to *full* software compositing (webgl
+ * disabled_off, gpu_compositing disabled_software) — worse than staying on
+ * Metal. Legacy GL ANGLE only actually works on Intel Macs. So arm64 must
+ * jump straight to SwiftShader (software, but a real supported backend);
+ * x64 keeps the existing two-step ladder.
+ * Level 0: default (Metal, or GL-optimized on x64 — see above). Level 1+:
+ * SwiftShader (arm64) / legacy GL then SwiftShader (x64) — always stable, slow.
+ */
+const GPU_CRASH_ESCALATION_STORE_KEY = 'gpu_crash_escalation_level_v1';
+const GPU_CRASH_LAST_RELAUNCH_AT_STORE_KEY = 'gpu_crash_last_relaunch_at_v1';
+// A fresh process reliably comes up with real HW GL (verified live via
+// SystemInfo.getInfo: webgl/gpu_compositing all "enabled" on a clean boot) —
+// one-off crashes recover fine from relaunch alone. Only escalate when crashes
+// repeat close together, i.e. a genuine loop, not a rare fluke.
+const GPU_CRASH_REPEAT_WINDOW_MS = 15 * 60 * 1000;
+const GPU_CRASH_ESCALATION_MAX_LEVEL = process.arch === 'x64' ? 2 : 1;
+const gpuCrashEscalationLevel = process.platform === 'darwin'
+  ? Math.min(Math.max(store.get(GPU_CRASH_ESCALATION_STORE_KEY, 0), 0), GPU_CRASH_ESCALATION_MAX_LEVEL)
+  : 0;
+if (gpuCrashEscalationLevel >= 1) {
+  app.commandLine.appendSwitch('ignore-gpu-blocklist');
+  const useSwiftshader = process.arch !== 'x64' || gpuCrashEscalationLevel >= 2;
+  if (useSwiftshader) {
+    app.commandLine.appendSwitch('use-angle', 'swiftshader');
+    app.commandLine.appendSwitch('enable-unsafe-swiftshader');
+  } else {
+    app.commandLine.appendSwitch('use-angle', 'gl');
+  }
+  console.warn(`[gpu] applying crash-escalation ANGLE backend, level=${gpuCrashEscalationLevel}, backend=${useSwiftshader ? 'swiftshader' : 'gl'}`);
+}
+
 // interactive3d / WebGL / heavy backgrounds can crash the GPU helper (exit_code=512)
-// and freeze the UI. Notify the renderer so it can drop to a safer background.
+// and freeze the UI. Persist a safe background BEFORE escaping software-GL;
+// otherwise restart reloads interactive3d and loops crash → freeze.
 let gpuProcessGoneCount = 0;
-let gpuCrashReloadTimer = null;
 let gpuCrashRelaunchArmed = false;
 // macOS Retina: one GPU death already flips Chromium into software GL, which
 // pegs Electron Helper at ~100% CPU with 0% GPU and freezes the dock clock.
 // Escape on the first death; other platforms keep a 2-strike threshold.
 const GPU_CRASH_RELAUNCH_AFTER = process.platform === 'darwin' ? 1 : 2;
+
+/** Must land in renderer localStorage before exit/relaunch, or the next boot remounts WebGL. */
+const GPU_CRASH_DEMOTE_SCRIPT = `
+(() => {
+  try {
+    localStorage.setItem('lyra_gpu_unstable_v1', '1');
+    localStorage.setItem('visualizer_background_mode', 'common');
+    localStorage.setItem('enable_3d_interactive_background', 'false');
+  } catch (_) {}
+  return true;
+})()
+`;
+
+async function persistGpuCrashVisualDemote() {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  try {
+    await Promise.race([
+      mainWindow.webContents.executeJavaScript(GPU_CRASH_DEMOTE_SCRIPT, true),
+      new Promise((resolve) => setTimeout(resolve, 180)),
+    ]);
+    return true;
+  } catch (error) {
+    console.warn('[gpu] failed to persist visual demote before escape', error?.message || error);
+    return false;
+  }
+}
+
+function escapeSoftwareGlAfterGpuCrash() {
+  const isConcurrentDev = process.env.ELECTRON_DEV === 'true'
+    || process.env.LYRA_EXTERNAL_DEV_APIS === 'true';
+  if (isConcurrentDev) {
+    // Must match ELECTRON_DEV_RESTART_EXIT_CODE in scripts/run-electron-dev.mjs
+    const ELECTRON_DEV_RESTART_EXIT_CODE = 75;
+    console.warn(
+      `[gpu] concurrent-dev: exiting Electron with code ${ELECTRON_DEV_RESTART_EXIT_CODE} for wrapper restart (escape software GL)`,
+    );
+    app.exit(ELECTRON_DEV_RESTART_EXIT_CODE);
+    return;
+  }
+  console.warn('[gpu] relaunching app to escape software-GL fallback after GPU deaths');
+  app.relaunch();
+  app.exit(0);
+}
+
 app.on('child-process-gone', (_event, details) => {
   if (!details || details.type !== 'GPU') return;
   gpuProcessGoneCount += 1;
@@ -114,34 +206,44 @@ app.on('child-process-gone', (_event, details) => {
     count: gpuProcessGoneCount,
   };
   console.error('[gpu] process gone', payload);
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send('gpu-process-gone', payload);
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.webContents.send('gpu-process-gone', payload);
+    } catch (error) {
+      console.warn('[gpu] failed to notify renderer', error?.message || error);
+    }
+  }
+
   // Chromium falls back to --use-gl=disabled after GPU deaths; window reload
   // cannot restore HW GL and leaves the renderer wedged at 100% CPU.
   // Packaged: app.relaunch(). Concurrent-dev: exit 75 so scripts/run-electron-dev.mjs
   // restarts Electron only (vite / sidecars stay up under concurrently -k).
   if (gpuProcessGoneCount >= GPU_CRASH_RELAUNCH_AFTER && !gpuCrashRelaunchArmed) {
     gpuCrashRelaunchArmed = true;
-    if (gpuCrashReloadTimer) {
-      clearTimeout(gpuCrashReloadTimer);
-      gpuCrashReloadTimer = null;
-    }
-    const isConcurrentDev = process.env.ELECTRON_DEV === 'true'
-      || process.env.LYRA_EXTERNAL_DEV_APIS === 'true';
-    setTimeout(() => {
-      if (isConcurrentDev) {
-        // Must match ELECTRON_DEV_RESTART_EXIT_CODE in scripts/run-electron-dev.mjs
-        const ELECTRON_DEV_RESTART_EXIT_CODE = 75;
-        console.warn(
-          `[gpu] concurrent-dev: exiting Electron with code ${ELECTRON_DEV_RESTART_EXIT_CODE} for wrapper restart (escape software GL)`,
-        );
-        app.exit(ELECTRON_DEV_RESTART_EXIT_CODE);
-        return;
+    void (async () => {
+      await persistGpuCrashVisualDemote();
+      // Visual demotion alone doesn't stop the ANGLE Metal command-encoder-reset
+      // crash (electron/electron#49904). A single crash + relaunch already
+      // recovers to real HW GL, so only escalate the ANGLE backend when this
+      // crash lands soon after the previous one — an actual loop, not a fluke.
+      if (process.platform === 'darwin') {
+        const now = Date.now();
+        const lastRelaunchAt = store.get(GPU_CRASH_LAST_RELAUNCH_AT_STORE_KEY, 0);
+        const isRepeatCrash = lastRelaunchAt > 0 && (now - lastRelaunchAt) < GPU_CRASH_REPEAT_WINDOW_MS;
+        store.set(GPU_CRASH_LAST_RELAUNCH_AT_STORE_KEY, now);
+        if (isRepeatCrash) {
+          const nextLevel = Math.min(gpuCrashEscalationLevel + 1, GPU_CRASH_ESCALATION_MAX_LEVEL);
+          if (nextLevel !== gpuCrashEscalationLevel) {
+            store.set(GPU_CRASH_ESCALATION_STORE_KEY, nextLevel);
+            console.warn(`[gpu] repeat crash within ${GPU_CRASH_REPEAT_WINDOW_MS}ms — escalating ANGLE backend for next boot: level ${gpuCrashEscalationLevel} -> ${nextLevel}`);
+          }
+        } else {
+          console.warn('[gpu] isolated crash, not within repeat window — relaunching without escalation');
+        }
       }
-      console.warn('[gpu] relaunching app to escape software-GL fallback after GPU deaths');
-      app.relaunch();
-      app.exit(0);
-    }, 350);
+      escapeSoftwareGlAfterGpuCrash();
+    })();
   }
 });
 let remoteControlWindow = null;
@@ -1266,8 +1368,24 @@ function setupFileSystemAccessPermissionHandlers() {
   });
 }
 
+/** Packaged renderer CSP — no unsafe-eval (Vite HMR is not used after pack). */
+const PACKAGED_RENDERER_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https: http:",
+  "media-src 'self' blob: https: http: ytmusic:",
+  "connect-src 'self' https: http: ws: wss:",
+  "font-src 'self' data:",
+  "worker-src 'self' blob:",
+  "frame-src 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+].join('; ');
+
 function setupCorsBypassHandlers() {
   const ses = session.defaultSession;
+  const injectPackagedCsp = !isElectronDevRuntime();
   ses.webRequest.onHeadersReceived((details, callback) => {
     const responseHeaders = { ...details.responseHeaders };
     const originUrl = details.url;
@@ -1285,6 +1403,15 @@ function setupCorsBypassHandlers() {
       responseHeaders['Access-Control-Allow-Origin'] = ['*'];
       responseHeaders['Access-Control-Allow-Headers'] = ['*'];
       responseHeaders['Access-Control-Allow-Methods'] = ['GET, POST, OPTIONS, PUT, DELETE'];
+    }
+
+    // Document navigations only — avoid fighting CDN response headers.
+    if (
+      injectPackagedCsp
+      && details.resourceType === 'mainFrame'
+      && !Object.keys(responseHeaders).some((key) => key.toLowerCase() === 'content-security-policy')
+    ) {
+      responseHeaders['Content-Security-Policy'] = [PACKAGED_RENDERER_CSP];
     }
 
     callback({ cancel: false, responseHeaders });
@@ -3481,6 +3608,20 @@ app.whenReady().then(async () => {
   ensureTray();
   createWindow();
   focusMainWindow();
+
+  // A long crash-free run means either the escalation fixed it or the upstream
+  // ANGLE bug stopped reproducing here — step back down so future boots get a
+  // chance at real GPU acceleration again instead of staying pinned to gl/swiftshader forever.
+  if (process.platform === 'darwin' && gpuCrashEscalationLevel > 0) {
+    const GPU_CRASH_DEESCALATION_STABLE_MS = 20 * 60 * 1000;
+    setTimeout(() => {
+      if (gpuProcessGoneCount === 0) {
+        const steppedDownLevel = Math.max(gpuCrashEscalationLevel - 1, 0);
+        store.set(GPU_CRASH_ESCALATION_STORE_KEY, steppedDownLevel);
+        console.warn(`[gpu] stable for ${GPU_CRASH_DEESCALATION_STABLE_MS}ms, stepping ANGLE escalation down: level ${gpuCrashEscalationLevel} -> ${steppedDownLevel}`);
+      }
+    }, GPU_CRASH_DEESCALATION_STABLE_MS);
+  }
 
   const startCriticalApis = async () => {
     if (usesExternalDevApis()) {

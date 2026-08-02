@@ -15,10 +15,15 @@ import { ShortcutsCheatSheet } from '@/components/shortcuts/ShortcutsCheatSheet'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
 import { WhatsNewModal } from '@/components/onboarding/WhatsNewModal';
 import { ObsBrowserSourceLyrics } from '@/components/obs/ObsBrowserSourceLyrics';
-import { resolvePlayerGeometricBackgroundDisabled } from '@/components/visualizer/resolveInteractive3dFumeLayering';
 import { resolveFloatingPlayerBarReserve } from '@/components/floatingPlayerDockLayout';
 import { VISUALIZER_SUBTITLE_PORTAL_ROOT_ID } from '@/components/visualizer/visualizerSubtitlePortal';
 import type { AppControllerResult } from '@/hooks/useAppController';
+import { resolveAppPlayerGeometricBackgroundDisabled } from '@/utils/visualizer/resolveAppPlayerGeometricBackgroundDisabled';
+import { resolveInteractive3dParticlesPaused } from '@/utils/visualizer/visualizerModeSwitchGpuSafety';
+import {
+    INTERACTIVE3D_PLAY_START_YIELD_MS,
+    scheduleInteractive3dParticleYieldResume,
+} from '@/utils/visualizer/yieldInteractive3dParticlesForModeSwitch';
 import { AppAudioElement } from '@/components/app/root/AppAudioElement';
 import { BilibiliVideoSurface } from '@/components/bilibili/BilibiliVideoSurface';
 import { useBilibiliVideoSync } from '@/hooks/useBilibiliVideoSync';
@@ -33,6 +38,9 @@ import { useBootSplashLifecycle } from '@/hooks/useBootSplashLifecycle';
 import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 import { PerformanceHud } from '@/components/performance/PerformanceHud';
 import { isVideoPlaybackStageActive } from '@/utils/playback/resolveVideoPlaybackStage';
+
+// src/components/app/root/AppRootView.tsx
+// App shell root: visualizer stage, overlays, and chrome.
 
 interface AppRootViewProps {
     controller: AppControllerResult;
@@ -184,6 +192,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
         subtitleOverlayOpacity,
         theme,
         tiltTuning,
+        pendoloTuning,
         transparentPlayerBackground,
         urlBackgroundList,
         urlBackgroundSelectedId,
@@ -199,6 +208,34 @@ export function AppRootView({ controller }: AppRootViewProps) {
 
     const videoStageActive = isVideoPlaybackStageActive(currentView, videoSrc)
         && enableBilibiliVideoBackground;
+    const disablePlayerGeometricBackground = resolveAppPlayerGeometricBackgroundDisabled({
+        videoStageActive,
+        backgroundMode: resolvedVisualizerBackgroundMode,
+        settingsSubviewOpen: isSettingsSubviewOpen,
+    });
+    const yieldInteractive3dParticles = useSettingsUiStore(state => state.yieldInteractive3dParticles);
+    const holdInteractive3dParticleYield = useSettingsUiStore(state => state.holdInteractive3dParticleYield);
+    const playerLyricsOnStage = currentView === 'player' && playerLyricsVisible && !isSettingsModalOpen;
+    const pauseInteractive3dParticles = resolveInteractive3dParticlesPaused({
+        yieldInteractive3dParticles,
+        holdInteractive3dParticleYield,
+        backgroundMode: resolvedVisualizerBackgroundMode,
+        visualizerMode,
+        isElectron: isElectronWindow,
+        lyricsVisible: playerLyricsOnStage,
+    });
+
+    // Play-start: audioSrc unpause races cover upload + lyric mount — arm a short yield window.
+    useEffect(() => {
+        if (!isElectronWindow || currentView !== 'player' || !audioSrc) return;
+        if (resolvedVisualizerBackgroundMode !== 'interactive3d') return;
+
+        useSettingsUiStore.setState({ yieldInteractive3dParticles: true });
+        scheduleInteractive3dParticleYieldResume({
+            setYielding: (yielding) => useSettingsUiStore.setState({ yieldInteractive3dParticles: yielding }),
+            yieldMs: INTERACTIVE3D_PLAY_START_YIELD_MS,
+        });
+    }, [audioSrc, currentView, isElectronWindow, resolvedVisualizerBackgroundMode]);
 
     useEffect(() => {
         if (!currentSong && videoSrc) {
@@ -394,11 +431,12 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         songAlbum={currentSongAlbum}
                         coverUrl={getCoverUrl()}
                         shellCanvasBackground={shellTheme.stageAtmosphere}
-                        showText={currentView === 'player' && playerLyricsVisible && !isSettingsModalOpen}
+                        showText={playerLyricsOnStage}
                         useCoverColorBg={useCoverColorBg}
                         seed={visualizerGeometrySeed}
                         staticMode={staticMode}
                         paused={shouldPauseVisualizerBackground || videoStageActive}
+                        particlesYielded={pauseInteractive3dParticles}
                         backgroundOpacity={videoStageActive ? 0 : backgroundOpacity}
                         visualizerOpacity={visualizerOpacity}
                         videoStageActive={videoStageActive}
@@ -406,13 +444,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                             (currentView === 'player' && isPlayerPageTransparent && !isSettingsModalOpen)
                             || videoStageActive
                         }
-                        disableGeometricBackground={
-                            videoStageActive
-                            || resolvePlayerGeometricBackgroundDisabled(
-                                resolvedVisualizerBackgroundMode,
-                                isSettingsSubviewOpen,
-                            )
-                        }
+                        disableGeometricBackground={disablePlayerGeometricBackground}
                         enableAtmosphereLayer={enableSmartAtmosphere && !staticMode && !videoStageActive}
                         enableBeatBursts={enableSmartAtmosphere && !staticMode && !videoStageActive}
                         disableVignette={disableVisualizerVignette}
@@ -430,6 +462,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         claddaghTuning={claddaghTuning}
                         cappellaTuning={cappellaTuning}
                         tiltTuning={tiltTuning}
+                        pendoloTuning={pendoloTuning}
                         monetBackgroundTuning={monetBackgroundTuning}
                         latentBackgroundTuning={latentBackgroundTuning}
                         interactive3dSceneTuning={interactive3dSceneTuning}

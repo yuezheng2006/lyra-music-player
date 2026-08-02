@@ -9,9 +9,9 @@ import { getLineRenderEndTime, getLineRenderHints } from '../../../utils/lyrics/
 import { mixColors } from '../colorMix';
 import { shouldPreheatLine, useVisualizerRuntime, type VisualizerPreheatWindow } from '../runtime';
 import { type VisualizerSharedProps } from '../definition';
-import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { builtinAvatarImages, type CappellaAvatarImage, resolveCappellaAvatarUrl } from './avatarImages';
+import { getCappellaBubbleColors } from './cappellaBubbleColors';
 import { createCappellaAgentSenderResolver, type CappellaMessageSender } from './cappellaMessageSenders';
 import { builtinEmoImages } from './emoImages';
 
@@ -64,7 +64,7 @@ const isTimedMessage = (m: CappellaMessage): m is CappellaTimedMessage =>
 // const isCJK = (text: string) => /[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/.test(text);
 
 const SHORT_LINE_CHAR_LIMIT = 12;
-const MAX_VISIBLE_MESSAGES = 20;
+const MAX_VISIBLE_MESSAGES = 10;
 const AVATAR_GRID_SIZE = 3;
 const LEFT_AVATAR_INDICES = [0, 3, 6, 1, 4];
 const RIGHT_AVATAR_INDEX = 8;
@@ -72,7 +72,7 @@ const CAPPELLA_PREHEAT_WINDOW: VisualizerPreheatWindow = {
     minLead: 0.18,
     maxLead: 1.1,
 };
-const CAPPELLA_LAYOUT_CACHE_LIMIT = 32;
+const CAPPELLA_LAYOUT_CACHE_LIMIT = 96;
 // 气泡宽度动画约 0.2s。气泡尺寸使用提前后的时间轴，
 // 让横向扩展先于字符出现启动，避免临界换行时字符短暂掉到下一行。
 const CAPPELLA_WIDTH_LOOKAHEAD_SECONDS = 0.2;
@@ -788,24 +788,9 @@ const getTimedMessageState = (message: CappellaTimedMessage, currentTime: number
     };
 };
 
-const getBubbleColors = (message: CappellaMessage, theme: Theme) => {
-    if (message.side === 'right') {
-        return {
-            backgroundColor: mixColors(theme.accentColor, theme.primaryColor, 0.18, 0.94),
-            borderColor: mixColors(theme.accentColor, theme.primaryColor, 0.34, 0.3),
-            textColor: theme.backgroundColor,
-        };
-    }
-
-    const avatarTone = (message.avatarIndex % (AVATAR_GRID_SIZE * AVATAR_GRID_SIZE)) / (AVATAR_GRID_SIZE * AVATAR_GRID_SIZE - 1);
-    const accentMix = 0.18 + avatarTone * 0.62;
-
-    return {
-        backgroundColor: mixColors(theme.secondaryColor, theme.accentColor, accentMix, 1),
-        borderColor: mixColors(theme.secondaryColor, theme.accentColor, Math.min(accentMix + 0.18, 1), 0.26),
-        textColor: theme.primaryColor,
-    };
-};
+const getBubbleColors = (message: CappellaMessage, theme: Theme) => (
+    getCappellaBubbleColors(message.side, theme)
+);
 
 const formatTimestamp = (seconds: number) => {
     if (!Number.isFinite(seconds) || seconds < 0) {
@@ -1029,6 +1014,43 @@ const CappellaTimestamp: React.FC<{
     );
 };
 
+/** Mount only on the active chat row so inactive bubbles do not subscribe to the audio clock. */
+const CappellaActiveMessageClockBridge: React.FC<{
+    currentTime: MotionValue<number>;
+    message: CappellaTimedMessage;
+    preparedMetrics: PreparedBubbleMetrics | null;
+    isPassedMessage: boolean;
+    onVisibleCharacterCount: React.Dispatch<React.SetStateAction<number>>;
+    onTargetCharacterCount: React.Dispatch<React.SetStateAction<number>>;
+    onTimestampVisible: React.Dispatch<React.SetStateAction<boolean>>;
+}> = ({
+    currentTime,
+    message,
+    preparedMetrics,
+    isPassedMessage,
+    onVisibleCharacterCount,
+    onTargetCharacterCount,
+    onTimestampVisible,
+}) => {
+    useMotionValueEvent(currentTime, 'change', latest => {
+        const nextTimestampVisible = message.kind === 'emo'
+            ? latest >= message.activationEndTime
+            : isPassedMessage || latest >= getTimestampReadyTime(preparedMetrics, message.line);
+        onTimestampVisible(current => current === nextTimestampVisible ? current : nextTimestampVisible);
+
+        if (message.kind !== 'lyric' || !preparedMetrics) {
+            return;
+        }
+
+        const nextVisibleCount = getCharacterCountAtTime(preparedMetrics.revealTimes, latest);
+        const nextTargetCount = getBubbleTargetCharacterCount(preparedMetrics, latest);
+        onVisibleCharacterCount(current => current === nextVisibleCount ? current : nextVisibleCount);
+        onTargetCharacterCount(current => current === nextTargetCount ? current : nextTargetCount);
+    });
+
+    return null;
+};
+
 const AnimatedBubbleFrame: React.FC<{
     children: React.ReactNode;
     className: string;
@@ -1037,27 +1059,10 @@ const AnimatedBubbleFrame: React.FC<{
     style: React.CSSProperties;
 }> = ({ children, className, floatingAdornment, targetSize, style }) => {
     return (
-        <motion.div
+        <div
             className="relative shrink-0"
-            animate={{
-                ...(targetSize ? {
-                    width: targetSize.width,
-                    height: targetSize.height,
-                } : {}),
-            }}
-            transition={{
-                scale: {
-                    type: 'spring',
-                    stiffness: 340,
-                    damping: 28,
-                    mass: 0.72,
-                },
-                ...(targetSize ? {
-                    width: { duration: 0.2, ease: 'easeOut' as const },
-                    height: { duration: 0.2, ease: 'easeOut' as const },
-                } : {}),
-            }}
             style={{
+                // Instant size updates — animating width/height every grapheme was a layout storm.
                 width: targetSize ? targetSize.width : 'fit-content',
                 height: targetSize ? targetSize.height : 'auto',
             }}
@@ -1075,7 +1080,7 @@ const AnimatedBubbleFrame: React.FC<{
                 {children}
             </div>
             {floatingAdornment}
-        </motion.div>
+        </div>
     );
 };
 
@@ -1088,7 +1093,10 @@ const ActiveCappellaText: React.FC<{
     const visibleFadeDurations = revealPlan.fadeDurationsMs.slice(0, Math.max(0, visibleCharacterCount));
 
     return (
-        <span className="inline-flex flex-wrap items-baseline">
+        // w-full is required: inline-flex without a width constraint sizes to its
+        // unwrapped max-content width, so flex-wrap never actually triggers and the
+        // in-progress typewriter line overflows the bubble/canvas instead of wrapping.
+        <span className="flex w-full flex-wrap items-baseline">
             {visibleCharacters.map((character, index) => (
                 <span
                     key={`${index}-${character}`}
@@ -1304,30 +1312,24 @@ const CappellaMessageRow = React.forwardRef<HTMLDivElement, CappellaMessageRowPr
         setIsTimestampVisible(nextTimestampVisible);
     }, [currentTime, isActiveMessage, isPassedMessage, message, preparedMetrics]);
 
-    useMotionValueEvent(currentTime, 'change', latest => {
-        if (message.kind === 'lyric' || message.kind === 'emo') {
-            const nextTimestampVisible = message.kind === 'emo'
-                ? latest >= message.activationEndTime
-                : isPassedMessage || latest >= getTimestampReadyTime(preparedMetrics, message.line);
-            setIsTimestampVisible(current => current === nextTimestampVisible ? current : nextTimestampVisible);
-        }
-
-        if (isActiveMessage) {
-            const nextVisibleCount = message.kind === 'lyric' && preparedMetrics
-                ? getCharacterCountAtTime(preparedMetrics.revealTimes, latest)
-                : 0;
-            const nextTargetCount = message.kind === 'lyric' && preparedMetrics
-                ? getBubbleTargetCharacterCount(preparedMetrics, latest)
-                : 0;
-            setVisibleCharacterCount(current => current === nextVisibleCount ? current : nextVisibleCount);
-            setTargetCharacterCount(current => current === nextTargetCount ? current : nextTargetCount);
-        }
-    });
+    // Only the active row mounts a clock listener — N inactive rows were burning every tick.
+    const activeClockBridge = isActiveMessage && (message.kind === 'lyric' || message.kind === 'emo')
+        ? (
+            <CappellaActiveMessageClockBridge
+                currentTime={currentTime}
+                message={message}
+                preparedMetrics={preparedMetrics}
+                isPassedMessage={isPassedMessage}
+                onVisibleCharacterCount={setVisibleCharacterCount}
+                onTargetCharacterCount={setTargetCharacterCount}
+                onTimestampVisible={setIsTimestampVisible}
+            />
+        )
+        : null;
 
     return (
         <motion.div
             ref={ref}
-            layout="position"
             initial={{ opacity: 0, y: motionConfig.rowEnterY, scale: motionConfig.rowEnterScale }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{
@@ -1339,6 +1341,7 @@ const CappellaMessageRow = React.forwardRef<HTMLDivElement, CappellaMessageRowPr
             transition={{ duration: motionConfig.rowEnterDuration, ease: 'easeOut' }}
             className={`flex w-full items-end gap-3 ${isRight ? 'justify-end' : 'justify-start'} ${isEmoMessage ? 'pt-12' : ''}`}
         >
+            {activeClockBridge}
             <motion.div
                 animate={{
                     opacity: isPassedMessage ? motionConfig.passedOpacity : 1,
@@ -1347,7 +1350,7 @@ const CappellaMessageRow = React.forwardRef<HTMLDivElement, CappellaMessageRowPr
                 }}
                 transition={{ type: 'spring', ...motionConfig.avatarSpring }}
                 // w-full 用于防止右侧气泡宽度变化导致的次像素抖动
-                className={`flex w-full max-w-[78%] items-end gap-3 sm:max-w-[68%] ${isRight ? 'flex-row-reverse' : 'flex-row'}`}
+                className={`flex w-full max-w-[90%] items-end gap-3 sm:max-w-[84%] ${isRight ? 'flex-row-reverse' : 'flex-row'}`}
                 style={{
                     transformOrigin: isRight ? '100% 100%' : '0% 100%',
                 }}
@@ -1545,9 +1548,9 @@ const VisualizerCappella: React.FC<VisualizerCappellaProps> = (props) => {
         [currentLineIndex, currentTime, intensityConfig.motion, messages, viewportSize.height, visibleLineIndex]
     );
     const baseFontSize = Math.max(15, Math.min(26, 18 * lyricsFontScale));
-    const maxPanelWidth = Math.min(Math.max(viewportSize.width - 32, 1), 896);
-    const bubbleGroupRatio = viewportSize.width >= 640 ? 0.68 : 0.78;
-    const maxTextWidth = Math.max(96, Math.floor(maxPanelWidth * bubbleGroupRatio - 56));
+    const maxPanelWidth = Math.min(Math.max(viewportSize.width - 32, 1), 1120);
+    const bubbleGroupRatio = viewportSize.width >= 640 ? 0.84 : 0.9;
+    const maxTextWidth = Math.max(112, Math.floor(maxPanelWidth * bubbleGroupRatio - 56));
     const { activeLine, recentCompletedLine, upcomingLine, nextLines } = useVisualizerRuntime({
         currentTime,
         currentLineIndex,
@@ -1582,10 +1585,13 @@ const VisualizerCappella: React.FC<VisualizerCappellaProps> = (props) => {
             visibleLineIndexRef.current = nextVisibleLineIndex;
             setVisibleLineIndex(nextVisibleLineIndex);
         }
+    });
 
-        if (!upcomingLine || !shouldPreheatLine(upcomingLine, latest, CAPPELLA_PREHEAT_WINDOW)) {
-            return;
-        }
+    // Preheat only when the active line advances — not on every audio clock tick.
+    useEffect(() => {
+        if (!upcomingLine) return;
+        const latest = currentTime.get();
+        if (!shouldPreheatLine(upcomingLine, latest, CAPPELLA_PREHEAT_WINDOW)) return;
 
         getOrBuildBubbleMetrics(bubbleMetricsCacheRef.current, {
             line: upcomingLine,
@@ -1596,19 +1602,24 @@ const VisualizerCappella: React.FC<VisualizerCappellaProps> = (props) => {
             paddingX: intensityConfig.motion.activePaddingX,
             paddingY: intensityConfig.motion.activePaddingY,
         });
-    });
+    }, [
+        baseFontSize,
+        currentTime,
+        intensityConfig.motion.activeFontMultiplier,
+        intensityConfig.motion.activePaddingX,
+        intensityConfig.motion.activePaddingY,
+        maxTextWidth,
+        theme,
+        upcomingLine,
+        visibleLineIndex,
+    ]);
 
     return (
-        <VisualizerShell
-            theme={theme}
-            audioPower={audioPower}
-            audioBands={audioBands}
-            sharedProps={props}
-        >
+        <>
             {showText && (
                 <div className="relative z-10 flex h-full w-full items-start justify-center overflow-visible px-4 pb-36 pt-12 sm:px-8 sm:pb-40 sm:pt-16 lg:px-14 lg:pt-20">
                     <div className="relative flex w-full max-w-4xl flex-col justify-start gap-3 overflow-visible">
-                        <AnimatePresence initial={false} mode="popLayout">
+                        <AnimatePresence initial={false}>
                             {visibleMessages.map((message) => (
                                 <CappellaMessageRow
                                     key={message.id}
@@ -1656,7 +1667,7 @@ const VisualizerCappella: React.FC<VisualizerCappellaProps> = (props) => {
                 hideTranslationSubtitle={hideTranslationSubtitle}
                 showSubtitleTranslation={showSubtitleTranslation}
             />
-        </VisualizerShell>
+        </>
     );
 };
 

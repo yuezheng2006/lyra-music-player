@@ -1,4 +1,5 @@
 import type { MotionValue } from 'framer-motion';
+import { useEffect } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 import { PlayerState, type SongResult, type StageLoopMode } from '@/types';
 import { LOCAL_TAIL_DECODE_ERROR_TOLERANCE_SEC } from '@/components/app/root/appConstants';
@@ -33,6 +34,14 @@ export interface AppAudioElementProps {
     skipAfterPlaybackFailure: () => void;
 }
 
+/**
+ * A stalled network connection ("waiting" fires, then nothing) never emits
+ * `error`, so onError's recovery path below is never reached — the dock clock
+ * just sits still forever. This is the timeout before we force the same
+ * online-recovery path onError uses.
+ */
+const STALL_RECOVERY_TIMEOUT_MS = 8000;
+
 export function AppAudioElement(props: AppAudioElementProps) {
     const {
         audioRef,
@@ -56,6 +65,72 @@ export function AppAudioElement(props: AppAudioElementProps) {
         playerState,
         skipAfterPlaybackFailure,
     } = props;
+
+    // Stall watchdog: recover a hung online stream even though it never fires `error`.
+    useEffect(() => {
+        const audioElement = audioRef.current;
+        if (!audioElement || !audioSrc) return undefined;
+
+        let stallTimer: ReturnType<typeof setTimeout> | null = null;
+
+        const clearStallTimer = () => {
+            if (stallTimer !== null) {
+                clearTimeout(stallTimer);
+                stallTimer = null;
+            }
+        };
+
+        const onWaiting = () => {
+            // Only arm once per stall episode — repeated `stalled` events while
+            // already waiting must not keep pushing the deadline back.
+            if (stallTimer !== null) return;
+
+            const failedSrc = audioElement.currentSrc || audioSrc;
+            const shouldRecover = Boolean(
+                currentSong &&
+                !isLocalPlaybackSong(currentSong) &&
+                !isNavidromePlaybackSong(currentSong) &&
+                !isStagePlaybackSong(currentSong) &&
+                failedSrc &&
+                !failedSrc.startsWith('blob:')
+            );
+            if (!shouldRecover) return;
+
+            stallTimer = setTimeout(() => {
+                stallTimer = null;
+                if (audioElement.paused || audioElement.ended) return;
+
+                if (isOnlinePlaybackRecoveryExhausted(currentSong?.id)) {
+                    skipAfterPlaybackFailure();
+                    return;
+                }
+
+                console.warn('[Audio] stall watchdog: no progress after', STALL_RECOVERY_TIMEOUT_MS, 'ms — reconnecting', { failedSrc });
+                void (async () => {
+                    const recovered = await recoverOnlinePlaybackSource({
+                        failedSrc,
+                        resumeAt: audioElement.currentTime,
+                        autoplay: true,
+                    });
+                    if (!recovered) {
+                        skipAfterPlaybackFailure();
+                    }
+                })();
+            }, STALL_RECOVERY_TIMEOUT_MS);
+        };
+
+        audioElement.addEventListener('waiting', onWaiting);
+        audioElement.addEventListener('playing', clearStallTimer);
+        audioElement.addEventListener('timeupdate', clearStallTimer);
+        audioElement.addEventListener('pause', clearStallTimer);
+        return () => {
+            clearStallTimer();
+            audioElement.removeEventListener('waiting', onWaiting);
+            audioElement.removeEventListener('playing', clearStallTimer);
+            audioElement.removeEventListener('timeupdate', clearStallTimer);
+            audioElement.removeEventListener('pause', clearStallTimer);
+        };
+    }, [audioElementEpoch, audioRef, audioSrc, currentSong, recoverOnlinePlaybackSource, skipAfterPlaybackFailure]);
 
     return (
 <audio
@@ -145,7 +220,30 @@ export function AppAudioElement(props: AppAudioElementProps) {
             //         });
             //     }
             // }}
-            onEnded={() => {
+            onEnded={(e) => {
+                // YTM proxy can emit premature ended when a range stalls; recover instead of skipping.
+                if (isYtmPlaybackSong(currentSong) && audioSrc) {
+                    const songDurationSec = resolveSongDurationSec(currentSong);
+                    const endedAt = e.currentTarget.currentTime;
+                    if (songDurationSec > 8 && endedAt < songDurationSec - 2.5) {
+                        console.warn('[Audio] premature YTM ended — recovering', {
+                            endedAt,
+                            songDurationSec,
+                        });
+                        void (async () => {
+                            const recovered = await recoverOnlinePlaybackSource({
+                                failedSrc: audioSrc,
+                                resumeAt: Math.max(0, endedAt - 0.25),
+                                autoplay: true,
+                            });
+                            if (!recovered) {
+                                skipAfterPlaybackFailure();
+                            }
+                        })();
+                        return;
+                    }
+                }
+
                 // Cache if playing fully
                 if (audioSrc && !audioSrc.startsWith('blob:') && currentSong && !isStagePlaybackSong(currentSong)) {
                     cacheSongAssets();
@@ -235,7 +333,6 @@ export function AppAudioElement(props: AppAudioElementProps) {
                     currentSong &&
                     !isLocalPlaybackSong(currentSong) &&
                     !isNavidromePlaybackSong(currentSong) &&
-                    !isYtmPlaybackSong(currentSong) &&
                     !isStagePlaybackSong(currentSong) &&
                     failedSrc &&
                     !failedSrc.startsWith('blob:')

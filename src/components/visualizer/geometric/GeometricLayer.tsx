@@ -32,6 +32,7 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
     seed,
     disableVignette = false,
     paused = false,
+    particlesYielded = false,
     staticMode = false,
     coverUrl,
     currentTime,
@@ -170,7 +171,7 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                             : undefined
                     }
                     playing={playing}
-                    paused={paused}
+                    paused={paused || particlesYielded}
                     cameraControlState={cameraControlState}
                 />
             ) : (
@@ -182,8 +183,8 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                     disableVignette={disableVignette}
                 />
             )}
-            {/* Skip extra WebGL layers when cover WebGL is gated (Electron GPU lockout). */}
-            {coverWebGLActive ? (
+            {/* Extra WebGL layers must sleep with particle yield — a second GL context during lyric play kills Electron GPU. */}
+            {coverWebGLActive && !particlesYielded ? (
                 <>
                     {/* Above cover particles, below character — otherwise Emily/dense particles hide ambient. */}
                     <AmbientVisualOverlay

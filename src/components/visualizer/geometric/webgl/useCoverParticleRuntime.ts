@@ -45,8 +45,12 @@ export const useCoverParticleRuntime = ({
     const runtimeRef = useRef<CoverParticleRuntime | null>(null);
     const audioBandsRef = useRef(audioBands);
     const pausedRef = useRef(paused);
+    const sceneTuningRef = useRef(sceneTuning);
+    const qualityProfileRef = useRef(qualityProfile);
     audioBandsRef.current = audioBands;
     pausedRef.current = paused;
+    sceneTuningRef.current = sceneTuning;
+    qualityProfileRef.current = qualityProfile;
 
     useEffect(() => {
         const container = mountedContainer ?? containerRef.current;
@@ -81,21 +85,25 @@ export const useCoverParticleRuntime = ({
             runtime.dispose();
             runtimeRef.current = null;
         };
-    // Intentionally omit coverUrl: remounting flashes the load mist on track change.
-    // Stabilize on tier — qualityProfile object identity changes with sceneTuning.
+    // Intentionally omit coverUrl / visualPreset: remount flashes mist and kills GPU
+    // on 封面↔滚筒↔星河. Those updates go through configure() below.
     }, [
         mountedContainer,
         enabled,
         qualityProfile.tier,
         qualityProfile.devicePixelRatioCap,
-        sceneTuning?.visualPreset,
-        sceneTuning?.enableCoverParticles,
         containerRef,
         shellBackgroundColor,
     ]);
 
+    // Primitive deps only: object identity of sceneTuning/qualityProfile must not re-enter configure.
     useEffect(() => {
-        runtimeRef.current?.configure(coverUrl ?? null, sceneTuning, qualityProfile, shellBackgroundColor);
+        runtimeRef.current?.configure(
+            coverUrl ?? null,
+            sceneTuningRef.current,
+            qualityProfileRef.current,
+            shellBackgroundColor,
+        );
     }, [
         coverUrl,
         qualityProfile.tier,
@@ -105,8 +113,10 @@ export const useCoverParticleRuntime = ({
         sceneTuning?.rhythmIntensity,
         sceneTuning?.bloomStrength,
         sceneTuning?.enableBassRipples,
-        sceneTuning,
-        qualityProfile,
+        sceneTuning?.enableBloomParticles,
+        sceneTuning?.atmosphereSensitivity,
+        sceneTuning?.cameraPunchStrength,
+        sceneTuning?.cinemaShake,
         shellBackgroundColor,
     ]);
 
