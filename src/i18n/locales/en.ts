@@ -580,9 +580,11 @@ export default {
     "aiAccountSearches": "Popular AI song accounts",
     "categorySearches": "Search by category",
     "songSearches": "Search by song",
+    "artistSearches": "Search by artist",
     "shortcutsHint": "Placeholder suggestions — tap to search",
+    "cocoShortcutsHint": "Search by song or artist; artist names rank that artist's tracks first",
     "bilibiliShortcutsHint": "Tap an account to search that UP; or use up:name / a keyword",
-    "qishuiShortcutsHint": "Category chips search playlists; song chips search tracks. You can also type cat:term or a keyword"
+    "qishuiShortcutsHint": "Artist names open that artist's playlist; song titles search tracks; AI/category chips search playlists. You can also type cat:term or song:title"
   },
   "animation": {
     "calm": "calm",

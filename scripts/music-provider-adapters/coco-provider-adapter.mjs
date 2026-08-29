@@ -16,13 +16,14 @@ const AUDIO_SOURCES = String(process.env.MUSIC_PROVIDER_COCO_AUDIO_SOURCES || 'n
   .map(part => part.trim())
   .filter(Boolean);
 
-const SEARCH_COUNT_CANDIDATES = [20, 25, 30, 16, 10, 50];
-const SEARCH_ATTEMPTS_PER_SOURCE = 2;
+const SEARCH_COUNT_CANDIDATES = [20, 25];
 const AUDIO_BITRATES = ['320', '192', '128'];
-// Resolve covers for the first page only so search stays fast.
-const COVER_RESOLVE_LIMIT = 16;
+const SEARCH_PREFIX_RE = /^(?:up:|账号:|用户:|@|cat:|分类:|song:|歌曲:|mid:|uid:)\s*/i;
+const LIVE_TITLE_RE = /(?:live|现场|演唱会)/i;
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+/** Strip qishui/bilibili routing prefixes so coco searches the visible keyword. */
+export const parseCocoSearchQuery = (rawQuery) =>
+  String(rawQuery || '').trim().replace(SEARCH_PREFIX_RE, '').trim();
 
 const flattenArtistNames = (value) => {
   if (!value) return [];
@@ -52,7 +53,13 @@ const fetchJson = async (url, timeoutMs = 4_000) => {
     if (!response.ok) {
       throw new Error(`Coco adapter request failed: ${response.status}`);
     }
-    return response.json();
+    const text = await response.text();
+    if (!text.trim()) return [];
+    try {
+      return JSON.parse(text);
+    } catch {
+      return [];
+    }
   } finally {
     clearTimeout(timer);
   }
@@ -60,8 +67,52 @@ const fetchJson = async (url, timeoutMs = 4_000) => {
 
 const pickSearchCounts = (limit) => {
   const desired = Math.min(Math.max(Number(limit) || 30, 1), 50);
-  const ordered = [desired, ...SEARCH_COUNT_CANDIDATES.filter(count => count !== desired)];
-  return [...new Set(ordered)];
+  return [...new Set([desired, ...SEARCH_COUNT_CANDIDATES.filter(count => count !== desired)])];
+};
+
+// Fold common traditional variants so joox/kuwo hits collapse in ranking.
+const SEARCH_CHAR_FOLDS = {
+  倫: '伦',
+  傑: '杰',
+  淺: '浅',
+  擱: '搁',
+  約: '约',
+  説: '说',
+  說: '说',
+  楓: '枫',
+  給: '给',
+  開: '开',
+  龍: '龙',
+  捲: '卷',
+  祕: '秘',
+  還: '还',
+  時: '时',
+  長: '长',
+  蕭: '萧',
+  範: '范',
+  藉: '借',
+};
+
+const normalizeSearchName = (value) => String(value || '').trim().toLowerCase()
+  .replace(/[倫傑淺擱約説說楓給開龍捲祕還時長蕭範藉]/g, (ch) => SEARCH_CHAR_FOLDS[ch] || ch);
+
+/** Prefer the queried artist/title and demote live/collab noise. */
+const scoreCocoSearchSong = (query, song) => {
+  const needle = normalizeSearchName(query);
+  if (!needle) return 0;
+  const title = normalizeSearchName(song.title);
+  const artists = (Array.isArray(song.artists) ? song.artists : []).map(normalizeSearchName);
+  let score = 0;
+  if (title === needle) score += 50;
+  else if (title.includes(needle)) score += 30;
+  if (artists.some((name) => name === needle)) {
+    score += 40;
+    if (artists.length === 1) score += 10;
+  } else if (artists.some((name) => name.includes(needle) || needle.includes(name))) {
+    score += 15;
+  }
+  if (LIVE_TITLE_RE.test(title)) score -= 25;
+  return score;
 };
 
 const extractSearchRows = (payload) => {
@@ -129,8 +180,36 @@ const requestSearchPage = async ({ query, source, count, page }) => {
   return extractSearchRows(payload);
 };
 
+const collectSourcePages = (sources, request) => Promise.all(
+  sources.map(async (source) => {
+    try {
+      const rows = await requestSearchPage({ ...request, source });
+      return { source, rows };
+    } catch {
+      return { source, rows: [] };
+    }
+  }),
+);
+
+const mergeRankedSongs = (query, hits, limit) => {
+  const seen = new Set();
+  const songs = [];
+  for (const hit of hits) {
+    for (const row of hit.rows) {
+      const song = normalizeSong({ ...row, source: row?.source || hit.source }, songs.length);
+      const key = `${normalizeSearchName(song.title)}|${song.artists.map(normalizeSearchName).sort().join(',')}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      songs.push(song);
+    }
+  }
+  return songs
+    .sort((left, right) => scoreCocoSearchSong(query, right) - scoreCocoSearchSong(query, left))
+    .slice(0, Math.max(limit, 1));
+};
+
 export async function search({ query, limit = 30, offset = 0 }) {
-  const trimmed = String(query || '').trim();
+  const trimmed = parseCocoSearchQuery(query);
   if (!trimmed) {
     return { songs: [], total: 0, hasMore: false };
   }
@@ -138,54 +217,20 @@ export async function search({ query, limit = 30, offset = 0 }) {
   const page = Math.floor(offset / Math.max(limit, 1)) + 1;
   const countCandidates = pickSearchCounts(limit);
   const sources = SEARCH_SOURCES.length > 0 ? SEARCH_SOURCES : ['netease', 'joox', 'kuwo'];
-  let lastError = null;
 
-  for (const source of sources) {
-    for (const count of countCandidates) {
-      for (let attempt = 1; attempt <= SEARCH_ATTEMPTS_PER_SOURCE; attempt += 1) {
-        try {
-          const rows = await requestSearchPage({
-            query: trimmed,
-            source,
-            count,
-            page,
-          });
-          if (rows.length === 0) {
-            if (attempt < SEARCH_ATTEMPTS_PER_SOURCE) {
-              await sleep(120 * attempt);
-            }
-            continue;
-          }
-
-          const sliced = rows.slice(0, Math.max(limit, 1));
-          const songs = await Promise.all(sliced.map(async (row, index) => {
-            const base = normalizeSong({ ...row, source: row?.source || source }, index);
-            if (index >= COVER_RESOLVE_LIMIT || base.coverUrl || !base.picId) {
-              return base;
-            }
-            const coverUrl = await resolveCoverUrl(row, base.source);
-            return coverUrl ? { ...base, coverUrl } : base;
-          }));
-          return {
-            songs,
-            total: songs.length + offset,
-            hasMore: songs.length >= limit,
-          };
-        } catch (error) {
-          lastError = error;
-          if (attempt < SEARCH_ATTEMPTS_PER_SOURCE) {
-            await sleep(120 * attempt);
-          }
-        }
-      }
-    }
+  for (const count of countCandidates) {
+    const hits = (await collectSourcePages(sources, { query: trimmed, count, page }))
+      .filter((hit) => hit.rows.length > 0);
+    if (hits.length === 0) continue;
+    const songs = mergeRankedSongs(trimmed, hits, limit);
+    return {
+      songs,
+      total: songs.length + offset,
+      hasMore: songs.length >= limit,
+    };
   }
 
-  if (lastError) {
-    console.warn('[coco-adapter] search failed:', lastError instanceof Error ? lastError.message : lastError);
-  } else {
-    console.warn('[coco-adapter] search returned empty across sources:', sources.join(','));
-  }
+  console.warn('[coco-adapter] search returned empty across sources:', sources.join(','));
   return { songs: [], total: 0, hasMore: false };
 }
 

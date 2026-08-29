@@ -580,9 +580,11 @@ export default {
     "aiAccountSearches": "热门 AI 歌曲账号",
     "categorySearches": "按分类查",
     "songSearches": "按歌曲查",
+    "artistSearches": "按歌手查",
     "shortcutsHint": "占位推荐词，点击即可搜索",
+    "cocoShortcutsHint": "歌名、歌手都按关键词搜；歌手名会把该歌手的歌曲排在前面",
     "bilibiliShortcutsHint": "点账号名按 UP 主搜投稿；也可用 up:名称 或普通关键词",
-    "qishuiShortcutsHint": "分类词按歌单搜索，歌曲词按单曲搜索；也可输入 cat:分类 或普通关键词"
+    "qishuiShortcutsHint": "歌手名走艺人歌单，歌名走单曲；AI / 分类词走歌单。也可输入 cat:分类 或 song:歌名"
   },
   "animation": {
     "calm": "平静",

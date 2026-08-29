@@ -57,6 +57,7 @@ const readBody = (req) => new Promise((resolve, reject) => {
 const sendJson = (res, status, payload) => {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'content-type',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',

@@ -120,23 +120,28 @@ const extractPlaylistTracks = (payload) => {
 };
 
 /**
- * Detect Qishui search intent: `cat:分类` searches playlists; default is track search.
+ * Detect Qishui search intent: `cat:` playlists, `song:` tracks, bare keywords auto-route.
  */
 export const parseQishuiSearchIntent = (rawQuery) => {
   const trimmed = String(rawQuery || '').trim();
   if (!trimmed) return { mode: 'track', query: '' };
 
-  const categoryMatch = /^(?:cat:|分类:)\s*(.+)$/i.exec(trimmed);
+  const categoryMatch = /^(?:cat:|分类:)\s*(.*)$/i.exec(trimmed);
   if (categoryMatch) {
     return { mode: 'category', query: categoryMatch[1].trim() };
   }
 
-  const songMatch = /^(?:song:|歌曲:)\s*(.+)$/i.exec(trimmed);
+  const songMatch = /^(?:song:|歌曲:)\s*(.*)$/i.exec(trimmed);
   if (songMatch) {
     return { mode: 'track', query: songMatch[1].trim() };
   }
 
-  return { mode: 'track', query: trimmed };
+  // Official track search returns 0 hits for AI* tags; playlist search is the real category path.
+  if (/^ai/i.test(trimmed)) {
+    return { mode: 'category', query: trimmed };
+  }
+
+  return { mode: 'auto', query: trimmed };
 };
 
 const normalizeSearchName = (value) => String(value || '').trim().toLowerCase();
@@ -197,7 +202,7 @@ const extractSearchArtists = (payload) => {
     .filter(Boolean);
 };
 
-const searchExactArtist = async (query) => {
+const fetchSearchArtists = async (query) => {
   const params = buildLunaQuery({
     q: query,
     cursor: '0',
@@ -214,10 +219,22 @@ const searchExactArtist = async (query) => {
       'Content-Type': 'application/json; charset=utf-8',
     },
   );
+  return extractSearchArtists(payload);
+};
+
+const searchExactArtist = async (query) => {
   const needle = normalizeSearchName(query);
-  return extractSearchArtists(payload).find(
+  return (await fetchSearchArtists(query)).find(
     (artist) => normalizeSearchName(artist.name) === needle,
   ) || null;
+};
+
+/** True when Luna ranks this name as the primary artist, not a song-title alias. */
+const searchPrimaryExactArtist = async (query) => {
+  const artists = await fetchSearchArtists(query);
+  const top = artists[0];
+  if (!top || normalizeSearchName(top.name) !== normalizeSearchName(query)) return null;
+  return top;
 };
 
 const fetchPlaylistTrackPage = async (playlistId, cursor, pageSize) => {
@@ -307,7 +324,13 @@ const fetchJson = async (url, headers = {}) => {
   if (!response.ok) {
     throw new Error(`Qishui request failed: ${response.status}`);
   }
-  return response.json();
+  const text = await response.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
 };
 
 const fetchText = async (url, headers = {}) => {
@@ -395,7 +418,7 @@ const searchOfficialTracks = async (query, limit = 30, offset = 0) => {
     search_scene: '',
   });
   const payload = await fetchJson(
-    `https://api.qishui.com/luna/pc/search/track?${params.toString()}`,
+    `https://api.qishui.com/luna/search/track?${params.toString()}`,
     {
       'User-Agent': LUNA_UA,
       'Content-Type': 'application/json; charset=utf-8',
@@ -455,6 +478,20 @@ const searchOfficialPlaylists = async (query, limit = 30, offset = 0) => {
   };
 };
 
+/** Bare keywords: primary artist → playlist; otherwise tracks, then single-token playlists. */
+const searchAuto = async (query, limit = 30, offset = 0) => {
+  const artist = await searchPrimaryExactArtist(query);
+  if (artist) {
+    return searchOfficialPlaylists(query, limit, offset);
+  }
+
+  const tracks = await searchOfficialTracks(query, limit, offset);
+  if (tracks.songs.length > 0 || /\s/.test(query)) {
+    return tracks;
+  }
+  return searchOfficialPlaylists(query, limit, offset);
+};
+
 const resolveTrackId = (payload) => {
   const fromSong = payload?.song?.providerSongId || payload?.song?.id || payload?.id;
   const value = String(fromSong || '').trim();
@@ -480,7 +517,16 @@ export async function search({ query, limit = 30, offset = 0 }) {
 
   const intent = parseQishuiSearchIntent(trimmed);
   if (intent.mode === 'category') {
+    if (!intent.query) {
+      return { songs: [], total: 0, hasMore: false, searchMode: 'category' };
+    }
     return searchOfficialPlaylists(intent.query, limit, offset);
+  }
+  if (!intent.query) {
+    return { songs: [], total: 0, hasMore: false, searchMode: 'track' };
+  }
+  if (intent.mode === 'auto') {
+    return searchAuto(intent.query, limit, offset);
   }
   return searchOfficialTracks(intent.query, limit, offset);
 }

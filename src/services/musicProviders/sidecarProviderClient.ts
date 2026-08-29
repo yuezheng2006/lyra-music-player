@@ -279,7 +279,7 @@ export const requestSidecarSearch = async (
     // Search UX: fail fast — avoid default 3 attempts + 300/900ms backoff.
     const { response } = await requestWithStability(
         `${base}/providers/${providerId}/search?${params.toString()}`,
-        { signal: options.signal },
+        { signal: options.signal, cache: 'no-store' },
         {
             source: 'sidecar',
             endpoint: `/providers/${providerId}/search`,

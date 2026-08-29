@@ -9,32 +9,37 @@ import {
 // test/unit/utils/onlineSearchShortcuts.test.ts
 
 describe('onlineSearchShortcuts', () => {
-    it('recognizes coco, qishui, and bilibili as shortcut providers', () => {
+    it('recognizes every curated peer entry as a shortcut provider', () => {
         expect(isSearchShortcutProvider('coco')).toBe(true);
         expect(isSearchShortcutProvider('qishui')).toBe(true);
+        expect(isSearchShortcutProvider('kugou')).toBe(true);
         expect(isSearchShortcutProvider('bilibili')).toBe(true);
+        expect(isSearchShortcutProvider('kuwo')).toBe(true);
         expect(isSearchShortcutProvider('netease')).toBe(false);
         expect(isSearchShortcutProvider('qq')).toBe(false);
     });
 
-    it('returns hot and common placeholder groups for coco', () => {
+    it('returns song and artist groups for keyword-only peers', () => {
         const groups = getOnlineSearchShortcutGroups('coco');
-        expect(groups.map(group => group.id)).toEqual(['hot', 'common']);
+        expect(groups.map(group => group.id)).toEqual(['song', 'artist']);
         expect(groups.every(group => group.queries.length > 0)).toBe(true);
+        expect(getOnlineSearchShortcutGroups('kugou').map(group => group.id)).toEqual(['song', 'artist']);
+        expect(getOnlineSearchShortcutGroups('kuwo').map(group => group.id)).toEqual(['song', 'artist']);
     });
 
-    it('returns category and song placeholder groups for qishui', () => {
-        const coco = getOnlineSearchShortcutGroups('coco');
+    it('returns category, artist, and song groups for qishui', () => {
         const qishui = getOnlineSearchShortcutGroups('qishui');
-        expect(qishui.map(group => group.id)).toEqual(['category', 'song']);
-        expect(qishui[0].queries).not.toEqual(coco[0].queries);
-        expect(qishui[0].queries.slice(0, 3)).toEqual(['cat:周杰伦', 'cat:大头针', 'cat:AI歌曲']);
-        expect(qishui[1].queries).toContain('周杰伦 晴天');
+        expect(qishui.map(group => group.id)).toEqual(['category', 'artist', 'song']);
+        expect(qishui[0].queries).toContain('cat:AI周杰伦');
+        expect(qishui[0].queries).not.toContain('cat:周杰伦');
+        expect(qishui[1].queries).toContain('周杰伦');
+        expect(qishui[2].queries).toContain('song:晴天');
+        expect(qishui[2].queries).not.toContain('song:周杰伦 晴天');
     });
 
-    it('returns Bilibili AI account shortcuts and verified hot keywords without duplicates', () => {
+    it('returns Bilibili AI account shortcuts and verified song keywords without duplicates', () => {
         const groups = getOnlineSearchShortcutGroups('bilibili');
-        expect(groups.map(group => group.id)).toEqual(['accounts', 'hot']);
+        expect(groups.map(group => group.id)).toEqual(['accounts', 'song']);
         expect(groups[0].queries).toEqual([
             'up:天花板上吊着猫',
             'up:溪谷之风',

@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ListPlus, Play, Plus, Search } from 'lucide-react';
+import { ArrowLeft, Download, ListPlus, Play, Plus, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Theme, UnifiedSong } from '../types';
 import { formatSongName } from '../utils/songNameFormatter';
@@ -17,6 +17,7 @@ import LazyCoverImage from './shared/LazyCoverImage';
 import RemoteLoadState from './shared/RemoteLoadState';
 import {
     getOnlineSearchShortcutGroups,
+    getSearchShortcutHintKey,
     isSearchShortcutProvider,
     stripShortcutDisplayLabel,
 } from '../utils/onlineSearchShortcuts';
@@ -65,6 +66,7 @@ interface SearchResultsOverlayProps {
     onSelectArtist: (track: UnifiedSong, artistName: string, artistId?: number) => void;
     onSelectAlbum: (track: UnifiedSong, albumName: string, albumId?: number) => void;
     onDownloadSong?: (song: UnifiedSong) => void | Promise<boolean>;
+    onDownloadSongs?: (songs: UnifiedSong[]) => void | Promise<boolean>;
     canDownloadSong?: (song: UnifiedSong | null | undefined) => boolean;
     downloadSongLabel?: string;
 }
@@ -120,8 +122,13 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
     onAddAllToQueue,
     onSelectArtist,
     onSelectAlbum,
+    onDownloadSong,
+    onDownloadSongs,
+    canDownloadSong,
+    downloadSongLabel,
 }) => {
     const { t } = useTranslation();
+    const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
     const {
         searchQuery,
         searchProviders,
@@ -260,6 +267,49 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
             : searchResults);
     const visibleResultCount = visibleResults?.length ?? 0;
     const playableResults = (visibleResults || []).filter(track => !isSongMarkedUnavailable(track));
+    const downloadEnabled = Boolean(
+        (onDownloadSong || onDownloadSongs)
+        && typeof window !== 'undefined'
+        && window.electron?.downloadSongFile
+    );
+    const trackSelectionKey = (track: UnifiedSong, index: number) => `${track.musicProvider || 'netease'}:${track.id}:${index}`;
+    const downloadableResults = downloadEnabled
+        ? playableResults.filter(track => canDownloadSong?.(track))
+        : [];
+    const selectedTracks = (visibleResults || []).filter((track, index) =>
+        selectedKeys.has(trackSelectionKey(track, index)) && canDownloadSong?.(track)
+    );
+
+    useEffect(() => {
+        setSelectedKeys(new Set());
+    }, [searchResults, searchQuery]);
+
+    const toggleTrackSelected = (key: string) => {
+        setSelectedKeys(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    };
+
+    const handleDownloadSelected = () => {
+        if (selectedTracks.length === 0) return;
+        if (onDownloadSongs) {
+            void onDownloadSongs(selectedTracks);
+            return;
+        }
+        selectedTracks.forEach(track => { void onDownloadSong?.(track); });
+    };
+
+    const handleDownloadAll = () => {
+        if (downloadableResults.length === 0) return;
+        if (onDownloadSongs) {
+            void onDownloadSongs(downloadableResults);
+            return;
+        }
+        downloadableResults.forEach(track => { void onDownloadSong?.(track); });
+    };
 
     const handleShortcutSelect = (query: string) => {
         onSubmitSearch(query, { displayQuery: stripShortcutDisplayLabel(query) });
@@ -427,6 +477,27 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                 <ListPlus size={14} />
                                                 {t('search.addAllToQueue')}
                                             </button>
+                                            {downloadEnabled && downloadableResults.length > 0 ? (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleDownloadSelected}
+                                                        disabled={selectedTracks.length === 0}
+                                                        className={`inline-flex items-center justify-center gap-1.5 min-h-9 px-3.5 rounded-full text-xs font-medium transition-colors touch-manipulation disabled:opacity-40 ${isDaylight ? 'border border-black/10 bg-white hover:bg-slate-50 text-slate-700' : 'border border-white/10 bg-white/5 hover:bg-white/10 text-white/80'}`}
+                                                    >
+                                                        <Download size={14} />
+                                                        {t('search.downloadSelected')}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleDownloadAll}
+                                                        className={`inline-flex items-center justify-center gap-1.5 min-h-9 px-3.5 rounded-full text-xs font-medium transition-colors touch-manipulation ${isDaylight ? 'border border-black/10 bg-white hover:bg-slate-50 text-slate-700' : 'border border-white/10 bg-white/5 hover:bg-white/10 text-white/80'}`}
+                                                    >
+                                                        <Download size={14} />
+                                                        {t('search.downloadAll')}
+                                                    </button>
+                                                </>
+                                            ) : null}
                                         </div>
                                     </div>
 
@@ -439,6 +510,9 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                 || t('player.unknownArtist', '未知歌手');
                                             const albumName = track.al?.name || track.album?.name || t('player.unknownAlbum', '未知专辑');
                                             const durationLabel = formatDuration(track.dt || track.duration);
+                                            const selectionKey = trackSelectionKey(track, index);
+                                            const isSelected = selectedKeys.has(selectionKey);
+                                            const canDownloadTrack = Boolean(downloadEnabled && !isUnavailable && canDownloadSong?.(track));
 
                                             return (
                                                 <div
@@ -456,6 +530,22 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                     className={`rounded-xl border px-3 py-2.5 md:px-3.5 transition-colors ${rowBg} ${isUnavailable ? 'opacity-55' : 'cursor-pointer'}`}
                                                 >
                                                     <div className="flex items-center gap-3 min-w-0">
+                                                        {downloadEnabled ? (
+                                                            <label
+                                                                className="shrink-0 flex items-center justify-center min-h-10 min-w-8"
+                                                                onClick={(event) => event.stopPropagation()}
+                                                                onKeyDown={(event) => event.stopPropagation()}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    disabled={!canDownloadTrack}
+                                                                    onChange={() => toggleTrackSelected(selectionKey)}
+                                                                    className="h-4 w-4 rounded border-black/20"
+                                                                    aria-label={t('search.selectForDownload')}
+                                                                />
+                                                            </label>
+                                                        ) : null}
                                                         <div
                                                             className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 touch-manipulation group/cover"
                                                             title={t('search.play')}
@@ -540,6 +630,19 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                                     >
                                                                         <Plus size={16} />
                                                                     </button>
+                                                                    {canDownloadTrack ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                void onDownloadSong?.(track);
+                                                                            }}
+                                                                            className={`inline-flex items-center justify-center min-h-10 min-w-10 rounded-full transition-colors touch-manipulation active:scale-95 ${isDaylight ? 'hover:bg-black/5 text-slate-600' : 'hover:bg-white/10 text-white/70'}`}
+                                                                            title={downloadSongLabel || t('search.download')}
+                                                                        >
+                                                                            <Download size={15} />
+                                                                        </button>
+                                                                    ) : null}
                                                                 </>
                                                             )}
                                                         </div>
@@ -577,19 +680,15 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                 <SearchShortcutChips
                                     groups={shortcutGroups}
                                     isDaylight={isDaylight}
-                                    hintKey={
-                                        activeProvider === 'bilibili'
-                                            ? 'search.bilibiliShortcutsHint'
-                                            : activeProvider === 'qishui'
-                                                ? 'search.qishuiShortcutsHint'
-                                                : 'search.shortcutsHint'
-                                    }
+                                    hintKey={getSearchShortcutHintKey(activeProvider)}
                                     hintFallback={
                                         activeProvider === 'bilibili'
                                             ? 'Tap an account to search that UP; or use up:name / a keyword'
                                             : activeProvider === 'qishui'
                                                 ? 'Category chips search playlists; song chips search tracks'
-                                                : 'Placeholder suggestions — tap to search'
+                                                : activeProvider === 'coco'
+                                                    ? 'Search by song or artist; artist names rank that artist first'
+                                                    : 'Placeholder suggestions — tap to search'
                                     }
                                     onSelect={handleShortcutSelect}
                                 />
