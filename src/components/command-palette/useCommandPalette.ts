@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getCommandPaletteMatches, getQueueSongMatches, COMMAND_PALETTE_COMMANDS } from './commandRegistry';
 import { isRecordableRecentCommand, readRecentCommandIds, recordRecentCommandId } from './recentCommands';
+import { readCommandFrequencyState, recordCommandUse } from './commandFrequency';
+import { buildFlagSuggestions } from './syntax/suggestFlags';
 import { isModKeyChord, isTextEntryTarget } from '@/components/shortcuts/shortcutKeyboardGuards';
 import type { CommandPaletteContext, CommandPaletteCommand, CommandPaletteMatch } from './types';
+import type { SyntaxSuggestion } from './syntax/types';
 
 // src/components/command-palette/useCommandPalette.ts
 // Manages palette state, keyboard opening, and selected autocomplete item.
@@ -26,11 +29,13 @@ export const useCommandPalette = ({
     const [activeCommand, setActiveCommand] = useState<CommandPaletteCommand | null>(null);
     const [isExecuting, setIsExecuting] = useState(false);
     const [recentCommandIds, setRecentCommandIds] = useState<string[]>(() => readRecentCommandIds());
+    const [frequencyState, setFrequencyState] = useState(() => readCommandFrequencyState());
+    const [syntaxActiveIndex, setSyntaxActiveIndex] = useState(0);
 
     const matches = useMemo(() => {
         let list: CommandPaletteMatch[];
         if (!activeCommand) {
-            list = getCommandPaletteMatches(matchQuery, context, recentCommandIds);
+            list = getCommandPaletteMatches(matchQuery, context, recentCommandIds, frequencyState.counts);
         } else if (activeCommand.id === 'queue') {
             list = getQueueSongMatches(matchQuery, context);
         } else {
@@ -64,7 +69,7 @@ export const useCommandPalette = ({
                 previewText,
             };
         });
-    }, [activeCommand, matchQuery, context, recentCommandIds]);
+    }, [activeCommand, matchQuery, context, recentCommandIds, frequencyState]);
 
     const activePreview = useMemo(() => {
         const match = matches[activeIndex];
@@ -120,6 +125,7 @@ export const useCommandPalette = ({
             if (didExecute) {
                 if (isRecordableRecentCommand(match.command, COMMAND_PALETTE_COMMANDS)) {
                     setRecentCommandIds(currentCommandIds => recordRecentCommandId(match.command.id, currentCommandIds));
+                    setFrequencyState(current => recordCommandUse(match.command.id, current));
                 }
                 close();
             }
@@ -215,6 +221,21 @@ export const useCommandPalette = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [currentView, isBlocked, open]);
 
+    const syntaxSuggestions = useMemo(
+        () => buildFlagSuggestions(activeCommand?.syntax, query),
+        [activeCommand, query],
+    );
+
+    useEffect(() => {
+        setSyntaxActiveIndex(0);
+    }, [query, activeCommand]);
+
+    const acceptSyntaxSuggestion = useCallback((suggestion: SyntaxSuggestion) => {
+        setQuery(suggestion.replacement);
+        setMatchQuery(suggestion.replacement);
+        setSyntaxActiveIndex(0);
+    }, []);
+
     return {
         activeIndex,
         activePreview,
@@ -229,6 +250,10 @@ export const useCommandPalette = ({
         matches,
         open,
         query,
+        syntaxSuggestions,
+        syntaxActiveIndex,
+        setSyntaxActiveIndex,
+        acceptSyntaxSuggestion,
         setActiveIndex,
         setIsComposing,
         setMatchQuery,

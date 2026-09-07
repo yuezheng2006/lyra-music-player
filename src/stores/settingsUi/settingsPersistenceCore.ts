@@ -28,7 +28,7 @@ import {
     type VisualizerMode,
     type SubtitleContentMode,
 } from '../../types';
-import { DEFAULT_VISUALIZER_MODE, getVisualizerRegistryEntry, hasVisualizerMode } from '../../components/visualizer/registry';
+import { DEFAULT_VISUALIZER_MODE, isBuiltinVisualizerMode } from '../../types/visualizerModes';
 import { LYRIC_WORD_MODE_STORAGE_KEY } from '../../utils/lyrics/lyricWordMode';
 import {
     readGpuUnstableFlag,
@@ -224,7 +224,7 @@ export const readStoredVisualizerMode = (): VisualizerMode => {
         return 'cadenza';
     }
 
-    let resolvedMode: VisualizerMode = hasVisualizerMode(saved) ? saved : DEFAULT_VISUALIZER_MODE;
+    let resolvedMode: VisualizerMode = isBuiltinVisualizerMode(saved) ? saved : DEFAULT_VISUALIZER_MODE;
     const isElectron = Boolean((window as Window & { electron?: unknown }).electron);
     const safeMode = resolveElectronSafeVisualizerMode({
         mode: resolvedMode,

@@ -7,7 +7,6 @@ import type {
     CommandPaletteMatch,
     CommandPaletteSearchSource,
 } from './types';
-import { isDiscordPresenceUiEnabled, isNavidromeUiEnabled } from '../../utils/featureFlags';
 import { usePerformanceMonitorStore } from '../../stores/usePerformanceMonitorStore';
 import { useAmbientVisualStore } from '../../stores/useAmbientVisualStore';
 import { useCharacterStore } from '../../stores/useCharacterStore';
@@ -25,16 +24,17 @@ import { NETEASE_API_COMMANDS } from './neteaseApiCommands';
 import { QUEUE_COMMANDS } from './queueCommands';
 import { SLEEP_TIMER_COMMANDS } from './sleepTimerCommands';
 import { AUTO_PLAY_ON_LAUNCH_COMMANDS } from './autoPlayOnLaunchCommands';
+import { ADD_TO_PLAYLIST_COMMANDS } from './addToPlaylistCommands';
 import { VISUALIZER_MODE_COMMANDS } from './visualizerCommands';
 import { HOME_TAB_COMMANDS } from './homeTabCommands';
 import { evaluateQueueQuery } from '../../utils/queue/evaluateQueueQuery';
+import { getAvailableCommandPaletteCommands } from './commandAvailability';
+import { readCommandFrequencyState } from './commandFrequency';
+import { MAX_COMMAND_MATCHES, rankCommands } from './search/rankCommands';
+import { normalizeSearchText } from './search/normalize';
 
 // src/components/command-palette/commandRegistry.ts
 // Defines command palette entries and the lightweight matching used for autocomplete.
-
-const MAX_COMMAND_MATCHES = 10;
-
-const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 
 const getSongArtistLabel = (song: SongResult) => {
     const artists = song.ar?.length ? song.ar : song.artists;
@@ -238,6 +238,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     ...QUEUE_COMMANDS,
     ...SLEEP_TIMER_COMMANDS,
     ...AUTO_PLAY_ON_LAUNCH_COMMANDS,
+    ...ADD_TO_PLAYLIST_COMMANDS,
 
     createSettingsCommand('settings-help', 'Open Help', 'Open help and shortcuts', ['help', '帮助', 'bangzhu', 'bz'], 'help'),
     {
@@ -1380,7 +1381,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
 ];
 
 export const getQueueSongMatches = (query: string, context: CommandPaletteContext): CommandPaletteMatch[] => {
-    const normalizedQuery = normalize(query);
+    const normalizedQuery = normalizeSearchText(query);
 
     if (!normalizedQuery) {
         return context.playQueue.slice(0, MAX_COMMAND_MATCHES).map((song, index) => ({
@@ -1418,102 +1419,11 @@ const createQueueSongCommand = (
 export const getCommandPaletteMatches = (
     query: string,
     context?: CommandPaletteContext,
-    recentCommandIds: string[] = []
-): CommandPaletteMatch[] => {
-    const normalizedQuery = normalize(query);
-
-    const filteredCommands = COMMAND_PALETTE_COMMANDS.filter(command => {
-        if (command.id === 'search-navidrome'
-            || command.id === 'home-navidrome'
-            || command.id === 'panel-navi') {
-            return isNavidromeUiEnabled();
-        }
-
-        if (command.id === 'settings-discord-presence') {
-            return isDiscordPresenceUiEnabled();
-        }
-
-        if (command.id === 'settings-desktop') {
-            const isWebBrowser = typeof window !== 'undefined';
-            const isElectron = isWebBrowser && Boolean((window as any).electron);
-            if (isWebBrowser && !isElectron) {
-                return false;
-            }
-        }
-
-        if (
-            command.id === 'desktop-lyrics-toggle'
-            || command.id === 'desktop-lyrics-lock-toggle'
-            || command.id === 'open-download-directory'
-            || command.id === 'download-current-song'
-            || command.id === 'download-search-results'
-            || command.id === 'toggle-auto-resync-download-folder'
-        ) {
-            const isWebBrowser = typeof window !== 'undefined';
-            const isElectron = isWebBrowser && Boolean((window as any).electron);
-            if (isWebBrowser && !isElectron) {
-                return false;
-            }
-        }
-
-        if (command.id === 'playback-auto-match-best-lyric') {
-            return Boolean(context?.enableAlternativeLyricSources);
-        }
-
-        if (command.id === 'theme-generate-current') {
-            return context ? context.canGenerateAITheme && !context.isGeneratingTheme : true;
-        }
-
-        if (command.id === 'theme-quick-editor') {
-            return context ? context.canOpenThemeQuickEditor : true;
-        }
-
-        if (command.group === 'search') {
-            if (command.id === 'search-current') return true;
-            if (context) {
-                return false;
-            }
-        }
-        return true;
-    });
-
-    if (!normalizedQuery) {
-        const recentCommands = recentCommandIds
-            .map(commandId => filteredCommands.find(command => command.id === commandId))
-            .filter((command): command is CommandPaletteCommand => Boolean(command) && !command.requiresInput);
-        const recentCommandIdSet = new Set(recentCommands.map(command => command.id));
-        const defaultCommands = filteredCommands.filter(command => !recentCommandIdSet.has(command.id));
-
-        return [...recentCommands, ...defaultCommands].slice(0, MAX_COMMAND_MATCHES).map((command, index) => ({
-            command,
-            score: recentCommandIdSet.has(command.id) ? 130 - index : 100 - index,
-            input: '',
-        }));
-    }
-
-    const matches = filteredCommands
-        .map(command => {
-            let bestScore = 0;
-            let bestInput = '';
-
-            for (const keyword of command.keywords) {
-                const normalizedKeyword = normalize(keyword);
-                if (normalizedQuery === normalizedKeyword) {
-                    bestScore = Math.max(bestScore, 120);
-                } else if (normalizedKeyword.startsWith(normalizedQuery)) {
-                    bestScore = Math.max(bestScore, 100 - normalizedKeyword.length);
-                } else if (normalizedQuery.startsWith(`${normalizedKeyword} `)) {
-                    bestScore = Math.max(bestScore, 90 + normalizedKeyword.length + (command.requiresInput ? 20 : 0));
-                    bestInput = query.trim().slice(keyword.length).trim();
-                } else if (normalizedKeyword.includes(normalizedQuery)) {
-                    bestScore = Math.max(bestScore, 60 - normalizedKeyword.indexOf(normalizedQuery));
-                }
-            }
-
-            return bestScore > 0 ? { command, score: bestScore, input: bestInput } : null;
-        })
-        .filter((match): match is CommandPaletteMatch => Boolean(match))
-        .sort((a, b) => b.score - a.score || a.command.title.localeCompare(b.command.title));
-
-    return matches.slice(0, MAX_COMMAND_MATCHES);
-};
+    recentCommandIds: string[] = [],
+    frequencyCounts: Record<string, number> = readCommandFrequencyState().counts,
+): CommandPaletteMatch[] => rankCommands(
+    query,
+    getAvailableCommandPaletteCommands(COMMAND_PALETTE_COMMANDS, context),
+    recentCommandIds,
+    frequencyCounts,
+);

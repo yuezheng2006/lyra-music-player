@@ -9,6 +9,7 @@ import Home from '@/components/app/Home';
 import PlayerPanel from '@/components/app/PlayerPanel';
 import ThemeQuickEditorHost from '@/components/panelTab/ThemeQuickEditor';
 import AppDialogs from '@/components/app/dialogs/AppDialogs';
+import AddToPlaylistHost from '@/components/app/AddToPlaylistHost';
 import AppOverlays from '@/components/app/overlays/AppOverlays';
 import { UserGuideModal } from '@/components/modal/UserGuideModal';
 import { ShortcutsCheatSheet } from '@/components/shortcuts/ShortcutsCheatSheet';
@@ -101,6 +102,11 @@ export function AppRootView({ controller }: AppRootViewProps) {
 
     const {
         activePlaybackContext,
+        addCurrentSongToLocalPlaylist,
+        addCurrentSongToNeteasePlaylist,
+        addCurrentSongToNavidromePlaylist,
+        createCurrentLocalPlaylist,
+        createCurrentNavidromePlaylist,
         appDialogsModel,
         appOverlaysModel,
         appStyle,
@@ -157,6 +163,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
         lyricTimelineOffsetMs,
         lyrics,
         lyricsFontScale,
+        localPlaylists,
         monetBackgroundImage,
         monetBackgroundTuning,
         latentBackgroundTuning,
@@ -174,6 +181,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
         playerLyricsVisible,
         playerPanelModel,
         playerState,
+        playlists,
         playlistShelfItems,
         recoverOnlinePlaybackSource,
         resolvedVisualizerBackgroundMode,
@@ -562,6 +570,19 @@ export function AppRootView({ controller }: AppRootViewProps) {
 
             <ThemeQuickEditorHost onSaveAiTheme={saveEditedAiDualTheme} onSaveCustomTheme={saveCustomDualTheme} />
 
+            <AddToPlaylistHost
+                isDaylight={isDaylight}
+                currentSong={currentSong}
+                isStageContext={activePlaybackContext === 'stage'}
+                localPlaylists={localPlaylists}
+                neteasePlaylists={playlists}
+                onAddCurrentSongToLocalPlaylist={addCurrentSongToLocalPlaylist}
+                onCreateCurrentLocalPlaylist={createCurrentLocalPlaylist}
+                onAddCurrentSongToNeteasePlaylist={addCurrentSongToNeteasePlaylist}
+                onAddCurrentSongToNavidromePlaylist={addCurrentSongToNavidromePlaylist}
+                onCreateCurrentNavidromePlaylist={createCurrentNavidromePlaylist}
+            />
+
             <CommandPalette
                 activeIndex={commandPalette.activeIndex}
                 activePreview={commandPalette.activePreview}
@@ -572,6 +593,8 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 isOpen={commandPalette.isOpen}
                 matches={commandPalette.matches}
                 query={commandPalette.query}
+                syntaxSuggestions={commandPalette.syntaxSuggestions}
+                syntaxActiveIndex={commandPalette.syntaxActiveIndex}
                 theme={theme}
                 onActiveCommandChange={commandPalette.setActiveCommand}
                 onActiveIndexChange={commandPalette.setActiveIndex}
@@ -585,6 +608,8 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 onExecuteActive={commandPalette.executeActive}
                 onExecuteMatch={commandPalette.executeMatch}
                 onQueryChange={commandPalette.setQuery}
+                onAcceptSyntaxSuggestion={commandPalette.acceptSyntaxSuggestion}
+                onSyntaxActiveIndexChange={commandPalette.setSyntaxActiveIndex}
             />
 
             <AppDialogs model={appDialogsModel} />

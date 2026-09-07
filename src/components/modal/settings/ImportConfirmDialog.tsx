@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, ChevronDown, Info, Minus, Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import ThemedDialog from '../../shared/ThemedDialog';
-import { getVisualizerModeLabel, hasVisualizerMode } from '../../visualizer/registry';
+import { getVisualizerModeLabel } from '../../visualizer/registry';
+import { isBuiltinVisualizerMode } from '../../../types/visualizerModes';
 import {
     getVisualizerBackgroundModeLabel,
     hasVisualizerBackgroundMode,
@@ -274,7 +275,7 @@ const ImportConfirmDialog: React.FC<ImportConfirmDialogProps> = ({
                 </span>
             );
         }
-        if (key === 'visualizerMode' && typeof value === 'string' && hasVisualizerMode(value)) {
+        if (key === 'visualizerMode' && typeof value === 'string' && isBuiltinVisualizerMode(value)) {
             return <span className={cls}>{getVisualizerModeLabel(value, k => t(k))}</span>;
         }
         if (key === 'visualizerBackgroundMode' && typeof value === 'string' && hasVisualizerBackgroundMode(value)) {

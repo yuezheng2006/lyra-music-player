@@ -4,6 +4,7 @@ import type { HomeViewTab, LocalSong, LyricWordMode, PlayerState, SearchSourceId
 import type { AppLanguagePreference } from '../../i18n/config';
 import type { PanelTab } from '../UnifiedPanel';
 import type { SettingsModalInitialTab, SettingsSubviewId } from '../../stores/useSettingsUiStore';
+import type { CommandSyntaxSpec } from './syntax/types';
 
 // src/components/command-palette/types.ts
 // Shared command palette contracts used by the registry, hook, and UI shell.
@@ -20,6 +21,7 @@ export type CommandPaletteCommand = {
     keywords: string[];
     placeholder?: string;
     requiresInput?: boolean;
+    syntax?: CommandSyntaxSpec;
     getPreview?: (input: string, context: CommandPaletteContext) => string | null;
     execute: (input: string, context: CommandPaletteContext) => Promise<boolean> | boolean;
 };

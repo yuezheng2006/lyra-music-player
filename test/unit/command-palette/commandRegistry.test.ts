@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { PlayerState } from '../../../src/types';
 import { getCommandPaletteMatches, getQueueSongMatches } from '../../../src/components/command-palette/commandRegistry';
 import type { CommandPaletteContext } from '../../../src/components/command-palette/types';
+import { useAddToPlaylistStore } from '../../../src/stores/useAddToPlaylistStore';
 
 const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandPaletteContext => ({
     currentSearchSourceTab: 'playlist',
@@ -259,6 +260,7 @@ describe('command palette registry', () => {
         expect(getCommandPaletteMatches('野火').some(match => match.command.id === 'visualizer-dazibao')).toBe(false);
         expect(getCommandPaletteMatches('自动续播')[0].command.id).toBe('toggle-auto-play-on-launch');
         expect(getCommandPaletteMatches('时计')[0].command.id).toBe('visualizer-pendolo');
+        expect(getCommandPaletteMatches('slptmr')[0].command.id).toBe('sleep-timer');
     });
 
     it('executes transparent player background and daylight theme toggle commands', () => {
@@ -339,9 +341,20 @@ describe('command palette registry', () => {
     it('returns all search commands when context is not provided', () => {
         const matches = getCommandPaletteMatches('search');
         const searchMatches = matches.filter(m => m.command.group === 'search');
-        // search-current, search-local, search-netease, search-qq, search-qishui, search-coco
-        // (search-navidrome is gated behind NAVIDROME_UI_ENABLED)
-        expect(searchMatches.length).toBe(6);
+        // All search-* titles contain "Search", so they rank together.
+        // search-navidrome is gated behind NAVIDROME_UI_ENABLED.
+        expect(searchMatches.map(match => match.command.id).sort()).toEqual([
+            'search-bilibili',
+            'search-coco',
+            'search-current',
+            'search-kugou',
+            'search-kuwo',
+            'search-local',
+            'search-netease',
+            'search-qishui',
+            'search-qq',
+        ]);
+        expect(searchMatches[0].command.id).toBe('search-current');
     });
 
     it('matches and executes color/theme-park command', () => {
@@ -423,6 +436,33 @@ describe('command palette registry', () => {
         expect(matchShuffle.command.id).toBe('playback-shuffle');
         matchShuffle.command.execute('', context);
         expect(context.shuffleQueue).toHaveBeenCalled();
+    });
+
+    it('opens add-to-playlist from a global command when the host says it can add', () => {
+        useAddToPlaylistStore.setState({
+            isOpen: false,
+            availability: { isApplicable: true, canAdd: true },
+        });
+
+        try {
+            const context = createContext();
+            const [match] = getCommandPaletteMatches('添加到歌单', context);
+            expect(match.command.id).toBe('playback-add-to-playlist');
+            expect(match.command.execute('', context)).toBe(true);
+            expect(useAddToPlaylistStore.getState().isOpen).toBe(true);
+        } finally {
+            useAddToPlaylistStore.setState({
+                isOpen: false,
+                availability: { isApplicable: false, canAdd: false },
+            });
+        }
+    });
+
+    it('hides add-to-playlist when the current song cannot go in a playlist', () => {
+        const context = createContext();
+        expect(
+            getCommandPaletteMatches('添加到歌单', context).some(match => match.command.id === 'playback-add-to-playlist'),
+        ).toBe(false);
     });
 
     it('starts video export from command palette in electron only', () => {

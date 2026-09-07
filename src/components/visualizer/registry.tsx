@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { type VisualizerMode } from '../../types';
 import {
+    BUILTIN_VISUALIZER_MODES,
+    DEFAULT_VISUALIZER_MODE,
+    isBuiltinVisualizerMode,
+} from '../../types/visualizerModes';
+import {
     type VisualizerEntryModule,
     type VisualizerRegistryEntry,
 } from './definition';
@@ -40,10 +45,19 @@ const resolveLoaderPath = (mode: VisualizerMode): string | null => {
 export const VISUALIZER_REGISTRY: VisualizerRegistryMeta[] = [...VISUALIZER_REGISTRY_META]
     .sort((left, right) => left.order - right.order || left.mode.localeCompare(right.mode));
 
-export const DEFAULT_VISUALIZER_MODE: VisualizerMode = 'classic';
+export { DEFAULT_VISUALIZER_MODE };
 
 export const hasVisualizerMode = (mode: string | null | undefined): mode is VisualizerMode =>
-    Boolean(mode && VISUALIZER_REGISTRY_BY_MODE[mode as VisualizerMode]);
+    isBuiltinVisualizerMode(mode);
+
+const registryModes = new Set(VISUALIZER_REGISTRY_META.map(entry => entry.mode));
+const missingFromRegistry = BUILTIN_VISUALIZER_MODES.filter(mode => !registryModes.has(mode));
+const extraInRegistry = VISUALIZER_REGISTRY_META.filter(entry => !isBuiltinVisualizerMode(entry.mode));
+if (missingFromRegistry.length > 0 || extraInRegistry.length > 0) {
+    throw new Error(
+        `[VisualizerRegistry] Builtin mode list drifted (missing=${missingFromRegistry.join(',') || 'none'} extra=${extraInRegistry.map(entry => entry.mode).join(',') || 'none'})`,
+    );
+}
 
 export const getVisualizerRegistryEntry = (mode: VisualizerMode): VisualizerRegistryMeta =>
     VISUALIZER_REGISTRY_BY_MODE[mode] ?? VISUALIZER_REGISTRY_BY_MODE[DEFAULT_VISUALIZER_MODE]!;

@@ -36,6 +36,22 @@ export const SLEEP_TIMER_COMMANDS: CommandPaletteCommand[] = [
         ],
         placeholder: '30  |  --on 90  |  --off',
         requiresInput: true,
+        syntax: {
+            flags: [
+                {
+                    name: 'on',
+                    aliases: ['enable'],
+                    descriptionKey: 'commandPalette.syntaxSleepTimerOn',
+                    descriptionFallback: 'Start the timer',
+                },
+                {
+                    name: 'off',
+                    aliases: ['disable'],
+                    descriptionKey: 'commandPalette.syntaxSleepTimerOff',
+                    descriptionFallback: 'Cancel the timer',
+                },
+            ],
+        },
         getPreview: (input, context) => describeSleepTimerQuery(
             parseSleepTimerQuery(input, configuredTotalMinutes()),
             context.t,

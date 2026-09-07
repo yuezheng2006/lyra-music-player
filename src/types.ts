@@ -1,4 +1,7 @@
 import type { LineRenderHints } from './utils/lyrics/renderHints';
+import type { BuiltinVisualizerMode } from './types/visualizerModes';
+
+export type { BuiltinVisualizerMode } from './types/visualizerModes';
 
 export interface LyricRuby {
   text: string;
@@ -115,7 +118,6 @@ export interface StoredCustomLyricsFont {
 
 export type ThemeMode = 'default' | 'ai' | 'custom';
 
-export type BuiltinVisualizerMode = 'classic' | 'cadenza' | 'partita' | 'fume' | 'monet';
 export type VisualizerMode = BuiltinVisualizerMode | (string & {});
 /** default = current line only; karaoke = upcoming preview + per-grapheme LTR wipe fill. */
 export type LyricWordMode = 'default' | 'karaoke';
