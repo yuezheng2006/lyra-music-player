@@ -1,9 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
+import { APP_VERSION } from './helpers/appVersion';
 import {
     clearPageTelemetry,
     readTelemetrySnapshot,
     waitForTelemetryEvent,
 } from './helpers/telemetry';
+import { BOOT_READY_REDLINE_MS } from '../../src/utils/performance/startupRedlineBudgets';
 
 // test/ui/telemetry-boot-playback.spec.ts
 // E2E: assert boot + play/pause paths via the local telemetry ring.
@@ -12,7 +14,7 @@ const FIXTURE_COVER =
     'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22256%22 height=%22256%22%3E%3Crect width=%22256%22 height=%22256%22 fill=%22%2309172f%22/%3E%3C/svg%3E';
 
 async function installTelemetryPlaybackHarness(page: Page) {
-    await page.addInitScript((coverUrl: string) => {
+    await page.addInitScript(({ coverUrl, appVersion }: { coverUrl: string; appVersion: string }) => {
         localStorage.clear();
         localStorage.setItem('i18nextLng', 'en');
         localStorage.setItem('default_theme_daylight', 'false');
@@ -20,7 +22,7 @@ async function installTelemetryPlaybackHarness(page: Page) {
         localStorage.setItem('last_app_view', 'player');
         localStorage.setItem('open_player_on_launch', 'true');
         localStorage.setItem('lyra_onboarding_completed', 'true');
-        localStorage.setItem('folia_last_seen_guide_version', '1.0.3');
+        localStorage.setItem('folia_last_seen_guide_version', appVersion);
         localStorage.setItem('visualizer_mode', 'classic');
         localStorage.setItem('visualizer_background_mode', 'common');
         localStorage.setItem('player_volume', '0.5');
@@ -60,7 +62,7 @@ async function installTelemetryPlaybackHarness(page: Page) {
 
         // Seed IndexedDB after first paint via dynamic import in page setup below.
         (window as unknown as { __TELEMETRY_E2E_COVER__?: string }).__TELEMETRY_E2E_COVER__ = coverUrl;
-    }, FIXTURE_COVER);
+    }, { coverUrl: FIXTURE_COVER, appVersion: APP_VERSION });
 }
 
 async function seedLastSong(page: Page) {
@@ -110,8 +112,14 @@ test.describe('telemetry boot + playback e2e', () => {
             return snap ? 'ready' : null;
         }, { timeout: 20_000 }).toBe('ready');
 
-        const boot = await waitForTelemetryEvent(page, 'boot.ready', { timeout: 20_000 });
-        expect(typeof boot.durMs === 'number' || boot.durMs === undefined).toBe(true);
+        const boot = await waitForTelemetryEvent(page, 'boot.ready', {
+            timeout: BOOT_READY_REDLINE_MS + 2_000,
+        });
+        expect(typeof boot.durMs).toBe('number');
+        expect(
+            boot.durMs!,
+            `boot.ready ${boot.durMs}ms exceeded red-line ${BOOT_READY_REDLINE_MS}ms`,
+        ).toBeLessThanOrEqual(BOOT_READY_REDLINE_MS);
 
         const snap = await readTelemetrySnapshot(page);
         expect(snap!.size).toBeGreaterThan(0);
@@ -168,9 +176,9 @@ test.describe('telemetry boot + playback e2e', () => {
         await expect(menuTrigger).toBeVisible({ timeout: 20_000 });
         await menuTrigger.click();
 
-        const emily = page.getByTestId('floating-player-background-preset-emily');
-        await expect(emily).toBeVisible({ timeout: 10_000 });
-        await emily.click();
+        const nomand = page.getByTestId('floating-player-background-preset-nomand');
+        await expect(nomand).toBeVisible({ timeout: 10_000 });
+        await nomand.click();
 
         await waitForTelemetryEvent(page, 'settings.changed', {
             timeout: 15_000,
@@ -179,6 +187,6 @@ test.describe('telemetry boot + playback e2e', () => {
 
         await expect.poll(async () => page.evaluate(() => (
             localStorage.getItem('visualizer_background_mode')
-        )), { timeout: 10_000 }).toBe('interactive3d');
+        )), { timeout: 10_000 }).toBe('nomand');
     });
 });

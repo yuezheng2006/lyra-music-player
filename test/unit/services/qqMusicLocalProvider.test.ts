@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { qqMusicLocalProvider } from '@/services/musicProviders/qqMusicLocalProvider';
 import { requestQQ } from '@/utils/lyrics/providers/qqLyricProvider';
 import { searchQQOpenApi, resolveQQOpenAudioUrl } from '@/services/musicProviders/qqOpenApi';
-import { QQ_MUSIC_COOKIE_STORAGE_KEY, QQ_MUSIC_GUID_STORAGE_KEY } from '@/services/musicProviders/qqMusicAuth';
+import { QQ_MUSIC_COOKIE_STORAGE_KEY, QQ_MUSIC_GUID_STORAGE_KEY, resetQQMusicAuthCookieMemory } from '@/services/musicProviders/qqMusicAuth';
 
 vi.mock('@/utils/lyrics/providers/qqLyricProvider', () => ({
     fetchQQLyrics: vi.fn(),
@@ -37,6 +37,7 @@ describe('qqMusicLocalProvider', () => {
     };
 
     beforeEach(() => {
+        resetQQMusicAuthCookieMemory();
         requestQQMock.mockReset();
         searchQQOpenApiMock.mockReset();
         resolveQQOpenAudioUrlMock.mockReset();

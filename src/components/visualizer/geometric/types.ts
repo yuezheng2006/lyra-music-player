@@ -23,6 +23,8 @@ export interface GeometricBackgroundProps {
     hideShapes?: boolean;
     disableVignette?: boolean;
     paused?: boolean;
+    /** Yield cover-particle ticks only; do not dispose shelf / remount WebGL. */
+    particlesYielded?: boolean;
     staticMode?: boolean;
     coverUrl?: string | null;
     playlistShelfItems?: PlaylistShelfItem[];

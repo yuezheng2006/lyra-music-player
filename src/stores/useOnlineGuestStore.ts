@@ -25,7 +25,7 @@ export const useOnlineGuestStore = create<OnlineGuestState>((set) => ({
         if (typeof sessionStorage !== 'undefined') {
             sessionStorage.setItem(ONLINE_GUEST_ENTERED_KEY, '1');
         }
-        useSearchNavigationStore.getState().setHomeViewTab('playlist');
+        useSearchNavigationStore.getState().setHomeViewTab('charts');
         set({ entered: true });
     },
     reset: () => {

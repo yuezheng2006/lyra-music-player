@@ -10,9 +10,7 @@ import { colorWithAlpha, mixColors } from '../colorMix';
 import { type VisualizerSharedProps } from '../definition';
 import { buildFumeBackgroundScene, drawFumeBackground, type FumeBackgroundAudioLevels } from '../FumeBackground';
 import { getRecentCompletedLine, getUpcomingLines } from '../runtime';
-import { resolveShellGeometricBackgroundDisabled } from '../resolveShellGeometricBackground';
 import { shouldDrawFumeCanvasBackground } from '../resolveInteractive3dFumeLayering';
-import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { resolveWordColor } from '../wordColoring';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
@@ -2983,19 +2981,7 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
     ]);
 
     return (
-        <VisualizerShell
-            theme={theme}
-            audioPower={audioPower}
-            audioBands={audioBands}
-            sharedProps={{
-                ...props,
-                disableGeometricBackground: resolveShellGeometricBackgroundDisabled(
-                    disableGeometricBackground,
-                    props.resolvedVisualizerBackgroundMode,
-                    resolvedFumeTuning.disableGeometricBackground,
-                ),
-            }}
-        >
+        <>
             <div ref={viewportRef} className="relative isolate z-10 h-full w-full pointer-events-none">
                 {showText && (
                     <motion.div
@@ -3073,7 +3059,7 @@ const VisualizerFume: React.FC<VisualizerProps> = (props) => {
                 hideTranslationSubtitle={hideTranslationSubtitle}
                 showSubtitleTranslation={showSubtitleTranslation}
             />
-        </VisualizerShell>
+        </>
     );
 };
 

@@ -71,18 +71,53 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Match packaging path (ELECTRON=true). Skip Playwright UI / mac packaged
-      # smoke here — those need darwin baselines or local L1/L2 gates.
+      # Match packaging path (ELECTRON=true). Full mac packaged smoke stays on local L1/L2 gates.
       - name: Production build for Electron
         env:
           ELECTRON: 'true'
           ELECTRON_DEV: 'false'
         run: npm run build
 
+  # Job id kept as ui-interactive3d so existing branch protection still matches.
+  ui-interactive3d:
+    name: UI (startup red-line)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v6
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run startup red-line Playwright spec
+        env:
+          CI: 'true'
+        run: npm run test:ui:startup
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: startup-playwright-report
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+
   # Single required-check target for branch protection ("always green").
   ci-green:
     name: CI Green
-    needs: [lint, unit, build]
+    needs: [lint, unit, build, ui-interactive3d]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -94,6 +129,7 @@ jobs:
             "lint=${{ needs.lint.result }}"
             "unit=${{ needs.unit.result }}"
             "build=${{ needs.build.result }}"
+            "ui-interactive3d=${{ needs.ui-interactive3d.result }}"
           )
           failed=0
           for entry in "${results[@]}"; do
@@ -105,7 +141,7 @@ jobs:
             fi
           done
           if [ "${failed}" -ne 0 ]; then
-            echo "::error::CI Green failed — fix lint/unit/build before merge."
+            echo "::error::CI Green failed — fix lint/unit/build/ui-interactive3d before merge."
             exit 1
           fi
           echo "CI Green"

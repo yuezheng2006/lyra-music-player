@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveVisualizerSubtitleOverlayContent } from '@/components/visualizer/VisualizerSubtitleOverlay';
+import {
+    resolveUpcomingLineFontSize,
+    resolveVisualizerSubtitleOverlayContent,
+} from '@/components/visualizer/VisualizerSubtitleOverlay';
 import type { Line } from '@/types';
 
 // test/unit/visualizer/subtitleOverlay.test.ts
@@ -65,6 +68,11 @@ describe('VisualizerSubtitleOverlay content resolution', () => {
         expect(content.shouldRenderOverlay).toBe(true);
         expect(content.translationText).toBe('你好');
         expect(content.upcomingLines.map(line => line.fullText)).toEqual(['World', 'NextNext']);
+    });
+
+    it('floors upcoming line font sizes so small visualizer sizes stay readable', () => {
+        expect(resolveUpcomingLineFontSize('12px', 0)).toBe('max(12px, 1.25rem)');
+        expect(resolveUpcomingLineFontSize('12px', 1)).toBe('max(12px, 1.05rem)');
     });
 
     it('hides upcoming-line hints in default word mode', () => {

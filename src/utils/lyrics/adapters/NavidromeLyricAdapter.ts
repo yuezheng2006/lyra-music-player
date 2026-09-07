@@ -3,24 +3,102 @@ import { LyricAdapter } from '../LyricAdapter';
 import { LyricProcessingOptions, RawNavidromeLyric } from '../types';
 import { parseLyricsAsync } from '../workerClient';
 import { detectTimedLyricFormat } from '../formatDetection';
-import { normalizeEmbeddedStructuredLyrics } from '../embeddedLrcNormalization';
+import {
+    normalizeEmbeddedLrcText,
+    normalizeEmbeddedStructuredLyrics,
+    type EmbeddedStructuredLyricLine,
+} from '../embeddedLrcNormalization';
+import {
+    isNavidromeStructuredLyricCollection,
+    parseNavidromeStructuredLyrics,
+    parseNavidromeStructuredLyricsCollection,
+    selectPreferredNavidromeStructuredLyric,
+} from '../navidromeStructuredLyrics';
+import { splitCombinedTimeline } from '../timelineSplitter';
 
-// It's possible for Navidrome to provide embedded lyrics, but we need to reimplement the lyric fetching logic to get them directly from files, not the API (the API messed up the formatting and made it impossible to parse them correctly). 
-// maybe do this later, since not much people use Navidrome and the API is still usable, just not ideal.
+// src/utils/lyrics/adapters/NavidromeLyricAdapter.ts
+// Prefers OpenSubsonic cue timing; falls back to embedded LRC / plain text.
+
 export class NavidromeLyricAdapter implements LyricAdapter<RawNavidromeLyric> {
     async parse(source: RawNavidromeLyric, options: LyricProcessingOptions = {}): Promise<LyricData | null> {
-        if (source.structuredLyrics && source.structuredLyrics.length > 0) {
-            const normalized = normalizeEmbeddedStructuredLyrics(source.structuredLyrics);
+        if (source.structuredLyrics && isNavidromeStructuredLyricCollection(source.structuredLyrics)) {
+            const parsedStructuredLyrics = parseNavidromeStructuredLyricsCollection(source.structuredLyrics, options);
+            if (parsedStructuredLyrics) {
+                return parsedStructuredLyrics;
+            }
+
+            const mainLyrics = selectPreferredNavidromeStructuredLyric(source.structuredLyrics);
+            const translationLyrics = selectPreferredNavidromeStructuredLyric(source.structuredLyrics, 'translation');
+            const pronunciationLyrics = selectPreferredNavidromeStructuredLyric(source.structuredLyrics, 'pronunciation');
+            const normalizedMainLyrics = normalizeEmbeddedStructuredLyrics(mainLyrics?.line);
+            const normalizedTranslationLyrics = translationLyrics
+                ? normalizeEmbeddedStructuredLyrics(translationLyrics.line).mainText
+                : normalizedMainLyrics.translationText;
+            const normalizedRomanization = pronunciationLyrics
+                ? normalizeEmbeddedStructuredLyrics(pronunciationLyrics.line).mainText
+                : normalizedMainLyrics.romanizationText || '';
+            return await parseLyricsAsync(
+                detectTimedLyricFormat(normalizedMainLyrics.mainText),
+                normalizedMainLyrics.mainText,
+                normalizedTranslationLyrics,
+                options,
+                normalizedRomanization,
+            );
+        }
+
+        if (source.structuredLyrics && !Array.isArray(source.structuredLyrics)) {
+            const parsedStructuredLyrics = parseNavidromeStructuredLyrics(source.structuredLyrics, options);
+            if (parsedStructuredLyrics) {
+                return parsedStructuredLyrics;
+            }
+
+            const normalized = normalizeEmbeddedStructuredLyrics(source.structuredLyrics.line);
             return await parseLyricsAsync(
                 detectTimedLyricFormat(normalized.mainText),
                 normalized.mainText,
                 normalized.translationText,
-                options
+                options,
+                normalized.romanizationText || '',
+            );
+        }
+
+        if (
+            Array.isArray(source.structuredLyrics)
+            && source.structuredLyrics.length > 0
+            && !isNavidromeStructuredLyricCollection(source.structuredLyrics)
+        ) {
+            const normalized = normalizeEmbeddedStructuredLyrics(
+                source.structuredLyrics as EmbeddedStructuredLyricLine[],
+            );
+            return await parseLyricsAsync(
+                detectTimedLyricFormat(normalized.mainText),
+                normalized.mainText,
+                normalized.translationText,
+                options,
+                normalized.romanizationText || '',
             );
         }
 
         if (source.plainLyrics) {
-            return await parseLyricsAsync(detectTimedLyricFormat(source.plainLyrics), source.plainLyrics, '', options);
+            const normalized = normalizeEmbeddedLrcText(source.plainLyrics);
+            if (normalized.mainText) {
+                return await parseLyricsAsync(
+                    detectTimedLyricFormat(normalized.mainText),
+                    normalized.mainText,
+                    normalized.translationText,
+                    options,
+                    normalized.romanizationText || '',
+                );
+            }
+
+            const { main, trans, romanization } = splitCombinedTimeline(source.plainLyrics);
+            return await parseLyricsAsync(
+                detectTimedLyricFormat(main),
+                main,
+                trans,
+                options,
+                romanization,
+            );
         }
 
         return null;

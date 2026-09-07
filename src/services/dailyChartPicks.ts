@@ -1,7 +1,7 @@
-import type { SongResult } from '../types';
+import type { OnlineMusicProviderId, SongResult } from '../types';
+import { isListeningDeskFullTrack } from '../utils/home/listeningDeskMath';
 import { neteaseApi } from './netease';
 import { getMusicProvider } from './musicProviders/registry';
-import type { OnlineMusicProviderId } from '../types';
 
 // src/services/dailyChartPicks.ts
 // Map Netease hot-chart seeds onto peer providers (one unique song per title).
@@ -126,6 +126,7 @@ const matchSeedOnProvider = async (
         let best: SongResult | null = null;
         let bestScore = -1;
         for (const song of result.songs || []) {
+            if (!isListeningDeskFullTrack(song)) continue;
             const score = scoreMatch(song, seed);
             if (score > bestScore) {
                 bestScore = score;

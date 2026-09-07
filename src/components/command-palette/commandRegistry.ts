@@ -1,4 +1,4 @@
-import { PlayerState, type HomeViewTab, type SearchSourceId, type SongResult, type VisualizerMode, type VisualizerBackgroundMode, type MonetBackgroundTuning } from '../../types';
+import { PlayerState, type SearchSourceId, type SongResult, type VisualizerBackgroundMode, type MonetBackgroundTuning } from '../../types';
 import type { AppLanguagePreference } from '../../i18n/config';
 import type { PanelTab } from '../UnifiedPanel';
 import type {
@@ -7,19 +7,34 @@ import type {
     CommandPaletteMatch,
     CommandPaletteSearchSource,
 } from './types';
-import { isDiscordPresenceUiEnabled, isNavidromeUiEnabled } from '../../utils/featureFlags';
 import { usePerformanceMonitorStore } from '../../stores/usePerformanceMonitorStore';
 import { useAmbientVisualStore } from '../../stores/useAmbientVisualStore';
 import { useCharacterStore } from '../../stores/useCharacterStore';
 import { useMagneticPullStore } from '../../stores/useMagneticPullStore';
+import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import type { PerformanceMode } from '../../types/performance';
+import { NOMAND_BACKGROUND_COMMANDS } from './backgroundNomandCommands';
+import { NETEASE_DISCOVERY_COMMANDS } from './neteaseDiscoveryCommands';
+import { VOLUME_COMMANDS } from './volumeCommands';
+import { OBS_COMMANDS } from './obsCommands';
+import { SETTINGS_CHROME_COMMANDS } from './settingsChromeCommands';
+import { QISHUI_LOGIN_COMMANDS } from './qishuiLoginCommands';
+import { KUGOU_LOGIN_COMMANDS } from './kugouLoginCommands';
+import { NETEASE_API_COMMANDS } from './neteaseApiCommands';
+import { QUEUE_COMMANDS } from './queueCommands';
+import { SLEEP_TIMER_COMMANDS } from './sleepTimerCommands';
+import { AUTO_PLAY_ON_LAUNCH_COMMANDS } from './autoPlayOnLaunchCommands';
+import { ADD_TO_PLAYLIST_COMMANDS } from './addToPlaylistCommands';
+import { VISUALIZER_MODE_COMMANDS } from './visualizerCommands';
+import { HOME_TAB_COMMANDS } from './homeTabCommands';
+import { evaluateQueueQuery } from '../../utils/queue/evaluateQueueQuery';
+import { getAvailableCommandPaletteCommands } from './commandAvailability';
+import { readCommandFrequencyState } from './commandFrequency';
+import { MAX_COMMAND_MATCHES, rankCommands } from './search/rankCommands';
+import { normalizeSearchText } from './search/normalize';
 
 // src/components/command-palette/commandRegistry.ts
 // Defines command palette entries and the lightweight matching used for autocomplete.
-
-const MAX_COMMAND_MATCHES = 10;
-
-const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 
 const getSongArtistLabel = (song: SongResult) => {
     const artists = song.ar?.length ? song.ar : song.artists;
@@ -136,25 +151,6 @@ const createSearchCommand = (
     execute: (input, context) => runSearch(input, resolveSource(context), context),
 });
 
-const createQueueSearchCommand = (): CommandPaletteCommand => ({
-    id: 'queue',
-    group: 'playback',
-    title: 'Queue',
-    description: 'Search the current play queue',
-    keywords: ['queue', '播放队列', '队列搜索', 'duilie', 'duiliesousuo', 'dl', 'dlss'],
-    placeholder: 'queue song name / artist / index',
-    requiresInput: true,
-    getPreview: (input, context) => {
-        const trimmedInput = input.trim();
-        if (!trimmedInput) {
-            return context.t('commandPalette.previewQueueSearchEmpty', 'Type a song name, artist, album, or queue index');
-        }
-        return context.t('commandPalette.previewQueueSearch', 'Search current queue: {{query}}')
-            .replace('{{query}}', trimmedInput);
-    },
-    execute: () => false,
-});
-
 const createSettingsCommand = (
     id: string,
     title: string,
@@ -188,24 +184,6 @@ const createAppLanguageCommand = (
     keywords,
     execute: async (_input, context) => {
         await context.setAppLanguagePreference(preference);
-        return true;
-    },
-});
-
-const createHomeTabCommand = (
-    tab: HomeViewTab,
-    title: string,
-    description: string,
-    keywords: string[]
-): CommandPaletteCommand => ({
-    id: `home-${tab}`,
-    group: 'navigation',
-    title,
-    description,
-    keywords,
-    execute: (_input, context) => {
-        context.setHomeViewTab(tab);
-        context.navigateDirectHome();
         return true;
     },
 });
@@ -245,22 +223,6 @@ const createPerformanceModeCommand = (
     },
 });
 
-const createVisualizerCommand = (
-    mode: VisualizerMode,
-    title: string,
-    description: string,
-    keywords: string[]
-): CommandPaletteCommand => ({
-    id: `visualizer-${mode}`,
-    group: 'visualizer',
-    title,
-    description,
-    keywords,
-    execute: (_input, context) => {
-        context.setVisualizerMode(mode);
-        return true;
-    },
-});
 
 export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createSearchCommand('search-current', 'Search songs', 'Search songs in the current source', ['search', 'find', 'song', '搜索', '搜歌', 'sousuo', 'souge', 'ss', 'sg'], context => context.currentSearchSourceTab),
@@ -273,7 +235,10 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     createSearchCommand('search-kugou', 'Search Kugou songs', 'Search Kugou Music', ['kugou', '酷狗', '酷狗音乐', 'kugouyinyue', 'kgyy'], () => 'kugou'),
     createSearchCommand('search-bilibili', 'Search Bilibili audio', 'Search Bilibili video audio', ['bilibili', 'bili', 'B站', '哔哩哔哩', 'b站', 'blbl'], () => 'bilibili'),
     createSearchCommand('search-kuwo', 'Search Kuwo songs', 'Search Kuwo Music', ['kuwo', '酷我', '酷我音乐', 'kuwoyinyue', 'kwyy'], () => 'kuwo'),
-    createQueueSearchCommand(),
+    ...QUEUE_COMMANDS,
+    ...SLEEP_TIMER_COMMANDS,
+    ...AUTO_PLAY_ON_LAUNCH_COMMANDS,
+    ...ADD_TO_PLAYLIST_COMMANDS,
 
     createSettingsCommand('settings-help', 'Open Help', 'Open help and shortcuts', ['help', '帮助', 'bangzhu', 'bz'], 'help'),
     {
@@ -333,9 +298,26 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     },
     createSettingsCommand('settings-options', 'Open Options', 'Open the options center', ['settings', 'options', '设置', '选项', 'shezhi', 'xuanxiang', 'sz', 'xx'], 'options'),
     createSettingsCommand('settings-appearance', 'Appearance settings', 'Open visual and appearance settings', ['appearance', 'visual settings', '外观', '视觉', 'waiguan', 'shijue', 'wg', 'sj'], 'options', 'appearance'),
+    createSettingsCommand(
+        'settings-stage-track-pill',
+        'Now playing card',
+        'Open now-playing card appearance settings',
+        ['now playing card', 'song info card', 'track pill', '歌曲信息', '正在播放卡片', '歌曲卡片', 'gequxinxi', 'zhengzaibofang', 'gqxk', 'zzbf'],
+        'options',
+        'appearance',
+    ),
     createSettingsCommand('settings-general', 'General settings', 'Open general app preferences', ['general', 'language settings', 'locale', '通用', '语言', 'tongyong', 'yuyan', 'ty', 'yy'], 'options', 'general'),
     createSettingsCommand('settings-playback', 'Playback settings', 'Open playback behavior settings', ['playback settings', 'playback', '播放', '播放设置', 'bofang', 'bofangshezhi', 'bf', 'bfsz'], 'options', 'playback'),
-    createSettingsCommand('settings-integration', 'Integration settings', 'Open music account, Stage, Now Playing, and provider settings', ['integration', 'stage', 'now playing', 'qq music settings', 'qq music cookie', '集成', '连接', 'QQ音乐', 'QQ音乐登录', 'jicheng', 'lianjie', 'qqyinyue', 'qqdenglu', 'jc', 'lj'], 'options', 'integration'),
+    createSettingsCommand(
+        'settings-lyrics-resolve-service',
+        'Lyrics resolve service',
+        'Open private lyrics resolve service settings',
+        ['lyrics resolve', 'lyric service', 'private lyrics', '歌词服务', '歌词解析服务', '私有歌词', 'gecifuwu', 'gecijiexifu', 'gcfw'],
+        'options',
+        'playback',
+    ),
+    createSettingsCommand('settings-integration', 'Integration settings', 'Open music account, Stage, Now Playing, and provider settings', ['integration', 'stage', 'now playing', 'qq music settings', 'qq music cookie', 'qishui', 'soda music', '集成', '连接', 'QQ音乐', 'QQ音乐登录', '汽水', 'jicheng', 'lianjie', 'qqyinyue', 'qqdenglu', 'jc', 'lj', 'qs'], 'options', 'integration'),
+    createSettingsCommand('settings-now-playing', 'Now Playing sidecar', 'Open Now Playing pairing and the 9863 probe', ['now playing', 'now-playing', '9863', 'widdit', 'sidecar', 'smtc', '正在播放侧车', 'nowplaying', 'ceche', 'np'], 'options', 'integration'),
     createSettingsCommand('settings-music-provider-plugins', 'Music provider plugins', 'Open open-mode music provider plugin settings', ['music provider', 'provider plugin', 'open mode', 'sidecar plugin', '音乐源插件', '开放模式', '插件源', 'yinyueyuan', 'chajian', 'kaifang', 'cjy'], 'options', 'integration'),
     createSettingsCommand('settings-discord-presence', 'Discord playback status', 'Open Discord Rich Presence settings', ['discord', 'rich presence', 'discord presence', 'playing status', '播放状态', 'discord状态', 'discordzhuangtai', 'bofangzhuangtai', 'dc', 'zt'], 'options', 'integration'),
     createSettingsCommand('settings-obs-browser-source', 'OBS browser source', 'Open OBS browser source settings', ['obs', 'browser source', 'live source', '直播源', '浏览器源', 'zhiboyuan', 'liulanqiyuan', 'zby', 'llqy'], 'options', 'integration'),
@@ -400,6 +382,45 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         execute: async (_input, context) => context.downloadCurrentSong(),
     },
     {
+        id: 'download-search-results',
+        group: 'playback',
+        title: 'Download search results',
+        description: 'Save all downloadable songs from the current search results',
+        keywords: [
+            'download search',
+            'download results',
+            'batch download',
+            '下载搜索',
+            '下载结果',
+            '批量下载',
+            'xiazai',
+            'sousuo',
+            'plxz',
+        ],
+        execute: async (_input, context) => context.downloadSearchResults(),
+    },
+    {
+        id: 'toggle-auto-resync-download-folder',
+        group: 'settings',
+        title: 'Toggle download folder local resync',
+        description: 'After download, resync local library when the download folder is already imported',
+        keywords: [
+            'auto resync',
+            'download resync',
+            'local library download',
+            '自动同步下载',
+            '下载同步本地库',
+            'resync',
+            'xiazai',
+            'tongbu',
+        ],
+        execute: async () => {
+            const store = (await import('../../stores/useSettingsUiStore')).useSettingsUiStore.getState();
+            store.handleToggleAutoResyncDownloadFolder(!store.autoResyncDownloadFolder);
+            return true;
+        },
+    },
+    {
         id: 'record-current-playback',
         group: 'playback',
         title: 'Record current playback',
@@ -455,11 +476,94 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
             return true;
         },
     },
+    {
+        id: 'desktop-lyrics-center',
+        group: 'settings',
+        title: 'Desktop lyrics: center',
+        description: 'Snap desktop lyrics to the vertical middle',
+        keywords: ['desktop lyrics center', 'desktop lyrics middle', '桌面歌词居中', '桌面歌词中线', 'zmgcjz'],
+        execute: (_input, context) => {
+            context.setDesktopLyricsYFactor(0.5);
+            return true;
+        },
+    },
     createSettingsCommand('settings-lab', 'Lab settings', 'Open experimental settings', ['lab', 'experimental', '实验', '实验室', 'shiyan', 'shiyanshi', 'sy', 'sys'], 'options', 'lab'),
+    createSettingsCommand(
+        'settings-track-atmosphere-light',
+        'Track atmosphere lighting',
+        'Open curated per-track atmosphere and light plan catalog',
+        [
+            'track atmosphere',
+            'atmosphere light',
+            'light plan',
+            'mood lighting',
+            '曲级氛围',
+            '氛围灯光',
+            '灯光配方',
+            'qujifenwei',
+            'fenweidengguang',
+            'dengguangpeifang',
+            'qjfw',
+            'fwdg',
+        ],
+        'options',
+        'trackAtmosphereLight',
+    ),
     createPerformanceModeCommand('auto', 'Performance: Auto', 'Auto-adapt visual quality from FPS', ['performance', 'auto quality', '性能', '自动性能', 'xingneng', 'zdnx', 'xn']),
     createPerformanceModeCommand('high', 'Performance: High', 'Full visual quality', ['performance high', '高性能', 'gaoxingneng', 'gxn']),
     createPerformanceModeCommand('balanced', 'Performance: Balanced', 'Balanced visual quality', ['performance balanced', '均衡性能', 'junheng', 'jhxn']),
     createPerformanceModeCommand('lite', 'Performance: Lite', 'Minimal visual quality', ['performance lite', 'low performance', '低性能', '省电', 'dixingneng', 'dxn']),
+    {
+        id: 'toggle-performance-hud',
+        group: 'settings',
+        title: 'Toggle performance HUD',
+        description: 'Show or hide the FPS / memory readout in the corner',
+        keywords: [
+            'performance hud',
+            'fps hud',
+            'fps overlay',
+            'hide fps',
+            '性能面板',
+            '性能监控',
+            '帧率显示',
+            'FPS显示',
+            'xingnengmianban',
+            'xingnengjiankong',
+            'zhenlv',
+            'xnmb',
+            'xnjk',
+        ],
+        execute: () => {
+            const store = usePerformanceMonitorStore.getState();
+            store.setShowHud(!store.showHud);
+            return true;
+        },
+    },
+    {
+        id: 'toggle-speaker-stage',
+        group: 'visualizer',
+        title: 'Toggle speaker stage',
+        description: 'Immersive glass-depth stage with MoodLyric floating lyrics',
+        keywords: [
+            'speaker stage',
+            'speaker',
+            'mood lyric',
+            'floating lyrics',
+            'glass stage',
+            '音箱舞台',
+            '悬浮歌词',
+            '玻璃景深',
+            '音箱',
+            'yinxiangwutai',
+            'xuanfugeici',
+            'yxwt',
+            'xfgc',
+        ],
+        execute: () => {
+            useSettingsUiStore.getState().handleToggleSpeakerStage();
+            return true;
+        },
+    },
     {
         id: 'toggle-ambient-visual',
         group: 'visualizer',
@@ -588,6 +692,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         description: 'Return to home view',
         keywords: ['home', '首页', '主页', 'shouye', 'zhuye', 'sy', 'zy'],
         execute: (_input, context) => {
+            context.setHomeViewTab('charts');
             context.navigateDirectHome();
             return true;
         },
@@ -663,16 +768,12 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         ],
         execute: (_input, context) => context.toggleImmersiveFullscreen(),
     },
-    createHomeTabCommand('playlist', 'Open playlists', 'Open playlist home tab', ['playlist', 'playlists', '歌单', 'gedan', 'gd']),
-    createHomeTabCommand('local', 'Open local music', 'Open local music tab', ['local music', 'local', '本地', '本地音乐', 'bendi', 'bendiyinyue', 'bd', 'bdyy']),
-    createHomeTabCommand('albums', 'Open albums', 'Open albums tab', ['albums', 'album', '专辑', 'zhuanji', 'zj']),
-    createHomeTabCommand('navidrome', 'Open Navidrome', 'Open Navidrome tab', ['navidrome', 'navi', '服务器', 'fuwuqi', 'fwq']),
-    createHomeTabCommand('radio', 'Open radio', 'Open radio tab', ['radio', 'fm', '电台', 'diantai', 'dt']),
+    ...HOME_TAB_COMMANDS,
 
     createPanelCommand('cover', 'Panel: cover', 'Open the cover panel tab', ['panel cover', 'cover panel', '封面', 'fengmian', 'fm']),
     createPanelCommand('controls', 'Panel: controls', 'Open the controls panel tab', ['panel controls', 'controls panel', '控制', 'kongzhi', 'kz']),
     createPanelCommand('queue', 'Panel: queue', 'Open the queue panel tab', ['panel queue', 'queue panel', '队列', 'duilie', 'dl']),
-    createPanelCommand('account', 'Panel: account', 'Open the account panel tab', ['panel account', 'account panel', '账号', '账户', 'zhanghao', 'zhanghu', 'zh']),
+    createPanelCommand('account', 'Panel: account', 'Open the account panel tab', ['panel account', 'account panel', '账号', '账户', '汽水', 'qishui', 'zhanghao', 'zhanghu', 'zh', 'qs']),
     createPanelCommand('local', 'Panel: local', 'Open the local panel tab', ['panel local', 'local panel', '本地面板', 'bendimianban', 'bdmb']),
     createPanelCommand('navi', 'Panel: Navidrome', 'Open the Navidrome panel tab', ['panel navi', 'panel navidrome', 'navi panel', 'navidrome 面板', '服务器面板', 'fuwuqimianban', 'fwqmb']),
     createPanelCommand('onlineLyrics', 'Panel: lyrics', 'Open the online lyrics panel tab', ['panel lyrics', 'lyrics panel', '歌词面板', 'gecimianban', 'gcmb']),
@@ -780,6 +881,13 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
             return true;
         },
     },
+    ...NETEASE_DISCOVERY_COMMANDS,
+    ...VOLUME_COMMANDS,
+    ...OBS_COMMANDS,
+    ...SETTINGS_CHROME_COMMANDS,
+    ...QISHUI_LOGIN_COMMANDS,
+    ...KUGOU_LOGIN_COMMANDS,
+    ...NETEASE_API_COMMANDS,
     {
         id: 'theme-generate-current',
         group: 'settings',
@@ -817,14 +925,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         execute: (_input, context) => context.runAutoMatchBestLyric(),
     },
 
-    createVisualizerCommand('classic', 'Visualizer: Luminous', 'Switch to classic visualizer', ['visualizer classic', 'classic', '流光', 'liuguang', 'lg']),
-    createVisualizerCommand('cadenza', 'Visualizer: Mindscape', 'Switch to cadenza visualizer', ['visualizer cadenza', 'cadenza', 'mindscape', '心象', 'xinxiang', 'xx']),
-    createVisualizerCommand('partita', 'Visualizer: Partita', 'Switch to partita visualizer', ['visualizer partita', 'partita', '云阶', 'yunjie', 'yj']),
-    createVisualizerCommand('fume', 'Visualizer: Fume', 'Switch to fume visualizer', ['visualizer fume', 'fume', '浮名', 'fuming', 'fm']),
-    createVisualizerCommand('cappella', 'Visualizer: Cappella', 'Switch to cappella visualizer', ['visualizer cappella', 'cappella', '群唱', 'qunchang', 'qc']),
-    createVisualizerCommand('tilt', 'Visualizer: Tilt', 'Switch to tilt visualizer', ['visualizer tilt', 'tilt', '倾诉', 'qingsu', 'qs']),
-    createVisualizerCommand('claddagh', 'Visualizer: Claddagh', 'Switch to Claddagh visualizer', ['visualizer claddagh', 'claddagh', '回环', 'jiezhi', 'jz']),
-    createVisualizerCommand('monet', 'Visualizer: Monet', 'Switch to Monet visualizer', ['visualizer monet', 'monet', '莫奈', 'monai', 'mn', '切换到可视化：莫奈', '切换到可视化莫奈']),
+    ...VISUALIZER_MODE_COMMANDS,
     {
         id: 'lyric-effect-none',
         group: 'visualizer',
@@ -883,22 +984,11 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     {
         id: 'lyric-word-mode-karaoke',
         group: 'visualizer',
-        title: 'Lyrics: Karaoke Word Highlight',
-        description: 'Show upcoming lyrics with current-line word highlight',
-        keywords: ['lyric word mode', 'karaoke', 'sing along', 'k歌', '卡拉ok', 'kalake', 'kg', 'k歌逐字', '预告歌词'],
+        title: 'Lyrics: Karaoke / KTV Wipe',
+        description: 'Preview upcoming lyrics with per-character left-to-right KTV wipe fill',
+        keywords: ['lyric word mode', 'karaoke', 'ktv', 'sing along', 'wipe', '扫光', 'k歌', '卡拉ok', 'kalake', 'kg', 'k歌逐字', '预告歌词', '传统k歌', '传统', 'chuantong', 'ct', '扫字'],
         execute: (_input, context) => {
             context.setLyricWordMode('karaoke');
-            return true;
-        },
-    },
-    {
-        id: 'lyric-word-mode-ktv',
-        group: 'visualizer',
-        title: 'Lyrics: Traditional KTV Wipe',
-        description: 'Traditional left-to-right karaoke wipe fill on supported lyric layouts',
-        keywords: ['lyric word mode', 'ktv', 'traditional karaoke', 'wipe', '扫光', '传统k歌', '传统', 'chuantong', 'ct', '扫字'],
-        execute: (_input, context) => {
-            context.setLyricWordMode('ktv');
             return true;
         },
     },
@@ -974,17 +1064,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
             return true;
         },
     },
-    {
-        id: 'background-interactive3d',
-        group: 'visualizer',
-        title: 'Background: 3D Interactive',
-        description: 'Switch background to beat-reactive 3D interactive scene',
-        keywords: ['background 3d', 'interactive background', '3d background', '3d 交互背景', '3djh', 'jh', '背景切换到 3D 交互', '背景切换到3D交互'],
-        execute: (_input, context) => {
-            context.setVisualizerBackgroundMode('interactive3d');
-            return true;
-        },
-    },
+    ...NOMAND_BACKGROUND_COMMANDS,
     {
         id: 'settings-toggle-smart-atmosphere',
         group: 'visualizer',
@@ -1003,6 +1083,103 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         ],
         execute: (_input, context) => {
             context.toggleSmartAtmosphere();
+            return true;
+        },
+    },
+    {
+        id: 'open-local-beat-analysis',
+        group: 'visualizer',
+        title: 'Local beat analysis',
+        description: 'Run offline rhythm analysis for the current track using the algorithm from Settings',
+        keywords: [
+            'local beat',
+            'beat analysis',
+            'cinema analysis',
+            'strong beat',
+            '本地节奏',
+            '节奏分析',
+            '电影视角',
+            '强节奏',
+            'bendifenxi',
+            'jiezhou',
+        ],
+        execute: (_input, context) => context.openLocalBeatAnalysis(),
+    },
+    {
+        id: 'settings-local-beat-mode-mr',
+        group: 'playback',
+        title: 'Local beat: Cinema',
+        description: 'Use everyday cinema-style rhythm analysis for local tracks',
+        keywords: [
+            'local beat cinema',
+            'cinema mode',
+            'beat analysis cinema',
+            '本地节奏电影视角',
+            '电影视角',
+            '综合节奏',
+            'bendifenxidianying',
+            'dianyingshijiao',
+        ],
+        execute: (_input, context) => {
+            context.setLocalBeatAnalysisMode('mr');
+            return true;
+        },
+    },
+    {
+        id: 'settings-local-beat-mode-dj',
+        group: 'playback',
+        title: 'Local beat: Strong beat',
+        description: 'Use low-band lock analysis for long mixes and kick-heavy tracks',
+        keywords: [
+            'local beat pulse',
+            'strong beat',
+            'beat analysis pulse',
+            '本地节奏强节奏',
+            '强节奏',
+            '长混音',
+            '低频锁拍',
+            'bendifenxiqiang',
+            'qiangjiezou',
+        ],
+        execute: (_input, context) => {
+            context.setLocalBeatAnalysisMode('dj');
+            return true;
+        },
+    },
+    {
+        id: 'settings-local-beat-prompt-auto',
+        group: 'playback',
+        title: 'Local beat: Analyze in background',
+        description: 'Silently analyze local tracks while playing — no dialog',
+        keywords: [
+            'local beat auto',
+            'silent beat analysis',
+            'no beat dialog',
+            '后台节奏分析',
+            '静默分析',
+            '不弹窗',
+            'houtaifenxi',
+        ],
+        execute: (_input, context) => {
+            context.setLocalBeatAnalysisPromptPolicy('auto');
+            return true;
+        },
+    },
+    {
+        id: 'settings-local-beat-prompt-ask',
+        group: 'playback',
+        title: 'Local beat: Ask before analyzing',
+        description: 'Show a confirmation dialog before analyzing local tracks',
+        keywords: [
+            'local beat ask',
+            'prompt beat analysis',
+            '播放时询问',
+            '节奏弹窗',
+            '询问分析',
+            'xunwenfenxi',
+        ],
+        execute: (_input, context) => {
+            context.setLocalBeatAnalysisPromptPolicy('ask');
             return true;
         },
     },
@@ -1058,6 +1235,32 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         keywords: ['sora', 'background sora', 'starry sky', 'star', '星空', '空', 'kong', 'xingkong', 'xk', '背景切换到 空', '背景切换到空', '背景切换到Sora', '背景切换到星空'],
         execute: (_input, context) => {
             context.setVisualizerBackgroundMode('sora');
+            return true;
+        },
+    },
+    {
+        id: 'background-turntable',
+        group: 'visualizer',
+        title: 'Background: Turntable',
+        description: 'Switch background to vinyl turntable disc',
+        keywords: [
+            'turntable',
+            'vinyl',
+            'record',
+            'disc',
+            '唱盘',
+            '唱片',
+            '黑胶',
+            'changpan',
+            'changpian',
+            'heijiao',
+            'cp',
+            '背景切换到唱盘',
+            '背景切换到 唱盘',
+            '背景切换到唱片',
+        ],
+        execute: (_input, context) => {
+            context.setVisualizerBackgroundMode('turntable');
             return true;
         },
     },
@@ -1148,6 +1351,29 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
             return true;
         },
     },
+    {
+        id: 'settings-cycle-subtitle-content-mode',
+        group: 'settings',
+        title: 'Cycle subtitle content mode',
+        description: 'Switch between translation and romanization subtitle modes',
+        keywords: [
+            'subtitle translation',
+            'subtitle romanization',
+            'romanized lyrics',
+            'romaji',
+            '副字幕',
+            '罗马音',
+            '罗马字',
+            '字幕翻译',
+            'luomayin',
+            'lmy',
+            'fzm',
+        ],
+        execute: (_input, context) => {
+            context.cycleSubtitleContentMode();
+            return true;
+        },
+    },
     createAppLanguageCommand('settings-language-system', 'system', 'Follow system language', 'Use the browser or system language', ['system language', 'follow system', 'auto language', '跟随系统', '系统语言', 'gensuixitong', 'xitongyuyan', 'gsxt', 'xtyy']),
     createAppLanguageCommand('settings-language-zh-CN', 'zh-CN', 'Switch language to Chinese', 'Use Simplified Chinese in the interface', ['chinese', 'simplified chinese', '中文', '简体中文', 'zhongwen', 'jiantizhongwen', 'zw', 'jtzw']),
     createAppLanguageCommand('settings-language-en', 'en', 'Switch language to English', 'Use English in the interface', ['english', 'interface english', '英文', 'yingwen', 'yw']),
@@ -1155,7 +1381,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
 ];
 
 export const getQueueSongMatches = (query: string, context: CommandPaletteContext): CommandPaletteMatch[] => {
-    const normalizedQuery = normalize(query);
+    const normalizedQuery = normalizeSearchText(query);
 
     if (!normalizedQuery) {
         return context.playQueue.slice(0, MAX_COMMAND_MATCHES).map((song, index) => ({
@@ -1165,26 +1391,13 @@ export const getQueueSongMatches = (query: string, context: CommandPaletteContex
         }));
     }
 
-    return context.playQueue
-        .map((song, index) => {
-            const normalizedSearchText = normalize(buildQueueSearchText(song, index));
-            if (!normalizedSearchText.includes(normalizedQuery)) {
-                return null;
-            }
-
-            const startsWithQuery = normalizedSearchText.startsWith(normalizedQuery)
-                || normalize(song.name).startsWith(normalizedQuery)
-                || String(index + 1).startsWith(normalizedQuery);
-
-            return {
-                command: createQueueSongCommand(song, index, context),
-                score: startsWithQuery ? 120 - index : 80 - index,
-                input: query,
-            };
-        })
-        .filter((match): match is CommandPaletteMatch => Boolean(match))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, MAX_COMMAND_MATCHES);
+    return evaluateQueueQuery(context.playQueue, query).matches
+        .slice(0, MAX_COMMAND_MATCHES)
+        .map(match => ({
+            command: createQueueSongCommand(match.song, match.index, context),
+            score: match.score,
+            input: query,
+        }));
 };
 
 const createQueueSongCommand = (
@@ -1206,100 +1419,11 @@ const createQueueSongCommand = (
 export const getCommandPaletteMatches = (
     query: string,
     context?: CommandPaletteContext,
-    recentCommandIds: string[] = []
-): CommandPaletteMatch[] => {
-    const normalizedQuery = normalize(query);
-
-    const filteredCommands = COMMAND_PALETTE_COMMANDS.filter(command => {
-        if (command.id === 'search-navidrome'
-            || command.id === 'home-navidrome'
-            || command.id === 'panel-navi') {
-            return isNavidromeUiEnabled();
-        }
-
-        if (command.id === 'settings-discord-presence') {
-            return isDiscordPresenceUiEnabled();
-        }
-
-        if (command.id === 'settings-desktop') {
-            const isWebBrowser = typeof window !== 'undefined';
-            const isElectron = isWebBrowser && Boolean((window as any).electron);
-            if (isWebBrowser && !isElectron) {
-                return false;
-            }
-        }
-
-        if (
-            command.id === 'desktop-lyrics-toggle'
-            || command.id === 'desktop-lyrics-lock-toggle'
-            || command.id === 'open-download-directory'
-            || command.id === 'download-current-song'
-        ) {
-            const isWebBrowser = typeof window !== 'undefined';
-            const isElectron = isWebBrowser && Boolean((window as any).electron);
-            if (isWebBrowser && !isElectron) {
-                return false;
-            }
-        }
-
-        if (command.id === 'playback-auto-match-best-lyric') {
-            return Boolean(context?.enableAlternativeLyricSources);
-        }
-
-        if (command.id === 'theme-generate-current') {
-            return context ? context.canGenerateAITheme && !context.isGeneratingTheme : true;
-        }
-
-        if (command.id === 'theme-quick-editor') {
-            return context ? context.canOpenThemeQuickEditor : true;
-        }
-
-        if (command.group === 'search') {
-            if (command.id === 'search-current') return true;
-            if (context) {
-                return false;
-            }
-        }
-        return true;
-    });
-
-    if (!normalizedQuery) {
-        const recentCommands = recentCommandIds
-            .map(commandId => filteredCommands.find(command => command.id === commandId))
-            .filter((command): command is CommandPaletteCommand => Boolean(command) && !command.requiresInput);
-        const recentCommandIdSet = new Set(recentCommands.map(command => command.id));
-        const defaultCommands = filteredCommands.filter(command => !recentCommandIdSet.has(command.id));
-
-        return [...recentCommands, ...defaultCommands].slice(0, MAX_COMMAND_MATCHES).map((command, index) => ({
-            command,
-            score: recentCommandIdSet.has(command.id) ? 130 - index : 100 - index,
-            input: '',
-        }));
-    }
-
-    const matches = filteredCommands
-        .map(command => {
-            let bestScore = 0;
-            let bestInput = '';
-
-            for (const keyword of command.keywords) {
-                const normalizedKeyword = normalize(keyword);
-                if (normalizedQuery === normalizedKeyword) {
-                    bestScore = Math.max(bestScore, 120);
-                } else if (normalizedKeyword.startsWith(normalizedQuery)) {
-                    bestScore = Math.max(bestScore, 100 - normalizedKeyword.length);
-                } else if (normalizedQuery.startsWith(`${normalizedKeyword} `)) {
-                    bestScore = Math.max(bestScore, 90 + normalizedKeyword.length + (command.requiresInput ? 20 : 0));
-                    bestInput = query.trim().slice(keyword.length).trim();
-                } else if (normalizedKeyword.includes(normalizedQuery)) {
-                    bestScore = Math.max(bestScore, 60 - normalizedKeyword.indexOf(normalizedQuery));
-                }
-            }
-
-            return bestScore > 0 ? { command, score: bestScore, input: bestInput } : null;
-        })
-        .filter((match): match is CommandPaletteMatch => Boolean(match))
-        .sort((a, b) => b.score - a.score || a.command.title.localeCompare(b.command.title));
-
-    return matches.slice(0, MAX_COMMAND_MATCHES);
-};
+    recentCommandIds: string[] = [],
+    frequencyCounts: Record<string, number> = readCommandFrequencyState().counts,
+): CommandPaletteMatch[] => rankCommands(
+    query,
+    getAvailableCommandPaletteCommands(COMMAND_PALETTE_COMMANDS, context),
+    recentCommandIds,
+    frequencyCounts,
+);

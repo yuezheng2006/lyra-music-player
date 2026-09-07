@@ -1,8 +1,9 @@
 import React, { useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Line, LyricWordMode, Theme } from '../../types';
-import { resolveThemeTranslationFontStack } from '../../utils/fontStacks';
+import { Line, LyricWordMode, SubtitleContentMode, Theme } from '../../types';
+import { resolveThemeFontStack, resolveThemeTranslationFontStack } from '../../utils/fontStacks';
+import { resolveLyricAlternateText, resolveSubtitleContentMode } from '../../utils/lyrics/alternateText';
 import { resolveUpcomingLyricLines } from '../../utils/lyrics/lyricWordMode';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import { colorWithAlpha } from './colorMix';
@@ -26,6 +27,7 @@ interface VisualizerSubtitleOverlayProps {
     isPlayerChromeHidden?: boolean;
     hideTranslationSubtitle?: boolean;
     showSubtitleTranslation?: boolean;
+    subtitleContentMode?: SubtitleContentMode;
     lyricWordMode?: LyricWordMode;
 }
 
@@ -36,8 +38,9 @@ export const resolveVisualizerSubtitleOverlayContent = ({
     nextLines,
     hideTranslationSubtitle = false,
     showSubtitleTranslation = true,
+    subtitleContentMode,
     lyricWordMode = 'default',
-}: Pick<VisualizerSubtitleOverlayProps, 'showText' | 'activeLine' | 'recentCompletedLine' | 'nextLines' | 'hideTranslationSubtitle' | 'showSubtitleTranslation' | 'lyricWordMode'>) => {
+}: Pick<VisualizerSubtitleOverlayProps, 'showText' | 'activeLine' | 'recentCompletedLine' | 'nextLines' | 'hideTranslationSubtitle' | 'showSubtitleTranslation' | 'subtitleContentMode' | 'lyricWordMode'>) => {
     if (!showText || hideTranslationSubtitle) {
         return {
             shouldRenderOverlay: false,
@@ -46,11 +49,13 @@ export const resolveVisualizerSubtitleOverlayContent = ({
         };
     }
 
-    const rawTranslationText = activeLine?.translation || recentCompletedLine?.translation || null;
-    const translationText = showSubtitleTranslation ? rawTranslationText : null;
+    const resolvedMode = resolveSubtitleContentMode(subtitleContentMode, showSubtitleTranslation);
+    const translationText = [activeLine, recentCompletedLine]
+        .map(line => resolveLyricAlternateText(line, resolvedMode))
+        .find(text => Boolean(text?.trim())) ?? null;
     const gatedNextLines = resolveUpcomingLyricLines(nextLines, lyricWordMode);
 
-    // K歌：预告行必须始终可见；翻译与预告可并存，不能因有翻译就清空下一句。
+    // K歌：预告行必须始终可见；翻译/罗马音与预告可并存，不能因有副字幕就清空下一句。
     return {
         shouldRenderOverlay: Boolean(translationText) || gatedNextLines.length > 0,
         translationText,
@@ -61,8 +66,18 @@ export const resolveVisualizerSubtitleOverlayContent = ({
 /** Floats the translation caption under the main lyric zone instead of pinning it to the dock. */
 const resolveTranslationCaptionBottom = (isPlayerChromeHidden: boolean): string => (
     isPlayerChromeHidden
-        ? 'max(20vh, 120px)'
-        : `max(22vh, calc(var(--app-player-bar-height, 72px) + 108px + env(safe-area-inset-bottom, 0px)))`
+        ? 'max(22vh, 150px)'
+        : `max(24vh, calc(var(--app-player-bar-height, 72px) + 148px + env(safe-area-inset-bottom, 0px)))`
+);
+
+/**
+ * Visualizer 传入的 upcoming 字号普遍偏小（最低 12px），这里统一垫一个可读下限；
+ * 第一行是马上要唱的句子，下限更高以突出层级。
+ */
+export const resolveUpcomingLineFontSize = (upcomingFontSize: string, index: number): string => (
+    index === 0
+        ? `max(${upcomingFontSize}, 1.25rem)`
+        : `max(${upcomingFontSize}, 1.05rem)`
 );
 
 const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
@@ -78,14 +93,17 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
     isPlayerChromeHidden = false,
     hideTranslationSubtitle = false,
     showSubtitleTranslation = true,
+    subtitleContentMode: subtitleContentModeProp,
     lyricWordMode: lyricWordModeProp,
 }) => {
     const storeLyricWordMode = useSettingsUiStore(state => state.lyricWordMode);
+    const storeSubtitleContentMode = useSettingsUiStore(state => state.subtitleContentMode);
     const subtitleOverlayBackground = useSettingsUiStore(state => state.subtitleOverlayBackground);
     const subtitleFontInheritsLyrics = useSettingsUiStore(state => state.subtitleFontInheritsLyrics);
     const subtitleFontStyle = useSettingsUiStore(state => state.subtitleFontStyle);
     const subtitleFontFamily = useSettingsUiStore(state => state.subtitleFontFamily);
     const lyricWordMode = lyricWordModeProp ?? storeLyricWordMode;
+    const subtitleContentMode = subtitleContentModeProp ?? storeSubtitleContentMode;
     const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
     const { shouldRenderOverlay, translationText, upcomingLines } = resolveVisualizerSubtitleOverlayContent({
         showText,
@@ -94,6 +112,7 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
         nextLines,
         hideTranslationSubtitle,
         showSubtitleTranslation,
+        subtitleContentMode,
         lyricWordMode,
     });
     const resolvedOpacity = subtitleOverlayOpacity ?? opacity;
@@ -110,13 +129,18 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
             fontFamily: subtitleFontFamily ?? undefined,
         };
     const translationFontFamily = resolveThemeTranslationFontStack(translationFontTheme);
+    // 待唱行是歌词原文，跟随歌词字体（或字幕独立字体配置），而不是系统默认字体。
+    const upcomingFontFamily = resolveThemeFontStack(translationFontTheme);
     const translationShellClassName = subtitleOverlayBackground
-        ? 'mx-auto inline-flex max-w-3xl flex-col items-center gap-2.5 rounded-xl px-3 py-2'
+        ? 'relative isolate mx-auto inline-flex max-w-3xl flex-col items-center gap-2.5 px-3 py-2'
         : 'mx-auto inline-flex max-w-3xl flex-col items-center gap-2.5';
-    const translationShellStyle = subtitleOverlayBackground
+    // iOS Safari may drop a filtered negative layer when a nearby WebKit mask is recomposited.
+    const subtitleGlowStyle = subtitleOverlayBackground
         ? {
-            backgroundColor: colorWithAlpha(theme.backgroundColor, 0.8),
-            boxShadow: `0 0 20px 5px ${colorWithAlpha(theme.backgroundColor, 0.8)}`,
+            background: `radial-gradient(ellipse 115% 130% at center, ${colorWithAlpha(theme.backgroundColor, 0.96)} 0%, ${colorWithAlpha(theme.backgroundColor, 0.78)} 62%, transparent 100%)`,
+            transform: 'translateZ(0)',
+            WebkitTransform: 'translateZ(0)',
+            WebkitBackfaceVisibility: 'hidden' as const,
         }
         : undefined;
 
@@ -146,15 +170,22 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
                             className="absolute inset-x-0 px-5 text-center"
                             style={{ bottom: translationCaptionBottom }}
                         >
-                            <div className={translationShellClassName} style={translationShellStyle}>
+                            <div className={translationShellClassName}>
+                                {subtitleOverlayBackground && (
+                                    <div
+                                        aria-hidden="true"
+                                        className="pointer-events-none absolute -inset-x-10 -inset-y-6 z-0 blur-2xl"
+                                        style={subtitleGlowStyle}
+                                    />
+                                )}
                                 <span
                                     aria-hidden="true"
-                                    className="h-px w-11 shrink-0 rounded-full"
+                                    className="relative z-10 h-px w-11 shrink-0 rounded-full"
                                     style={{ backgroundColor: translationPresentation.accentRuleColor }}
                                 />
                                 <div
                                     data-font-debug-target="visualizer-translation"
-                                    className="leading-snug"
+                                    className="relative z-10 leading-snug"
                                     style={{
                                         color: translationPresentation.color,
                                         fontSize: translationFontSize,
@@ -175,15 +206,27 @@ const VisualizerSubtitleOverlay: React.FC<VisualizerSubtitleOverlayProps> = ({
                             className="absolute inset-x-0 bottom-0 px-4 text-center"
                             style={{ paddingBottom: bottomPadding }}
                         >
-                            <div className="mx-auto flex w-full max-w-2xl flex-col justify-end gap-2">
+                            <div
+                                className={subtitleOverlayBackground
+                                    ? 'relative isolate mx-auto flex w-full max-w-2xl flex-col justify-end gap-2 px-1.5 py-0.5'
+                                    : 'mx-auto flex w-full max-w-2xl flex-col justify-end gap-2'}
+                            >
+                                {subtitleOverlayBackground && (
+                                    <div
+                                        aria-hidden="true"
+                                        className="pointer-events-none absolute -inset-x-10 -inset-y-6 z-0 blur-2xl"
+                                        style={subtitleGlowStyle}
+                                    />
+                                )}
                                 {upcomingLines.map((line, index) => (
                                     <p
                                         key={`${line.startTime}-${index}`}
                                         data-testid={`visualizer-upcoming-line-${index}`}
-                                        className="font-medium leading-snug transition-all duration-500"
+                                        className="relative z-10 font-medium leading-snug transition-all duration-500"
                                         style={{
                                             color: upcomingPresentation.color,
-                                            fontSize: upcomingFontSize,
+                                            fontSize: resolveUpcomingLineFontSize(upcomingFontSize, index),
+                                            fontFamily: upcomingFontFamily,
                                             opacity: upcomingPresentation.lineOpacity * (index === 0 ? 1 : 0.82),
                                             textShadow: upcomingPresentation.textShadow,
                                         }}

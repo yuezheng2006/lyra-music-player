@@ -8,6 +8,7 @@ describe('stripShortcutDisplayLabel', () => {
         expect(stripShortcutDisplayLabel('cat:周杰伦')).toBe('周杰伦');
         expect(stripShortcutDisplayLabel('分类:AI歌曲')).toBe('AI歌曲');
         expect(stripShortcutDisplayLabel('up:天花板上吊着猫')).toBe('天花板上吊着猫');
-        expect(stripShortcutDisplayLabel('周杰伦 晴天')).toBe('周杰伦 晴天');
+        expect(stripShortcutDisplayLabel('song:周杰伦 晴天')).toBe('周杰伦 晴天');
+        expect(stripShortcutDisplayLabel('mid:1091')).toBe('1091');
     });
 });

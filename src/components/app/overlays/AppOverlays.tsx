@@ -6,6 +6,7 @@ import DevDebugOverlay from '../../DevDebugOverlay';
 import PlaylistView from '../views/PlaylistView';
 import AlbumView from '../views/AlbumView';
 import ArtistView from '../views/ArtistView';
+import NowPlayingToast from './NowPlayingToast';
 import type { AppOverlaysModel } from './buildAppOverlaysModel';
 
 // Centralized app-level overlay renderer so App.tsx does not mount leaf overlays directly.
@@ -19,6 +20,7 @@ const AppOverlays: React.FC<AppOverlaysProps> = ({ model }) => {
         detailOverlay,
         debugOverlay,
         floatingControls,
+        nowPlayingToast,
     } = model;
 
     return (
@@ -39,6 +41,8 @@ const AppOverlays: React.FC<AppOverlaysProps> = ({ model }) => {
             </AnimatePresence>
 
             {debugOverlay && <DevDebugOverlay {...debugOverlay} />}
+
+            {nowPlayingToast && <NowPlayingToast {...nowPlayingToast} />}
 
             {floatingControls && <FloatingPlayerControls {...floatingControls} />}
         </>

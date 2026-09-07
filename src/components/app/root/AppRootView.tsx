@@ -9,16 +9,22 @@ import Home from '@/components/app/Home';
 import PlayerPanel from '@/components/app/PlayerPanel';
 import ThemeQuickEditorHost from '@/components/panelTab/ThemeQuickEditor';
 import AppDialogs from '@/components/app/dialogs/AppDialogs';
+import AddToPlaylistHost from '@/components/app/AddToPlaylistHost';
 import AppOverlays from '@/components/app/overlays/AppOverlays';
 import { UserGuideModal } from '@/components/modal/UserGuideModal';
 import { ShortcutsCheatSheet } from '@/components/shortcuts/ShortcutsCheatSheet';
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard';
 import { WhatsNewModal } from '@/components/onboarding/WhatsNewModal';
 import { ObsBrowserSourceLyrics } from '@/components/obs/ObsBrowserSourceLyrics';
-import { resolvePlayerGeometricBackgroundDisabled } from '@/components/visualizer/resolveInteractive3dFumeLayering';
 import { resolveFloatingPlayerBarReserve } from '@/components/floatingPlayerDockLayout';
 import { VISUALIZER_SUBTITLE_PORTAL_ROOT_ID } from '@/components/visualizer/visualizerSubtitlePortal';
 import type { AppControllerResult } from '@/hooks/useAppController';
+import { resolveAppPlayerGeometricBackgroundDisabled } from '@/utils/visualizer/resolveAppPlayerGeometricBackgroundDisabled';
+import { resolveInteractive3dParticlesPaused } from '@/utils/visualizer/visualizerModeSwitchGpuSafety';
+import {
+    INTERACTIVE3D_PLAY_START_YIELD_MS,
+    scheduleInteractive3dParticleYieldResume,
+} from '@/utils/visualizer/yieldInteractive3dParticlesForModeSwitch';
 import { AppAudioElement } from '@/components/app/root/AppAudioElement';
 import { BilibiliVideoSurface } from '@/components/bilibili/BilibiliVideoSurface';
 import { useBilibiliVideoSync } from '@/hooks/useBilibiliVideoSync';
@@ -33,6 +39,11 @@ import { useBootSplashLifecycle } from '@/hooks/useBootSplashLifecycle';
 import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 import { PerformanceHud } from '@/components/performance/PerformanceHud';
 import { isVideoPlaybackStageActive } from '@/utils/playback/resolveVideoPlaybackStage';
+import { resolveLyricPresentation } from '@/utils/lyrics/lyricPresentation';
+import { hasPersonalLibraryAccess } from '@/utils/onlineLibraryAccess';
+
+// src/components/app/root/AppRootView.tsx
+// App shell root: visualizer stage, overlays, and chrome.
 
 interface AppRootViewProps {
     controller: AppControllerResult;
@@ -41,6 +52,8 @@ interface AppRootViewProps {
 export function AppRootView({ controller }: AppRootViewProps) {
     const { t } = useTranslation();
     const homeViewTab = useSearchNavigationStore(state => state.homeViewTab);
+    const isSearchOpen = useSearchNavigationStore(state => state.isSearchOpen);
+    const hideSearchOverlay = useSearchNavigationStore(state => state.hideSearchOverlay);
     const setHomeViewTab = useSearchNavigationStore(state => state.setHomeViewTab);
     const preloadDailyRecommend = useDailyRecommendStore(state => state.preload);
     const isOnboardingOpen = useSettingsUiStore(state => state.isOnboardingOpen);
@@ -89,6 +102,11 @@ export function AppRootView({ controller }: AppRootViewProps) {
 
     const {
         activePlaybackContext,
+        addCurrentSongToLocalPlaylist,
+        addCurrentSongToNeteasePlaylist,
+        addCurrentSongToNavidromePlaylist,
+        createCurrentLocalPlaylist,
+        createCurrentNavidromePlaylist,
         appDialogsModel,
         appOverlaysModel,
         appStyle,
@@ -145,14 +163,15 @@ export function AppRootView({ controller }: AppRootViewProps) {
         lyricTimelineOffsetMs,
         lyrics,
         lyricsFontScale,
+        localPlaylists,
         monetBackgroundImage,
         monetBackgroundTuning,
         latentBackgroundTuning,
+        nomandBackgroundTuning,
         monetPortraitImage,
         monetTuning,
         navigateToHome,
         navigateDirectHome,
-        navigateToPlayer,
         openSettings,
         navidromeEnabled,
         nowPlayingConnectionStatus,
@@ -162,6 +181,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
         playerLyricsVisible,
         playerPanelModel,
         playerState,
+        playlists,
         playlistShelfItems,
         recoverOnlinePlaybackSource,
         resolvedVisualizerBackgroundMode,
@@ -179,12 +199,14 @@ export function AppRootView({ controller }: AppRootViewProps) {
         showSubtitleTranslation,
         showTransparentWindowBorder,
         skipAfterPlaybackFailure,
+        setStatusMsg,
         stageActiveEntryKind,
         stageSource,
         staticMode,
         subtitleOverlayOpacity,
         theme,
         tiltTuning,
+        pendoloTuning,
         transparentPlayerBackground,
         urlBackgroundList,
         urlBackgroundSelectedId,
@@ -200,6 +222,34 @@ export function AppRootView({ controller }: AppRootViewProps) {
 
     const videoStageActive = isVideoPlaybackStageActive(currentView, videoSrc)
         && enableBilibiliVideoBackground;
+    const disablePlayerGeometricBackground = resolveAppPlayerGeometricBackgroundDisabled({
+        videoStageActive,
+        backgroundMode: resolvedVisualizerBackgroundMode,
+        settingsSubviewOpen: isSettingsSubviewOpen,
+    });
+    const yieldInteractive3dParticles = useSettingsUiStore(state => state.yieldInteractive3dParticles);
+    const holdInteractive3dParticleYield = useSettingsUiStore(state => state.holdInteractive3dParticleYield);
+    const playerLyricsOnStage = currentView === 'player' && playerLyricsVisible && !isSettingsModalOpen;
+    const pauseInteractive3dParticles = resolveInteractive3dParticlesPaused({
+        yieldInteractive3dParticles,
+        holdInteractive3dParticleYield,
+        backgroundMode: resolvedVisualizerBackgroundMode,
+        visualizerMode,
+        isElectron: isElectronWindow,
+        lyricsVisible: playerLyricsOnStage,
+    });
+
+    // Play-start: audioSrc unpause races cover upload + lyric mount — arm a short yield window.
+    useEffect(() => {
+        if (!isElectronWindow || currentView !== 'player' || !audioSrc) return;
+        if (resolvedVisualizerBackgroundMode !== 'interactive3d') return;
+
+        useSettingsUiStore.setState({ yieldInteractive3dParticles: true });
+        scheduleInteractive3dParticleYieldResume({
+            setYielding: (yielding) => useSettingsUiStore.setState({ yieldInteractive3dParticles: yielding }),
+            yieldMs: INTERACTIVE3D_PLAY_START_YIELD_MS,
+        });
+    }, [audioSrc, currentView, isElectronWindow, resolvedVisualizerBackgroundMode]);
 
     useEffect(() => {
         if (!currentSong && videoSrc) {
@@ -292,12 +342,22 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 recoverOnlinePlaybackSource={recoverOnlinePlaybackSource}
                 playerState={playerState}
                 skipAfterPlaybackFailure={skipAfterPlaybackFailure}
+                onBlockedPermissionPreview={() => {
+                    setStatusMsg({
+                        type: 'error',
+                        text: t('status.previewClipSkipped'),
+                        nonce: Date.now(),
+                        durationMs: 2200,
+                    });
+                }}
             />}
         >
             <div className="relative flex min-h-0 flex-1 w-full">
                 <AppSidebar
                     active={((): AppSidebarActive => {
+                        if (isSearchOpen || homeViewTab === 'charts') return 'charts';
                         if (homeViewTab === 'podcast') return 'podcast';
+                        if (homeViewTab === 'radio') return 'radio';
                         if (homeViewTab === 'local') return 'local';
                         if (homeViewTab === 'navidrome' && navidromeEnabled) return 'navidrome';
                         if (homeViewTab === 'ytmusic') return 'ytmusic';
@@ -308,13 +368,23 @@ export function AppRootView({ controller }: AppRootViewProps) {
                     collapsed={sidebarLayout.collapsed}
                     forceHidden={sidebarLayout.forceHidden}
                     navidromeEnabled={navidromeEnabled}
+                    hasPersonalLibrary={hasPersonalLibraryAccess()}
                     onToggleCollapsed={toggleCollapsed}
                     onOpenHome={() => {
                         setHomeViewTab('playlist');
                         navigateDirectHome();
                     }}
+                    onOpenCharts={() => {
+                        hideSearchOverlay();
+                        setHomeViewTab('charts');
+                        navigateDirectHome({ clearContext: false });
+                    }}
                     onOpenPodcast={() => {
                         setHomeViewTab('podcast');
+                        navigateDirectHome({ clearContext: false });
+                    }}
+                    onOpenRadio={() => {
+                        setHomeViewTab('radio');
                         navigateDirectHome({ clearContext: false });
                     }}
                     onOpenLocal={() => {
@@ -378,6 +448,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         currentTime={lyricCurrentTime}
                         currentLineIndex={currentLineIndex}
                         lines={lyrics?.lines || []}
+                        lyricPresentation={resolveLyricPresentation(lyrics, currentSong)}
                         theme={visualizerTheme}
                         isDaylight={isDaylight}
                         audioPower={audioPower}
@@ -395,11 +466,12 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         songAlbum={currentSongAlbum}
                         coverUrl={getCoverUrl()}
                         shellCanvasBackground={shellTheme.stageAtmosphere}
-                        showText={currentView === 'player' && playerLyricsVisible && !isSettingsModalOpen}
+                        showText={playerLyricsOnStage}
                         useCoverColorBg={useCoverColorBg}
                         seed={visualizerGeometrySeed}
                         staticMode={staticMode}
                         paused={shouldPauseVisualizerBackground || videoStageActive}
+                        particlesYielded={pauseInteractive3dParticles}
                         backgroundOpacity={videoStageActive ? 0 : backgroundOpacity}
                         visualizerOpacity={visualizerOpacity}
                         videoStageActive={videoStageActive}
@@ -407,13 +479,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                             (currentView === 'player' && isPlayerPageTransparent && !isSettingsModalOpen)
                             || videoStageActive
                         }
-                        disableGeometricBackground={
-                            videoStageActive
-                            || resolvePlayerGeometricBackgroundDisabled(
-                                resolvedVisualizerBackgroundMode,
-                                isSettingsSubviewOpen,
-                            )
-                        }
+                        disableGeometricBackground={disablePlayerGeometricBackground}
                         enableAtmosphereLayer={enableSmartAtmosphere && !staticMode && !videoStageActive}
                         enableBeatBursts={enableSmartAtmosphere && !staticMode && !videoStageActive}
                         disableVignette={disableVisualizerVignette}
@@ -431,8 +497,10 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         claddaghTuning={claddaghTuning}
                         cappellaTuning={cappellaTuning}
                         tiltTuning={tiltTuning}
+                        pendoloTuning={pendoloTuning}
                         monetBackgroundTuning={monetBackgroundTuning}
                         latentBackgroundTuning={latentBackgroundTuning}
+                        nomandBackgroundTuning={nomandBackgroundTuning}
                         interactive3dSceneTuning={interactive3dSceneTuning}
                         playlistShelfItems={playlistShelfItems}
                         monetTuning={monetTuning}
@@ -454,6 +522,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 <ObsBrowserSourceLyrics
                     lyrics={lyrics}
                     currentLineIndex={currentLineIndex}
+                    lyricPresentation={resolveLyricPresentation(lyrics, currentSong)}
                     visualizerTheme={visualizerTheme}
                     lyricsFontScale={lyricsFontScale}
                     shouldHidePlayerTranslationSubtitle={shouldHidePlayerTranslationSubtitle}
@@ -470,14 +539,14 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         </div>
                         <div className="mt-3 text-2xl font-semibold">
                             {stageSource === 'now-playing'
-                                ? '等待本地 Now Playing 服务输入'
+                                ? t('options.nowPlayingWaiting')
                                 : (t('options.stageSessionEmpty') || '等待外部输入')}
                         </div>
                         <div className="mt-2 text-sm opacity-70">
                             {stageSource === 'now-playing'
                                 ? (nowPlayingConnectionStatus === 'error'
-                                    ? '未能连接到 ws://localhost:9863/api/ws/lyric，请确认 now-playing 服务已在本机运行'
-                                    : '请在本机启动 now-playing 服务，并确保播放器正在播放')
+                                    ? t('options.nowPlayingWsFailed')
+                                    : t('options.nowPlayingNeedService'))
                                 : (t('options.enableStageModeDesc') || '本地 Stage API 已开启')}
                         </div>
                     </div>
@@ -501,6 +570,19 @@ export function AppRootView({ controller }: AppRootViewProps) {
 
             <ThemeQuickEditorHost onSaveAiTheme={saveEditedAiDualTheme} onSaveCustomTheme={saveCustomDualTheme} />
 
+            <AddToPlaylistHost
+                isDaylight={isDaylight}
+                currentSong={currentSong}
+                isStageContext={activePlaybackContext === 'stage'}
+                localPlaylists={localPlaylists}
+                neteasePlaylists={playlists}
+                onAddCurrentSongToLocalPlaylist={addCurrentSongToLocalPlaylist}
+                onCreateCurrentLocalPlaylist={createCurrentLocalPlaylist}
+                onAddCurrentSongToNeteasePlaylist={addCurrentSongToNeteasePlaylist}
+                onAddCurrentSongToNavidromePlaylist={addCurrentSongToNavidromePlaylist}
+                onCreateCurrentNavidromePlaylist={createCurrentNavidromePlaylist}
+            />
+
             <CommandPalette
                 activeIndex={commandPalette.activeIndex}
                 activePreview={commandPalette.activePreview}
@@ -511,6 +593,8 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 isOpen={commandPalette.isOpen}
                 matches={commandPalette.matches}
                 query={commandPalette.query}
+                syntaxSuggestions={commandPalette.syntaxSuggestions}
+                syntaxActiveIndex={commandPalette.syntaxActiveIndex}
                 theme={theme}
                 onActiveCommandChange={commandPalette.setActiveCommand}
                 onActiveIndexChange={commandPalette.setActiveIndex}
@@ -524,6 +608,8 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 onExecuteActive={commandPalette.executeActive}
                 onExecuteMatch={commandPalette.executeMatch}
                 onQueryChange={commandPalette.setQuery}
+                onAcceptSyntaxSuggestion={commandPalette.acceptSyntaxSuggestion}
+                onSyntaxActiveIndexChange={commandPalette.setSyntaxActiveIndex}
             />
 
             <AppDialogs model={appDialogsModel} />
@@ -563,16 +649,6 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         return;
                     }
                     openSettings('options', 'integration');
-                }}
-                onOpenDailyRecommend={() => {
-                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
-                    completeOnboarding(appVersion);
-                    setHomeViewTab('daily');
-                }}
-                onOpenPlayer={() => {
-                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
-                    completeOnboarding(appVersion);
-                    navigateToPlayer();
                 }}
             />
             <WhatsNewModal

@@ -22,12 +22,22 @@ import {
     shouldExitFullscreenOnEscape,
     shouldOpenShortcutsCheatSheet,
 } from '@/components/shortcuts/shortcutKeyboardGuards';
-import { PlayerState, type SongResult } from '@/types';
+import { PlayerState } from '@/types';
 import { isLocalPlaybackSong, isNavidromePlaybackSong } from '@/utils/appPlaybackGuards';
-import { downloadSongToUserDirectory } from '@/services/songDownloadService';
 import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
+import { useNeteaseDiscoveryStore } from '@/stores/useNeteaseDiscoveryStore';
+import { resolveNeteaseLikedPlaylist } from '@/utils/home/neteaseDiscoveryMath';
+import { playDiscoverySongs } from '@/utils/home/startNeteaseDiscoveryPlayback';
+import { hasNeteaseSession } from '@/utils/onlineLibraryAccess';
+import { useAppControllerSongDownload } from '@/hooks/useAppControllerSongDownload';
 import { hasPlayableHtmlMediaSource } from '@/utils/audioAutoPlayGuard';
 import { resolveVolumeStepAdjustment } from '@/utils/playback/adjustVolumeByStepMath';
+import { getAtmosphereSongKey } from '@/hooks/atmosphere/getAtmosphereSongKey';
+import {
+    isLocalBeatPromptSource,
+    resolveLocalBeatPersistKey,
+} from '@/utils/atmosphere/localBeatMapCache';
+import { useLocalBeatAnalysisStore } from '@/stores/useLocalBeatAnalysisStore';
 import type {
     AppControllerCoreResult,
     AppControllerLibraryResult,
@@ -76,6 +86,7 @@ export function useAppControllerCommandLayer(
         handleSetAppLanguagePreference,
         handleSetMonetBackgroundTuning,
         handleSetLatentBackgroundTuning,
+        handleSetNomandBackgroundTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
         handleSetLyricWordMode,
@@ -83,6 +94,7 @@ export function useAppControllerCommandLayer(
         handleToggleDaylight,
         handleToggleHidePlayerTranslationSubtitle,
         handleToggleShowSubtitleTranslation,
+        handleSetSubtitleContentMode,
         hidePlayerTranslationSubtitle,
         homeLayoutStyle,
         isDaylight,
@@ -117,6 +129,7 @@ export function useAppControllerCommandLayer(
         pendingUnavailableReplacement,
         playQueue,
         playSong,
+        replacePlayQueue,
         playerState,
         publishStagePlayerPlaybackUpdate,
         saveCustomDualTheme,
@@ -138,6 +151,7 @@ export function useAppControllerCommandLayer(
         showNaviLyricMatchModal,
         showOnlineLyricMatchModal,
         showSubtitleTranslation,
+        subtitleContentMode,
         shuffleQueue,
         songThemeAutoGenerateEnabled,
         songThemeAutoSwitchEnabled,
@@ -153,6 +167,8 @@ export function useAppControllerCommandLayer(
         togglePlay,
         toggleTransparentModeWithHandoff,
         transparentPlayerBackground,
+        user,
+        playlists,
         visualizerMode,
         volume,
     } = core;
@@ -188,40 +204,74 @@ export function useAppControllerCommandLayer(
         handleToggleEnableSmartAtmosphere(!enableSmartAtmosphere);
     }, [enableSmartAtmosphere, handleToggleEnableSmartAtmosphere]);
 
+    const openLocalBeatAnalysis = useCallback(() => {
+        if (!currentSong || !audioSrc) return false;
+        const songKey = getAtmosphereSongKey(currentSong.id, audioSrc);
+        const persistKey = resolveLocalBeatPersistKey(songKey);
+        if (!songKey || !persistKey) return false;
+        if (!isLocalBeatPromptSource(audioSrc) && !/^https?:\/\//i.test(audioSrc)) return false;
+        const mode = useSettingsUiStore.getState().localBeatAnalysisMode === 'dj' ? 'dj' : 'mr';
+        useLocalBeatAnalysisStore.getState().openPrompt(
+            {
+                persistKey,
+                songKey,
+                audioSrc,
+                trackTitle: currentSong.name || '',
+            },
+            mode,
+        );
+        return true;
+    }, [audioSrc, currentSong]);
+
+    const setLocalBeatAnalysisMode = useCallback((mode: 'mr' | 'dj') => {
+        useSettingsUiStore.getState().handleSetLocalBeatAnalysisMode(mode);
+    }, []);
+
+    const setLocalBeatAnalysisPromptPolicy = useCallback((policy: 'auto' | 'ask') => {
+        useSettingsUiStore.getState().handleSetLocalBeatAnalysisPromptPolicy(policy);
+    }, []);
+
     const toggleBilibiliVideoBackground = useCallback(() => {
         handleToggleEnableBilibiliVideoBackground(!enableBilibiliVideoBackground);
     }, [enableBilibiliVideoBackground, handleToggleEnableBilibiliVideoBackground]);
 
-    const handleSetLyricEffectPackId = useSettingsUiStore(state => state.handleSetLyricEffectPackId);
-
-    const downloadSong = useCallback(async (song?: SongResult | null) => {
-        const target = song ?? currentSong;
-        if (!target) {
-            setStatusMsg({ type: 'error', text: t('status.noSongPlaying'), nonce: Date.now(), durationMs: 1600 });
+    const startNeteasePersonalFm = useCallback(async () => {
+        if (!hasNeteaseSession(user)) {
+            setHomeViewTab('radio');
+            navigateDirectHome({ clearContext: false });
             return false;
         }
-
-        setStatusMsg({ type: 'info', text: t('status.downloadingSong'), nonce: Date.now(), durationMs: 4000 });
-        const result = await downloadSongToUserDirectory(target, audioQuality, { reveal: true });
-        if (result.ok === true) {
-            setStatusMsg({ type: 'success', text: t('status.songDownloaded'), nonce: Date.now(), durationMs: 2200 });
-            return true;
+        const songs = await useNeteaseDiscoveryStore.getState().startPersonalFm();
+        const started = playDiscoverySongs(songs, playSong, true);
+        if (started) {
+            setHomeViewTab('radio');
+            navigateDirectHome({ clearContext: false });
         }
+        return started;
+    }, [navigateDirectHome, playSong, setHomeViewTab, user]);
 
-        const errorCode = result.ok === false ? result.error : 'download-failed';
-        const errorKey = ({
-            'no-song': 'status.noSongPlaying',
-            'electron-only': 'status.songDownloadElectronOnly',
-            'unsupported-source': 'status.songDownloadUnsupported',
-            unavailable: 'status.songDownloadUnavailable',
-            'download-failed': 'status.songDownloadFailed',
-        } as const)[errorCode] || 'status.songDownloadFailed';
+    const startNeteaseHeartbeat = useCallback(async () => {
+        if (!hasNeteaseSession(user) || !user) return false;
+        const likedPlaylist = resolveNeteaseLikedPlaylist(playlists, user);
+        if (!likedPlaylist) return false;
+        const songs = await useNeteaseDiscoveryStore.getState().startHeartbeat({
+            user,
+            likedPlaylistId: likedPlaylist.id,
+        });
+        return playDiscoverySongs(songs, playSong, false);
+    }, [playSong, playlists, user]);
 
-        setStatusMsg({ type: 'error', text: t(errorKey), nonce: Date.now(), durationMs: 2200 });
-        return false;
-    }, [audioQuality, currentSong, setStatusMsg, t]);
-
-    const downloadCurrentSong = useCallback(async () => downloadSong(currentSong), [currentSong, downloadSong]);
+    const handleSetLyricEffectPackId = useSettingsUiStore(state => state.handleSetLyricEffectPackId);
+    const {
+        downloadSong,
+        downloadSongs,
+        downloadCurrentSong,
+        downloadSearchResults,
+    } = useAppControllerSongDownload({
+        audioQuality,
+        currentSong,
+        setStatusMsg,
+    });
 
     const currentSearchSourceTabInPalette = useMemo(() => {
         if (currentSong) {
@@ -387,10 +437,15 @@ export function useAppControllerCommandLayer(
         handleNextTrack,
         handlePrevTrack,
         adjustVolumeByStep,
+        setVolume: handleSetVolume,
         toggleMute: handleToggleMute,
         shuffleQueue,
         playQueue,
+        currentSong,
+        replacePlayQueue,
         playSong,
+        startNeteasePersonalFm,
+        startNeteaseHeartbeat,
         canGenerateAITheme,
         isGeneratingTheme,
         generateAITheme: generateCurrentSongTheme,
@@ -400,6 +455,7 @@ export function useAppControllerCommandLayer(
         setVisualizerBackgroundMode: handleSetVisualizerBackgroundMode,
         setMonetBackgroundTuning: handleSetMonetBackgroundTuning,
         setLatentBackgroundTuning: handleSetLatentBackgroundTuning,
+        setNomandBackgroundTuning: handleSetNomandBackgroundTuning,
         toggleTransparentBackground: () => {
             void toggleTransparentModeWithHandoff(!transparentPlayerBackground);
         },
@@ -412,10 +468,20 @@ export function useAppControllerCommandLayer(
         toggleSubtitleTranslation: () => {
             handleToggleShowSubtitleTranslation(!showSubtitleTranslation);
         },
+        subtitleContentMode,
+        cycleSubtitleContentMode: () => {
+            const next = subtitleContentMode === 'translation'
+                ? 'romanization'
+                : 'translation';
+            handleSetSubtitleContentMode(next);
+        },
         enablePlayerPageNativeBlur,
         toggleDaylightMode,
         enableSmartAtmosphere,
         toggleSmartAtmosphere,
+        openLocalBeatAnalysis,
+        setLocalBeatAnalysisMode,
+        setLocalBeatAnalysisPromptPolicy,
         enableBilibiliVideoBackground,
         toggleBilibiliVideoBackground,
         setAppLanguagePreference: handleSetAppLanguagePreference,
@@ -431,7 +497,11 @@ export function useAppControllerCommandLayer(
         setDesktopLyricsLocked: (locked: boolean) => setDesktopLyricsLocked(locked),
         desktopLyricsEnabled: desktopLyricsStatus.enabled,
         desktopLyricsLocked: desktopLyricsStatus.locked,
+        setDesktopLyricsYFactor: (factor: number) => {
+            useSettingsUiStore.getState().handleSetDesktopLyricsYFactor(factor);
+        },
         downloadCurrentSong,
+        downloadSearchResults,
         startVideoExport,
         isElectronWindow,
     }), [
@@ -441,6 +511,7 @@ export function useAppControllerCommandLayer(
         desktopLyricsStatus.enabled,
         desktopLyricsStatus.locked,
         downloadCurrentSong,
+        downloadSearchResults,
         startVideoExport,
         isElectronWindow,
         enableAlternativeLyricSources,
@@ -456,12 +527,14 @@ export function useAppControllerCommandLayer(
         handleSetAppLanguagePreference,
         handleSetMonetBackgroundTuning,
         handleSetLatentBackgroundTuning,
+        handleSetNomandBackgroundTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
         handleSetLyricWordMode,
         handleSetLyricEffectPackId,
         handleToggleHidePlayerTranslationSubtitle,
         handleToggleShowSubtitleTranslation,
+        handleSetSubtitleContentMode,
         hidePlayerTranslationSubtitle,
         isGeneratingTheme,
         isPlayerChromeHidden,
@@ -470,11 +543,14 @@ export function useAppControllerCommandLayer(
         navigateDirectHome,
         navigateToPlayer,
         navigateToSearch,
+        openLocalBeatAnalysis,
         openSettings,
         openThemeQuickEditor,
-        playQueue,
-        playSong,
+        playQueue, currentSong, playSong, replacePlayQueue,
+        playlists,
         playerState,
+        startNeteaseHeartbeat,
+        startNeteasePersonalFm,
         setDesktopLyricsLocked,
         setHomeViewTab,
         setIsPanelOpen,
@@ -484,8 +560,12 @@ export function useAppControllerCommandLayer(
         setIsShortcutsCheatSheetOpen,
         setIsOnboardingOpen,
         setIsWhatsNewOpen,
+        setLocalBeatAnalysisMode,
+        setLocalBeatAnalysisPromptPolicy,
         setPanelTab,
         showSubtitleTranslation,
+        subtitleContentMode,
+        handleSetSubtitleContentMode,
         shuffleQueue,
         submitSearch,
         t,
@@ -498,6 +578,7 @@ export function useAppControllerCommandLayer(
         togglePlay,
         toggleTransparentModeWithHandoff,
         transparentPlayerBackground,
+        user,
         exitWindowFullscreen,
     ]);
 
@@ -594,8 +675,9 @@ export function useAppControllerCommandLayer(
             return;
         }
         // Color chips only change lyric body hues — not animation intensity / glow / rhythm.
+        // Seed from Theme Park (covers legacy/ai/custom), not the debug-only activeDualTheme.
         // No toast — same silent UX as font preset / lyric intensity.
-        const nextDualTheme = applyLyricColorPresetToDualTheme(activeDualTheme, preset);
+        const nextDualTheme = applyLyricColorPresetToDualTheme(getThemeParkSeedTheme(), preset);
         saveStoredLyricColorPresetId(presetId);
         saveLyricColorDualTheme(nextDualTheme, currentSong?.id ?? null);
         void import('../utils/telemetry/trackTelemetry').then(({ trackTelemetry }) => {
@@ -603,16 +685,16 @@ export function useAppControllerCommandLayer(
                 data: { key: 'lyricColorPreset', value: presetId },
             });
         });
-    }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme]);
+    }, [currentSong?.id, getThemeParkSeedTheme, saveLyricColorDualTheme]);
 
     const handleApplyLyricBodyColor = useCallback((color: string) => {
-        const nextDualTheme = applyLyricBodyColorToDualTheme(activeDualTheme, color);
+        const nextDualTheme = applyLyricBodyColorToDualTheme(getThemeParkSeedTheme(), color);
         if (!nextDualTheme) {
             return;
         }
         saveStoredLyricBodyColor(color);
         saveLyricColorDualTheme(nextDualTheme, currentSong?.id ?? null);
-    }, [activeDualTheme, currentSong?.id, saveLyricColorDualTheme]);
+    }, [currentSong?.id, getThemeParkSeedTheme, saveLyricColorDualTheme]);
 
     useSongThemeAutoGeneration({
         enabled: songThemeAutoSwitchEnabled && songThemeAutoGenerateEnabled,
@@ -693,7 +775,9 @@ export function useAppControllerCommandLayer(
         devDebugSnapshot,
         activateCurrentSmartTheme,
         downloadSong,
+        downloadSongs,
         downloadCurrentSong,
+        downloadSearchResults,
         generateCurrentSongTheme,
         handleMonetLyricLineSeek,
         handlePlayerPanelAlbumSelect,

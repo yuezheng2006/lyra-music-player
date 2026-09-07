@@ -16,6 +16,11 @@ vi.mock('@/services/musicProviders/qqMusicAuth', () => ({
         musicKey: 'key',
         uin: '123',
     }),
+    getQQMusicSidecarAuthPayload: () => ({
+        cookieHeader: 'uin=123; qm_keyst=key',
+        guid: '10000',
+        uin: '123',
+    }),
 }));
 
 describe('requestSidecarAudioUrl', () => {
@@ -131,7 +136,26 @@ describe('requestSidecarAudioUrl', () => {
 
         expect(fetch).toHaveBeenCalledWith(
             expect.any(String),
-            expect.objectContaining({ signal: controller.signal }),
+            expect.objectContaining({
+                signal: controller.signal,
+                cache: 'no-store',
+            }),
         );
+    });
+
+    it('uses a short search retry budget for sidecar search', async () => {
+        const fs = await import('node:fs');
+        const path = await import('node:path');
+        const { fileURLToPath } = await import('node:url');
+        const source = fs.readFileSync(
+            path.resolve(
+                path.dirname(fileURLToPath(import.meta.url)),
+                '../../../src/services/musicProviders/sidecarProviderClient.ts',
+            ),
+            'utf8',
+        );
+        expect(source).toContain('maxAttempts: 2');
+        expect(source).toContain('backoffMs: [200]');
+        expect(source).toContain("cache: 'no-store'");
     });
 });

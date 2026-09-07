@@ -1,9 +1,12 @@
 import type { LyricData, OnlineMusicProviderId, SongResult } from '../../types';
 import { detectTimedLyricFormat } from '../../utils/lyrics/formatDetection';
 import type { ProviderCatalogEntry } from '../../utils/musicProviders/providerManifestMath';
+import { splitCombinedTimeline } from '../../utils/lyrics/timelineSplitter';
 import { parseLyricsAsync } from '../../utils/lyrics/workerClient';
 import { requestWithStability } from '../../utils/network';
-import { getQQMusicAuth } from './qqMusicAuth';
+import { getQQMusicSidecarAuthPayload, QQ_MUSIC_AUTH_CHANGED_EVENT } from './qqMusicAuth';
+import { getQishuiSidecarAuthPayload, QISHUI_AUTH_CHANGED_EVENT } from './qishuiMusicAuth';
+import { getKugouSidecarAuthPayload, KUGOU_AUTH_CHANGED_EVENT } from './kugouMusicAuth';
 import type {
     MusicProviderSearchOptions,
     MusicProviderSearchResult,
@@ -131,6 +134,22 @@ export const resetSidecarProviderClientCache = () => {
 };
 
 export const resetSidecarProviderClientCacheForTests = resetSidecarProviderClientCache;
+
+// Login/cookie updates must invalidate failed audio lookups immediately.
+if (typeof window !== 'undefined') {
+    window.addEventListener(QQ_MUSIC_AUTH_CHANGED_EVENT, () => {
+        audioNegativeCache.clear();
+        audioInflight.clear();
+    });
+    window.addEventListener(QISHUI_AUTH_CHANGED_EVENT, () => {
+        audioNegativeCache.clear();
+        audioInflight.clear();
+    });
+    window.addEventListener(KUGOU_AUTH_CHANGED_EVENT, () => {
+        audioNegativeCache.clear();
+        audioInflight.clear();
+    });
+}
 
 const normalizeCatalogResponse = (data: unknown): MusicProviderCatalogResponse => {
     const payload = data && typeof data === 'object' ? data as Record<string, unknown> : {};
@@ -261,6 +280,28 @@ export const normalizeSidecarSong = (
     };
 };
 
+const sidecarAuthBody = (providerId: OnlineMusicProviderId) => ({
+    ...(providerId === 'qq' ? { qqAuth: getQQMusicSidecarAuthPayload() } : {}),
+    ...(providerId === 'qishui' ? { qishuiAuth: getQishuiSidecarAuthPayload() } : {}),
+    ...(providerId === 'kugou' ? { kugouAuth: getKugouSidecarAuthPayload() } : {}),
+});
+
+const sidecarAuthHeaders = (providerId: OnlineMusicProviderId): Record<string, string> => {
+    if (providerId === 'qishui') {
+        const qishuiAuth = getQishuiSidecarAuthPayload();
+        if (qishuiAuth.isLoggedIn && qishuiAuth.cookieHeader) {
+            return { 'X-Lyra-Qishui-Cookie': qishuiAuth.cookieHeader };
+        }
+    }
+    if (providerId === 'kugou') {
+        const kugouAuth = getKugouSidecarAuthPayload();
+        if (kugouAuth.isLoggedIn && kugouAuth.cookieHeader) {
+            return { 'X-Lyra-Kugou-Cookie': kugouAuth.cookieHeader };
+        }
+    }
+    return {};
+};
+
 export const requestSidecarSearch = async (
     providerId: OnlineMusicProviderId,
     query: string,
@@ -276,10 +317,23 @@ export const requestSidecarSearch = async (
         limit: String(options.limit),
         offset: String(options.offset),
     });
+    const authHeaders = sidecarAuthHeaders(providerId);
+    // Search UX: fail fast — avoid default 3 attempts + 300/900ms backoff.
+    // cache: 'no-store' — sidecar search has no Cache-Control; heuristic GET cache
+    // would keep a timed-out empty / stale ranking after the adapter is fixed.
     const { response } = await requestWithStability(
         `${base}/providers/${providerId}/search?${params.toString()}`,
-        { signal: options.signal },
-        { source: 'sidecar', endpoint: `/providers/${providerId}/search` },
+        {
+            signal: options.signal,
+            cache: 'no-store',
+            ...(Object.keys(authHeaders).length > 0 ? { headers: authHeaders } : {}),
+        },
+        {
+            source: 'sidecar',
+            endpoint: `/providers/${providerId}/search`,
+            maxAttempts: 2,
+            backoffMs: [200],
+        },
     );
     if (!response.ok) {
         throw new Error(`${providerId} sidecar search failed: ${response.status}`);
@@ -340,7 +394,7 @@ export const requestSidecarAudioUrl = async (
                     id: song.providerSongId ?? song.id,
                     song,
                     quality: options.quality,
-                    ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
+                    ...sidecarAuthBody(providerId),
                 }),
             },
             { source: 'sidecar', endpoint: `/providers/${providerId}/song-url` },
@@ -394,7 +448,7 @@ export const requestSidecarLyrics = async (
                 body: JSON.stringify({
                     id: String(song.providerSongId ?? song.id),
                     song,
-                    ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
+                    ...sidecarAuthBody(providerId),
                 }),
             },
             { source: 'sidecar', endpoint: `/providers/${providerId}/lyrics` },
@@ -414,7 +468,8 @@ export const requestSidecarLyrics = async (
     if (!lyricsText.trim()) {
         return null;
     }
-    return parseLyricsAsync(detectTimedLyricFormat(lyricsText), lyricsText, '');
+    const { main, trans, romanization } = splitCombinedTimeline(lyricsText);
+    return parseLyricsAsync(detectTimedLyricFormat(main), main, trans, {}, romanization);
 };
 
 export type SidecarRecommendResult = MusicProviderSearchResult & {
@@ -439,7 +494,7 @@ export const requestSidecarRecommend = async (
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 limit,
-                ...(providerId === 'qq' ? { qqAuth: getQQMusicAuth() } : {}),
+                ...sidecarAuthBody(providerId),
             }),
         },
         { source: 'sidecar', endpoint: `/providers/${providerId}/recommend` },

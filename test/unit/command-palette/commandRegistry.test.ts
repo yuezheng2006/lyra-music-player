@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PlayerState } from '../../../src/types';
-import { getCommandPaletteMatches } from '../../../src/components/command-palette/commandRegistry';
+import { getCommandPaletteMatches, getQueueSongMatches } from '../../../src/components/command-palette/commandRegistry';
 import type { CommandPaletteContext } from '../../../src/components/command-palette/types';
+import { useAddToPlaylistStore } from '../../../src/stores/useAddToPlaylistStore';
 
 const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandPaletteContext => ({
     currentSearchSourceTab: 'playlist',
@@ -23,8 +24,11 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     handleNextTrack: vi.fn(),
     handlePrevTrack: vi.fn(),
     adjustVolumeByStep: vi.fn(),
+    setVolume: vi.fn(),
     toggleMute: vi.fn(),
     shuffleQueue: vi.fn(),
+    currentSong: null,
+    replacePlayQueue: vi.fn(() => true),
     canGenerateAITheme: true,
     isGeneratingTheme: false,
     generateAITheme: vi.fn(),
@@ -33,14 +37,20 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     setVisualizerBackgroundMode: vi.fn(),
     setMonetBackgroundTuning: vi.fn(),
     setLatentBackgroundTuning: vi.fn(),
+    setNomandBackgroundTuning: vi.fn(),
     toggleTransparentBackground: vi.fn(),
     hideBottomSubtitleOverlay: false,
     toggleBottomSubtitleOverlay: vi.fn(),
     showSubtitleTranslation: true,
     toggleSubtitleTranslation: vi.fn(),
+    subtitleContentMode: 'translation',
+    cycleSubtitleContentMode: vi.fn(),
     toggleDaylightMode: vi.fn(),
     enableSmartAtmosphere: true,
     toggleSmartAtmosphere: vi.fn(),
+    openLocalBeatAnalysis: vi.fn(() => true),
+    setLocalBeatAnalysisMode: vi.fn(),
+    setLocalBeatAnalysisPromptPolicy: vi.fn(),
     setAppLanguagePreference: vi.fn(async () => undefined),
     enableAlternativeLyricSources: false,
     runAutoMatchBestLyric: vi.fn(async () => true),
@@ -52,11 +62,15 @@ const createContext = (overrides: Partial<CommandPaletteContext> = {}): CommandP
     canOpenThemeQuickEditor: true,
     playQueue: [],
     playSong: vi.fn(),
+    startNeteasePersonalFm: vi.fn(async () => true),
+    startNeteaseHeartbeat: vi.fn(async () => true),
     toggleDesktopLyrics: vi.fn(async () => true),
     setDesktopLyricsLocked: vi.fn(async () => true),
     desktopLyricsEnabled: false,
     desktopLyricsLocked: true,
+    setDesktopLyricsYFactor: vi.fn(),
     downloadCurrentSong: vi.fn(async () => true),
+    downloadSearchResults: vi.fn(async () => true),
     startVideoExport: vi.fn(),
     isElectronWindow: false,
     setLyricEffectPackId: vi.fn(),
@@ -97,6 +111,38 @@ describe('command palette registry', () => {
         expect(context.openSettings).toHaveBeenCalledWith('options', 'integration');
     });
 
+    it('opens Now Playing pairing through a dedicated settings command', () => {
+        const context = createContext();
+        const [match] = getCommandPaletteMatches('9863');
+
+        expect(match.command.id).toBe('settings-now-playing');
+        match.command.execute(match.input, context);
+
+        expect(context.openSettings).toHaveBeenCalledWith('options', 'integration');
+    });
+
+    it('opens the account panel for Qishui login', () => {
+        const context = createContext();
+        const [match] = getCommandPaletteMatches('汽水扫码');
+
+        expect(match.command.id).toBe('qishui-scan-login');
+        match.command.execute(match.input, context);
+
+        expect(context.setPanelTab).toHaveBeenCalledWith('account');
+        expect(context.setIsPanelOpen).toHaveBeenCalledWith(true);
+    });
+
+    it('opens the account panel for Kugou login', () => {
+        const context = createContext();
+        const [match] = getCommandPaletteMatches('酷狗扫码');
+
+        expect(match.command.id).toBe('kugou-scan-login');
+        match.command.execute(match.input, context);
+
+        expect(context.setPanelTab).toHaveBeenCalledWith('account');
+        expect(context.setIsPanelOpen).toHaveBeenCalledWith(true);
+    });
+
     it('adjusts volume and mute from playback commands', () => {
         const context = createContext();
         const [up] = getCommandPaletteMatches('音量加');
@@ -114,6 +160,41 @@ describe('command palette registry', () => {
         expect(context.adjustVolumeByStep).toHaveBeenCalledWith(0.05);
         expect(context.adjustVolumeByStep).toHaveBeenCalledWith(-0.05);
         expect(context.toggleMute).toHaveBeenCalled();
+    });
+
+    it('opens official charts from the home-charts command', () => {
+        const context = createContext();
+        const [match] = getCommandPaletteMatches('排行榜');
+
+        expect(match.command.id).toBe('home-charts');
+        match.command.execute(match.input, context);
+
+        expect(context.setHomeViewTab).toHaveBeenCalledWith('charts');
+        expect(context.navigateDirectHome).toHaveBeenCalled();
+    });
+
+    it('opens the combined search and charts tab from 搜歌', () => {
+        const [match] = getCommandPaletteMatches('搜歌');
+        expect(match.command.id).toBe('home-charts');
+    });
+
+    it('opens signed-in playlists from the home-playlist command', () => {
+        const [match] = getCommandPaletteMatches('资料库');
+        expect(match.command.id).toBe('home-playlist');
+    });
+
+    it('opens podcasts and play history from dedicated home-tab commands', () => {
+        const context = createContext();
+
+        const [podcastMatch] = getCommandPaletteMatches('播客');
+        expect(podcastMatch.command.id).toBe('home-podcast');
+        podcastMatch.command.execute('', context);
+        expect(context.setHomeViewTab).toHaveBeenCalledWith('podcast');
+
+        const [historyMatch] = getCommandPaletteMatches('播放历史');
+        expect(historyMatch.command.id).toBe('home-history');
+        historyMatch.command.execute('', context);
+        expect(context.setHomeViewTab).toHaveBeenCalledWith('history');
     });
 
     it('opens the shortcuts cheat sheet from the show-shortcuts command', () => {
@@ -176,6 +257,10 @@ describe('command palette registry', () => {
         expect(getCommandPaletteMatches('shezhi')[0].command.id).toBe('settings-options');
         expect(getCommandPaletteMatches('心象')[0].command.id).toBe('visualizer-cadenza');
         expect(getCommandPaletteMatches('xinxiang')[0].command.id).toBe('visualizer-cadenza');
+        expect(getCommandPaletteMatches('野火').some(match => match.command.id === 'visualizer-dazibao')).toBe(false);
+        expect(getCommandPaletteMatches('自动续播')[0].command.id).toBe('toggle-auto-play-on-launch');
+        expect(getCommandPaletteMatches('时计')[0].command.id).toBe('visualizer-pendolo');
+        expect(getCommandPaletteMatches('slptmr')[0].command.id).toBe('sleep-timer');
     });
 
     it('executes transparent player background and daylight theme toggle commands', () => {
@@ -196,10 +281,15 @@ describe('command palette registry', () => {
         matchBottomSubtitleOverlay.command.execute(matchBottomSubtitleOverlay.input, context);
         expect(context.toggleBottomSubtitleOverlay).toHaveBeenCalled();
 
-        const [matchSubtitleTranslation] = getCommandPaletteMatches('字幕翻译');
+        const [matchSubtitleTranslation] = getCommandPaletteMatches('隐藏翻译');
         expect(matchSubtitleTranslation.command.id).toBe('settings-toggle-subtitle-translation');
         matchSubtitleTranslation.command.execute(matchSubtitleTranslation.input, context);
         expect(context.toggleSubtitleTranslation).toHaveBeenCalled();
+
+        const [matchSubtitleContentMode] = getCommandPaletteMatches('罗马音');
+        expect(matchSubtitleContentMode.command.id).toBe('settings-cycle-subtitle-content-mode');
+        matchSubtitleContentMode.command.execute(matchSubtitleContentMode.input, context);
+        expect(context.cycleSubtitleContentMode).toHaveBeenCalled();
     });
 
     it('executes the current song AI theme generation command', () => {
@@ -251,9 +341,20 @@ describe('command palette registry', () => {
     it('returns all search commands when context is not provided', () => {
         const matches = getCommandPaletteMatches('search');
         const searchMatches = matches.filter(m => m.command.group === 'search');
-        // search-current, search-local, search-netease, search-qq, search-qishui, search-coco
-        // (search-navidrome is gated behind NAVIDROME_UI_ENABLED)
-        expect(searchMatches.length).toBe(6);
+        // All search-* titles contain "Search", so they rank together.
+        // search-navidrome is gated behind NAVIDROME_UI_ENABLED.
+        expect(searchMatches.map(match => match.command.id).sort()).toEqual([
+            'search-bilibili',
+            'search-coco',
+            'search-current',
+            'search-kugou',
+            'search-kuwo',
+            'search-local',
+            'search-netease',
+            'search-qishui',
+            'search-qq',
+        ]);
+        expect(searchMatches[0].command.id).toBe('search-current');
     });
 
     it('matches and executes color/theme-park command', () => {
@@ -278,6 +379,7 @@ describe('command palette registry', () => {
         const [matchHome] = getCommandPaletteMatches('home');
         expect(matchHome.command.id).toBe('navigate-home');
         matchHome.command.execute('', context);
+        expect(context.setHomeViewTab).toHaveBeenCalledWith('charts');
         expect(context.navigateDirectHome).toHaveBeenCalled();
 
         const [matchPlayer] = getCommandPaletteMatches('player');
@@ -334,6 +436,33 @@ describe('command palette registry', () => {
         expect(matchShuffle.command.id).toBe('playback-shuffle');
         matchShuffle.command.execute('', context);
         expect(context.shuffleQueue).toHaveBeenCalled();
+    });
+
+    it('opens add-to-playlist from a global command when the host says it can add', () => {
+        useAddToPlaylistStore.setState({
+            isOpen: false,
+            availability: { isApplicable: true, canAdd: true },
+        });
+
+        try {
+            const context = createContext();
+            const [match] = getCommandPaletteMatches('添加到歌单', context);
+            expect(match.command.id).toBe('playback-add-to-playlist');
+            expect(match.command.execute('', context)).toBe(true);
+            expect(useAddToPlaylistStore.getState().isOpen).toBe(true);
+        } finally {
+            useAddToPlaylistStore.setState({
+                isOpen: false,
+                availability: { isApplicable: false, canAdd: false },
+            });
+        }
+    });
+
+    it('hides add-to-playlist when the current song cannot go in a playlist', () => {
+        const context = createContext();
+        expect(
+            getCommandPaletteMatches('添加到歌单', context).some(match => match.command.id === 'playback-add-to-playlist'),
+        ).toBe(false);
     });
 
     it('starts video export from command palette in electron only', () => {
@@ -415,10 +544,10 @@ describe('command palette registry', () => {
         matchKaraokeWord.command.execute('', context);
         expect(context.setLyricWordMode).toHaveBeenCalledWith('karaoke');
 
-        const [matchKtvWord] = getCommandPaletteMatches('传统k歌');
-        expect(matchKtvWord.command.id).toBe('lyric-word-mode-ktv');
-        matchKtvWord.command.execute('', context);
-        expect(context.setLyricWordMode).toHaveBeenCalledWith('ktv');
+        const [matchKtvWipe] = getCommandPaletteMatches('传统k歌');
+        expect(matchKtvWipe.command.id).toBe('lyric-word-mode-karaoke');
+        matchKtvWipe.command.execute('', context);
+        expect(context.setLyricWordMode).toHaveBeenCalledWith('karaoke');
 
         const [matchFullOverlay] = getCommandPaletteMatches('全屏叠色');
         expect(matchFullOverlay.command.id).toBe('background-monet-full-overlay');
@@ -446,5 +575,74 @@ describe('command palette registry', () => {
         expect(matchLatentPixel.command.id).toBe('background-latent-dithering');
         matchLatentPixel.command.execute('', context);
         expect(context.setLatentBackgroundTuning).toHaveBeenCalledWith({ displayMode: 'dithering' });
+
+        const [matchNomand] = getCommandPaletteMatches('漫游');
+        expect(matchNomand.command.id).toBe('background-nomand');
+        matchNomand.command.execute('', context);
+        expect(context.setVisualizerBackgroundMode).toHaveBeenCalledWith('nomand');
+
+        const [matchPersonalFm] = getCommandPaletteMatches('私人漫游');
+        expect(matchPersonalFm.command.id).toBe('playback-netease-personal-fm');
+
+        const [matchHeartbeat] = getCommandPaletteMatches('心动模式');
+        expect(matchHeartbeat.command.id).toBe('playback-netease-heartbeat');
+
+        const [matchTurntable] = getCommandPaletteMatches('唱盘');
+        expect(matchTurntable.command.id).toBe('background-turntable');
+        matchTurntable.command.execute('', context);
+        expect(context.setVisualizerBackgroundMode).toHaveBeenCalledWith('turntable');
+    });
+
+    it('matches queue DSL indexes, ranges, and artist facets', () => {
+        const playQueue = [
+            { id: 1, name: 'Idol', artists: [{ id: 1, name: 'YOASOBI' }], album: { id: 1, name: 'Idol' }, duration: 1 },
+            { id: 2, name: 'Night Dancer', artists: [{ id: 2, name: 'imase' }], album: { id: 2, name: 'Night' }, duration: 1 },
+            { id: 3, name: 'Gunjo', artists: [{ id: 3, name: 'YOASOBI' }], album: { id: 3, name: 'The Book' }, duration: 1 },
+        ] as never;
+        const context = createContext({ playQueue });
+        expect(getQueueSongMatches('#2', context).map(match => match.command.id)).toEqual([
+            'queue-song-1-2',
+        ]);
+        expect(getQueueSongMatches('1-2', context).map(match => match.command.id)).toEqual([
+            'queue-song-0-1',
+            'queue-song-1-2',
+        ]);
+        expect(getQueueSongMatches('artist:yoasobi', context).map(match => match.command.id)).toEqual([
+            'queue-song-0-1',
+            'queue-song-2-3',
+        ]);
+        const queueCommand = getCommandPaletteMatches('queue').find(match => match.command.id === 'queue');
+        expect(queueCommand?.command.execute('#2', context)).toBe(true);
+        expect(context.playSong).toHaveBeenCalled();
+
+        const replacePlayQueue = vi.fn(() => true);
+        const mutateContext = createContext({ playQueue, replacePlayQueue });
+        expect(queueCommand?.command.execute('2-3 --remove', mutateContext)).toBe(true);
+        expect(replacePlayQueue).toHaveBeenCalled();
+        expect(mutateContext.playSong).not.toHaveBeenCalled();
+        expect(queueCommand?.command.execute('--remove', mutateContext)).toBe(false);
+    });
+
+    it('centers desktop lyrics from the command palette', () => {
+        const context = createContext();
+        const [match] = getCommandPaletteMatches('桌面歌词居中');
+        expect(match.command.id).toBe('desktop-lyrics-center');
+        match.command.execute('', context);
+        expect(context.setDesktopLyricsYFactor).toHaveBeenCalledWith(0.5);
+    });
+
+    it('cycles settings panel chrome daylight from the command palette', () => {
+        const context = createContext();
+        const [match] = getCommandPaletteMatches('设置面板浅色');
+        expect(match.command.id).toBe('settings-chrome-daylight');
+        expect(match.command.execute('', context)).toBe(true);
+    });
+
+    it('matches the sleep timer command', () => {
+        expect(getCommandPaletteMatches('定时关闭')[0].command.id).toBe('sleep-timer');
+        expect(getCommandPaletteMatches('sleep timer')[0].command.id).toBe('sleep-timer');
+        const [match] = getCommandPaletteMatches('sleep timer');
+        expect(match.command.getPreview?.('30', createContext())).toContain('30');
+        expect(match.command.execute('--off', createContext())).toBe(true);
     });
 });

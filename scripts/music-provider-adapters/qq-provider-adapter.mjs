@@ -66,17 +66,38 @@ const getQualityCandidates = (quality) => {
         : QQ_AUDIO_QUALITY_CANDIDATES.slice(preferredIndex);
 };
 
+const QQ_OPEN_FETCH_TIMEOUT_MS = Number(process.env.MUSIC_PROVIDER_QQ_OPEN_FETCH_TIMEOUT_MS || 2500);
+const QQ_OFFICIAL_FETCH_TIMEOUT_MS = Number(process.env.MUSIC_PROVIDER_QQ_OFFICIAL_FETCH_TIMEOUT_MS || 4000);
+
+const fetchWithTimeout = async (url, init = {}, timeoutMs = QQ_OPEN_FETCH_TIMEOUT_MS) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, {
+            ...init,
+            signal: controller.signal,
+        });
+    } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+            throw new Error(`QQ request timed out after ${timeoutMs}ms`);
+        }
+        throw error;
+    } finally {
+        clearTimeout(timer);
+    }
+};
+
 const fetchQQOpenPayload = async (params) => {
     const requestUrl = new URL(QQ_OPEN_API_BASE);
     Object.entries(params).forEach(([key, value]) => {
         requestUrl.searchParams.set(key, value);
     });
 
-    const response = await fetch(requestUrl, {
+    const response = await fetchWithTimeout(requestUrl, {
         headers: {
             'User-Agent': 'Auralis/1.0',
         },
-    });
+    }, QQ_OPEN_FETCH_TIMEOUT_MS);
     if (!response.ok) {
         throw new Error(`QQ open API failed: ${response.status}`);
     }
@@ -113,7 +134,7 @@ const requestOfficialQQ = async (method, module, param, options = {}) => {
         },
     };
 
-    const response = await fetch(QQ_OFFICIAL_API_URL, {
+    const response = await fetchWithTimeout(QQ_OFFICIAL_API_URL, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -121,7 +142,7 @@ const requestOfficialQQ = async (method, module, param, options = {}) => {
             'User-Agent': 'okhttp/3.14.9',
         },
         body: JSON.stringify(payload),
-    });
+    }, QQ_OFFICIAL_FETCH_TIMEOUT_MS);
     if (!response.ok) {
         throw new Error(`QQ official API failed: ${response.status}`);
     }
@@ -237,7 +258,15 @@ const searchOpenQQ = async (query, limit, offset) => {
 };
 
 const resolveOfficialAudioUrl = async (song, quality, qqAuth) => {
-    if (!qqAuth?.isLoggedIn) {
+    // CgiGetVkey needs a real playback token (qm_keyst / qqmusic_key), not a bare skey.
+    const authst = String(qqAuth?.playbackKey || qqAuth?.musicKey || '').trim();
+    const canPlayOfficial = Boolean(
+        qqAuth
+        && (qqAuth.playbackKeyReady || authst)
+        && qqAuth.isLoggedIn
+        && authst,
+    );
+    if (!canPlayOfficial) {
         return null;
     }
 
@@ -265,7 +294,7 @@ const resolveOfficialAudioUrl = async (song, quality, qqAuth) => {
     }, {
         qqAuth,
         comm: {
-            authst: qqAuth.musicKey,
+            authst,
             ct: 19,
             cv: 0,
             format: 'json',
@@ -385,19 +414,32 @@ export async function search({ query, limit = 30, offset = 0, qqAuth }) {
 }
 
 export async function audio({ song, quality, qqAuth }) {
+    let officialError = null;
     try {
         const officialUrl = await resolveOfficialAudioUrl(song, quality, qqAuth);
         if (officialUrl) {
             return { audioUrl: officialUrl };
         }
     } catch (error) {
+        officialError = error;
         console.warn('[qq-provider-adapter] official audio failed, falling back to open API', error);
     }
 
-    const openUrl = await resolveOpenAudioUrl(song, quality);
-    return {
-        audioUrl: openUrl,
-    };
+    try {
+        const openUrl = await resolveOpenAudioUrl(song, quality);
+        if (openUrl) {
+            return { audioUrl: openUrl };
+        }
+    } catch (error) {
+        console.warn('[qq-provider-adapter] open audio failed', error);
+        // Prefer the official failure reason when login is present but open API is dead.
+        if (officialError) {
+            throw officialError;
+        }
+        throw error;
+    }
+
+    return { audioUrl: null };
 }
 
 export async function lyrics({ song, qqAuth }) {

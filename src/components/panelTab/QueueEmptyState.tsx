@@ -8,7 +8,7 @@ import RemoteLoadState from '../shared/RemoteLoadState';
 import { resolveRemoteLoadStatus } from '../../utils/ui/remoteLoadStatus';
 
 // src/components/panelTab/QueueEmptyState.tsx
-// 播放列表空状态：展示每日推荐，失败时给出登录/重试兜底。
+// 播放列表空状态：展示今日精选，失败时给出重试兜底。
 
 interface QueueEmptyStateProps {
     onAddSongs: (songs: SongResult[]) => void;
@@ -28,7 +28,6 @@ const QueueEmptyState: React.FC<QueueEmptyStateProps> = ({
         loading,
         settled,
         error,
-        needsAuth,
         diagnostic,
         ensureLoaded,
     } = useDailyRecommendStore();
@@ -63,7 +62,7 @@ const QueueEmptyState: React.FC<QueueEmptyStateProps> = ({
         settled,
         itemCount: recommendations.length,
         error,
-        needsAuth: needsAuth && recommendations.length === 0,
+        needsAuth: false,
     });
 
     if (loadStatus !== 'ready') {
@@ -87,7 +86,7 @@ const QueueEmptyState: React.FC<QueueEmptyStateProps> = ({
                     status={loadStatus}
                     isDaylight={isDaylight}
                     loadingLabel={t('queue.loadingRecommendations') || '加载推荐中...'}
-                    authLabel={t('queue.recommendLoginRequired') || t('home.dailyRecommendLoginRequired')}
+                    authLabel={t('home.dailyRecommendLoginRequired')}
                     errorLabel={error || t('queue.recommendLoadFailed') || t('home.dailyRecommendLoadFailed')}
                     onRetry={() => void ensureLoaded({ force: true })}
                     diagnostic={diagnostic}

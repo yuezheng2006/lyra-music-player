@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 /**
- * Keeps the concurrently slot alive across Electron exits so GPU-crash
- * recovery / agent recycles can restart only Electron (vite / sidecars stay up).
- * Exit code 75 is the explicit software-GL escape signal from electron/main.cjs.
- * Any other exit also restarts — stop the whole stack with Ctrl+C on npm run.
+ * Holds the concurrently slot so GPU software-GL escape (exit 75) can restart
+ * Electron only — vite / sidecars stay up. A normal quit (close / Cmd+Q / code 0)
+ * is final: this wrapper exits and concurrently -k tears down the stack.
  */
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+    ELECTRON_DEV_RESTART_EXIT_CODE,
+    shouldRestartElectronDev,
+} from './electronDevRestartPolicy.mjs';
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
-
-/** Electron exit code requesting a clean process restart (escape --use-gl=disabled). */
-export const ELECTRON_DEV_RESTART_EXIT_CODE = 75;
 
 const electronBin = require('electron');
 const remoteDebuggingPort = process.env.LYRA_REMOTE_DEBUGGING_PORT || '9229';
@@ -33,19 +33,26 @@ function startElectron() {
     child = spawn(electronBin, args, {
         cwd: root,
         stdio: 'inherit',
-        env: process.env,
+        env: {
+            ...process.env,
+            // Must be set in the process env before Electron boots (Vite HMR uses unsafe-eval).
+            ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
+        },
     });
 
     child.on('exit', (code, signal) => {
         child = null;
-        if (shuttingDown) {
+        if (!shouldRestartElectronDev(code, { shuttingDown })) {
+            console.warn(
+                `[run-electron-dev] Electron exited code=${code} signal=${signal ?? 'none'}; not restarting.`,
+            );
             process.exit(typeof code === 'number' ? code : signal ? 1 : 0);
             return;
         }
         if (restarting) return;
         restarting = true;
         console.warn(
-            `[run-electron-dev] Electron exited code=${code} signal=${signal ?? 'none'}; restarting Electron only…`,
+            `[run-electron-dev] Electron exited code=${ELECTRON_DEV_RESTART_EXIT_CODE}; restarting Electron only (GPU software-GL escape)…`,
         );
         setTimeout(() => {
             restarting = false;

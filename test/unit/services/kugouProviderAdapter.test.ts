@@ -70,8 +70,38 @@ describe('kugou-provider-adapter', () => {
             song: { providerSongId: 'HASH1:1' },
         });
 
-        expect(result.audioUrl).toBe('https://sharefs.kugou.com/demo.mp3');
+        expect(result.audioUrl).toBe('http://sharefs.kugou.com/demo.mp3');
         expect(result.bitrate).toBe(128);
+    });
+
+    it('prefers signed tracker audio when a login cookie is present', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input);
+            if (url.includes('gateway.kugou.com/v5/url')) {
+                return new Response(JSON.stringify({
+                    status: 1,
+                    url: 'http://tracker.kugou.com/vip.mp3',
+                }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            }
+            return new Response(JSON.stringify({ url: 'http://sharefs.kugou.com/free.mp3' }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const adapter = await loadAdapter();
+        const result = await adapter.audio({
+            id: 'HASH1:1',
+            song: { providerSongId: 'HASH1:1' },
+            kugouAuth: { cookieHeader: 'token=abcdefghij; userid=42', isLoggedIn: true },
+        });
+
+        expect(result.audioUrl).toBe('http://tracker.kugou.com/vip.mp3');
+        expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('getSongInfo.php'))).toBe(false);
     });
 
     it('returns unavailable when playInfo has empty url (VIP / blocked)', async () => {

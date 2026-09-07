@@ -8,7 +8,15 @@ export const PERFORMANCE_FPS_LOW = 25;
 export const PERFORMANCE_FPS_HIGH = 50;
 export const PERFORMANCE_DEGRADE_HOLD_SEC = 2.5;
 export const PERFORMANCE_UPGRADE_HOLD_SEC = 8;
-export const PERFORMANCE_STORE_PUBLISH_MS = 500;
+export const PERFORMANCE_STORE_PUBLISH_MS = 1000;
+/** Sample every Nth animation frame when the FPS sampler is running. */
+export const PERFORMANCE_FPS_SAMPLE_STRIDE = 3;
+
+/** HUD or auto-tier ladder needs samples; fixed tier + HUD off skips the RAF sampler. */
+export const shouldRunPerformanceFpsSampler = (input: {
+    showHud: boolean;
+    mode: PerformanceMode;
+}): boolean => input.showHud || input.mode === 'auto';
 export const PERFORMANCE_MEMORY_WARN_RATIO = 0.85;
 
 const TIER_ORDER: GeometricQualityTier[] = ['lite', 'balanced', 'high'];
@@ -110,5 +118,6 @@ export function parsePerformanceMode(value: string | null | undefined): Performa
   if (value === 'high' || value === 'balanced' || value === 'lite' || value === 'auto') {
     return value;
   }
-  return 'auto';
+  // Fixed lite avoids a permanent FPS RAF; users can opt into auto in settings.
+  return 'lite';
 }

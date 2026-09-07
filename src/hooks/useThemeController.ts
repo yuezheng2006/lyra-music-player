@@ -305,8 +305,11 @@ export function useThemeController({
         dualTheme: DualTheme,
         options?: { respectCustomPreference?: boolean; applyAtmosphereHints?: boolean }
     ) => {
+        // Song/cache restores must not wipe the user's lyric-color chip (品红 etc.).
         const normalizedDualTheme = withDerivedAtmosphereHints(
-            applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme)),
+            applyStoredLyricColorPresetToDualTheme(
+                applyStoredAnimationIntensityToDualTheme(sanitizeDualTheme(dualTheme)),
+            ),
         );
         setLegacyTheme(null);
         setAiTheme(normalizedDualTheme);
@@ -324,8 +327,14 @@ export function useThemeController({
         nextLegacyTheme: Theme,
         options?: { respectCustomPreference?: boolean }
     ) => {
+        const sanitizedLegacyTheme = sanitizeTheme(nextLegacyTheme, FALLBACK_AI_DUAL_THEME.dark);
+        // Pin stored lyric inks onto both sides, then keep the active-mode face.
+        const pinnedLegacyDual = applyStoredLyricColorPresetToDualTheme({
+            light: sanitizedLegacyTheme,
+            dark: sanitizedLegacyTheme,
+        });
         const normalizedLegacyTheme = applyStoredAnimationIntensityToTheme(
-            sanitizeTheme(nextLegacyTheme, FALLBACK_AI_DUAL_THEME.dark),
+            isDaylight ? pinnedLegacyDual.light : pinnedLegacyDual.dark,
         );
         setAiTheme(null);
         setLegacyTheme(normalizedLegacyTheme);

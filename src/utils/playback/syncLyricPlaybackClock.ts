@@ -7,9 +7,11 @@ import type { LyricData } from '../../types';
 export const resolveLyricPlaybackTimes = (input: {
     audioCurrentTimeSec: number;
     lyricTimelineOffsetMs: number;
+    globalLyricTimelineOffsetMs?: number;
 }): { currentTimeSec: number; lyricTimeSec: number } => {
     const currentTimeSec = input.audioCurrentTimeSec;
-    const lyricTimeSec = currentTimeSec - input.lyricTimelineOffsetMs / 1000;
+    const totalOffsetMs = input.lyricTimelineOffsetMs + (input.globalLyricTimelineOffsetMs ?? 0);
+    const lyricTimeSec = currentTimeSec - totalOffsetMs / 1000;
     return { currentTimeSec, lyricTimeSec };
 };
 

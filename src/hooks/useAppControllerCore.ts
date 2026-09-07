@@ -14,7 +14,7 @@ import {
     ONLINE_AUDIO_URL_TTL_MS,
     PLAYER_CHROME_HIDDEN_STORAGE_KEY,
 } from '@/components/app/root/appConstants';
-import { PlayerState, ReplayGainMode, StatusMessage, PlaybackContext, StageLoopMode, type AudioBands, type SongResult, type LyricData } from '@/types';
+import { PlayerState, ReplayGainMode, StatusMessage, PlaybackContext, StageLoopMode, type AudioBands, type DualTheme, type SongResult, type LyricData } from '@/types';
 import { isNavidromeEnabled } from '@/services/navidromeService';
 import { isNavidromeUiEnabled } from '@/utils/featureFlags';
 import { useAppPreferences } from '@/hooks/useAppPreferences';
@@ -22,12 +22,15 @@ import { useElectronNeteaseApiStatus } from '@/hooks/useElectronNeteaseApiStatus
 import { useMusicProviderCatalogBootstrap } from '@/hooks/useMusicProviderCatalogBootstrap';
 import { useAppControllerCoreIntegrations } from '@/hooks/useAppControllerCoreIntegrations';
 import { useThemeController } from '@/hooks/useThemeController';
-import { useAtmosphereThemeBridge } from '@/hooks/useAtmosphereThemeBridge';
+import { useTrackAtmosphereLightPlanBridge } from '@/hooks/useTrackAtmosphereLightPlanBridge';
 import { useThemeQuickEditorStore } from '@/stores/useThemeQuickEditorStore';
+import { buildTrackAtmosphereSongMeta } from '@/utils/atmosphere/trackAtmosphereLightPlanMath';
+import { readSettingsDeepLink } from '@/utils/settings/readSettingsDeepLink';
 import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
 import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
 import { useShallow } from 'zustand/react/shallow';
 import { isLocalPlaybackSong } from '@/utils/appPlaybackGuards';
+import { buildLyricOffsetSongKey, persistLyricTimelineOffsetMs, readLyricTimelineOffsetMs } from '@/utils/playback/lyricOffsetStore';
 import { useAppAudioOutput } from '@/hooks/useAppAudioOutput';
 
 
@@ -51,7 +54,7 @@ export function useAppControllerCore() {
     const [videoSrc, setVideoSrc] = useState<string | null>(null);
     const [currentSong, setCurrentSong] = useState<SongResult | null>(null);
     const [lyrics, setLyricsState] = useState<LyricData | null>(null);
-    const [lyricTimelineOffsetMs, setLyricTimelineOffsetMs] = useState(0);
+    const [lyricTimelineOffsetMs, setLyricTimelineOffsetMsState] = useState(0);
     const [cachedCoverUrl, setCachedCoverUrl] = useState<string | null>(null);
     const [activePlaybackContext, setActivePlaybackContext] = useState<PlaybackContext>('main');
 
@@ -118,6 +121,16 @@ export function useAppControllerCore() {
     const setThemeQuickEditorContext = useThemeQuickEditorStore(state => state.setContext);
     const openThemeQuickEditor = useThemeQuickEditorStore(state => state.openEditor);
     const canOpenThemeQuickEditor = useThemeQuickEditorStore(state => state.canOpenEditor);
+
+    // Preview / deep-link: ?settings=trackAtmosphereLight opens the curated light-plan panel once.
+    const settingsDeepLinkAppliedRef = useRef(false);
+    useEffect(() => {
+        if (settingsDeepLinkAppliedRef.current) return;
+        const deepLink = readSettingsDeepLink();
+        if (!deepLink) return;
+        settingsDeepLinkAppliedRef.current = true;
+        openSettings(deepLink.tab, deepLink.subview);
+    }, [openSettings]);
 
     useEffect(() => {
         const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null;
@@ -243,6 +256,13 @@ export function useAppControllerCore() {
     // and the audio `onProgress` handler to log buffered percent again.
     // const lastBufferedPercentLogRef = useRef<number | null>(null);
     const [isLyricsLoading, setIsLyricsLoading] = useState(false);
+    // True from song switch commit until the next HTMLAudioElement src is armed.
+    const [isAudioSourceLoading, setIsAudioSourceLoadingState] = useState(false);
+    const isAudioSourceLoadingRef = useRef(false);
+    const setIsAudioSourceLoading = useCallback((loading: boolean) => {
+        isAudioSourceLoadingRef.current = loading;
+        setIsAudioSourceLoadingState(loading);
+    }, []);
     const isNowPlayingControlDisabledRef = useRef(false);
 
     const [replayGainMode, setReplayGainMode] = useState<ReplayGainMode>(() => {
@@ -274,6 +294,7 @@ export function useAppControllerCore() {
         disableHomeDynamicBackground,
         hidePlayerTranslationSubtitle,
         showSubtitleTranslation,
+        subtitleContentMode,
         hidePlayerRightPanelButton,
         transparentPlayerBackground,
         enablePlayerPageNativeBlur,
@@ -299,8 +320,10 @@ export function useAppControllerCore() {
         claddaghTuning,
         cappellaTuning,
         tiltTuning,
+        pendoloTuning,
         monetBackgroundTuning,
         latentBackgroundTuning,
+        nomandBackgroundTuning,
         interactive3dSceneTuning,
         monetTuning,
         cappellaCustomEmojiImages,
@@ -316,6 +339,10 @@ export function useAppControllerCore() {
         lyricsCustomFontLabel,
         lyricFontPresetId,
         lyricFilterPattern,
+        lyricStaffPolicy,
+        lyricStaffMinDwellSeconds,
+        lyricStaffAbsorbMode,
+        lyricStaffPattern,
         showOpenPanelCloseButton,
         enableNowPlayingStage,
         queueAddBehavior,
@@ -326,6 +353,7 @@ export function useAppControllerCore() {
         handleToggleDisableHomeDynamicBackground,
         handleToggleHidePlayerTranslationSubtitle,
         handleToggleShowSubtitleTranslation,
+        handleSetSubtitleContentMode,
         handleToggleHidePlayerRightPanelButton,
         handleToggleTransparentPlayerBackground,
         handleToggleDisableVisualizerVignette,
@@ -344,6 +372,8 @@ export function useAppControllerCore() {
         handleSetMonetBackgroundTuning,
         handleSetLatentBackgroundTuning,
         handleResetLatentBackgroundTuning,
+        handleSetNomandBackgroundTuning,
+        handleResetNomandBackgroundTuning,
         handleSetInteractive3dSceneTuning,
         handleSetMonetTuning,
         handleSetCadenzaTuning,
@@ -364,6 +394,10 @@ export function useAppControllerCore() {
         handleUploadLyricsCustomFont,
         handleSetAppLanguagePreference,
         handleSetLyricFilterPattern,
+        handleSetLyricStaffPolicy,
+        handleSetLyricStaffMinDwellSeconds,
+        handleSetLyricStaffAbsorbMode,
+        handleSetLyricStaffPattern,
         handleToggleOpenPanelCloseButton,
         handleToggleNowPlayingStage,
         handleSetQueueAddBehavior,
@@ -382,14 +416,26 @@ export function useAppControllerCore() {
     }, [visualizerMode]);
 
     const setLyrics = useMemo(
-        () => createLyricsSetter(setLyricsState, lyricFilterPattern, currentSongFullRef),
-        [lyricFilterPattern],
+        () => createLyricsSetter(setLyricsState, lyricFilterPattern, currentSongFullRef, {
+            policy: lyricStaffPolicy,
+            minDwellSeconds: lyricStaffMinDwellSeconds,
+            absorbMode: lyricStaffAbsorbMode,
+            pattern: lyricStaffPattern,
+        }),
+        [lyricFilterPattern, lyricStaffAbsorbMode, lyricStaffMinDwellSeconds, lyricStaffPattern, lyricStaffPolicy],
     );
     const lyricCurrentTime = useMotionValue(0);
 
+    // Restore the calibrated per-song offset on song change instead of resetting to 0.
+    const lyricOffsetSongKey = buildLyricOffsetSongKey(currentSong);
     useEffect(() => {
-        setLyricTimelineOffsetMs(0);
-    }, [currentSong?.id]);
+        setLyricTimelineOffsetMsState(readLyricTimelineOffsetMs(lyricOffsetSongKey));
+    }, [lyricOffsetSongKey]);
+
+    const setLyricTimelineOffsetMs = useCallback((offsetMs: number) => {
+        setLyricTimelineOffsetMsState(offsetMs);
+        persistLyricTimelineOffsetMs(buildLyricOffsetSongKey(currentSongFullRef.current), offsetMs);
+    }, []);
 
     const effectiveLoopMode: StageLoopMode = loopMode;
 
@@ -406,6 +452,7 @@ export function useAppControllerCore() {
         audioRef,
         audioContextRef,
         gainNodeRef,
+        sourceRef,
         replayGainLinearRef,
         volumePreviewFrameRef,
         pendingVolumePreviewRef,
@@ -473,7 +520,14 @@ export function useAppControllerCore() {
             : null;
     }, [currentSong]);
 
-    const applyAtmosphereHintsFromTheme = useAtmosphereThemeBridge({
+    const trackAtmosphereSongMeta = useMemo(
+        () => buildTrackAtmosphereSongMeta(currentSong),
+        [currentSong],
+    );
+    const dualThemeForAtmosphereRef = useRef<DualTheme | null>(null);
+    const applyAtmosphereHintsFromTheme = useTrackAtmosphereLightPlanBridge({
+        songMeta: trackAtmosphereSongMeta,
+        getDualTheme: () => dualThemeForAtmosphereRef.current,
         getCurrentTuning: () => useSettingsUiStore.getState().interactive3dSceneTuning,
         onTuningChange: (patch) => {
             useSettingsUiStore.getState().handleSetInteractive3dSceneTuning(patch);
@@ -521,6 +575,8 @@ export function useAppControllerCore() {
         handleSongThemeAutoSwitchChange,
         handleSongThemeAutoGenerateChange,
     } = themeController;
+
+    dualThemeForAtmosphereRef.current = aiTheme ?? customTheme ?? null;
 
     useEffect(() => {
         const isPureMusic = Boolean(currentSong?.isPureMusic);
@@ -654,10 +710,16 @@ export function useAppControllerCore() {
         handleResetTheme,
         handleSetAppLanguagePreference,
         handleSetLyricFilterPattern,
+        handleSetLyricStaffPolicy,
+        handleSetLyricStaffMinDwellSeconds,
+        handleSetLyricStaffAbsorbMode,
+        handleSetLyricStaffPattern,
         handleSetInteractive3dSceneTuning,
         handleSetMonetBackgroundTuning,
         handleSetLatentBackgroundTuning,
         handleResetLatentBackgroundTuning,
+        handleSetNomandBackgroundTuning,
+        handleResetNomandBackgroundTuning,
         handleSetMonetTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
@@ -677,6 +739,7 @@ export function useAppControllerCore() {
         handleToggleNavidromeEnabled,
         handleTogglePlayerLyricsVisible,
         handleToggleShowSubtitleTranslation,
+        handleSetSubtitleContentMode,
         hasCustomTheme,
         hidePlayerRightPanelButton,
         hidePlayerTranslationSubtitle,
@@ -692,6 +755,8 @@ export function useAppControllerCore() {
         isFmMode,
         isGeneratingTheme,
         isLyricsLoading,
+        isAudioSourceLoading,
+        isAudioSourceLoadingRef,
         isMuted,
         isMainWindowClickThroughEnabled,
         isNowPlayingControlDisabledRef,
@@ -708,6 +773,10 @@ export function useAppControllerCore() {
         lowMid,
         lyricCurrentTime,
         lyricFilterPattern,
+        lyricStaffPolicy,
+        lyricStaffMinDwellSeconds,
+        lyricStaffAbsorbMode,
+        lyricStaffPattern,
         lyricTimelineOffsetMs,
         lyrics,
         lyricsCustomFontFamily,
@@ -718,6 +787,7 @@ export function useAppControllerCore() {
         monetBackgroundImage,
         monetBackgroundTuning,
         latentBackgroundTuning,
+        nomandBackgroundTuning,
         monetPortraitImage,
         monetTuning,
         navidromeEnabled,
@@ -759,6 +829,7 @@ export function useAppControllerCore() {
         setIsDevDebugOverlayVisible,
         setIsFmMode,
         setIsLyricsLoading,
+        setIsAudioSourceLoading,
         setIsMainWindowClickThroughEnabled,
         setIsPanelOpen,
         setIsPlayerChromeHidden,
@@ -783,6 +854,7 @@ export function useAppControllerCore() {
         shouldRefreshCurrentOnlineAudioSource,
         showOpenPanelCloseButton,
         showSubtitleTranslation,
+        subtitleContentMode,
         showTransparentWindowBorder,
         songThemeAutoGenerateEnabled,
         songThemeAutoSwitchEnabled,
@@ -799,6 +871,7 @@ export function useAppControllerCore() {
         themeController,
         themeSourceModel,
         tiltTuning,
+        pendoloTuning,
         transparentPlayerBackground,
         treble,
         urlBackgroundList,

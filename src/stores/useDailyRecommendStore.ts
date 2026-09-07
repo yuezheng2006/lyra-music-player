@@ -6,22 +6,26 @@ import {
 } from '../services/dailyRecommendService';
 import { isStableRequestError, type RequestErrorCode } from '../utils/network';
 import {
+    ONLINE_LIBRARY_PROVIDER_IDS,
     useOnlineLibraryFilterStore,
     type OnlineLibraryProviderId,
 } from './useOnlineLibraryFilterStore';
 
 // src/stores/useDailyRecommendStore.ts
-// App-level cache + preload for multi-source daily recommend.
+// App-level cache + preload for Today Picks (multi-source chart matches).
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 /** Bump when pick strategy changes so stale empty/filter caches are dropped. */
-const CACHE_EPOCH = 'netease-always-v2';
+const CACHE_EPOCH = 'today-picks-v1';
 
 export const serializeDailyRecommendProviderKey = (
-    _playlistProviders: Partial<Record<OnlineLibraryProviderId, boolean>>,
-): string =>
-    // Daily page always fetches Netease; ignore home library chip toggles in the cache key.
-    `${CACHE_EPOCH}|netease:1`;
+    playlistProviders: Partial<Record<OnlineLibraryProviderId, boolean>>,
+): string => {
+    const peers = ONLINE_LIBRARY_PROVIDER_IDS
+        .filter((id) => id !== 'netease' && playlistProviders[id] !== false)
+        .join(',');
+    return `${CACHE_EPOCH}|peers:${peers || 'none'}`;
+};
 
 const pickFailureBucket = (
     sources: DailyRecommendSourceBucket[],
@@ -38,11 +42,10 @@ const pickFailureBucket = (
 const summarizeEmptyDiagnostic = (
     sources: DailyRecommendSourceBucket[],
     failure: DailyRecommendSourceBucket | null,
-    needsAuth: boolean,
 ): string => {
     if (failure?.diagnostic) return failure.diagnostic;
     if (sources.length === 0) {
-        return 'daily-recommend: no sources attempted';
+        return 'today-picks: no peer sources enabled';
     }
     const lines = sources.map(source => (
         `source=${source.provider}`
@@ -51,7 +54,6 @@ const summarizeEmptyDiagnostic = (
         + ` error=${source.error || '-'}`
         + ` code=${source.errorCode || '-'}`
     ));
-    if (needsAuth) lines.unshift('needsAuth=true');
     if (failure?.error) lines.unshift(`failure=${failure.error}`);
     return lines.join('\n');
 };
@@ -126,7 +128,6 @@ export const useDailyRecommendStore = create<DailyRecommendState>((set, get) => 
 
             try {
                 const result = await fetchAggregatedDailyRecommend(playlistProviders, {
-                    // Leave headroom for transport retries + slow /recommend/songs.
                     timeoutMs: 12_000,
                     onSource: (_bucket, partial) => {
                         // Ignore stale progressive updates from an older provider key.
@@ -144,18 +145,19 @@ export const useDailyRecommendStore = create<DailyRecommendState>((set, get) => 
                 const failure = result.songs.length === 0
                     ? pickFailureBucket(result.sources)
                     : null;
-                const needsAuth = result.needLoginNetease;
                 const diagnostic = result.songs.length === 0
-                    ? summarizeEmptyDiagnostic(result.sources, failure, needsAuth)
+                    ? summarizeEmptyDiagnostic(result.sources, failure)
                     : null;
 
                 set({
                     sources: result.sources,
                     songs: result.songs,
                     error: failure?.error || null,
-                    errorCode: failure?.errorCode || (needsAuth ? 'need-login' : null),
+                    errorCode: failure?.errorCode || (result.songs.length === 0 && result.sources.length === 0
+                        ? 'empty'
+                        : null),
                     diagnostic,
-                    needsAuth,
+                    needsAuth: false,
                     loading: false,
                     settled: true,
                     fetchedAt: Date.now(),

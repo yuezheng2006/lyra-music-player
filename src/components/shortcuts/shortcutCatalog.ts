@@ -73,6 +73,14 @@ const PANEL_SHORTCUTS: ShortcutEntry[] = [
         group: 'panels',
         titleKey: 'help.openCommandPalette',
         fallback: 'Open command palette',
+        keys: [mod, 'K'],
+        separator: '+',
+    },
+    {
+        id: 'open-command-palette-player',
+        group: 'panels',
+        titleKey: 'help.openCommandPalettePlayer',
+        fallback: 'Open command palette on player',
         ...modOnly('S'),
     },
     {

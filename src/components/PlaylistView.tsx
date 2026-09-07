@@ -7,7 +7,7 @@ import { saveToCache, getFromCache, removeFromCache } from '../services/db';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { formatSongName } from '../utils/songNameFormatter';
-import { APP_CONTENT_TOP_OFFSET_CLASS } from './app/home/homeSurfaceStyles';
+import { APP_CONTENT_TOP_OFFSET_CLASS, APP_OVERLAY_MOBILE_PLAYER_CLEARANCE_CLASS } from './app/home/homeSurfaceStyles';
 import LazyCoverImage from './shared/LazyCoverImage';
 
 interface PlaylistViewProps {
@@ -418,7 +418,7 @@ const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBack, onPlaySon
           className="flex-1 md:h-full md:overflow-y-auto custom-scrollbar"
           onScroll={(e) => { if (window.innerWidth >= 768) handleScroll(e); }}
         >
-          <div className="p-4 md:p-8 pb-32 md:pb-8">
+          <div className={`p-4 md:p-8 ${APP_OVERLAY_MOBILE_PLAYER_CLEARANCE_CLASS}`}>
             {/* Desktop Sticky Header */}
             <div className="hidden md:flex sticky top-0 bg-transparent backdrop-blur-md z-10 border-b border-white/5 pb-2 mb-2 text-xs font-medium uppercase tracking-wide opacity-30" style={{ color: 'var(--text-secondary)' }}>
               <div className="w-10 text-center">#</div>

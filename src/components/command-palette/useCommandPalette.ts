@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getCommandPaletteMatches, getQueueSongMatches, COMMAND_PALETTE_COMMANDS } from './commandRegistry';
 import { isRecordableRecentCommand, readRecentCommandIds, recordRecentCommandId } from './recentCommands';
+import { readCommandFrequencyState, recordCommandUse } from './commandFrequency';
+import { buildFlagSuggestions } from './syntax/suggestFlags';
 import { isModKeyChord, isTextEntryTarget } from '@/components/shortcuts/shortcutKeyboardGuards';
 import type { CommandPaletteContext, CommandPaletteCommand, CommandPaletteMatch } from './types';
+import type { SyntaxSuggestion } from './syntax/types';
 
 // src/components/command-palette/useCommandPalette.ts
 // Manages palette state, keyboard opening, and selected autocomplete item.
@@ -26,11 +29,13 @@ export const useCommandPalette = ({
     const [activeCommand, setActiveCommand] = useState<CommandPaletteCommand | null>(null);
     const [isExecuting, setIsExecuting] = useState(false);
     const [recentCommandIds, setRecentCommandIds] = useState<string[]>(() => readRecentCommandIds());
+    const [frequencyState, setFrequencyState] = useState(() => readCommandFrequencyState());
+    const [syntaxActiveIndex, setSyntaxActiveIndex] = useState(0);
 
     const matches = useMemo(() => {
         let list: CommandPaletteMatch[];
         if (!activeCommand) {
-            list = getCommandPaletteMatches(matchQuery, context, recentCommandIds);
+            list = getCommandPaletteMatches(matchQuery, context, recentCommandIds, frequencyState.counts);
         } else if (activeCommand.id === 'queue') {
             list = getQueueSongMatches(matchQuery, context);
         } else {
@@ -64,7 +69,7 @@ export const useCommandPalette = ({
                 previewText,
             };
         });
-    }, [activeCommand, matchQuery, context, recentCommandIds]);
+    }, [activeCommand, matchQuery, context, recentCommandIds, frequencyState]);
 
     const activePreview = useMemo(() => {
         const match = matches[activeIndex];
@@ -72,12 +77,12 @@ export const useCommandPalette = ({
     }, [activeIndex, matches]);
 
     const open = useCallback(() => {
-        if (currentView !== 'player' || isBlocked) {
+        if (isBlocked) {
             return;
         }
         setIsOpen(true);
         setActiveIndex(0);
-    }, [currentView, isBlocked]);
+    }, [isBlocked]);
 
     const close = useCallback(() => {
         setIsOpen(false);
@@ -120,6 +125,7 @@ export const useCommandPalette = ({
             if (didExecute) {
                 if (isRecordableRecentCommand(match.command, COMMAND_PALETTE_COMMANDS)) {
                     setRecentCommandIds(currentCommandIds => recordRecentCommandId(match.command.id, currentCommandIds));
+                    setFrequencyState(current => recordCommandUse(match.command.id, current));
                 }
                 close();
             }
@@ -178,20 +184,32 @@ export const useCommandPalette = ({
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (!isModKeyChord({
+            const chordParams = {
                 code: event.code,
-                expectedCode: 'KeyS',
                 metaKey: event.metaKey,
                 ctrlKey: event.ctrlKey,
                 altKey: event.altKey,
                 shiftKey: event.shiftKey,
-            })) {
+            };
+            const isPaletteS = isModKeyChord({
+                ...chordParams,
+                expectedCode: 'KeyS',
+            });
+            const isPaletteK = isModKeyChord({
+                ...chordParams,
+                expectedCode: 'KeyK',
+            });
+            if (!isPaletteS && !isPaletteK) {
                 return;
             }
             if (isTextEntryTarget(event.target)) {
                 return;
             }
-            if (currentView !== 'player' || isBlocked) {
+            if (isBlocked) {
+                return;
+            }
+            // Cmd/Ctrl+S stays a player-page chord; Cmd/Ctrl+K opens from home or player.
+            if (isPaletteS && currentView !== 'player') {
                 return;
             }
 
@@ -202,6 +220,21 @@ export const useCommandPalette = ({
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [currentView, isBlocked, open]);
+
+    const syntaxSuggestions = useMemo(
+        () => buildFlagSuggestions(activeCommand?.syntax, query),
+        [activeCommand, query],
+    );
+
+    useEffect(() => {
+        setSyntaxActiveIndex(0);
+    }, [query, activeCommand]);
+
+    const acceptSyntaxSuggestion = useCallback((suggestion: SyntaxSuggestion) => {
+        setQuery(suggestion.replacement);
+        setMatchQuery(suggestion.replacement);
+        setSyntaxActiveIndex(0);
+    }, []);
 
     return {
         activeIndex,
@@ -217,6 +250,10 @@ export const useCommandPalette = ({
         matches,
         open,
         query,
+        syntaxSuggestions,
+        syntaxActiveIndex,
+        setSyntaxActiveIndex,
+        acceptSyntaxSuggestion,
         setActiveIndex,
         setIsComposing,
         setMatchQuery,

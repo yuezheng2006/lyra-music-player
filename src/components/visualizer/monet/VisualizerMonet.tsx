@@ -6,7 +6,6 @@ import { DEFAULT_MONET_TUNING } from '../../../types';
 import { colorWithAlpha } from '../colorMix';
 import { type VisualizerSharedProps } from '../definition';
 import { useVisualizerRuntime } from '../runtime';
-import VisualizerShell from '../VisualizerShell';
 import { getLineRenderEndTime } from '../../../utils/lyrics/renderHints';
 import { resolveThemeFontStack } from '../../../utils/fontStacks';
 import { resolveLyricStageInkColors } from '../../../utils/theme/lyricColorPresets';
@@ -22,6 +21,7 @@ import {
     shouldUseMonetStaticDecor,
 } from '../../../utils/performance/monetElectronLiteMath';
 import { shouldPreferMonetTitleNowrap } from '../../../utils/visualizer/monetTitleLayoutMath';
+import { isCaptionLyricPresentation } from '../../../utils/lyrics/lyricPresentation';
 
 // src/components/visualizer/monet/VisualizerMonet.tsx
 // Monet keeps the poster layout here while its lyric rail owns measured scrolling and line states.
@@ -56,7 +56,9 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
         beatPulse,
         transparentBackground = false,
         videoStageActive = false,
+        lyricPresentation,
     } = props;
+    const hideLyricRail = isCaptionLyricPresentation(lyricPresentation);
     const suppressOpaqueLyricScrim = videoStageActive || transparentBackground;
     const isImmersiveStage = immersiveLyrics || isPlayerChromeHidden;
     const { t } = useTranslation();
@@ -172,8 +174,12 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
     // Keep non-current rows clearly smaller so active size contrast reads immediately.
     const inactiveFontPx = resolveClampFontPx(0.95, 3.8, 1.55, lyricColumnWidth || undefined) * fontScale;
     const translationFontPx = resolveClampFontPx(1.0, 3.5, 1.45, lyricColumnWidth || undefined) * fontScale;
-    const titleFontPx = resolveClampFontPx(1.65, 7.6, 3.1, lyricColumnWidth || undefined) * fontScale;
-    const artistFontPx = resolveClampFontPx(1.12, 4.2, 1.9, lyricColumnWidth || undefined) * fontScale;
+    const titleFontPx = hideLyricRail
+        ? resolveClampFontPx(1.12, 3.6, 1.7, lyricColumnWidth || undefined)
+        : resolveClampFontPx(1.65, 7.6, 3.1, lyricColumnWidth || undefined) * fontScale;
+    const artistFontPx = hideLyricRail
+        ? resolveClampFontPx(0.78, 2.1, 1.12, lyricColumnWidth || undefined)
+        : resolveClampFontPx(1.12, 4.2, 1.9, lyricColumnWidth || undefined) * fontScale;
 
     const primaryMetaLabel = songArtist?.trim() || 'Monet';
     const secondaryMetaLabel = songAlbum?.trim() || 'Monet';
@@ -183,12 +189,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
         : coverUrl ?? monetPortraitImage?.url;
 
     return (
-        <VisualizerShell
-            theme={theme}
-            audioPower={audioPower}
-            audioBands={audioBands}
-            sharedProps={props}
-        >
+        <>
             {showText && (
                 <motion.div
                     key={`decor-${introKey}`}
@@ -239,7 +240,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                                     initial={{ scaleY: 0 }}
                                     animate={{ scaleY: 1 }}
                                     transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1], delay: 0.5 }}
-                                    className="h-16 w-[2px] rounded-full"
+                                    className={`${hideLyricRail ? 'h-8' : 'h-16'} w-[2px] rounded-full`}
                                     style={{ 
                                         originY: 0,
                                         background: `linear-gradient(180deg, ${colorWithAlpha(activeColor, 0.88)}, transparent)` 
@@ -253,12 +254,12 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ duration: 1.3, ease: [0.25, 1, 0.5, 1], delay: 0.3 }}
                             >
-                                <div className="mb-8 space-y-1">
+                                <div className={`${hideLyricRail ? 'mb-3' : 'mb-8'} space-y-1`}>
                                     <div
-                                        className={`min-w-0 font-semibold leading-[1.04] ${
-                                            shouldPreferMonetTitleNowrap(songTitle)
-                                                ? 'whitespace-nowrap'
-                                                : 'break-words'
+                                        className={`min-w-0 leading-[1.18] ${
+                                            hideLyricRail
+                                                ? 'break-words font-medium'
+                                                : `font-semibold ${shouldPreferMonetTitleNowrap(songTitle) ? 'whitespace-nowrap' : 'break-words'}`
                                         }`}
                                         style={{
                                             color: titleColor,
@@ -278,6 +279,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                                 </div>
                             </motion.div>
 
+                            {!hideLyricRail && (
                             <motion.div
                                 key={`rail-${introKey}`}
                                 initial={{ opacity: 0, y: 20 }}
@@ -305,9 +307,10 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                                     immersiveLyrics={immersiveLyrics}
                                     lyricFontPresetId={lyricFontPresetId}
                                     visualEffectIntensity={visualEffectIntensity}
-                                    presentation={(lyricWordMode === 'karaoke' || lyricWordMode === 'ktv') ? 'karaoke' : 'monet'}
+                                    presentation={lyricWordMode === 'karaoke' ? 'karaoke' : 'monet'}
                                 />
                             </motion.div>
+                            )}
 
                             {monetTuning.showDescription && isPreviewMode && (
                                 <motion.div
@@ -559,7 +562,7 @@ const VisualizerMonet: React.FC<VisualizerMonetProps> = (props) => {
                     </div>
                 </motion.div>
             )}
-        </VisualizerShell>
+        </>
     );
 };
 

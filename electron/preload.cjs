@@ -18,7 +18,18 @@ contextBridge.exposeInMainWorld('electron', {
     openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
     openQQMusicLogin: () => ipcRenderer.invoke('qq-music-open-login'),
     getQQMusicLoginCookie: () => ipcRenderer.invoke('qq-music-get-login-cookie'),
+    saveQQMusicAuthSession: (cookie) => ipcRenderer.invoke('qq-music-save-auth-session', cookie),
     clearQQMusicLogin: () => ipcRenderer.invoke('qq-music-clear-login'),
+    openQishuiLogin: () => ipcRenderer.invoke('qishui-open-login'),
+    getQishuiLoginCookie: () => ipcRenderer.invoke('qishui-get-login-cookie'),
+    saveQishuiAuthSession: (cookie) => ipcRenderer.invoke('qishui-save-auth-session', cookie),
+    clearQishuiLogin: () => ipcRenderer.invoke('qishui-clear-login'),
+    startKugouQrLogin: () => ipcRenderer.invoke('kugou-login-qr-start'),
+    checkKugouQrLogin: () => ipcRenderer.invoke('kugou-login-qr-check'),
+    cancelKugouQrLogin: () => ipcRenderer.invoke('kugou-login-qr-cancel'),
+    getKugouLoginCookie: () => ipcRenderer.invoke('kugou-get-login-cookie'),
+    saveKugouAuthSession: (cookie) => ipcRenderer.invoke('kugou-save-auth-session', cookie),
+    clearKugouLogin: () => ipcRenderer.invoke('kugou-clear-login'),
     downloadUpdate: () => ipcRenderer.invoke('updates-download'),
     quitAndInstallUpdate: () => ipcRenderer.invoke('updates-quit-and-install'),
     onUpdateStatusChanged: (callback) => {
@@ -34,11 +45,13 @@ contextBridge.exposeInMainWorld('electron', {
     clearAudioCache: () => ipcRenderer.invoke('clear-audio-cache'),
     generateTheme: (lyricsText, options) => ipcRenderer.invoke('generate-theme', lyricsText, options),
     fetchLyricProxy: (url, init) => ipcRenderer.invoke('lyric-proxy-fetch', url, init),
+    fetchPodcastProxy: (url) => ipcRenderer.invoke('podcast-proxy-fetch', url),
     getNeteasePort: () => ipcRenderer.invoke('get-netease-port'),
     getMusicProviderPort: () => ipcRenderer.invoke('get-music-provider-port'),
     getMusicProviderPluginsDir: () => ipcRenderer.invoke('get-music-provider-plugins-dir'),
     openMusicProviderPluginsDir: () => ipcRenderer.invoke('open-music-provider-plugins-dir'),
     getNeteaseApiStatus: () => ipcRenderer.invoke('get-netease-api-status'),
+    restartNeteaseApi: () => ipcRenderer.invoke('restart-netease-api'),
     onNeteaseApiStatusChanged: (callback) => {
         const listener = (_event, status) => callback(status);
         ipcRenderer.on('netease-api-status-changed', listener);
@@ -76,6 +89,8 @@ contextBridge.exposeInMainWorld('electron', {
     setMainWindowClickThroughUnlockHover: (active) => ipcRenderer.invoke('window-set-click-through-unlock-hover', active),
     getMainWindowAlwaysOnTop: () => ipcRenderer.invoke('window-get-always-on-top'),
     setMainWindowAlwaysOnTop: (enabled) => ipcRenderer.invoke('window-set-always-on-top', enabled),
+    setPlaybackDisplaySleepActive: (active) => ipcRenderer.invoke('playback-display-sleep-set-active', active),
+    quitApp: () => ipcRenderer.invoke('app-quit'),
     onMainWindowClickThroughChanged: (callback) => {
         const listener = (_event, state) => callback(state);
         ipcRenderer.on('main-window-click-through-changed', listener);

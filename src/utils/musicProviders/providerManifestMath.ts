@@ -17,6 +17,7 @@ export const FIRST_CLASS_RESERVED_IDS = [
   'daily',
   'podcast',
   'history',
+  'charts',
 ] as const;
 
 export const CURATED_BUILTIN_IDS = [

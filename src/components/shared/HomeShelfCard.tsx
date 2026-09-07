@@ -1,4 +1,5 @@
 import React from 'react';
+import { Play } from 'lucide-react';
 import type { OnlineMusicProviderId } from '../../types';
 import LazyCoverImage, { type LazyCoverPlaceholderVariant } from './LazyCoverImage';
 import { OnlineProviderBadge } from './OnlineProviderBadge';
@@ -10,6 +11,7 @@ export type HomeShelfCardProps = {
     title: string;
     subtitle?: string;
     coverUrl?: string;
+    coverBadge?: string;
     placeholderVariant?: LazyCoverPlaceholderVariant;
     provider?: OnlineMusicProviderId;
     isDaylight: boolean;
@@ -21,6 +23,7 @@ export const HomeShelfCard: React.FC<HomeShelfCardProps> = ({
     title,
     subtitle,
     coverUrl,
+    coverBadge,
     placeholderVariant = 'playlist',
     provider,
     isDaylight,
@@ -42,7 +45,7 @@ export const HomeShelfCard: React.FC<HomeShelfCardProps> = ({
             onClick={onSelect}
             disabled={disabled}
             title={subtitle ? `${title} · ${subtitle}` : title}
-            className={`group relative w-full text-left overflow-hidden rounded-[18px] border backdrop-blur-xl transition-all duration-300 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.985] disabled:opacity-50 disabled:pointer-events-none ${shell}`}
+            className={`group relative w-full text-left overflow-hidden rounded-xl border backdrop-blur-xl transition-all duration-300 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.985] disabled:opacity-50 disabled:pointer-events-none ${shell}`}
         >
             <div className="relative aspect-square overflow-hidden">
                 <LazyCoverImage
@@ -50,7 +53,7 @@ export const HomeShelfCard: React.FC<HomeShelfCardProps> = ({
                     alt={title}
                     placeholderLabel={title}
                     placeholderVariant={placeholderVariant}
-                    sizePx={320}
+                    sizePx={160}
                     className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.045]"
                 />
                 <div className={`pointer-events-none absolute inset-0 bg-gradient-to-b ${coverWash}`} />
@@ -60,21 +63,29 @@ export const HomeShelfCard: React.FC<HomeShelfCardProps> = ({
                         variant="glass"
                         showIcon={false}
                         isDaylight={isDaylight}
-                        className="absolute top-2 left-2 z-10"
+                        className="absolute top-1 left-1 z-10"
                     />
                 ) : null}
+                {coverBadge ? (
+                    <span className="absolute top-1 right-1 z-10 rounded-full bg-black/55 px-1 py-px text-[9px] font-medium tabular-nums text-white/95 backdrop-blur-sm">
+                        {coverBadge}
+                    </span>
+                ) : null}
+                <span className="absolute bottom-1 right-1 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-zinc-950 opacity-0 shadow-sm transition-opacity duration-200 group-hover:opacity-100">
+                    <Play size={11} fill="currentColor" />
+                </span>
             </div>
 
-            <div className={`px-2.5 pt-2 pb-2 min-w-0 ${isDaylight ? 'bg-white/35' : 'bg-white/[0.03]'}`}>
-                <div className={`truncate text-[12px] font-semibold leading-snug tracking-tight ${titleTone}`}>
+            <div className={`px-1.5 pt-1.5 pb-1.5 min-w-0 ${isDaylight ? 'bg-white/35' : 'bg-white/[0.03]'}`}>
+                <div className={`truncate text-[11px] font-semibold leading-snug tracking-tight ${titleTone}`}>
                     {title}
                 </div>
                 {subtitle ? (
-                    <div className={`mt-0.5 truncate text-[10px] leading-snug ${metaTone}`}>
+                    <div className={`mt-px truncate text-[9px] leading-snug ${metaTone}`}>
                         {subtitle}
                     </div>
                 ) : (
-                    <div className="mt-0.5 h-[10px]" />
+                    <div className="mt-px h-[9px]" />
                 )}
             </div>
         </button>

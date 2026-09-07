@@ -24,6 +24,8 @@ description: Use when the task involves choosing how to validate a change in thi
 优先使用 Playwright UI 测试：
 
 - 命令：`npm run test:ui`
+- **启动红线**（CI 必跑）：`npm run test:ui:startup` — `boot.ready` 硬预算；3D 交互背景已退役，不再作为启动闸门
+- 本机跑 Playwright 时尽量先停掉 `dev:electron`（否则 Vite×2 + Chromium WebGL 叠烧 CPU）；配置已对本机关闭 SwiftShader、默认 1 worker
 - 更新基线：`npm run test:ui:update`
 
 适用场景：
@@ -71,6 +73,9 @@ description: Use when the task involves choosing how to validate a change in thi
 | `npm run test:electron-smoke` | **仅 dev 壳**（`ELECTRON_DEV` + `localhost:3000`），不能替代 L1/L2 |
 
 发版前至少跑过 L1；修 asar/安装路径问题或准备打 GitHub release 时跑 L2。
+
+**人工验收 / 视觉确认必须用 release 真包（L2 产物 `release/verify-mac/`），不要用 dev 壳：**
+dev 运行时 dock 图标、菜单栏名称等应用外壳信息与正式包不一致（例如 dev dock 图标依赖 `app.dock.setIcon` 兜底），只有 `.app` 真包能代表用户实际看到的形态。
 
 涉及文件通常包括：
 

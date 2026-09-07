@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Play, Plus, Search } from 'lucide-react';
+import { ArrowLeft, Download, ListPlus, Play, Plus, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Theme, UnifiedSong } from '../types';
 import { formatSongName } from '../utils/songNameFormatter';
 import { useSearchNavigationStore } from '../stores/useSearchNavigationStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getSongUnavailableTagText, isSongMarkedUnavailable } from '../services/netease';
+import { canOpenOnlineSong } from '../utils/playback/onlineSongPlayAccess';
 import { isBlob } from '../utils/blobGuards';
 import { OnlineProviderBadge } from './shared/OnlineProviderBadge';
 import { FreeSourceNotice } from './shared/FreeSourceNotice';
@@ -17,6 +18,7 @@ import LazyCoverImage from './shared/LazyCoverImage';
 import RemoteLoadState from './shared/RemoteLoadState';
 import {
     getOnlineSearchShortcutGroups,
+    getSearchShortcutHintKey,
     isSearchShortcutProvider,
     stripShortcutDisplayLabel,
 } from '../utils/onlineSearchShortcuts';
@@ -45,7 +47,7 @@ const toSafeRemoteUrl = (url: string | null | undefined): string | undefined => 
 };
 
 const formatDuration = (durationMs?: number) => {
-    if (!durationMs || durationMs <= 0) return '--:--';
+    if (!durationMs || durationMs <= 0) return null;
     const totalSeconds = Math.floor(durationMs / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
@@ -58,11 +60,14 @@ interface SearchResultsOverlayProps {
     onClose: () => void;
     onSubmitSearch: (query?: string, options?: { displayQuery?: string }) => void;
     onLoadMore: () => void;
-    onPlayTrack: (track: UnifiedSong) => void;
+    onPlayTrack: (track: UnifiedSong, queue?: UnifiedSong[]) => void;
+    onPlayAll: (tracks: UnifiedSong[]) => void;
     onAddSongToQueue: (track: UnifiedSong) => void;
+    onAddAllToQueue: (tracks: UnifiedSong[]) => void;
     onSelectArtist: (track: UnifiedSong, artistName: string, artistId?: number) => void;
     onSelectAlbum: (track: UnifiedSong, albumName: string, albumId?: number) => void;
     onDownloadSong?: (song: UnifiedSong) => void | Promise<boolean>;
+    onDownloadSongs?: (songs: UnifiedSong[]) => void | Promise<boolean>;
     canDownloadSong?: (song: UnifiedSong | null | undefined) => boolean;
     downloadSongLabel?: string;
 }
@@ -113,11 +118,18 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
     onSubmitSearch,
     onLoadMore,
     onPlayTrack,
+    onPlayAll,
     onAddSongToQueue,
+    onAddAllToQueue,
     onSelectArtist,
     onSelectAlbum,
+    onDownloadSong,
+    onDownloadSongs,
+    canDownloadSong,
+    downloadSongLabel,
 }) => {
     const { t } = useTranslation();
+    const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
     const {
         searchQuery,
         searchProviders,
@@ -156,6 +168,7 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
         setSearchScrollTop: state.setSearchScrollTop,
     })));
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+    const searchInputRef = useRef<HTMLInputElement | null>(null);
 
     const activeProviders = searchProviders.filter(isOnlineMusicProviderId);
     const sourceFallback = isOnlineMusicProviderId(searchSourceTab) ? searchSourceTab : null;
@@ -223,15 +236,28 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
 
     useEffect(() => {
         if (!isSearchOpen) return;
+        const frame = window.requestAnimationFrame(() => {
+            searchInputRef.current?.focus({ preventScroll: true });
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [isSearchOpen, activeProvider]);
+
+    useEffect(() => {
+        if (!isSearchOpen) return;
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                onClose();
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            // First Esc clears the field / results back to shortcuts; second closes.
+            if (searchQuery.trim() || (searchResults && searchResults.length > 0) || searchError) {
+                clearSearchInput();
+                searchInputRef.current?.focus({ preventScroll: true });
+                return;
             }
+            onClose();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isSearchOpen, onClose]);
+    }, [clearSearchInput, isSearchOpen, onClose, searchError, searchQuery, searchResults]);
 
     const showProviderBadge = isMultiSource || !isPeerOnly;
     // Peer channels only render their own hits — ignore any leaked cross-source cache.
@@ -241,6 +267,52 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
             ? searchResults.filter(track => (track.musicProvider || activeProvider) === activeProvider)
             : searchResults);
     const visibleResultCount = visibleResults?.length ?? 0;
+    const playableResults = (visibleResults || []).filter(
+        track => !isSongMarkedUnavailable(track) && canOpenOnlineSong(track),
+    );
+    const downloadEnabled = Boolean(
+        (onDownloadSong || onDownloadSongs)
+        && typeof window !== 'undefined'
+        && window.electron?.downloadSongFile
+    );
+    const trackSelectionKey = (track: UnifiedSong, index: number) => `${track.musicProvider || 'netease'}:${track.id}:${index}`;
+    const downloadableResults = downloadEnabled
+        ? playableResults.filter(track => canDownloadSong?.(track))
+        : [];
+    const selectedTracks = (visibleResults || []).filter((track, index) =>
+        selectedKeys.has(trackSelectionKey(track, index)) && canDownloadSong?.(track)
+    );
+
+    useEffect(() => {
+        setSelectedKeys(new Set());
+    }, [searchResults, searchQuery]);
+
+    const toggleTrackSelected = (key: string) => {
+        setSelectedKeys(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    };
+
+    const handleDownloadSelected = () => {
+        if (selectedTracks.length === 0) return;
+        if (onDownloadSongs) {
+            void onDownloadSongs(selectedTracks);
+            return;
+        }
+        selectedTracks.forEach(track => { void onDownloadSong?.(track); });
+    };
+
+    const handleDownloadAll = () => {
+        if (downloadableResults.length === 0) return;
+        if (onDownloadSongs) {
+            void onDownloadSongs(downloadableResults);
+            return;
+        }
+        downloadableResults.forEach(track => { void onDownloadSong?.(track); });
+    };
 
     const handleShortcutSelect = (query: string) => {
         onSubmitSearch(query, { displayQuery: stripShortcutDisplayLabel(query) });
@@ -301,19 +373,33 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                             className={`mt-4 flex flex-col sm:flex-row items-stretch gap-2 rounded-2xl border p-2 ${panelBg}`}
                         >
 
-                            <div className={`relative flex-1 rounded-xl border ${inputBg}`}>
-                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40" />
+                            <div
+                                className={`relative flex-1 rounded-xl border transition-[box-shadow,border-color] focus-within:border-[#3b82f6]/55 focus-within:ring-2 focus-within:ring-[#3b82f6]/25 ${inputBg}`}
+                            >
+                                <Search
+                                    className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40"
+                                    aria-hidden
+                                />
                                 <input
+                                    ref={searchInputRef}
                                     type="text"
+                                    name="search-query"
                                     value={searchQuery}
                                     onChange={(event) => setSearchQuery(event.target.value)}
                                     placeholder={searchPlaceholder}
+                                    aria-label={searchPlaceholder}
+                                    data-testid="search-overlay-input"
+                                    autoComplete="off"
+                                    spellCheck={false}
+                                    enterKeyHint="search"
                                     className="w-full bg-transparent rounded-xl min-h-11 py-2.5 pl-10 pr-10 text-sm focus:outline-none"
-                                    autoFocus
                                 />
                                 <SearchClearButton
-                                    visible={Boolean(searchQuery)}
-                                    onClear={clearSearchInput}
+                                    visible={Boolean(searchQuery.trim()) || Boolean(visibleResults?.length) || Boolean(searchError)}
+                                    onClear={() => {
+                                        clearSearchInput();
+                                        searchInputRef.current?.focus({ preventScroll: true });
+                                    }}
                                     label={t('app.clearSearch')}
                                     className="absolute right-2.5 top-1/2 -translate-y-1/2"
                                 />
@@ -321,10 +407,12 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
 
                             <button
                                 type="submit"
-                                disabled={isSearching || !searchQuery.trim()}
+                                disabled={!searchQuery.trim()}
+                                aria-busy={isSearching}
+                                data-testid="search-overlay-submit"
                                 className={`inline-flex items-center justify-center gap-2 rounded-xl min-h-11 px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 touch-manipulation active:scale-[0.98] ${accentBtn}`}
                             >
-                                <Search size={16} />
+                                <Search size={16} aria-hidden />
                                 {isSearching
                                     ? t('localMusic.searching', '搜索中...')
                                     : t('search.submit')}
@@ -333,7 +421,6 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                         <RecentSearchChips
                             entries={recentSearchEntries}
                             isDaylight={isDaylight}
-                            disabled={isSearching}
                             label={t('search.recent')}
                             clearLabel={t('search.clearRecent')}
                             onSelect={(entry) => {
@@ -367,38 +454,104 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                             label={t('localMusic.searching', '搜索中...')}
                                         />
                                     ) : null}
-                                    <div className="mb-3 flex items-baseline justify-between gap-3">
-                                        <h2 className={`text-sm font-semibold ${headingText}`}>{t('search.resultsTitle')}</h2>
-                                        <p className={`text-xs ${mutedText}`}>
-                                            {t('search.resultsCount', { count: visibleResultCount })}
-                                        </p>
+                                    <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+                                        <div className="min-w-0">
+                                            <h2 className={`text-sm font-semibold ${headingText}`}>{t('search.resultsTitle')}</h2>
+                                            <p className={`text-xs ${mutedText}`}>
+                                                {t('search.resultsCount', { count: visibleResultCount })}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => onPlayAll(playableResults)}
+                                                disabled={playableResults.length === 0}
+                                                className={`inline-flex items-center justify-center gap-1.5 min-h-9 px-3.5 rounded-full text-xs font-semibold transition-colors touch-manipulation disabled:opacity-40 ${isDaylight ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-white text-slate-900 hover:bg-white/90'}`}
+                                            >
+                                                <Play size={13} className="ml-0.5" fill="currentColor" />
+                                                {t('playlist.playAll')}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => onAddAllToQueue(playableResults)}
+                                                disabled={playableResults.length === 0}
+                                                className={`inline-flex items-center justify-center gap-1.5 min-h-9 px-3.5 rounded-full text-xs font-medium transition-colors touch-manipulation disabled:opacity-40 ${isDaylight ? 'border border-black/10 bg-white hover:bg-slate-50 text-slate-700' : 'border border-white/10 bg-white/5 hover:bg-white/10 text-white/80'}`}
+                                            >
+                                                <ListPlus size={14} />
+                                                {t('search.addAllToQueue')}
+                                            </button>
+                                            {downloadEnabled && downloadableResults.length > 0 ? (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleDownloadSelected}
+                                                        disabled={selectedTracks.length === 0}
+                                                        className={`inline-flex items-center justify-center gap-1.5 min-h-9 px-3.5 rounded-full text-xs font-medium transition-colors touch-manipulation disabled:opacity-40 ${isDaylight ? 'border border-black/10 bg-white hover:bg-slate-50 text-slate-700' : 'border border-white/10 bg-white/5 hover:bg-white/10 text-white/80'}`}
+                                                    >
+                                                        <Download size={14} />
+                                                        {t('search.downloadSelected')}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleDownloadAll}
+                                                        className={`inline-flex items-center justify-center gap-1.5 min-h-9 px-3.5 rounded-full text-xs font-medium transition-colors touch-manipulation ${isDaylight ? 'border border-black/10 bg-white hover:bg-slate-50 text-slate-700' : 'border border-white/10 bg-white/5 hover:bg-white/10 text-white/80'}`}
+                                                    >
+                                                        <Download size={14} />
+                                                        {t('search.downloadAll')}
+                                                    </button>
+                                                </>
+                                            ) : null}
+                                        </div>
                                     </div>
 
                                     <div className="space-y-1.5">
                                         {visibleResults.map((track, index) => {
-                                            const isUnavailable = isSongMarkedUnavailable(track);
-                                            const unavailableTagText = getSongUnavailableTagText(track, t('status.songUnavailableTag'));
+                                            const sessionBlocked = !canOpenOnlineSong(track);
+                                            const isUnavailable = isSongMarkedUnavailable(track) || sessionBlocked;
+                                            const unavailableTagText = isSongMarkedUnavailable(track)
+                                                ? getSongUnavailableTagText(track, t('status.songUnavailableTag'))
+                                                : t('account.neteaseAnonymous');
                                             const artistNames = track.ar?.map(artist => artist.name).filter(Boolean).join(', ')
                                                 || track.artists?.map(artist => artist.name).filter(Boolean).join(', ')
                                                 || t('player.unknownArtist', '未知歌手');
                                             const albumName = track.al?.name || track.album?.name || t('player.unknownAlbum', '未知专辑');
+                                            const durationLabel = formatDuration(track.dt || track.duration);
+                                            const selectionKey = trackSelectionKey(track, index);
+                                            const isSelected = selectedKeys.has(selectionKey);
+                                            const canDownloadTrack = Boolean(downloadEnabled && !isUnavailable && canDownloadSong?.(track));
 
                                             return (
                                                 <div
                                                     key={`${track.id}-${index}`}
                                                     role="button"
                                                     tabIndex={isUnavailable ? -1 : 0}
-                                                    onClick={() => !isUnavailable && onPlayTrack(track)}
+                                                    onClick={() => !isUnavailable && onPlayTrack(track, playableResults)}
                                                     onKeyDown={(event) => {
                                                         if (isUnavailable) return;
                                                         if (event.key === 'Enter' || event.key === ' ') {
                                                             event.preventDefault();
-                                                            onPlayTrack(track);
+                                                            onPlayTrack(track, playableResults);
                                                         }
                                                     }}
                                                     className={`rounded-xl border px-3 py-2.5 md:px-3.5 transition-colors ${rowBg} ${isUnavailable ? 'opacity-55' : 'cursor-pointer'}`}
                                                 >
                                                     <div className="flex items-center gap-3 min-w-0">
+                                                        {downloadEnabled ? (
+                                                            <label
+                                                                className="shrink-0 flex items-center justify-center min-h-10 min-w-8"
+                                                                onClick={(event) => event.stopPropagation()}
+                                                                onKeyDown={(event) => event.stopPropagation()}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    disabled={!canDownloadTrack}
+                                                                    onChange={() => toggleTrackSelected(selectionKey)}
+                                                                    className="h-4 w-4 rounded border-black/20"
+                                                                    aria-label={t('search.selectForDownload')}
+                                                                />
+                                                            </label>
+                                                        ) : null}
                                                         <div
                                                             className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 touch-manipulation group/cover"
                                                             title={t('search.play')}
@@ -454,16 +607,18 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                         </div>
 
                                                         <div className="flex items-center gap-1 shrink-0">
-                                                            <span className={`hidden sm:inline text-[11px] font-mono tabular-nums mr-1 ${mutedText}`}>
-                                                                {formatDuration(track.dt || track.duration)}
-                                                            </span>
+                                                            {durationLabel ? (
+                                                                <span className={`hidden sm:inline text-[11px] font-mono tabular-nums mr-1 ${mutedText}`}>
+                                                                    {durationLabel}
+                                                                </span>
+                                                            ) : null}
                                                             {!isUnavailable && (
                                                                 <>
                                                                     <button
                                                                         type="button"
                                                                         onClick={(event) => {
                                                                             event.stopPropagation();
-                                                                            onPlayTrack(track);
+                                                                            onPlayTrack(track, playableResults);
                                                                         }}
                                                                         className={`inline-flex items-center justify-center min-h-10 min-w-10 rounded-full transition-colors touch-manipulation active:scale-95 ${isDaylight ? 'bg-[#eff6ff] text-[#2563eb] hover:bg-[#dbeafe]' : 'bg-[#1d4ed8]/20 text-[#93c5fd] hover:bg-[#1d4ed8]/30'}`}
                                                                         title={t('search.play')}
@@ -481,6 +636,19 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                                                     >
                                                                         <Plus size={16} />
                                                                     </button>
+                                                                    {canDownloadTrack ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(event) => {
+                                                                                event.stopPropagation();
+                                                                                void onDownloadSong?.(track);
+                                                                            }}
+                                                                            className={`inline-flex items-center justify-center min-h-10 min-w-10 rounded-full transition-colors touch-manipulation active:scale-95 ${isDaylight ? 'hover:bg-black/5 text-slate-600' : 'hover:bg-white/10 text-white/70'}`}
+                                                                            title={downloadSongLabel || t('search.download')}
+                                                                        >
+                                                                            <Download size={15} />
+                                                                        </button>
+                                                                    ) : null}
                                                                 </>
                                                             )}
                                                         </div>
@@ -518,20 +686,15 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
                                 <SearchShortcutChips
                                     groups={shortcutGroups}
                                     isDaylight={isDaylight}
-                                    disabled={isSearching}
-                                    hintKey={
-                                        activeProvider === 'bilibili'
-                                            ? 'search.bilibiliShortcutsHint'
-                                            : activeProvider === 'qishui'
-                                                ? 'search.qishuiShortcutsHint'
-                                                : 'search.shortcutsHint'
-                                    }
+                                    hintKey={getSearchShortcutHintKey(activeProvider)}
                                     hintFallback={
                                         activeProvider === 'bilibili'
                                             ? 'Tap an account to search that UP; or use up:name / a keyword'
                                             : activeProvider === 'qishui'
                                                 ? 'Category chips search playlists; song chips search tracks'
-                                                : 'Placeholder suggestions — tap to search'
+                                                : activeProvider === 'coco'
+                                                    ? 'Search by song or artist; artist names rank that artist first'
+                                                    : 'Placeholder suggestions — tap to search'
                                     }
                                     onSelect={handleShortcutSelect}
                                 />

@@ -5,13 +5,17 @@ import DesktopGrid3DSurface, { DesktopGrid3DAction } from '../../folia-grid/Desk
 import { Theme } from '../../../types';
 import { getNavidromeConfig, navidromeApi } from '../../../services/navidromeService';
 import { SubsonicAlbum, SubsonicArtist, SubsonicPlaylist, SubsonicSong } from '../../../types/navidrome';
-import { createCoverPlaceholder, pickRandomSongCoverUrl } from '../../../utils/coverPlaceholders';
+import { createCoverPlaceholder } from '../../../utils/coverPlaceholders';
 import {
     createNavidromeGridViewCollection,
     GridViewCollectionDescriptor,
     NavidromeGridViewCollectionType,
 } from './gridViewCollectionAdapters';
 import { useDebouncedFocusSync } from '../../../hooks/useDebouncedFocusSync';
+import {
+    buildNavidromeVirtualPlaylistCards,
+    resolveNavidromeVirtualPlaylistKind,
+} from '../../navidrome/navidromeVirtualPlaylists';
 
 // src/components/app/home/NavidromeGrid3DView.tsx
 // Desktop-only Navidrome Grid3D overview that opens GridView instead of legacy collection views.
@@ -30,8 +34,6 @@ interface NavidromeGrid3DViewProps {
     hasFloatingPlayer?: boolean;
 }
 
-const RANDOM_PLAYLIST_ID = '__navi_random__';
-const FAVORITES_PLAYLIST_ID = '__navi_favorites__';
 const ALBUM_PAGE_SIZE = 500;
 const MAX_ALBUM_PAGES = 20;
 
@@ -121,25 +123,14 @@ export const NavidromeGrid3DView: React.FC<NavidromeGrid3DViewProps> = ({
 
     const playlistItems = useMemo(() => {
         if (!config) return [];
-        const getCoverArtUrl = (coverArtId: string, size?: number) => navidromeApi.getCoverArtUrl(config, coverArtId, size);
-        const randomCover = pickRandomSongCoverUrl(randomSongs, getCoverArtUrl);
-        const favoritesCover = pickRandomSongCoverUrl(favoriteSongs, getCoverArtUrl);
 
         return [
-            {
-                id: RANDOM_PLAYLIST_ID,
-                name: t('navidrome.random') || 'Random',
-                coverUrl: randomCover || createCoverPlaceholder(t('navidrome.random') || 'Random', 'playlist'),
-                description: t('navidrome.randomDesc'),
-                trackCount: randomSongs.length,
-            },
-            {
-                id: FAVORITES_PLAYLIST_ID,
-                name: t('navidrome.favorites') || 'Favorites',
-                coverUrl: favoritesCover || createCoverPlaceholder(t('navidrome.favorites') || 'Favorites', 'playlist'),
-                description: t('navidrome.favorites'),
-                trackCount: favoriteSongs.length,
-            },
+            ...buildNavidromeVirtualPlaylistCards({
+                t,
+                config,
+                randomSongs,
+                favoriteSongs,
+            }),
             ...playlists.map(playlist => ({
                 id: playlist.id,
                 name: playlist.name,
@@ -249,15 +240,12 @@ export const NavidromeGrid3DView: React.FC<NavidromeGrid3DViewProps> = ({
             focusedIndex={focusedIndex}
             onFocusedIndexChange={setFocusedIndex}
             onSelect={(item) => {
+                const virtualKind = resolveNavidromeVirtualPlaylistKind(item.id);
                 const descriptorType: NavidromeGridViewCollectionType = section === 'albums'
                     ? 'album'
                     : section === 'artists'
                         ? 'artist'
-                        : item.id === RANDOM_PLAYLIST_ID
-                            ? 'random'
-                            : item.id === FAVORITES_PLAYLIST_ID
-                                ? 'favorites'
-                                : 'playlist';
+                        : virtualKind ?? 'playlist';
                 onOpenGridView?.(createNavidromeGridViewCollection(item, descriptorType));
             }}
             tabs={tabs}

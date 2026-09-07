@@ -38,7 +38,7 @@ export interface ObsBrowserSourceConfig {
     activePlaybackContext: 'main' | 'stage';
     stageSource: StageSource | null;
     hasTrack: boolean;
-    song: Pick<SongResult, 'id' | 'name'> | null;
+    song: Pick<SongResult, 'id' | 'name' | 'contentType' | 'musicProvider'> | null;
     songArtist: string | null;
     songAlbum: string | null;
     coverUrl: string | null;

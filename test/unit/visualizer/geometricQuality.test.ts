@@ -29,7 +29,7 @@ describe('geometricQuality', () => {
 
     it('balanced/lite skip frames for CPU headroom', () => {
         expect(resolveGeometricQualityProfile(921600, 'balanced').frameSkip).toBeGreaterThanOrEqual(2);
-        expect(resolveGeometricQualityProfile(921600, 'lite').frameSkip).toBeGreaterThanOrEqual(4);
+        expect(resolveGeometricQualityProfile(921600, 'lite').frameSkip).toBeGreaterThanOrEqual(8);
     });
 
     it('keeps the lite WebGL retry profile sparse', () => {

@@ -11,7 +11,8 @@ type LyricTimelineOffsetControlProps = {
     isDaylight: boolean;
 };
 
-const STEP_MS = 250;
+// 50ms steps: real-world lyric bias is usually 50–150ms, so 250ms could never dial it in.
+const STEP_MS = 50;
 
 
 const LyricTimelineOffsetControl: React.FC<LyricTimelineOffsetControlProps> = ({
@@ -39,7 +40,7 @@ const LyricTimelineOffsetControl: React.FC<LyricTimelineOffsetControlProps> = ({
                     type="button"
                     onClick={() => setLocalOffsetMs(localOffsetMs - STEP_MS)}
                     className={`p-1 rounded-md transition-colors opacity-70 hover:opacity-100 ${buttonHover}`}
-                    title="-250ms"
+                    title={`-${STEP_MS}ms`}
                 >
                     <ChevronLeft size={14} />
                 </button>
@@ -70,7 +71,7 @@ const LyricTimelineOffsetControl: React.FC<LyricTimelineOffsetControlProps> = ({
                     type="button"
                     onClick={() => setLocalOffsetMs(localOffsetMs + STEP_MS)}
                     className={`p-1 rounded-md transition-colors opacity-70 hover:opacity-100 ${buttonHover}`}
-                    title="+250ms"
+                    title={`+${STEP_MS}ms`}
                 >
                     <ChevronRight size={14} />
                 </button>

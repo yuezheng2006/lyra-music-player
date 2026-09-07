@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CSSProperties } from 'react';
 import { buildVisualizerTheme } from '@/components/app/presentation/buildVisualizerTheme';
-import { DEFAULT_THEME } from '@/components/app/root/appConstants';
 import type { Theme } from '@/types';
 import { getLyricFontPresetById } from '@/utils/lyricFontPresets';
 
@@ -18,7 +17,7 @@ const daylightTheme: Theme = {
 };
 
 describe('buildVisualizerTheme', () => {
-    it('uses a dark stage theme for interactive3d even when the app theme is daylight', () => {
+    it('keeps the app theme when a retired interactive3d background is stored', () => {
         const { visualizerTheme } = buildVisualizerTheme({
             appStyle: { '--bg-color': daylightTheme.backgroundColor } as CSSProperties,
             theme: daylightTheme,
@@ -29,7 +28,7 @@ describe('buildVisualizerTheme', () => {
             visualizerBackgroundMode: 'interactive3d',
         });
 
-        expect(visualizerTheme.backgroundColor).toBe(DEFAULT_THEME.backgroundColor);
+        expect(visualizerTheme.backgroundColor).toBe(daylightTheme.backgroundColor);
         expect(visualizerTheme.primaryColor).toBe(daylightTheme.primaryColor);
         expect(visualizerTheme.accentColor).toBe(daylightTheme.accentColor);
         expect(visualizerTheme.secondaryColor).toBe(daylightTheme.secondaryColor);
@@ -51,7 +50,7 @@ describe('buildVisualizerTheme', () => {
         expect(visualizerTheme.primaryColor).toBe(daylightTheme.primaryColor);
     });
 
-    it('preserves lyric colors from the app theme on the interactive3d stage', () => {
+    it('preserves lyric colors from the app theme when a retired 3D background is stored', () => {
         const lyricTheme: Theme = {
             ...daylightTheme,
             primaryColor: '#f8fbff',
@@ -68,7 +67,7 @@ describe('buildVisualizerTheme', () => {
             visualizerBackgroundMode: 'interactive3d',
         });
 
-        expect(visualizerTheme.backgroundColor).toBe(DEFAULT_THEME.backgroundColor);
+        expect(visualizerTheme.backgroundColor).toBe(lyricTheme.backgroundColor);
         expect(visualizerTheme.primaryColor).toBe('#f8fbff');
         expect(visualizerTheme.accentColor).toBe('#12f7d6');
         expect(visualizerTheme.secondaryColor).toBe('#ff3b6b');

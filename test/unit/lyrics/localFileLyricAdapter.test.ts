@@ -27,6 +27,7 @@ describe('LocalFileLyricAdapter', () => {
             '[1000,500]<0,500,0>Hello',
             '',
             {},
+            '',
         );
     });
 });

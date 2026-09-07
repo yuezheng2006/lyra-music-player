@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Monitor, PlayCircle, RefreshCw, Settings2 } from 'lucide-react';
+import { Activity, ChevronRight, ListFilter, Monitor, PlayCircle, RefreshCw, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import type { QueueAddBehavior, Theme } from '../../../types';
@@ -8,6 +8,7 @@ import { CustomSelect } from '../../shared/CustomSelect';
 import { LYRIC_MATCH_SOURCES } from '../../../utils/lyrics/lyricMatchSources';
 import { getLyricProviderPreferenceLabel } from '../../../utils/lyrics/lyricSourceLabels';
 import SettingsAdvancedSection from './SettingsAdvancedSection';
+import SleepTimerSettingsSection from './SleepTimerSettingsSection';
 import {
     settingsDescClass,
     settingsDescStyle,
@@ -35,6 +36,7 @@ type PlaybackSettingsSubviewProps = {
     isOpen: boolean;
     isDaylight: boolean;
     onAudioOutputDeviceChange: (deviceId: string) => Promise<boolean> | boolean;
+    onOpenLyricFilterSettings: () => void;
     settingsCardClass: string;
     theme?: Theme;
     utilityGhostButtonClass: string;
@@ -48,6 +50,7 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
     isOpen,
     isDaylight,
     onAudioOutputDeviceChange,
+    onOpenLyricFilterSettings,
     settingsCardClass,
     theme,
     utilityGhostButtonClass,
@@ -58,25 +61,45 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
         autoUseBestLyric,
         enableAlternativeLyricSources,
         enableBilibiliVideoBackground,
+        localBeatAnalysisMode,
+        localBeatAnalysisPromptPolicy,
         preferredAlternativeLyricSource,
+        lyricsResolveBaseUrl,
+        lyricsResolveApiKey,
         queueAddBehavior,
         onToggleAlternativeLyricSources,
         onToggleAutoUseBestLyric,
         onToggleEnableBilibiliVideoBackground,
+        onLocalBeatAnalysisModeChange,
+        onLocalBeatAnalysisPromptPolicyChange,
         onPreferredAlternativeLyricSourceChange,
+        onLyricsResolveBaseUrlChange,
+        onLyricsResolveApiKeyChange,
         onQueueAddBehaviorChange,
+        globalLyricTimelineOffsetMs,
+        onGlobalLyricTimelineOffsetMsChange,
     } = useSettingsUiStore(useShallow(state => ({
         audioOutputDeviceId: state.audioOutputDeviceId,
         autoUseBestLyric: state.autoUseBestLyric,
         enableAlternativeLyricSources: state.enableAlternativeLyricSources,
         enableBilibiliVideoBackground: state.enableBilibiliVideoBackground,
+        localBeatAnalysisMode: state.localBeatAnalysisMode,
+        localBeatAnalysisPromptPolicy: state.localBeatAnalysisPromptPolicy,
         preferredAlternativeLyricSource: state.preferredAlternativeLyricSource,
+        lyricsResolveBaseUrl: state.lyricsResolveBaseUrl,
+        lyricsResolveApiKey: state.lyricsResolveApiKey,
         queueAddBehavior: state.queueAddBehavior,
         onToggleAlternativeLyricSources: state.handleToggleAlternativeLyricSources,
         onToggleAutoUseBestLyric: state.handleToggleAutoUseBestLyric,
         onToggleEnableBilibiliVideoBackground: state.handleToggleEnableBilibiliVideoBackground,
+        onLocalBeatAnalysisModeChange: state.handleSetLocalBeatAnalysisMode,
+        onLocalBeatAnalysisPromptPolicyChange: state.handleSetLocalBeatAnalysisPromptPolicy,
         onPreferredAlternativeLyricSourceChange: state.handleSetPreferredAlternativeLyricSource,
+        onLyricsResolveBaseUrlChange: state.handleSetLyricsResolveBaseUrl,
+        onLyricsResolveApiKeyChange: state.handleSetLyricsResolveApiKey,
         onQueueAddBehaviorChange: state.handleSetQueueAddBehavior,
+        globalLyricTimelineOffsetMs: state.globalLyricTimelineOffsetMs,
+        onGlobalLyricTimelineOffsetMsChange: state.handleSetGlobalLyricTimelineOffsetMs,
     })));
     const [audioOutputDevices, setAudioOutputDevices] = useState<AudioOutputDeviceOption[]>([]);
     const [isAudioOutputDevicesLoading, setIsAudioOutputDevicesLoading] = useState(false);
@@ -199,6 +222,36 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
         <div className="space-y-5">
             <section>
                 <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                    <Activity size={14} /> {t('options.globalLyricTimelineOffset')}
+                </h3>
+                <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
+                    <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
+                        {t('options.globalLyricTimelineOffsetDesc')}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {[-50, -10, -1, 1, 10, 50].map((step) => (
+                            <button
+                                key={step}
+                                type="button"
+                                className={`rounded-full border px-3 py-1.5 text-sm ${utilityGhostButtonClass}`}
+                                onClick={() => onGlobalLyricTimelineOffsetMsChange(globalLyricTimelineOffsetMs + step)}
+                            >
+                                {step > 0 ? `+${step}` : step} ms
+                            </button>
+                        ))}
+                        <span className="font-mono text-sm" style={settingsTitleStyle}>
+                            {globalLyricTimelineOffsetMs} ms
+                        </span>
+                    </div>
+                </div>
+            </section>
+            <SleepTimerSettingsSection
+                isDaylight={isDaylight}
+                settingsCardClass={settingsCardClass}
+                renderToggle={renderToggle}
+            />
+            <section>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                     <PlayCircle size={14} /> 播放队列
                 </h3>
                 <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
@@ -221,6 +274,94 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                                     key={option.value}
                                     type="button"
                                     onClick={() => onQueueAddBehaviorChange(option.value)}
+                                    className="rounded-xl border px-3 py-3 text-left transition-colors"
+                                    style={getAccentOptionStyle(selected)}
+                                >
+                                    <div className={settingsTitleClass} style={settingsTitleStyle}>
+                                        {option.label}
+                                    </div>
+                                    <div className={`mt-1 ${settingsDescClass}`} style={settingsDescStyle}>
+                                        {option.desc}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                    <Activity size={14} /> {t('options.localBeatAnalysisMode') || '本地节奏分析'}
+                </h3>
+                <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+                    <div className="space-y-1">
+                        <div className={settingsTitleClass} style={settingsTitleStyle}>
+                            {t('options.localBeatAnalysisPrompt') || '分析时机'}
+                        </div>
+                        <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
+                            {t('options.localBeatAnalysisPromptDesc') || '默认后台自动分析；若需要手动确认，可改为播放时询问。'}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        {([
+                            {
+                                value: 'auto' as const,
+                                label: t('options.localBeatAnalysisPromptAuto', { defaultValue: '后台自动' }),
+                                desc: t('options.localBeatAnalysisPromptAutoHint', { defaultValue: '不弹窗，听歌时静默完成' }),
+                            },
+                            {
+                                value: 'ask' as const,
+                                label: t('options.localBeatAnalysisPromptAsk', { defaultValue: '播放时询问' }),
+                                desc: t('options.localBeatAnalysisPromptAskHint', { defaultValue: '每次本地曲弹出确认' }),
+                            },
+                        ]).map((option) => {
+                            const selected = localBeatAnalysisPromptPolicy === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => onLocalBeatAnalysisPromptPolicyChange(option.value)}
+                                    className="rounded-xl border px-3 py-3 text-left transition-colors"
+                                    style={getAccentOptionStyle(selected)}
+                                >
+                                    <div className={settingsTitleClass} style={settingsTitleStyle}>
+                                        {option.label}
+                                    </div>
+                                    <div className={`mt-1 ${settingsDescClass}`} style={settingsDescStyle}>
+                                        {option.desc}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div className="space-y-1 pt-2 border-t border-white/5">
+                        <div className={settingsTitleClass} style={settingsTitleStyle}>
+                            {t('options.localBeatAnalysisDefaultMode') || '分析算法'}
+                        </div>
+                        <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
+                            {t('options.localBeatAnalysisModeDesc') || '本地或离线曲目的默认节奏分析算法。默认在后台静默分析，不打断听歌。'}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        {([
+                            {
+                                value: 'mr' as const,
+                                label: t('localBeatAnalysis.cinemaTitle', { defaultValue: '电影视角' }),
+                                desc: t('localBeatAnalysis.cinemaHint', { defaultValue: '日常综合节奏' }),
+                            },
+                            {
+                                value: 'dj' as const,
+                                label: t('localBeatAnalysis.pulseTitle', { defaultValue: '强节奏' }),
+                                desc: t('localBeatAnalysis.pulseHint', { defaultValue: '长混音 / 鼓点密集' }),
+                            },
+                        ]).map((option) => {
+                            const selected = localBeatAnalysisMode === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => onLocalBeatAnalysisModeChange(option.value)}
                                     className="rounded-xl border px-3 py-3 text-left transition-colors"
                                     style={getAccentOptionStyle(selected)}
                                 >
@@ -299,9 +440,64 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                                     })}
                                 </div>
                             </div>
+                            <div className="p-4 space-y-3 border-t" style={{ borderColor: 'var(--border-primary, rgba(255,255,255,0.06))' }}>
+                                <div className="space-y-1">
+                                    <div className={settingsTitleClass} style={settingsTitleStyle}>
+                                        {t('options.lyricsResolveService')}
+                                    </div>
+                                    <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
+                                        {t('options.lyricsResolveServiceDesc')}
+                                    </div>
+                                </div>
+                                <label className="block space-y-1">
+                                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                        {t('options.lyricsResolveBaseUrl')}
+                                    </span>
+                                    <input
+                                        type="url"
+                                        value={lyricsResolveBaseUrl}
+                                        onChange={(event) => onLyricsResolveBaseUrlChange(event.target.value)}
+                                        placeholder="http://127.0.0.1:3010"
+                                        className="w-full rounded-xl border px-3 py-2 text-sm bg-transparent"
+                                        style={{ borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
+                                    />
+                                </label>
+                                <label className="block space-y-1">
+                                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                        {t('options.lyricsResolveApiKey')}
+                                    </span>
+                                    <input
+                                        type="password"
+                                        value={lyricsResolveApiKey}
+                                        onChange={(event) => onLyricsResolveApiKeyChange(event.target.value)}
+                                        placeholder="Bearer API key"
+                                        className="w-full rounded-xl border px-3 py-2 text-sm bg-transparent"
+                                        style={{ borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
+                                        autoComplete="off"
+                                    />
+                                </label>
+                            </div>
                         </div>
                     </SettingsAdvancedSection>
                 )}
+                <button
+                    type="button"
+                    onClick={onOpenLyricFilterSettings}
+                    className={`w-full p-4 rounded-xl border transition-colors hover:bg-white/8 text-left ${settingsCardClass}`}
+                >
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                <ListFilter size={14} />
+                                {t('options.lyricFilterRegex')}
+                            </div>
+                            <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
+                                {t('options.lyricFilterRegexDesc')}
+                            </div>
+                        </div>
+                        <ChevronRight size={18} className="shrink-0 opacity-60" style={{ color: 'var(--text-primary)' }} />
+                    </div>
+                </button>
             </section>
 
             <section>

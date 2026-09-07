@@ -5,27 +5,34 @@ import {
 import { applyMineradioVisualPreset } from '../../../src/components/visualizer/geometric/mineradioVisualPresets';
 import { resolveShouldShowCoverParticleWebGL } from '../../../src/components/visualizer/geometric/webgl/coverParticleWebGLGateMath';
 
-// Cover WebGL gate module — preset changes stay here, not in React stage/store.
+// Legacy CoverParticle gate — live path is R3F; WebGL only via explicit force flag.
 
 describe('Mineradio playback migration', () => {
-    it('enables Emily cover WebGL with default tuning', () => {
+    it('disables legacy cover WebGL by default (R3F stage replaced it)', () => {
         expect(resolveShouldShowCoverParticleWebGL({
             tuning: DEFAULT_INTERACTIVE3D_SCENE_TUNING,
-        })).toBe(true);
+        })).toBe(false);
     });
 
-    it('applies Emily preset with cover particles enabled', () => {
+    it('keeps Emily preset cover particles enabled for the R3F stage', () => {
         const tuned = applyMineradioVisualPreset('emily', DEFAULT_INTERACTIVE3D_SCENE_TUNING);
         expect(tuned.visualPreset).toBe('emily');
         expect(tuned.enableCoverParticles).toBe(true);
-        expect(resolveShouldShowCoverParticleWebGL({ tuning: tuned })).toBe(true);
+        expect(resolveShouldShowCoverParticleWebGL({ tuning: tuned })).toBe(false);
     });
 
-    it('keeps cover-particle WebGL available on Electron (lite ceiling handles cost)', () => {
+    it('does not resurrect legacy WebGL on Electron without force flag', () => {
         const tuned = applyMineradioVisualPreset('emily', DEFAULT_INTERACTIVE3D_SCENE_TUNING);
         expect(resolveShouldShowCoverParticleWebGL({
             tuning: tuned,
             isElectron: true,
+        })).toBe(false);
+    });
+
+    it('allows legacy CoverParticle WebGL only when forceWebGL is set', () => {
+        expect(resolveShouldShowCoverParticleWebGL({
+            tuning: DEFAULT_INTERACTIVE3D_SCENE_TUNING,
+            forceWebGL: true,
         })).toBe(true);
     });
 });

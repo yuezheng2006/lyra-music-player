@@ -7,7 +7,8 @@ import type { RecentSearchEntry } from '../../utils/search/recentSearchHistory';
 type RecentSearchChipsProps = {
     entries: RecentSearchEntry[];
     isDaylight: boolean;
-    disabled: boolean;
+    /** When true, chips and clear stay inert (default: always interactive). */
+    disabled?: boolean;
     label: string;
     clearLabel: string;
     onSelect: (entry: RecentSearchEntry) => void;
@@ -17,7 +18,7 @@ type RecentSearchChipsProps = {
 export const RecentSearchChips: FC<RecentSearchChipsProps> = ({
     entries,
     isDaylight,
-    disabled,
+    disabled = false,
     label,
     clearLabel,
     onSelect,

@@ -4,6 +4,7 @@ import type { HomeViewTab, LocalSong, LyricWordMode, PlayerState, SearchSourceId
 import type { AppLanguagePreference } from '../../i18n/config';
 import type { PanelTab } from '../UnifiedPanel';
 import type { SettingsModalInitialTab, SettingsSubviewId } from '../../stores/useSettingsUiStore';
+import type { CommandSyntaxSpec } from './syntax/types';
 
 // src/components/command-palette/types.ts
 // Shared command palette contracts used by the registry, hook, and UI shell.
@@ -20,6 +21,7 @@ export type CommandPaletteCommand = {
     keywords: string[];
     placeholder?: string;
     requiresInput?: boolean;
+    syntax?: CommandSyntaxSpec;
     getPreview?: (input: string, context: CommandPaletteContext) => string | null;
     execute: (input: string, context: CommandPaletteContext) => Promise<boolean> | boolean;
 };
@@ -60,10 +62,15 @@ export type CommandPaletteContext = {
     handlePrevTrack: () => void;
     /** Adjust volume by a relative step (e.g. ±0.05); may unmute on step-up. */
     adjustVolumeByStep: (delta: number) => void;
+    setVolume: (volume: number) => void;
     toggleMute: () => void;
     shuffleQueue: () => void;
     playQueue: SongResult[];
+    currentSong: SongResult | null;
+    replacePlayQueue: (nextQueue: SongResult[], toastText?: string) => boolean;
     playSong: (song: SongResult, queue?: SongResult[]) => void | Promise<void>;
+    startNeteasePersonalFm: () => Promise<boolean>;
+    startNeteaseHeartbeat: () => Promise<boolean>;
     canGenerateAITheme: boolean;
     isGeneratingTheme: boolean;
     generateAITheme: () => void;
@@ -73,14 +80,23 @@ export type CommandPaletteContext = {
     setVisualizerBackgroundMode: (mode: VisualizerBackgroundMode) => void;
     setMonetBackgroundTuning: (patch: Partial<MonetBackgroundTuning>) => void;
     setLatentBackgroundTuning: (patch: Partial<import('../../types').LatentBackgroundTuning>) => void;
+    setNomandBackgroundTuning: (patch: Partial<import('../../types').NomandBackgroundTuning>) => void;
     toggleTransparentBackground: () => void;
     hideBottomSubtitleOverlay: boolean;
     toggleBottomSubtitleOverlay: () => void;
     showSubtitleTranslation: boolean;
     toggleSubtitleTranslation: () => void;
+    subtitleContentMode: import('../../types').SubtitleContentMode;
+    cycleSubtitleContentMode: () => void;
     toggleDaylightMode: () => void;
     enableSmartAtmosphere: boolean;
     toggleSmartAtmosphere: () => void;
+    /** Open local beat-analysis confirm modal for the current local/blob track. */
+    openLocalBeatAnalysis: () => boolean;
+    /** Global cinema/pulse mode for local offline beat analysis (Settings → Playback). */
+    setLocalBeatAnalysisMode: (mode: 'mr' | 'dj') => void;
+    /** auto = silent background analysis; ask = show confirm dialog on local tracks. */
+    setLocalBeatAnalysisPromptPolicy: (policy: 'auto' | 'ask') => void;
     enableBilibiliVideoBackground: boolean;
     toggleBilibiliVideoBackground: () => void;
     setAppLanguagePreference: (preference: AppLanguagePreference) => Promise<void> | void;
@@ -96,7 +112,9 @@ export type CommandPaletteContext = {
     setDesktopLyricsLocked: (locked: boolean) => Promise<boolean>;
     desktopLyricsEnabled: boolean;
     desktopLyricsLocked: boolean;
+    setDesktopLyricsYFactor: (factor: number) => void;
     downloadCurrentSong: () => Promise<boolean>;
+    downloadSearchResults: () => Promise<boolean>;
     startVideoExport: (startMode?: import('../../types/videoExport').VideoExportStartMode) => void;
     isElectronWindow: boolean;
 };

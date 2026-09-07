@@ -1,4 +1,4 @@
-import { getQQMusicAuth } from './qqMusicAuth';
+import { getQQMusicSidecarAuthPayload } from './qqMusicAuth';
 import { qqMusicLocalProvider } from './qqMusicLocalProvider';
 import {
     requestSidecarAudioUrl,
@@ -37,10 +37,11 @@ export const qqMusicProvider: MusicProvider = {
     getAudioUrl: async (song, options) => {
         try {
             const sidecarResult = await requestSidecarAudioUrl('qq', song, options);
-            // Sidecar already tried official + open API; only fall back on transport failure.
-            if (sidecarResult.kind === 'ok' || sidecarResult.kind === 'unavailable') {
+            if (sidecarResult.kind === 'ok') {
                 return sidecarResult;
             }
+            // Sidecar may time out on the dead guest open API while local official
+            // cookies can still mint a vkey — always give the renderer path a chance.
         } catch (error) {
             console.warn('[QQMusic] Sidecar audio lookup failed, falling back to local provider', error);
         }
@@ -61,13 +62,4 @@ export const qqMusicProvider: MusicProvider = {
     },
 };
 
-export const getQQMusicSidecarAuthPayload = () => {
-    const auth = getQQMusicAuth();
-    return {
-        cookieHeader: auth.cookieHeader,
-        guid: auth.guid,
-        isLoggedIn: auth.isLoggedIn,
-        musicKey: auth.musicKey,
-        uin: auth.uin,
-    };
-};
+export { getQQMusicSidecarAuthPayload } from './qqMusicAuth';

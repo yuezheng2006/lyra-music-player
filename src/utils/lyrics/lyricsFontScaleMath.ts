@@ -7,6 +7,14 @@ export const DEFAULT_LYRICS_FONT_SCALE = 1.15;
 export const LYRICS_FONT_SCALE_MIN = 0.85;
 export const LYRICS_FONT_SCALE_MAX = 1.4;
 
+/** Quick chips for dock / controls — small to large, matching the slider. */
+export const LYRICS_FONT_SCALE_QUICK_OPTIONS = [
+    { label: '100%', value: 1 },
+    { label: '115%', value: 1.15 },
+    { label: '125%', value: 1.25 },
+    { label: '140%', value: 1.4 },
+] as const;
+
 /** Clamp lyrics font scale into the supported settings range. */
 export const clampLyricsFontScale = (
     value: number,

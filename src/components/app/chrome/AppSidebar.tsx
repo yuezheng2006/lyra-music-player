@@ -4,21 +4,25 @@ import {
     ChevronLeft,
     ChevronRight,
     FolderOpen,
-    Home as HomeIcon,
     Podcast,
     Radio,
+    AudioLines,
     Settings,
     Music2,
+    ListMusic,
     Clock,
+    Search,
+    type LucideIcon,
 } from 'lucide-react';
 import type { Theme } from '../../../types';
 import { isNavidromeUiEnabled, isYtmusicUiEnabled } from '../../../utils/featureFlags';
+import { resolveSidebarNavGroups, type SidebarNavItemId } from '../../../utils/home/sidebarNavMath';
 
 // src/components/app/chrome/AppSidebar.tsx
 // Expanded: full Qishui rail. Collapsed: zero-width, only a translucent expand toggle.
 // Daily recommend nav is intentionally omitted (NetEase VIP / 30s trial UX).
 
-export type AppSidebarActive = 'home' | 'podcast' | 'local' | 'navidrome' | 'ytmusic' | 'history';
+export type AppSidebarActive = 'home' | 'charts' | 'podcast' | 'radio' | 'local' | 'navidrome' | 'ytmusic' | 'history';
 
 type AppSidebarProps = {
     active: AppSidebarActive;
@@ -29,8 +33,11 @@ type AppSidebarProps = {
     forceHidden?: boolean;
     navidromeEnabled?: boolean;
     onToggleCollapsed: () => void;
-    onOpenHome: () => void;
+    hasPersonalLibrary?: boolean;
+    onOpenHome?: () => void;
+    onOpenCharts?: () => void;
     onOpenPodcast: () => void;
+    onOpenRadio?: () => void;
     onOpenLocal: () => void;
     onOpenNavidrome?: () => void;
     onOpenYtmusic?: () => void;
@@ -45,15 +52,33 @@ const navButtonClass = (active: boolean) => {
     return 'gap-3 px-3 py-2.5 text-[color:var(--shell-muted-text)] hover:bg-[var(--shell-hover)] hover:text-[color:var(--shell-text)]';
 };
 
+const NAV_ITEM_META: Record<SidebarNavItemId, {
+    active: AppSidebarActive;
+    icon: LucideIcon;
+    labelKey: string;
+}> = {
+    charts: { active: 'charts', icon: Search, labelKey: 'app.sidebarCharts' },
+    library: { active: 'home', icon: ListMusic, labelKey: 'app.sidebarLibrary' },
+    radio: { active: 'radio', icon: AudioLines, labelKey: 'app.sidebarFm' },
+    podcast: { active: 'podcast', icon: Podcast, labelKey: 'app.sidebarPodcast' },
+    history: { active: 'history', icon: Clock, labelKey: 'app.sidebarHistory' },
+    local: { active: 'local', icon: FolderOpen, labelKey: 'app.sidebarLocal' },
+    navidrome: { active: 'navidrome', icon: Radio, labelKey: 'app.sidebarNavidrome' },
+    ytmusic: { active: 'ytmusic', icon: Music2, labelKey: 'app.sidebarYtmusic' },
+};
+
 const AppSidebar: React.FC<AppSidebarProps> = ({
     active,
     isDaylight,
     collapsed,
     forceHidden = false,
     navidromeEnabled = false,
+    hasPersonalLibrary = false,
     onToggleCollapsed,
     onOpenHome,
+    onOpenCharts,
     onOpenPodcast,
+    onOpenRadio,
     onOpenLocal,
     onOpenNavidrome,
     onOpenYtmusic,
@@ -92,6 +117,29 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
             unsubscribe?.();
         };
     }, []);
+
+    const navActions: Partial<Record<SidebarNavItemId, () => void>> = {
+        charts: onOpenCharts,
+        library: onOpenHome,
+        radio: onOpenRadio,
+        podcast: onOpenPodcast,
+        history: onOpenHistory,
+        local: onOpenLocal,
+        navidrome: onOpenNavidrome,
+        ytmusic: onOpenYtmusic,
+    };
+    const navGroups = resolveSidebarNavGroups({
+        hasPersonalLibrary: Boolean(hasPersonalLibrary && onOpenHome),
+        hasRadio: Boolean(onOpenRadio),
+        hasHistory: Boolean(onOpenHistory),
+        hasNavidrome: Boolean(isNavidromeUiEnabled() && navidromeEnabled && onOpenNavidrome),
+        hasYtmusic: Boolean(
+            isYtmusicUiEnabled()
+            && onOpenYtmusic
+            && typeof window !== 'undefined'
+            && Boolean(window.electron),
+        ),
+    });
 
     // Immersive fullscreen owns temporary hide; user collapse preference stays untouched.
     if (forceHidden) {
@@ -166,86 +214,34 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
             </div>
 
             <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-4">
-                <div className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] ${sectionLabel}`}>
-                    {t('app.sidebarBrowse')}
-                </div>
-                <button
-                    type="button"
-                    onClick={onOpenHome}
-                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'home')}`}
-                    aria-current={active === 'home' ? 'page' : undefined}
-                    title={t('app.sidebarHome')}
-                    aria-label={t('app.sidebarHome')}
-                >
-                    <HomeIcon size={18} strokeWidth={2} />
-                    <span>{t('app.sidebarHome')}</span>
-                </button>
-
-                <button
-                    type="button"
-                    onClick={onOpenPodcast}
-                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'podcast')}`}
-                    aria-current={active === 'podcast' ? 'page' : undefined}
-                    title={t('app.sidebarPodcast')}
-                    aria-label={t('app.sidebarPodcast')}
-                >
-                    <Podcast size={18} strokeWidth={2} />
-                    <span>{t('app.sidebarPodcast')}</span>
-                </button>
-
-                <button
-                    type="button"
-                    onClick={onOpenLocal}
-                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'local')}`}
-                    aria-current={active === 'local' ? 'page' : undefined}
-                    title={t('app.sidebarLocal')}
-                    aria-label={t('app.sidebarLocal')}
-                >
-                    <FolderOpen size={18} strokeWidth={2} />
-                    <span>{t('app.sidebarLocal')}</span>
-                </button>
-
-                {isNavidromeUiEnabled() && navidromeEnabled ? (
-                    <button
-                        type="button"
-                        onClick={onOpenNavidrome}
-                        className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'navidrome')}`}
-                        aria-current={active === 'navidrome' ? 'page' : undefined}
-                        title={t('app.sidebarNavidrome')}
-                        aria-label={t('app.sidebarNavidrome')}
-                    >
-                        <Radio size={18} strokeWidth={2} />
-                        <span>{t('app.sidebarNavidrome')}</span>
-                    </button>
-                ) : null}
-
-                {isYtmusicUiEnabled() && onOpenYtmusic && typeof window !== 'undefined' && window.electron ? (
-                    <button
-                        type="button"
-                        onClick={onOpenYtmusic}
-                        className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'ytmusic')}`}
-                        aria-current={active === 'ytmusic' ? 'page' : undefined}
-                        title={t('app.sidebarYtmusic')}
-                        aria-label={t('app.sidebarYtmusic')}
-                    >
-                        <Music2 size={18} strokeWidth={2} />
-                        <span>{t('app.sidebarYtmusic')}</span>
-                    </button>
-                ) : null}
-
-                {onOpenHistory ? (
-                    <button
-                        type="button"
-                        onClick={onOpenHistory}
-                        className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === 'history')}`}
-                        aria-current={active === 'history' ? 'page' : undefined}
-                        title={t('app.sidebarHistory') || '播放历史'}
-                        aria-label={t('app.sidebarHistory') || '播放历史'}
-                    >
-                        <Clock size={18} strokeWidth={2} />
-                        <span>{t('app.sidebarHistory') || '播放历史'}</span>
-                    </button>
-                ) : null}
+                {navGroups.map((group, groupIndex) => (
+                    <div key={group.id} className={groupIndex > 0 ? 'pt-3' : undefined}>
+                        <div className={`mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] ${sectionLabel}`}>
+                            {t(group.titleKey)}
+                        </div>
+                        {group.items.map((itemId) => {
+                            const meta = NAV_ITEM_META[itemId];
+                            const onClick = navActions[itemId];
+                            if (!onClick) return null;
+                            const Icon = meta.icon;
+                            const label = t(meta.labelKey);
+                            return (
+                                <button
+                                    key={itemId}
+                                    type="button"
+                                    onClick={onClick}
+                                    className={`flex w-full items-center rounded-xl text-sm font-medium transition-colors ${navButtonClass(active === meta.active)}`}
+                                    aria-current={active === meta.active ? 'page' : undefined}
+                                    title={label}
+                                    aria-label={label}
+                                >
+                                    <Icon size={18} strokeWidth={2} />
+                                    <span>{label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                ))}
             </nav>
 
             {/* Dock sits in the content column only — pin settings to the sidebar foot. */}

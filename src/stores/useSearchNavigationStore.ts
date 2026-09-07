@@ -22,6 +22,7 @@ import {
     writeRecentSearchHistory,
     type RecentSearchHistory,
 } from '../utils/search/recentSearchHistory';
+import { prefetchQishuiSearchAudio } from '../utils/search/prefetchQishuiSearchAudio';
 import { startTelemetrySpan, trackTelemetry } from '../utils/telemetry/trackTelemetry';
 
 const LAST_HOME_VIEW_TAB_KEY = 'last_home_view_tab';
@@ -373,20 +374,29 @@ const executeSearch = async (
     );
 };
 
+const PERSISTED_HOME_VIEW_TABS: readonly HomeViewTab[] = [
+    'playlist',
+    'local',
+    'navidrome',
+    'ytmusic',
+    'radio',
+    'daily',
+    'podcast',
+    'history',
+    'charts',
+];
+
 const getInitialHomeViewTab = (): HomeViewTab => {
     if (typeof window === 'undefined') {
-        return 'playlist';
+        return 'charts';
     }
     const savedTab = localStorage.getItem(LAST_HOME_VIEW_TAB_KEY);
-    // 'daily' is no longer a sidebar destination; fall back to playlist.
-    return savedTab === 'playlist'
-        || savedTab === 'local'
-        || savedTab === 'albums'
-        || savedTab === 'navidrome'
-        || savedTab === 'radio'
-        || savedTab === 'podcast'
-        ? savedTab
-        : 'playlist';
+    if (savedTab === 'albums') {
+        return 'charts';
+    }
+    return PERSISTED_HOME_VIEW_TABS.includes(savedTab as HomeViewTab)
+        ? savedTab as HomeViewTab
+        : 'charts';
 };
 
 export const useSearchNavigationStore = create<SearchNavigationState>((set, get) => ({
@@ -673,6 +683,7 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
                         hasMore: progress.hasMore,
                         offset: progress.nextOffset,
                     });
+                    prefetchQishuiSearchAudio(effectiveProviders, progress.results, controller.signal);
                 },
             );
             if (requestEpoch !== searchRequestEpoch) {
@@ -695,6 +706,7 @@ export const useSearchNavigationStore = create<SearchNavigationState>((set, get)
                 searchErrorCode: null,
                 searchDiagnostic: null,
             });
+            prefetchQishuiSearchAudio(effectiveProviders, result.results, controller.signal);
             if (activeSearchController === controller) {
                 activeSearchController = null;
                 activeSearchSignature = '';

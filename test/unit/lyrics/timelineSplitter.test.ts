@@ -50,4 +50,17 @@ describe('timelineSplitter', () => {
         expect(main).toBe(singleStream);
         expect(trans).toBe('');
     });
+
+    it('splits a CJK main line plus translation and latin romanization', () => {
+        const combined = [
+            '[00:12.00]ハロ窓を開けて小さく呟いた',
+            '[00:12.00]你好 打开窗户轻声说道',
+            '[00:12.00]haro mado wo akete',
+        ].join('\n');
+
+        const { main, trans, romanization } = splitCombinedTimeline(combined);
+        expect(main).toContain('ハロ窓を開けて小さく呟いた');
+        expect(trans).toContain('你好 打开窗户轻声说道');
+        expect(romanization).toContain('haro mado wo akete');
+    });
 });

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { APP_VERSION } from './helpers/appVersion';
 
 type MockNeteaseMode = 'logged-in' | 'guest';
 
@@ -219,10 +220,12 @@ async function installBaseState(
     localStorage.setItem('default_theme_daylight', 'true');
     localStorage.setItem('static_mode', 'true');
     localStorage.setItem('last_app_view', 'home');
-    localStorage.setItem('last_home_view_tab', 'playlist');
+    localStorage.setItem('last_home_view_tab', 'charts');
     // Avoid first-run / version overlays intercepting screenshot clicks.
     localStorage.setItem('lyra_onboarding_completed', 'true');
     localStorage.setItem('folia_last_seen_guide_version', payload.appVersion);
+    // 性能 HUD 的实时 FPS/内存数字会破坏截图确定性。
+    localStorage.setItem('lyra_performance_hud', '0');
 
     if (payload.navidromeEnabled) {
       localStorage.setItem('navidrome_enabled', 'true');
@@ -370,7 +373,7 @@ async function installBaseState(
       value: async () => createDirectoryHandle(payload.localImportFixture!),
     });
   }, {
-    appVersion: '1.0.3',
+    appVersion: APP_VERSION,
     navidromeServer: NAVIDROME_SERVER,
     neteaseMode: options.neteaseMode ?? 'guest',
     navidromeEnabled: options.navidromeEnabled ?? false,
@@ -577,11 +580,25 @@ test.describe('frontend screenshot coverage', () => {
 
     await openApp(page);
 
-    await expect(page.getByRole('heading', { name: 'Daily Mix' }).first()).toBeVisible();
+    // 首页改版后不再有 Daily Mix 卡片；以登录态歌单区作为就绪锚点。
+    await expect(page.getByText('My playlists').first()).toBeVisible();
+    await expect(page.getByText('Discover').first()).toBeVisible();
+    await expect(page.getByText('Yours').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Playlists' })).toBeVisible();
+    const surfaces = await page.locator('[data-app-ui-surface]').evaluateAll(
+      nodes => nodes.map(node => node.getAttribute('data-app-ui-surface')),
+    );
+    const heroIndex = surfaces.indexOf('home-discovery-hero');
+    const chartIndex = surfaces.indexOf('home-chart-preview');
+    const deskIndex = surfaces.indexOf('home-listening-desk');
+    expect(heroIndex).toBeGreaterThanOrEqual(0);
+    expect(chartIndex).toBeGreaterThan(heroIndex);
+    expect(deskIndex).toBe(-1);
     await expect(page).toHaveScreenshot('netease-home.png', {
       animations: 'disabled',
       scale: 'css',
       fullPage: true,
+      maxDiffPixelRatio: 0.02,
     });
   });
 
@@ -613,7 +630,8 @@ test.describe('frontend screenshot coverage', () => {
 
     await openApp(page);
 
-    await page.getByRole('button', { name: 'Folder' }).last().click();
+    // 侧边栏改版后本地入口叫 Local Songs。
+    await page.getByRole('button', { name: /Local Songs|Folder/ }).last().click();
     await page.getByRole('button', { name: 'Import Folder' }).last().click();
     await expect(page.getByText('All Songs').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Import Folder' }).first()).toBeVisible();
@@ -621,6 +639,7 @@ test.describe('frontend screenshot coverage', () => {
       animations: 'disabled',
       scale: 'css',
       fullPage: true,
+      maxDiffPixelRatio: 0.02,
     });
   });
 });

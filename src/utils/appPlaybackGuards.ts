@@ -62,3 +62,27 @@ export const isLocalPlaybackSong = (
 export const isStagePlaybackSong = (song: SongResult | null | undefined): boolean => {
     return Boolean(song && (song as any).isStage === true);
 };
+
+/** Collision-safe identity for queue successor lookups across playback sources. */
+export const getPlaybackSongKey = (song: SongResult): string => {
+    if (isStagePlaybackSong(song)) {
+        return `stage:${song.id}`;
+    }
+    if (isYtmPlaybackSong(song)) {
+        return `ytm:${song.ytmData?.videoId || song.id}`;
+    }
+    if (isNavidromePlaybackSong(song)) {
+        const carrier = resolveNavidromePlaybackCarrier(song);
+        return `navidrome:${carrier?.navidromeData?.id ?? song.id}`;
+    }
+    if (isLocalPlaybackSong(song)) {
+        return `local:${song.localData?.id ?? song.id}`;
+    }
+    const provider = song.musicProvider
+        || (song.contentType === 'podcast' && song.audioUrl ? 'rss' : null)
+        || song.sourceType
+        || 'online';
+    return `online:${provider}:${song.providerSongId || song.id}`;
+};
+
+export { isRssPodcastPlaybackSong } from './playback/rssPodcastPlayback';

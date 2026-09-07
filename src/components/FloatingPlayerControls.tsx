@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Download, Home, Maximize, Minimize, Maximize2, Minimize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { MotionValue } from 'framer-motion';
-import ProgressBar from './ProgressBar';
+import FloatingPlayerProgressRail from './FloatingPlayerProgressRail';
 import FloatingPlayerBackgroundMenu from './FloatingPlayerBackgroundMenu';
 import FloatingPlayerDockTime from './FloatingPlayerDockTime';
 import FloatingPlayerQueueMenu from './FloatingPlayerQueueMenu';
@@ -24,10 +24,14 @@ import { getMineradioPresetLabelFallback } from './visualizer/geometric/mineradi
 import {
     FLOATING_PLAYER_DOCK_MAX_WIDTH_PX,
     FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX,
-    FLOATING_PLAYER_PROGRESS_INSET_PX,
     resolveFloatingPlayerDockFrameStyle,
 } from './floatingPlayerDockLayout';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
+import {
+    extendInteractive3dParticleYield,
+    shouldYieldInteractive3dParticlesForVisualizerModeSwitch,
+} from '../utils/visualizer/yieldInteractive3dParticlesForModeSwitch';
+import { prefetchVisualizerRegistryEntries } from './visualizer/registry';
 
 // src/components/FloatingPlayerControls.tsx
 // Floating dock: left meta, center transport, right tool chips.
@@ -118,6 +122,8 @@ interface FloatingPlayerControlsProps {
     playerLyricsVisible?: boolean;
     currentView: 'home' | 'player';
     audioSrc: string | null;
+    /** True while the next track URL is still resolving. */
+    isAudioSourceLoading?: boolean;
     canTogglePlay?: boolean;
     canSkipTracks?: boolean;
     lyrics: LyricData | null;
@@ -197,6 +203,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
     loopMode,
     playerLyricsVisible = true,
     currentView,
+    isAudioSourceLoading = false,
     canTogglePlay = false,
     canSkipTracks = false,
     lyrics,
@@ -332,6 +339,7 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         playerState={playerState}
                         currentTime={currentTime}
                         duration={duration}
+                        isAudioSourceLoading={isAudioSourceLoading}
                         loopMode={loopMode}
                         playerLyricsVisible={playerLyricsVisible}
                         canTogglePlay={canTogglePlay}
@@ -403,7 +411,8 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         getVisualizerModeLabel={getVisualizerModeLabel}
                         onDockPopoverOpenChange={onDockPopoverOpenChange}
                         onEnsurePlayerView={() => {
-                            if (currentView !== 'player') onNavigateToPlayer();
+                            // Always route — hash/#player and React view can desync after dock hops.
+                            onNavigateToPlayer();
                         }}
                     />
                 </motion.div>
@@ -436,6 +445,7 @@ type DockedBarProps = {
     playerState: PlayerState;
     currentTime: MotionValue<number>;
     duration: number;
+    isAudioSourceLoading?: boolean;
     loopMode: 'off' | 'all' | 'one';
     playerLyricsVisible: boolean;
     canTogglePlay: boolean;
@@ -510,6 +520,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
     playerState,
     currentTime,
     duration,
+    isAudioSourceLoading = false,
     loopMode,
     playerLyricsVisible,
     canTogglePlay,
@@ -601,6 +612,29 @@ const DockedBar: React.FC<DockedBarProps> = ({
         return () => onDockPopoverOpenChange?.(false);
     }, [backgroundMenuOpen, onDockPopoverOpenChange, qualityMenuOpen, queueMenuOpen]);
 
+    // Do not hold particles for the whole menu lifetime — that froze 视觉风格 previews
+    // (chip selected, WebGL stuck on the previous preset). Lyric-mode switches already
+    // arm their own yield; on close, extend yield so teardown does not overlap remounts.
+    useEffect(() => {
+        if (!backgroundMenuOpen) return undefined;
+        return () => {
+            useSettingsUiStore.getState().setHoldInteractive3dParticleYield(false);
+            const backgroundMode = useSettingsUiStore.getState().visualizerBackgroundMode;
+            if (!shouldYieldInteractive3dParticlesForVisualizerModeSwitch(backgroundMode)) return;
+            extendInteractive3dParticleYield({
+                setYielding: (yielding) => {
+                    useSettingsUiStore.setState({ yieldInteractive3dParticles: yielding });
+                },
+            });
+        };
+    }, [backgroundMenuOpen]);
+
+    // Prefetch lyric-mode modules so switching 歌词走位 does not wait on lazy import.
+    useEffect(() => {
+        if (!backgroundMenuOpen) return;
+        prefetchVisualizerRegistryEntries();
+    }, [backgroundMenuOpen]);
+
     useEffect(() => {
         if (!qualityMenuOpen) return;
         const handlePointerDown = (event: MouseEvent) => {
@@ -614,26 +648,19 @@ const DockedBar: React.FC<DockedBarProps> = ({
 
     return (
         <div className="relative h-full w-full overflow-visible">
-            {/* Edge scrubber inset clears capsule corners so the rail is not clipped. */}
-            <div
-                className="absolute top-[4px] z-20 overflow-visible"
-                style={{
-                    left: FLOATING_PLAYER_PROGRESS_INSET_PX,
-                    right: FLOATING_PLAYER_PROGRESS_INSET_PX,
-                }}
-            >
-                <ProgressBar
-                    currentTime={currentTime}
-                    duration={duration}
-                    onSeek={onSeek}
-                    primaryColor={primaryColor}
-                    secondaryColor={secondaryColor}
-                    trackColor={trackColor}
-                    disabled={controlsDisabled}
-                    isDaylight={isDaylight}
-                    variant="edge"
-                />
-            </div>
+            <FloatingPlayerProgressRail
+                currentTime={currentTime}
+                duration={duration}
+                onSeek={onSeek}
+                primaryColor={primaryColor}
+                secondaryColor={secondaryColor}
+                trackColor={trackColor}
+                disabled={controlsDisabled}
+                isLoading={isAudioSourceLoading}
+                isDaylight={isDaylight}
+                playQueue={playQueue}
+                currentSongId={currentSong?.id}
+            />
 
             {/* Mineradio order: cover · quality · loop · prev/play/next · home · bg · 词 · queue · fullscreen · time */}
             <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-5 pt-2.5 sm:gap-3 sm:px-6 md:px-7">
@@ -936,6 +963,7 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         currentTime={currentTime}
                         duration={duration}
                         isDaylight={isDaylight}
+                        isLoading={isAudioSourceLoading}
                     />
                 </div>
             </div>

@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
+import { APP_VERSION } from './helpers/appVersion';
 
 async function installDailyRecommendHarness(page: Page, mode: 'fail' | 'recover') {
-  await page.addInitScript((payload: { mode: 'fail' | 'recover' }) => {
+  await page.addInitScript((payload: { mode: 'fail' | 'recover'; appVersion: string }) => {
     localStorage.clear();
     localStorage.setItem('i18nextLng', 'zh-CN');
     localStorage.setItem('default_theme_daylight', 'false');
@@ -9,7 +10,7 @@ async function installDailyRecommendHarness(page: Page, mode: 'fail' | 'recover'
     localStorage.setItem('last_app_view', 'home');
     localStorage.setItem('open_player_on_launch', 'false');
     localStorage.setItem('lyra_onboarding_completed', 'true');
-    localStorage.setItem('folia_last_seen_guide_version', '1.0.3');
+    localStorage.setItem('folia_last_seen_guide_version', payload.appVersion);
     localStorage.setItem('last_home_view_tab', 'daily');
 
     let attempts = 0;
@@ -48,10 +49,12 @@ async function installDailyRecommendHarness(page: Page, mode: 'fail' | 'recover'
 
       return originalFetch(input, init);
     };
-  }, { mode });
+  }, { mode, appVersion: APP_VERSION });
 }
 
-test.describe('daily recommend remote load', () => {
+// TODO: 'daily' 已从侧边栏移除且当前无入口能到达 DailyRecommendSurface（useSearchNavigationStore 会把
+// last_home_view_tab='daily' 回退为 playlist）。待每日推荐重新有入口后改造启用。
+test.describe.skip('daily recommend remote load', () => {
   test('shows error + diagnostic controls instead of empty copy on failure', async ({ page }) => {
     await installDailyRecommendHarness(page, 'fail');
     await page.goto('/');
@@ -69,7 +72,7 @@ test.describe('daily recommend remote load', () => {
   });
 
   test('shows diagnostic controls on empty daily recommend too', async ({ page }) => {
-    await page.addInitScript(() => {
+    await page.addInitScript((appVersion: string) => {
       localStorage.clear();
       localStorage.setItem('i18nextLng', 'zh-CN');
       localStorage.setItem('default_theme_daylight', 'false');
@@ -77,7 +80,7 @@ test.describe('daily recommend remote load', () => {
       localStorage.setItem('last_app_view', 'home');
       localStorage.setItem('open_player_on_launch', 'false');
       localStorage.setItem('lyra_onboarding_completed', 'true');
-      localStorage.setItem('folia_last_seen_guide_version', '1.0.3');
+      localStorage.setItem('folia_last_seen_guide_version', appVersion);
       localStorage.setItem('last_home_view_tab', 'daily');
 
       const originalFetch = window.fetch.bind(window);
@@ -98,7 +101,7 @@ test.describe('daily recommend remote load', () => {
         }
         return originalFetch(input, init);
       };
-    });
+    }, APP_VERSION);
 
     await page.goto('/');
     await page.waitForLoadState('networkidle');

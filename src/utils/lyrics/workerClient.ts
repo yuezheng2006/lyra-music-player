@@ -34,12 +34,13 @@ export const parseLyricsAsync = (
     format: LyricParseFormat,
     content: string,
     translation?: string,
-    options?: LyricProcessingOptions
+    options?: LyricProcessingOptions,
+    romanization?: string,
 ): Promise<LyricData | null> => {
     return new Promise((resolve) => {
         const worker = initLyricsWorker();
         const requestId = `req_${++workerRequestId}`;
         workerCallbacks.set(requestId, resolve);
-        worker.postMessage({ type: 'parse', format, content, translation, options, requestId });
+        worker.postMessage({ type: 'parse', format, content, translation, romanization, options, requestId });
     });
 };

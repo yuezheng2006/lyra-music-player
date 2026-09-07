@@ -10,13 +10,18 @@ import { detectTimedLyricFormat } from '../utils/lyrics/formatDetection';
 import { parseLyricsAsync } from '../utils/lyrics/workerClient';
 import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState } from '../utils/onlineLyricsState';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
-import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
+import { resolveBestLyric } from '../utils/lyrics/resolveBestLyric';
 import { getMusicProviderForSong, getProviderSongCacheKey, isNeteaseOnlineSong } from './musicProviders/registry';
 import { shouldResolveCompanionVideoForSong } from '../utils/playback/playbackLoadPriorityMath';
+import { isYtmPlaybackSong } from '../utils/appPlaybackGuards';
+import { isRssPodcastPlaybackSong, resolveRssPodcastEnclosureUrl } from '../utils/playback/rssPodcastPlayback';
+import { resolveYtmusicStream } from './ytmusicService';
+import type { YtmSong } from '../types/ytmusic';
+import { toSafePlaybackUrl } from '../utils/appPlaybackHelpers';
 
 const normalizeAudioUrl = (url?: string | null) => {
     if (!url) return null;
-    return url.startsWith('http:') ? url.replace('http:', 'https:') : url;
+    return toSafePlaybackUrl(url) || null;
 };
 
 const buildOkAudioSource = (
@@ -28,7 +33,7 @@ const buildOkAudioSource = (
             kind: 'ok',
             audioSrc,
             videoSrc: options.videoSrc,
-            blobUrl: options.blobUrl,
+            ...(options.blobUrl ? { blobUrl: options.blobUrl } : {}),
         };
     }
     return options?.blobUrl
@@ -78,6 +83,33 @@ export async function loadOnlineSongAudioSource(
 > {
     const forceRefresh = options?.forceRefresh === true;
 
+    if (isYtmPlaybackSong(song)) {
+        const videoId = (song as YtmSong).ytmData?.videoId;
+        if (!videoId) {
+            return { kind: 'unavailable' };
+        }
+        try {
+            const stream = await resolveYtmusicStream(videoId, { forceRefresh });
+            return buildOkAudioSource(stream.playbackUrl);
+        } catch (error) {
+            const { captureRequestFailure } = await import('../utils/network');
+            const failure = captureRequestFailure(error, `onlinePlayback:ytm:${song.name}`);
+            return {
+                kind: 'unavailable',
+                diagnostic: failure.diagnostic,
+                errorCode: failure.code,
+            };
+        }
+    }
+
+    if (isRssPodcastPlaybackSong(song)) {
+        const enclosure = resolveRssPodcastEnclosureUrl(song);
+        if (!enclosure) {
+            return { kind: 'unavailable' };
+        }
+        return buildOkAudioSource(enclosure);
+    }
+
     // Prefer a valid prefetch streaming URL before reading a full Electron blob into memory —
     // first audible byte beats local IPC for perceived start latency.
     // Recovery must skip caches — expired Douyin/Qishui signed URLs often still look "valid".
@@ -89,7 +121,11 @@ export async function loadOnlineSongAudioSource(
     ) {
         const prefetchedVideo = normalizeAudioUrl(prefetched.videoUrl || null) || undefined;
         const videoSrc = prefetchedVideo ?? await resolveCompanionVideoSrc(song, audioQuality, prefetched);
-        return buildOkAudioSource(prefetched.audioUrl, { videoSrc });
+        const prefetchedAudio = normalizeAudioUrl(prefetched.audioUrl);
+        if (!prefetchedAudio) {
+            return { kind: 'unavailable' };
+        }
+        return buildOkAudioSource(prefetchedAudio, { videoSrc });
     }
 
     if (!forceRefresh) {
@@ -216,6 +252,7 @@ export async function loadOnlineSongLyrics(
             mainLrc: prefetched.lyricRaw?.mainLrc ?? null,
             yrcLrc: prefetched.lyricRaw?.yrcLrc ?? null,
             transLrc: prefetched.lyricRaw?.transLrc ?? null,
+            romaLrc: prefetched.lyricRaw?.romaLrc ?? null,
             isPureMusic: prefetched.lyricRaw?.isPureMusic ?? false,
             lyrics: prefetched.lyrics,
             chorusRanges: [],
@@ -230,6 +267,7 @@ export async function loadOnlineSongLyrics(
                         mainLrc,
                         yrcLrc: null,
                         transLrc: null,
+                        romaLrc: null,
                         isPureMusic,
                         lyrics: null,
                         chorusRanges: [],
@@ -241,6 +279,7 @@ export async function loadOnlineSongLyrics(
                     mainLrc,
                     yrcLrc: null,
                     transLrc: null,
+                    romaLrc: null,
                     isPureMusic,
                     lyrics,
                     chorusRanges: [],
@@ -267,7 +306,7 @@ export async function loadOnlineSongLyrics(
         try {
             onAutoMatchStart?.();
             const artistName = song.artists?.map(a => a.name).join(', ') || '';
-            const bestMatch = await autoMatchBestLyric(song.name, artistName, song.duration || song.dt || 0, {
+            const bestMatch = await resolveBestLyric(song.name, artistName, song.duration || song.dt || 0, {
                 album: song.album?.name || song.al?.name,
                 preferredSource: settings.preferredAlternativeLyricSource,
                 neteaseCandidate: {

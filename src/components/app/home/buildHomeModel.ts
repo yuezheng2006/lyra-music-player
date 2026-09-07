@@ -7,9 +7,22 @@ import type LegacyHome from '../../Home';
 
 type LegacyHomeProps = React.ComponentProps<typeof LegacyHome>;
 
+export type HomeFmModel = {
+    isFmMode: boolean;
+    playQueue: SongResult[];
+    playerState: PlayerState;
+    isLiked: boolean;
+    onTogglePlay: () => void;
+    onNext: () => void;
+    onPrev: () => void;
+    onTrash: () => void;
+    onLike: () => void;
+};
+
 export type HomeViewModel = {
     legacyProps: LegacyHomeProps;
     onPlayYtmTrack?: (track: YtmSearchTrack, queue: YtmSearchTrack[]) => void;
+    fm?: HomeFmModel;
 };
 
 type BuildHomeModelParams = {

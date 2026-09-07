@@ -17,8 +17,9 @@ import { isPureMusicLyricText } from '../utils/lyrics/pureMusic';
 import { migrateLyricDataRenderHints } from '../utils/lyrics/renderHints';
 import { migrateMatchedLyricsCarrierRenderHints } from '../utils/lyrics/storageMigration';
 import { processNeteaseLyrics } from '../utils/lyrics/neteaseProcessing';
+import { applyUploadedLocalLyrics } from '../utils/lyrics/localLyricsUpload';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
-import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
+import { resolveBestLyric } from '../utils/lyrics/resolveBestLyric';
 import { loadYtmSongLyrics } from '../utils/lyrics/loadYtmSongLyrics';
 import { resolveExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
 import { getOnlineSongCacheKey, isCloudSong, neteaseApi } from '../services/netease';
@@ -83,6 +84,7 @@ type UseLibraryPlaybackControllerParams = {
     setCurrentLineIndex: SetState<number>;
     setDuration: SetState<number>;
     setIsLyricsLoading: SetState<boolean>;
+    setIsAudioSourceLoading: (loading: boolean) => void;
     setStatusMsg: SetState<StatusMessage | null>;
     setIsPanelOpen: SetState<boolean>;
     setLikedSongIds: Dispatch<SetStateAction<Set<number>>>;
@@ -123,6 +125,7 @@ export function useLibraryPlaybackController({
     setCurrentLineIndex,
     setDuration,
     setIsLyricsLoading,
+    setIsAudioSourceLoading,
     setStatusMsg,
     setIsPanelOpen,
     setLikedSongIds,
@@ -144,6 +147,8 @@ export function useLibraryPlaybackController({
     const [showOnlineLyricMatchModal, setShowOnlineLyricMatchModal] = useState(false);
     const localCoverObjectUrlsRef = useRef<Map<string, LocalCoverObjectUrlEntry>>(new Map());
     const managedCachedCoverObjectUrlRef = useRef<string | null>(null);
+    /** Guards setIsAudioSourceLoading(false) against stale local/navidrome/ytm resolves. */
+    const audioSourceLoadGenerationRef = useRef(0);
 
     const isRegisteredLocalCoverObjectUrl = useCallback((url: string) => {
         for (const entry of localCoverObjectUrlsRef.current.values()) {
@@ -644,9 +649,15 @@ export function useLibraryPlaybackController({
         interruptStagePlaybackForMainTransition();
         armAutoPlayIntent(shouldAutoPlayRef);
         unlockHtmlAudioForAutoplay({ audioRef });
+        const loadGeneration = ++audioSourceLoadGenerationRef.current;
+        setIsAudioSourceLoading(true);
+        currentTime.set(0);
 
         const blobUrl = await getAudioFromLocalSong(localSong);
         if (!blobUrl) {
+            if (audioSourceLoadGenerationRef.current === loadGeneration) {
+                setIsAudioSourceLoading(false);
+            }
             setStatusMsg({ type: 'error', text: '无法访问文件，请重新扫描文件夹' });
             return;
         }
@@ -668,6 +679,9 @@ export function useLibraryPlaybackController({
             setAudioSrc(blobUrl);
             // Same blob drives muted <video> under lyrics when the file is video.
             setVideoSrc(localVideoSrc);
+            if (audioSourceLoadGenerationRef.current === loadGeneration) {
+                setIsAudioSourceLoading(false);
+            }
         });
         const audioElement = audioRef.current;
         if (audioElement) {
@@ -759,6 +773,7 @@ export function useLibraryPlaybackController({
         setCurrentLineIndex,
         setCurrentSong,
         setIsLyricsLoading,
+        setIsAudioSourceLoading,
         setLyrics,
         setPlayQueue,
         setPlayerState,
@@ -781,6 +796,10 @@ export function useLibraryPlaybackController({
             setStatusMsg({ type: 'error', text: 'Navidrome not configured' });
             return;
         }
+
+        const loadGeneration = ++audioSourceLoadGenerationRef.current;
+        setIsAudioSourceLoading(true);
+        currentTime.set(0);
 
         const navidromeId = navidromeSong.navidromeData.id;
         const streamUrl = navidromeApi.getStreamUrl(config, navidromeId);
@@ -845,6 +864,9 @@ export function useLibraryPlaybackController({
         flushSync(() => {
             setAudioSrc(streamUrl);
             setVideoSrc(navidromeVideoSrc);
+            if (audioSourceLoadGenerationRef.current === loadGeneration) {
+                setIsAudioSourceLoading(false);
+            }
         });
         const audioElement = audioRef.current;
         if (audioElement) {
@@ -894,7 +916,7 @@ export function useLibraryPlaybackController({
                         const settings = useSettingsUiStore.getState();
 
                         if (settings.enableAlternativeLyricSources && settings.autoUseBestLyric) {
-                            const bestMatch = await autoMatchBestLyric(navidromeSong.name, artistName, navidromeSong.duration || navidromeSong.dt || 0, {
+                            const bestMatch = await resolveBestLyric(navidromeSong.name, artistName, navidromeSong.duration || navidromeSong.dt || 0, {
                                 album: albumName,
                                 preferredSource: settings.preferredAlternativeLyricSource,
                             });
@@ -1047,6 +1069,7 @@ export function useLibraryPlaybackController({
         setCurrentLineIndex,
         setCurrentSong,
         setIsLyricsLoading,
+        setIsAudioSourceLoading,
         setLyrics,
         setPlayQueue,
         setPlayerState,
@@ -1081,6 +1104,10 @@ export function useLibraryPlaybackController({
             return;
         }
 
+        const loadGeneration = ++audioSourceLoadGenerationRef.current;
+        setIsAudioSourceLoading(true);
+        currentTime.set(0);
+
         let streamUrl = (track as YtmSong).ytmData?.streamUrl || null;
         let streamExpireAt = (track as YtmSong).ytmData?.streamExpireAt ?? null;
         // Always play through localhost YTM proxy — googlevideo has no CORS for <audio crossOrigin>.
@@ -1091,6 +1118,9 @@ export function useLibraryPlaybackController({
                 streamExpireAt = stream.expireAt ?? null;
             } catch (error) {
                 console.warn('[ytmusic] resolveStream failed', error);
+                if (audioSourceLoadGenerationRef.current === loadGeneration) {
+                    setIsAudioSourceLoading(false);
+                }
                 setStatusMsg({
                     type: 'error',
                     text: error instanceof Error ? error.message : (t('ytmusic.playFailed') || 'Unable to play YouTube Music track'),
@@ -1118,6 +1148,9 @@ export function useLibraryPlaybackController({
             setAudioSrc(streamUrl);
             // YTM is audio-only in this player; clear any prior bilibili/local video stage.
             setVideoSrc(null);
+            if (audioSourceLoadGenerationRef.current === loadGeneration) {
+                setIsAudioSourceLoading(false);
+            }
         });
         const audioElement = audioRef.current;
         if (audioElement) {
@@ -1201,6 +1234,7 @@ export function useLibraryPlaybackController({
         setCurrentLineIndex,
         setCurrentSong,
         setIsLyricsLoading,
+        setIsAudioSourceLoading,
         setLyrics,
         setPlayQueue,
         setPlayerState,
@@ -1219,15 +1253,11 @@ export function useLibraryPlaybackController({
         const localData = currentSong.localData;
         if (!localData) return;
 
-        const updatedLocalSong = { ...localData };
-        if (isTranslation) {
-            updatedLocalSong.hasLocalTranslationLyrics = true;
-            updatedLocalSong.localTranslationLyricsContent = content;
-        } else {
-            updatedLocalSong.hasLocalLyrics = true;
-            updatedLocalSong.localLyricsContent = content;
-            updatedLocalSong.localLyricsFormat = resolveExplicitFileTimedLyricFormat(fileName);
-        }
+        const updatedLocalSong = applyUploadedLocalLyrics(localData, {
+            content,
+            isTranslation,
+            fileName,
+        });
 
         try {
             const { saveLocalSong } = await import('../services/db');
@@ -1505,7 +1535,7 @@ export function useLibraryPlaybackController({
             if (isLocalPlaybackSong(currentSong) && currentSong.localData) {
                 const localData = currentSong.localData;
                 const title = localData.title || localData.fileName.replace(/\.(mp3|flac|m4a|wav|ogg|opus|aac)$/i, '');
-                const bestMatch = await autoMatchBestLyric(title, localData.artist || '', localData.duration, {
+                const bestMatch = await resolveBestLyric(title, localData.artist || '', localData.duration, {
                     album: localData.album,
                     preferredSource: settings.preferredAlternativeLyricSource,
                 });
@@ -1551,7 +1581,7 @@ export function useLibraryPlaybackController({
                     || navidromeSong.ar?.map(artist => artist.name).filter(Boolean).join(', ')
                     || '';
                 const albumName = navidromeSong.album?.name || navidromeSong.al?.name || '';
-                const bestMatch = await autoMatchBestLyric(navidromeSong.name, artistName, navidromeSong.duration || navidromeSong.dt || 0, {
+                const bestMatch = await resolveBestLyric(navidromeSong.name, artistName, navidromeSong.duration || navidromeSong.dt || 0, {
                     album: albumName,
                     preferredSource: settings.preferredAlternativeLyricSource,
                 });
@@ -1599,7 +1629,7 @@ export function useLibraryPlaybackController({
                 || currentSong.ar?.map(artist => artist.name).filter(Boolean).join(', ')
                 || '';
             const albumName = currentSong.album?.name || currentSong.al?.name || '';
-            const bestMatch = await autoMatchBestLyric(currentSong.name, artistName, currentSong.duration || currentSong.dt || 0, {
+            const bestMatch = await resolveBestLyric(currentSong.name, artistName, currentSong.duration || currentSong.dt || 0, {
                 album: albumName,
                 preferredSource: settings.preferredAlternativeLyricSource,
             });

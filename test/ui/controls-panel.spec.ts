@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { APP_VERSION } from './helpers/appVersion';
 
 const localImportFixture = {
   rootName: 'Controls Fixture',
@@ -21,7 +22,7 @@ const localImportFixture = {
 };
 
 async function installControlsPanelState(page: Page) {
-  await page.addInitScript((fixture: typeof localImportFixture) => {
+  await page.addInitScript(({ fixture, appVersion }: { fixture: typeof localImportFixture; appVersion: string }) => {
     localStorage.clear();
     localStorage.setItem('i18nextLng', 'zh-CN');
     localStorage.setItem('default_theme_daylight', 'false');
@@ -30,8 +31,8 @@ async function installControlsPanelState(page: Page) {
     localStorage.setItem('last_app_view', 'home');
     localStorage.setItem('open_player_on_launch', 'false');
     localStorage.setItem('lyra_onboarding_completed', 'true');
-    // Match screenshot fixtures: suppress What's New overlay (z-[150]).
-    localStorage.setItem('folia_last_seen_guide_version', '1.0.3');
+    // Suppress What's New overlay (z-[150]); must match the real app version.
+    localStorage.setItem('folia_last_seen_guide_version', appVersion);
     localStorage.setItem('visualizer_mode', 'classic');
     localStorage.setItem('player_volume', '0.41');
     localStorage.setItem('player_loop_mode', 'off');
@@ -231,7 +232,7 @@ async function installControlsPanelState(page: Page) {
       configurable: true,
       value: async () => createDirectoryHandle(fixture),
     });
-  }, localImportFixture);
+  }, { fixture: localImportFixture, appVersion: APP_VERSION });
 }
 
 async function openControlsTab(page: Page) {
@@ -272,7 +273,7 @@ test.describe('player controls panel', () => {
     // Core sections are always visible.
     await expect(page.getByTestId('controls-quick-actions')).toBeVisible();
     await expect(page.getByTestId('controls-lyrics-animation-section')).toBeVisible();
-    await expect(page.getByTestId('controls-interactive3d-presets-section')).toBeVisible();
+    await expect(page.getByTestId('controls-background-stepper-section')).toBeVisible();
     await expect(page.getByTestId('controls-lyric-color-presets')).toBeVisible();
     await expect(page.getByTestId('controls-lyric-font-section')).toBeVisible();
     await expect(page.getByTestId('controls-lyric-font-size-section')).toBeVisible();
@@ -295,6 +296,12 @@ test.describe('player controls panel', () => {
   test('switches visualizer mode and persists to localStorage', async ({ page }) => {
     await openControlsTab(page);
 
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_mode'))).toBe('classic');
+    await page.getByTestId('controls-visualizer-mode-next').click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_mode'))).toBe('cadenza');
+    await page.getByTestId('controls-visualizer-mode-prev').click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_mode'))).toBe('classic');
+
     await page.getByTestId('controls-visualizer-mode-trigger').click();
     await page.getByTestId('controls-visualizer-mode-cadenza').click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_mode'))).toBe('cadenza');
@@ -302,6 +309,12 @@ test.describe('player controls panel', () => {
     await page.getByTestId('controls-visualizer-mode-trigger').click();
     await page.getByTestId('controls-visualizer-mode-classic').click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_mode'))).toBe('classic');
+
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_background_mode'))).toBe('common');
+    await page.getByTestId('controls-background-mode-next').click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_background_mode'))).toBe('monet');
+    await page.getByTestId('controls-background-mode-prev').click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_background_mode'))).toBe('common');
   });
 
   test('updates volume and loop mode from quick actions', async ({ page }) => {
@@ -319,17 +332,6 @@ test.describe('player controls panel', () => {
     await expect.poll(() => page.evaluate(() => localStorage.getItem('player_loop_mode'))).toBe('one');
     await loopButton.click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('player_loop_mode'))).toBe('off');
-  });
-
-  test('selecting a 3D preset switches background mode to interactive3d', async ({ page }) => {
-    await openControlsTab(page);
-
-    // Fixture starts on common background — no 3D preset should look selected.
-    await expect(page.getByTestId('controls-interactive3d-preset-emily')).toHaveAttribute('aria-checked', 'false');
-
-    await page.getByTestId('controls-interactive3d-preset-emily').click();
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_background_mode'))).toBe('interactive3d');
-    await expect(page.getByTestId('controls-interactive3d-preset-emily')).toHaveAttribute('aria-checked', 'true');
   });
 
   test('applies lyric color preset without changing theme source mode', async ({ page }) => {

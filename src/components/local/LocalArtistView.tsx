@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { LocalSong } from '../../types';
 import LazyCoverImage from '../shared/LazyCoverImage';
+import { APP_OVERLAY_MOBILE_PLAYER_CLEARANCE_CLASS } from '../app/home/homeSurfaceStyles';
 
 interface LocalArtistViewProps {
     artistName: string;
@@ -90,7 +91,7 @@ const LocalArtistView: React.FC<LocalArtistViewProps> = ({
                 </div>
 
                 <div className="flex-1 md:h-full md:overflow-y-auto custom-scrollbar">
-                    <div className="p-4 md:p-8 pb-32 md:pb-8">
+                    <div className={`p-4 md:p-8 ${APP_OVERLAY_MOBILE_PLAYER_CLEARANCE_CLASS}`}>
                         <div className="hidden md:flex sticky top-0 bg-transparent backdrop-blur-md z-10 border-b border-white/5 pb-2 mb-2 text-xs font-medium uppercase tracking-wide opacity-30">
                             <div className="w-10 text-center">#</div>
                             <div className="flex-1 pl-4">{t('playlist.headerTitle')}</div>

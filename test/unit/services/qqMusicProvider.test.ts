@@ -111,8 +111,12 @@ describe('qqMusicProvider', () => {
         });
     });
 
-    it('does not double-hit local audio when sidecar already resolved unavailable', async () => {
+    it('falls back to local audio when sidecar reports unavailable', async () => {
         requestSidecarAudioUrlMock.mockResolvedValue({ kind: 'unavailable' });
+        localAudioMock.mockResolvedValue({
+            kind: 'ok',
+            audioUrl: 'https://example.com/local.mp3',
+        });
 
         const result = await qqMusicProvider.getAudioUrl({
             id: 1,
@@ -124,8 +128,11 @@ describe('qqMusicProvider', () => {
             musicProvider: 'qq',
         }, { quality: 'exhigh' });
 
-        expect(localAudioMock).not.toHaveBeenCalled();
-        expect(result).toEqual({ kind: 'unavailable' });
+        expect(localAudioMock).toHaveBeenCalledTimes(1);
+        expect(result).toEqual({
+            kind: 'ok',
+            audioUrl: 'https://example.com/local.mp3',
+        });
     });
 
     it('falls back to local audio when sidecar transport fails', async () => {

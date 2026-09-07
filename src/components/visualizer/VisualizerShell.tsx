@@ -1,18 +1,21 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useMemo } from 'react';
 import { AnimatePresence, motion, MotionValue } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft } from 'lucide-react';
 import { AudioBands, Theme, type UrlBackgroundItem } from '../../types';
 import { resolveThemeFontStack } from '../../utils/fontStacks';
+import { resolveSpeakerParticleYield } from '../../utils/visualizer/speakerStageShellMath';
+import { resolveVisualizerBackgroundMode, useSettingsUiStore } from '../../stores/useSettingsUiStore';
+import { usePerformanceMonitorStore } from '../../stores/usePerformanceMonitorStore';
 import { type VisualizerSharedProps } from './definition';
 import FluidBackground from './FluidBackground';
-import GeometricInteractiveBackground from './geometric/GeometricInteractiveBackground';
 import LatentBackground from './backgrounds/latent/LatentBackground';
+import NomandBackgroundLayer from './backgrounds/nomand/NomandBackgroundLayer';
 import MonetBackgroundLayer from './backgrounds/MonetBackgroundLayer';
+import TurntableBackgroundLayer from './backgrounds/turntable/TurntableBackgroundLayer';
 import UrlBackgroundLayer from './backgrounds/UrlBackgroundLayer';
 import SoraBackground from './SoraBackground';
-import LyricRhythmStage from './shared/LyricRhythmStage';
-import { shouldApplyLyricRhythmToVisualizerMode, shouldEnableInteractive3dWebGlLyrics } from './resolveInteractive3dFumeLayering';
+import SpeakerStageShell from './speaker/SpeakerStageShell';
 
 // Shared outer shell for all visualizers.
 type VisualizerShellSharedProps = Pick<
@@ -30,6 +33,7 @@ type VisualizerShellSharedProps = Pick<
     | 'resolvedVisualizerBackgroundMode'
     | 'monetBackgroundTuning'
     | 'latentBackgroundTuning'
+    | 'nomandBackgroundTuning'
     | 'interactive3dSceneTuning'
     | 'monetBackgroundImage'
     | 'urlBackgroundList'
@@ -46,6 +50,7 @@ type VisualizerShellSharedProps = Pick<
     | 'enableBeatBursts'
     | 'staticMode'
     | 'paused'
+    | 'particlesYielded'
     | 'onBack'
     | 'isPlayerChromeHidden'
     | 'playlistShelfItems'
@@ -81,6 +86,8 @@ interface VisualizerShellProps {
     playlistShelfItems?: import('./geometric/shelf/shelfTypes').PlaylistShelfItem[];
     children: React.ReactNode;
     className?: string;
+    /** When false, skip cover/3D/Monet background layers (Still and other low-power modes). */
+    renderBackground?: boolean;
 }
 
 const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
@@ -91,73 +98,81 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     coverUrl,
     shellCanvasBackground,
     useCoverColorBg = false,
-    seed,
+    seed: _seed,
     backgroundOpacity = 0.75,
     visualizerOpacity = 1,
     transparentBackground = false,
-    disableVignette = false,
+    disableVignette: _disableVignette = false,
     staticMode = false,
-    disableGeometricBackground = false,
+    disableGeometricBackground: _disableGeometricBackground = false,
     paused = false,
     onBack,
     urlBackgroundList,
     urlBackgroundSelectedId,
-    playlistShelfItems,
+    playlistShelfItems: _playlistShelfItems,
     children,
     className = '',
+    renderBackground = true,
 }, ref) => {
     const { t } = useTranslation();
+    const playbackPresentation = useSettingsUiStore(state => state.playbackPresentation);
+    const speakerActive = playbackPresentation === 'speaker';
+    const performanceMode = usePerformanceMonitorStore(state => state.mode);
+    const isElectronRenderer = typeof window !== 'undefined' && Boolean(window.electron);
+    const reducedMotion = typeof window !== 'undefined'
+        && typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const resolvedCoverUrl = sharedProps?.coverUrl ?? coverUrl;
     const resolvedShellCanvasBackground = sharedProps?.shellCanvasBackground ?? shellCanvasBackground;
     const resolvedIsDaylight = sharedProps?.isDaylight ?? true;
     const resolvedUseCoverColorBg = sharedProps?.useCoverColorBg ?? useCoverColorBg;
-    const resolvedSeed = sharedProps?.seed ?? seed;
     const resolvedBackgroundOpacity = sharedProps?.backgroundOpacity ?? backgroundOpacity;
     const resolvedVisualizerOpacity = sharedProps?.visualizerOpacity ?? visualizerOpacity;
     const resolvedTransparentBackground = sharedProps?.transparentBackground ?? transparentBackground;
-    const resolvedDisableGeometricBackground = sharedProps?.disableGeometricBackground ?? disableGeometricBackground;
-    const resolvedDisableVignette = sharedProps?.disableVignette ?? disableVignette;
-    const resolvedBackgroundMode = sharedProps?.resolvedVisualizerBackgroundMode ?? 'interactive3d';
+    const resolvedBackgroundMode = resolveVisualizerBackgroundMode(
+        sharedProps?.resolvedVisualizerBackgroundMode,
+    );
     const resolvedMonetBackgroundTuning = sharedProps?.monetBackgroundTuning;
     const resolvedLatentBackgroundTuning = sharedProps?.latentBackgroundTuning;
-    const resolvedInteractive3dSceneTuning = sharedProps?.interactive3dSceneTuning;
+    const resolvedNomandBackgroundTuning = sharedProps?.nomandBackgroundTuning;
+    const baseInteractive3dSceneTuning = sharedProps?.interactive3dSceneTuning;
+    const resolvedInteractive3dSceneTuning = useMemo(() => {
+        if (!baseInteractive3dSceneTuning) return baseInteractive3dSceneTuning;
+        const yieldTuning = resolveSpeakerParticleYield({
+            speakerActive,
+            bloomStrength: baseInteractive3dSceneTuning.bloomStrength,
+            rhythmIntensity: baseInteractive3dSceneTuning.rhythmIntensity,
+        });
+        if (!speakerActive) return baseInteractive3dSceneTuning;
+        return {
+            ...baseInteractive3dSceneTuning,
+            bloomStrength: yieldTuning.bloomStrength,
+            rhythmIntensity: yieldTuning.rhythmIntensity,
+        };
+    }, [baseInteractive3dSceneTuning, speakerActive]);
     const resolvedIsPreviewMode = sharedProps?.isPreviewMode ?? false;
     const resolvedMonetBackgroundImage = sharedProps?.monetBackgroundImage;
     const resolvedUrlBackgroundList = sharedProps?.urlBackgroundList ?? urlBackgroundList;
     const resolvedUrlBackgroundSelectedId = sharedProps?.urlBackgroundSelectedId ?? urlBackgroundSelectedId;
-    const resolvedPlaylistShelfItems = sharedProps?.playlistShelfItems ?? playlistShelfItems ?? [];
-    const resolvedBeatPulse = sharedProps?.beatPulse;
     const resolvedCinemaScale = sharedProps?.cinemaScale;
     const resolvedAtmosphereEnergy = sharedProps?.atmosphereEnergy;
-    const resolvedCameraPunch = sharedProps?.cameraPunch;
-    const resolvedSceneParallaxX = sharedProps?.sceneParallaxX;
-    const resolvedSceneParallaxY = sharedProps?.sceneParallaxY;
-    const resolvedSceneRoll = sharedProps?.sceneRoll;
-    const resolvedEnableBeatBursts = sharedProps?.enableBeatBursts ?? sharedProps?.enableAtmosphereLayer ?? true;
     const resolvedStaticMode = sharedProps?.staticMode ?? staticMode;
     const resolvedPaused = sharedProps?.paused ?? paused;
     const resolvedOnBack = sharedProps?.onBack ?? onBack;
     const hideBackButton = Boolean(sharedProps?.isPlayerChromeHidden);
-    const resolvedVisualizerMode = sharedProps?.visualizerMode;
     const resolvedCurrentTime = sharedProps?.currentTime;
-    const resolvedLines = sharedProps?.lines ?? [];
-    const resolvedShowText = sharedProps?.showText ?? true;
     const resolvedAudioPlaying = sharedProps?.audioPlaying ?? !resolvedPaused;
-    const resolvedImmersiveLyrics = sharedProps?.immersiveLyrics ?? false;
-    const shouldRenderCommonBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'common';
-    const shouldRenderInteractive3dBackground = !resolvedTransparentBackground
-        && resolvedBackgroundMode === 'interactive3d'
-        && !resolvedStaticMode
-        && !resolvedDisableGeometricBackground;
-    const shouldRenderMonetBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'monet';
-    const shouldRenderLatentBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'latent';
-    const shouldRenderUrlBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'url';
-    const shouldRenderSoraBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'sora';
+    const shouldRenderCommonBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'common';
+    const shouldRenderMonetBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'monet';
+    const shouldRenderLatentBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'latent';
+    const shouldRenderNomandBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'nomand';
+    const shouldRenderUrlBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'url';
+    const shouldRenderSoraBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'sora';
+    const shouldRenderTurntableBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'turntable';
+    // Turntable floats on the same stage wash as Common (no wooden table fill).
+    const shouldRenderStageWash = shouldRenderCommonBackground || shouldRenderTurntableBackground;
     const latentStaticMode = resolvedStaticMode
         || Boolean(resolvedLatentBackgroundTuning?.dynamicOnlyInPlayer && resolvedIsPreviewMode);
-    // Left-column rail modes must not rhythm-scale — scale > 1 clips lyrics past the stage edge.
-    const shouldApplyLyricRhythm = shouldRenderInteractive3dBackground
-        && shouldApplyLyricRhythmToVisualizerMode(resolvedVisualizerMode);
 
     const fontClassName = theme.fontStyle === 'mono'
         ? 'font-mono'
@@ -210,68 +225,17 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 )}
             </AnimatePresence>
 
-            {shouldRenderCommonBackground && (
+            {shouldRenderStageWash && (
                 <div
                     className="absolute inset-0 z-0 transition-all duration-1000"
                     style={{
                         backgroundColor: theme.backgroundColor,
                         backgroundImage: resolvedShellCanvasBackground,
-                        opacity: resolvedUseCoverColorBg ? resolvedBackgroundOpacity : 1,
+                        opacity: shouldRenderCommonBackground && resolvedUseCoverColorBg
+                            ? resolvedBackgroundOpacity
+                            : 1,
                     }}
                 />
-            )}
-
-            {shouldRenderInteractive3dBackground && (
-                <>
-                    {/* Black base + soft cover tint — welcoming album color without a full fog veil. */}
-                    <div
-                        className="absolute inset-0 z-0 transition-all duration-1000"
-                        style={{
-                            backgroundColor: '#000000',
-                            opacity: 1,
-                        }}
-                    />
-                    {resolvedShellCanvasBackground ? (
-                        <div
-                            className="absolute inset-0 z-0 transition-all duration-1000"
-                            style={{
-                                backgroundImage: resolvedShellCanvasBackground,
-                                opacity: 0.42,
-                                pointerEvents: 'none',
-                            }}
-                            aria-hidden
-                        />
-                    ) : null}
-                    <div
-                        className="absolute inset-0 z-0 isolate pointer-events-auto"
-                    >
-                        <GeometricInteractiveBackground
-                            theme={theme}
-                            audioPower={audioPower}
-                            audioBands={audioBands}
-                            beatPulse={resolvedBeatPulse}
-                            cinemaScale={resolvedCinemaScale}
-                            cameraPunch={resolvedCameraPunch}
-                            sceneParallaxX={resolvedSceneParallaxX}
-                            sceneParallaxY={resolvedSceneParallaxY}
-                            sceneRoll={resolvedSceneRoll}
-                            atmosphereEnergy={resolvedAtmosphereEnergy}
-                            enableBeatBursts={resolvedEnableBeatBursts}
-                            interactive3dSceneTuning={resolvedInteractive3dSceneTuning}
-                            seed={resolvedSeed}
-                            disableVignette={resolvedDisableVignette}
-                            paused={resolvedPaused}
-                            coverUrl={resolvedCoverUrl}
-                            playlistShelfItems={resolvedPlaylistShelfItems}
-                            visualizerMode={resolvedVisualizerMode}
-                            currentTime={resolvedCurrentTime}
-                            lines={resolvedLines}
-                            showLyrics={shouldEnableInteractive3dWebGlLyrics(resolvedBackgroundMode) && resolvedShowText}
-                            immersiveLyrics={resolvedImmersiveLyrics}
-                            playing={resolvedAudioPlaying}
-                        />
-                    </div>
-                </>
             )}
 
             {shouldRenderMonetBackground && (
@@ -297,6 +261,16 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 />
             )}
 
+            {shouldRenderNomandBackground && (
+                <NomandBackgroundLayer
+                    coverUrl={resolvedCoverUrl}
+                    monetBackgroundImage={resolvedMonetBackgroundImage}
+                    theme={theme}
+                    isDaylight={resolvedIsDaylight}
+                    tuning={resolvedNomandBackgroundTuning}
+                />
+            )}
+
             {shouldRenderUrlBackground && (
                 <UrlBackgroundLayer
                     urlBackgroundList={resolvedUrlBackgroundList}
@@ -314,28 +288,37 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 </div>
             )}
 
+            {shouldRenderTurntableBackground && (
+                <div className="absolute inset-0 z-[1]">
+                    <TurntableBackgroundLayer
+                        coverUrl={resolvedCoverUrl}
+                        paused={resolvedPaused}
+                        playing={resolvedAudioPlaying}
+                        currentTime={resolvedCurrentTime}
+                    />
+                </div>
+            )}
+
+            <SpeakerStageShell
+                theme={theme}
+                speakerActive={speakerActive}
+                isElectron={isElectronRenderer}
+                qualityTier={performanceMode === 'lite' ? 'lite' : (resolvedInteractive3dSceneTuning?.qualityTier ?? 'auto')}
+                reducedMotion={reducedMotion}
+            />
+
             <div
                 className="relative z-30 isolate w-full h-full overflow-hidden pointer-events-none"
                 data-lyric-stage={shouldRenderSoraBackground ? 'sora' : undefined}
+                data-speaker-stage={speakerActive ? 'true' : undefined}
                 style={shouldRenderSoraBackground ? {
                     // Extra lift so DOM lyrics read as the hero of the starfield stage.
                     filter: 'drop-shadow(0 0 18px rgba(0,0,0,0.55)) drop-shadow(0 2px 10px rgba(0,0,0,0.4))',
+                } : speakerActive ? {
+                    filter: 'drop-shadow(0 0 28px rgba(0,0,0,0.62)) drop-shadow(0 8px 22px rgba(0,0,0,0.4))',
                 } : undefined}
             >
-                {shouldApplyLyricRhythm ? (
-                    <LyricRhythmStage
-                        audioPower={audioPower}
-                        beatPulse={resolvedBeatPulse}
-                        cameraPunch={resolvedCameraPunch}
-                        cinemaScale={resolvedCinemaScale}
-                        atmosphereEnergy={resolvedAtmosphereEnergy}
-                        scaleMultiplier={theme.lyricRhythmScaleMultiplier}
-                        glowColor={theme.lyricGlowUsesAccent ? theme.primaryColor : null}
-                        className="w-full h-full overflow-hidden"
-                    >
-                        {children}
-                    </LyricRhythmStage>
-                ) : children}
+                {children}
             </div>
         </div>
     );

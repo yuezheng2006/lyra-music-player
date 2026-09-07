@@ -1,4 +1,5 @@
 import type { SongResult } from '../../types';
+import { isRssPodcastPlaybackSong } from './rssPodcastPlayback';
 
 // src/utils/playback/playbackLoadPriorityMath.ts
 // Pure guards that keep first-audio / loading ahead of heavy visual work.
@@ -6,10 +7,12 @@ import type { SongResult } from '../../types';
 /**
  * Only providers that can return companion video should pay for a second URL resolve.
  * Netease (default / unset provider) never returns videoUrl.
+ * RSS podcasts already have an enclosure URL and never ship a companion video.
  */
 export const shouldResolveCompanionVideoForSong = (
-    song: Pick<SongResult, 'musicProvider'> | null | undefined,
+    song: Pick<SongResult, 'musicProvider' | 'contentType' | 'audioUrl'> | null | undefined,
 ): boolean => {
+    if (isRssPodcastPlaybackSong(song)) return false;
     const providerId = song?.musicProvider;
     return Boolean(providerId && providerId !== 'netease');
 };

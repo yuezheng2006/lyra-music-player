@@ -31,6 +31,7 @@ export interface UseElectronDesktopLyricsOptions {
     };
     beatMapKey?: string;
     beatMap?: unknown;
+    desktopLyricsYFactor?: number;
 }
 
 const emptyDesktopLyricsStatus = (): DesktopLyricsStatus => ({
@@ -58,6 +59,7 @@ export const useElectronDesktopLyrics = ({
     motion,
     beatMapKey,
     beatMap,
+    desktopLyricsYFactor = 0.76,
 }: UseElectronDesktopLyricsOptions) => {
     const [desktopLyricsStatus, setDesktopLyricsStatus] = useState<DesktopLyricsStatus>(emptyDesktopLyricsStatus);
     const desktopLyricsEnabledRef = useRef(false);
@@ -80,6 +82,7 @@ export const useElectronDesktopLyrics = ({
         theme,
         lyricsFontScale,
         lyricsCustomFontFamily,
+        y: desktopLyricsYFactor,
         clickThrough: desktopLyricsStatus.locked,
         motion,
         beatMapKey,
@@ -90,6 +93,7 @@ export const useElectronDesktopLyrics = ({
         currentLineIndex,
         currentSong?.name,
         desktopLyricsStatus.locked,
+        desktopLyricsYFactor,
         durationSec,
         getCurrentTimeSec,
         lyricOffsetMs,
@@ -184,6 +188,7 @@ export const useElectronDesktopLyrics = ({
         currentLineIndex,
         currentSong?.name,
         desktopLyricsStatus.enabled,
+        desktopLyricsYFactor,
         durationSec,
         isElectronWindow,
         lyricOffsetMs,

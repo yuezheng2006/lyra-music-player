@@ -22,6 +22,7 @@ const GROUP_LABEL_KEY: Record<OnlineSearchShortcutGroup['id'], string> = {
     accounts: 'search.aiAccountSearches',
     category: 'search.categorySearches',
     song: 'search.songSearches',
+    artist: 'search.artistSearches',
 };
 
 const GROUP_LABEL_FALLBACK: Record<OnlineSearchShortcutGroup['id'], string> = {
@@ -30,6 +31,7 @@ const GROUP_LABEL_FALLBACK: Record<OnlineSearchShortcutGroup['id'], string> = {
     accounts: 'Popular AI accounts',
     category: 'Search by category',
     song: 'Search by song',
+    artist: 'Search by artist',
 };
 
 export const SearchShortcutChips: React.FC<SearchShortcutChipsProps> = ({

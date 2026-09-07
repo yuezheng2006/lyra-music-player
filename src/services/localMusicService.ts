@@ -5,7 +5,7 @@ import { getLocalPlaylists, saveLocalPlaylists } from './localPlaylistService';
 import { parseEmbeddedMetadataAsync, type EmbeddedMetadataResult } from '../utils/localMetadataWorkerClient';
 import { processNeteaseLyrics } from '../utils/lyrics/neteaseProcessing';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
-import { autoMatchBestLyric } from '../utils/lyrics/autoMatchBestLyric';
+import { resolveBestLyric } from '../utils/lyrics/resolveBestLyric';
 import { normalizeLyricMatchText } from '../utils/lyrics/matchScore';
 import { isBlob } from '../utils/blobGuards';
 import { resolveExplicitFileTimedLyricFormat, type ExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
@@ -782,6 +782,8 @@ async function buildImportedSong(
         title: embeddedMetadata.title || metadata.title,
         artist: embeddedMetadata.artist || metadata.artist,
         album: embeddedMetadata.album,
+        trackNumber: embeddedMetadata.trackNumber,
+        discNumber: embeddedMetadata.discNumber,
         embeddedTitle: embeddedMetadata.title,
         embeddedArtist: embeddedMetadata.artist,
         embeddedAlbum: embeddedMetadata.album,
@@ -848,6 +850,8 @@ async function hydrateSongMetadata(song: LocalSong): Promise<LocalSong> {
         song.title = embeddedMetadata.title || song.title;
         song.artist = embeddedMetadata.artist || song.artist;
         song.album = embeddedMetadata.album || song.album;
+        song.trackNumber = embeddedMetadata.trackNumber ?? song.trackNumber;
+        song.discNumber = embeddedMetadata.discNumber ?? song.discNumber;
         song.embeddedTitle = embeddedMetadata.title;
         song.embeddedArtist = embeddedMetadata.artist;
         song.embeddedAlbum = embeddedMetadata.album;
@@ -1354,7 +1358,7 @@ export async function matchLyrics(song: LocalSong): Promise<LyricData | null> {
         const settings = useSettingsUiStore.getState();
         if (settings.enableAlternativeLyricSources && settings.autoUseBestLyric) {
             const cleanTitle = song.title || song.fileName.replace(/\.(mp3|flac|m4a|wav|ogg|opus|aac)$/i, '');
-            const bestMatch = await autoMatchBestLyric(cleanTitle, song.artist || '', song.duration, {
+            const bestMatch = await resolveBestLyric(cleanTitle, song.artist || '', song.duration, {
                 album: song.album,
                 preferredSource: settings.preferredAlternativeLyricSource,
             });

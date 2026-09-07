@@ -76,14 +76,7 @@ type BuildPlayerPanelModelParams = {
     addSongsToQueue?: LegacyUnifiedPanelProps['queue']['onAddSongs'];
     queueScrollRef: RefObject<HTMLDivElement | null>;
     shuffleQueue: LegacyUnifiedPanelProps['queue']['onShuffle'];
-    localPlaylists: LegacyUnifiedPanelProps['library']['localPlaylists'];
-    playlists: LegacyUnifiedPanelProps['library']['neteasePlaylists'];
     saveCurrentQueueAsLocalPlaylist: LegacyUnifiedPanelProps['library']['onSaveCurrentQueueAsPlaylist'];
-    addCurrentSongToLocalPlaylist: LegacyUnifiedPanelProps['library']['onAddCurrentSongToLocalPlaylist'];
-    createCurrentLocalPlaylist: LegacyUnifiedPanelProps['library']['onCreateCurrentLocalPlaylist'];
-    addCurrentSongToNeteasePlaylist: LegacyUnifiedPanelProps['library']['onAddCurrentSongToNeteasePlaylist'];
-    addCurrentSongToNavidromePlaylist: LegacyUnifiedPanelProps['library']['onAddCurrentSongToNavidromePlaylist'];
-    createCurrentNavidromePlaylist: LegacyUnifiedPanelProps['library']['onCreateCurrentNavidromePlaylist'];
     openCurrentLocalAlbum: LegacyUnifiedPanelProps['library']['onOpenCurrentLocalAlbum'];
     openCurrentLocalArtist: LegacyUnifiedPanelProps['library']['onOpenCurrentLocalArtist'];
     openCurrentNavidromeAlbum: LegacyUnifiedPanelProps['library']['onOpenCurrentNavidromeAlbum'];
@@ -182,14 +175,7 @@ export const buildPlayerPanelModel = ({
     addSongsToQueue,
     queueScrollRef,
     shuffleQueue,
-    localPlaylists,
-    playlists,
     saveCurrentQueueAsLocalPlaylist,
-    addCurrentSongToLocalPlaylist,
-    createCurrentLocalPlaylist,
-    addCurrentSongToNeteasePlaylist,
-    addCurrentSongToNavidromePlaylist,
-    createCurrentNavidromePlaylist,
     openCurrentLocalAlbum,
     openCurrentLocalArtist,
     openCurrentNavidromeAlbum,
@@ -307,14 +293,7 @@ export const buildPlayerPanelModel = ({
             onShuffle: shuffleQueue,
         },
         library: {
-            localPlaylists,
-            neteasePlaylists: playlists,
             onSaveCurrentQueueAsPlaylist: saveCurrentQueueAsLocalPlaylist,
-            onAddCurrentSongToLocalPlaylist: addCurrentSongToLocalPlaylist,
-            onCreateCurrentLocalPlaylist: createCurrentLocalPlaylist,
-            onAddCurrentSongToNeteasePlaylist: addCurrentSongToNeteasePlaylist,
-            onAddCurrentSongToNavidromePlaylist: addCurrentSongToNavidromePlaylist,
-            onCreateCurrentNavidromePlaylist: createCurrentNavidromePlaylist,
             onOpenCurrentLocalAlbum: openCurrentLocalAlbum,
             onOpenCurrentLocalArtist: openCurrentLocalArtist,
             onOpenCurrentNavidromeAlbum: openCurrentNavidromeAlbum,

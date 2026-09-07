@@ -1,5 +1,6 @@
 import { layoutWithLines, prepareWithSegments } from '@chenglou/pretext';
-import type { Line } from '../../../types';
+import type { Line, SubtitleContentMode } from '../../../types';
+import { resolveLyricAlternateText, resolveSubtitleContentMode } from '../../../utils/lyrics/alternateText';
 import { buildLineGraphemeTimeline, buildWordGraphemeTimings, type GraphemeTiming } from '../../../utils/lyrics/graphemeTiming';
 import { getLineRenderEndTime } from '../../../utils/lyrics/renderHints';
 
@@ -71,6 +72,7 @@ interface MeasureMonetLineLayoutOptions {
     fontStack: string;
     maxWidthPx: number;
     showSubtitleTranslation?: boolean;
+    subtitleContentMode?: SubtitleContentMode;
 }
 
 const ROOT_FONT_PX = 16;
@@ -356,6 +358,15 @@ export const buildMonetVisibleLineEntries = ({
     return entries;
 };
 
+export const resolveMonetSubtitleText = (
+    line: Pick<Line, 'translation' | 'romanization' | 'alternateTexts'>,
+    showSubtitleTranslation = true,
+    subtitleContentMode?: SubtitleContentMode,
+): string | null => {
+    if (!showSubtitleTranslation) return null;
+    return resolveLyricAlternateText(line, resolveSubtitleContentMode(subtitleContentMode, showSubtitleTranslation));
+};
+
 /** Measures the text box Monet will reserve before animating the rail, keeping layout off the hot path. */
 export const measureMonetLineLayout = ({
     line,
@@ -365,6 +376,7 @@ export const measureMonetLineLayout = ({
     fontStack,
     maxWidthPx,
     showSubtitleTranslation = true,
+    subtitleContentMode,
 }: MeasureMonetLineLayoutOptions): MonetMeasuredLineLayout => {
     const lineHeightPx = fontPx * 1.18;
     const translationLineHeightPx = translationFontPx * 1.28;
@@ -377,9 +389,12 @@ export const measureMonetLineLayout = ({
     const textLineCount = measureTextLineCount(line.fullText, fontSpec, maxWidthPx, lineHeightPx);
     const textLimit = status === 'active' ? MONET_ACTIVE_TEXT_LINE_LIMIT : MONET_INACTIVE_TEXT_LINE_LIMIT;
     const visibleTextLineCount = Math.min(textLineCount, textLimit);
-    const hasActiveTranslation = showSubtitleTranslation && status === 'active' && Boolean(line.translation?.trim());
+    const subtitleText = status === 'active'
+        ? resolveMonetSubtitleText(line, showSubtitleTranslation, subtitleContentMode)
+        : null;
+    const hasActiveTranslation = Boolean(subtitleText);
     const rawTranslationLineCount = hasActiveTranslation
-        ? measureTextLineCount(line.translation ?? '', translationFontSpec, maxWidthPx, translationLineHeightPx)
+        ? measureTextLineCount(subtitleText ?? '', translationFontSpec, maxWidthPx, translationLineHeightPx)
         : 0;
     const translationLineCount = Math.min(rawTranslationLineCount, MONET_TRANSLATION_LINE_LIMIT);
     const textContentHeightPx = visibleTextLineCount * lineHeightPx;

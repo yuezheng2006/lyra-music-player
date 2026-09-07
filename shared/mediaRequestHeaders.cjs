@@ -46,6 +46,39 @@ function resolveMediaRequestOverride(hostname) {
 }
 
 /** Hosts that need CORS headers rewritten for <audio> / fetch from the app origin. */
+const PODCAST_MEDIA_HOST_SUFFIXES = [
+  'xyzcdn.net',
+  'xiaoyuzhoufm.com',
+  'xyzfm.space',
+  'fireside.fm',
+  'simplecast.com',
+  'simplecastcdn.com',
+  'megaphone.fm',
+  'libsyn.com',
+  'buzzsprout.com',
+  'transistor.fm',
+  'omnycontent.com',
+  'omny.fm',
+  'art19.com',
+  'captivate.fm',
+  'podbean.com',
+  'podtrac.com',
+  'chtbl.com',
+  'pdst.fm',
+  'acast.com',
+  'spreaker.com',
+  'pinecast.com',
+  'blubrry.com',
+  'soundon.fm',
+  'redcircle.com',
+  'castos.com',
+  'rss.com',
+];
+
+function hostMatchesSuffix(host, suffix) {
+  return host === suffix || host.endsWith(`.${suffix}`);
+}
+
 function shouldBypassMediaCors(hostname) {
   const host = String(hostname || '').toLowerCase();
   if (!host) return false;
@@ -71,6 +104,9 @@ function shouldBypassMediaCors(hostname) {
     || host.includes('bytecdn')
     || host.endsWith('.zjcdn.com')
   ) {
+    return true;
+  }
+  if (PODCAST_MEDIA_HOST_SUFFIXES.some((suffix) => hostMatchesSuffix(host, suffix))) {
     return true;
   }
   return false;

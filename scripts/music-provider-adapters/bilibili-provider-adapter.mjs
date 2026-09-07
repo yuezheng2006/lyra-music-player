@@ -607,7 +607,13 @@ export async function search({ query, limit = 30, offset = 0 }) {
     console.warn('[bilibili-provider-adapter] UP search failed, falling back to video keyword', error);
   }
 
-  return searchVideos({ keyword: intent.query, page, pageSize });
+  try {
+    return await searchVideos({ keyword: intent.query, page, pageSize });
+  } catch (error) {
+    // 412 / WAF / network — degrade to empty so daily picks / search UI don't 500-spam.
+    console.warn('[bilibili-provider-adapter] video search failed', error?.message || error);
+    return { songs: [], total: 0, hasMore: false, searchMode: 'video' };
+  }
 }
 
 export async function audio({ id, song }) {

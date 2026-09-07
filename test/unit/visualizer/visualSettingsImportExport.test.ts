@@ -81,6 +81,17 @@ describe('Visual Settings Import and Export', () => {
             tiltStyleProbability: 0.4,
             colorScheme: 'accentAll' as const,
         },
+        nomandBackgroundTuning: {
+            imageSource: 'cover-derived' as const,
+            effect: 'dithering' as const,
+            ditheringType: '4x4' as const,
+            size: 5,
+            colorSteps: 3,
+            originalColors: true,
+            inverted: false,
+            overlayEnabled: true,
+            overlayOpacity: 0.2,
+        },
         monetBackgroundTuning: {
             backgroundSource: 'cover-derived' as const,
             backgroundLayout: 'half-pane-gradient' as const,
@@ -104,6 +115,9 @@ describe('Visual Settings Import and Export', () => {
         },
         songThemeAutoSwitchEnabled: true,
         songThemeAutoGenerateEnabled: true,
+        stageTrackPillMode: 'always',
+        stageTrackPillTimeoutSec: 20,
+        stageTrackPillOnHome: true,
     };
 
     it('correctly compresses a full config to a base64 theme code starting with auralis-theme://', () => {
@@ -121,11 +135,16 @@ describe('Visual Settings Import and Export', () => {
         expect(decoded.claddaghTuning?.ellipseTiltDeg).toBe(52);
         expect(decoded.theme?.light.name).toBe('Light Gold');
         expect(decoded.theme?.dark.accentColor).toBe('#fbbf24');
+        expect(decoded.nomandBackgroundTuning?.ditheringType).toBe('4x4');
+        expect(decoded.nomandBackgroundTuning?.size).toBe(5);
         expect(decoded.monetBackgroundTuning?.backgroundBlurPx).toBe(4);
         expect(decoded.monetTuning?.portraitOffsetX).toBe(-120);
         expect(decoded.monetTuning?.portraitStyle).toBe('square');
         expect(decoded.songThemeAutoSwitchEnabled).toBe(true);
         expect(decoded.songThemeAutoGenerateEnabled).toBe(true);
+        expect(decoded.stageTrackPillMode).toBe('always');
+        expect(decoded.stageTrackPillTimeoutSec).toBe(20);
+        expect(decoded.stageTrackPillOnHome).toBe(true);
 
         // Verify custom properties alignment
         expect(decoded.theme?.light.wordColors).toEqual([{ word: 'love', color: '#ff0000' }]);
@@ -150,6 +169,9 @@ describe('Visual Settings Import and Export', () => {
         expect(decoded.theme?.dark.accentColor).toBe('#fbbf24');
         expect(decoded.songThemeAutoSwitchEnabled).toBe(true);
         expect(decoded.songThemeAutoGenerateEnabled).toBe(true);
+        expect(decoded.stageTrackPillMode).toBe('always');
+        expect(decoded.stageTrackPillTimeoutSec).toBe(20);
+        expect(decoded.stageTrackPillOnHome).toBe(true);
     });
 
     it('gracefully throws error on invalid configuration input strings', () => {

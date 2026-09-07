@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     applyLyricBodyColorToDualTheme,
     applyLyricColorPresetToDualTheme,
+    applyStoredLyricColorPresetToDualTheme,
     DEFAULT_LYRIC_COLOR_PRESET_ID,
     getLyricColorPresetById,
+    LYRIC_COLOR_PRESET_STORAGE_KEY,
     LYRIC_COLOR_PRESETS,
     matchLyricColorPresetId,
     normalizeLyricColorPresetId,
@@ -11,6 +13,7 @@ import {
     resolveLyricColorPresetSwatches,
     resolveLyricStageInkColors,
 } from '@/utils/theme/lyricColorPresets';
+import { LYRICS_FONT_SCALE_QUICK_OPTIONS, DEFAULT_LYRICS_FONT_SCALE } from '@/utils/lyrics/lyricsFontScaleMath';
 
 // test/unit/theme/lyricColorPresets.test.ts
 
@@ -205,6 +208,50 @@ describe('lyricColorPresets', () => {
         const preset = getLyricColorPresetById('foil-gold')!;
         const next = applyLyricColorPresetToDualTheme(baseDualTheme, preset);
         expect(resolveActiveLyricColorPresetId(next.dark, 'dark', 'soda-white')).toBe('foil-gold');
+    });
+
+    it('re-pins stored lyric colors onto cover/AI dual themes so the stage matches the chip', () => {
+        const memory = new Map<string, string>();
+        vi.stubGlobal('localStorage', {
+            getItem: (key: string) => memory.get(key) ?? null,
+            setItem: (key: string, value: string) => { memory.set(key, value); },
+            removeItem: (key: string) => { memory.delete(key); },
+            clear: () => { memory.clear(); },
+            key: () => null,
+            length: 0,
+        });
+        (globalThis as { window?: { localStorage: Storage } }).window = {
+            localStorage: globalThis.localStorage as Storage,
+        };
+        memory.set(LYRIC_COLOR_PRESET_STORAGE_KEY, 'pin-song');
+
+        // Cover-derived cyan-ish theme (chip still says 品红 via stored id).
+        const coverTheme = {
+            ...baseDualTheme,
+            dark: {
+                ...baseDualTheme.dark,
+                primaryColor: '#67e8f9',
+                accentColor: '#06b6d4',
+                secondaryColor: '#C1C8D6',
+            },
+        };
+        expect(resolveActiveLyricColorPresetId(coverTheme.dark, 'dark')).toBe('pin-song');
+        expect(matchLyricColorPresetId(coverTheme.dark, 'dark')).toBeNull();
+
+        const pinned = applyStoredLyricColorPresetToDualTheme(coverTheme);
+        expect(matchLyricColorPresetId(pinned.dark, 'dark')).toBe('pin-song');
+        expect(pinned.dark.primaryColor.toLowerCase()).toBe('#ef3473');
+    });
+
+    it('lists lyrics font-scale chips in ascending order and includes the default', () => {
+        const values = LYRICS_FONT_SCALE_QUICK_OPTIONS.map(option => option.value);
+        expect(values).toEqual([...values].sort((left, right) => left - right));
+        expect(values).toContain(DEFAULT_LYRICS_FONT_SCALE);
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        delete (globalThis as { window?: unknown }).window;
     });
 
     it('applies a free lyric body color to primary and accent on both modes', () => {

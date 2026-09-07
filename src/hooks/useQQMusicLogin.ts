@@ -81,7 +81,6 @@ export const useQQMusicLogin = () => {
     }, [canOpenOfficialLogin, refreshAuth]);
 
     const logout = useCallback(() => {
-        void window.electron?.clearQQMusicLogin?.();
         clearStoredQQMusicCookie();
         setFlowStatus('idle');
         refreshAuth();

@@ -45,11 +45,11 @@ describe('deriveAtmosphereThemeHints', () => {
         const dual = withDerivedAtmosphereHints({ light: baseTheme, dark: baseTheme });
         const current = {
             ...DEFAULT_INTERACTIVE3D_SCENE_TUNING,
-            visualPreset: 'mineradioOrbit' as const,
+            visualPreset: 'emily' as const,
         };
         const next = applyAtmosphereThemeHintsToTuning(current, dual.atmosphereHints);
         expect(next).not.toBeNull();
-        expect(next?.visualPreset).toBe('mineradioOrbit');
+        expect(next?.visualPreset).toBe('emily');
         expect(next?.atmosphereSensitivity).toBeTypeOf('number');
         expect(next?.cameraPunchStrength).toBeTypeOf('number');
     });
@@ -58,14 +58,15 @@ describe('deriveAtmosphereThemeHints', () => {
         const next = applyAtmosphereThemeHintsToTuning(
             {
                 ...DEFAULT_INTERACTIVE3D_SCENE_TUNING,
-                visualPreset: 'mineradioOrbit',
+                visualPreset: 'emily',
             },
             {
                 visualPreset: 'mineradioGalaxy',
                 atmosphereSensitivity: 1.1,
             },
         );
-        expect(next?.visualPreset).toBe('mineradioOrbit');
+        // Legacy galaxy hint is ignored; stored tunnel also normalizes to emily atmosphere.
+        expect(next?.visualPreset).toBe('emily');
         expect(next?.atmosphereSensitivity).toBe(1.1);
     });
 

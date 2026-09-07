@@ -13,10 +13,10 @@ describe('cover particle density upgrade', () => {
         expect(coverParticleGridForResolution(1.35)).toBe(159);
         expect(coverParticleGridForResolution(1.0)).toBe(119);
         expect(coverParticleGridForResolution(0.55)).toBe(65);
-        // High = Mineradio 183²; balanced ≈119² (Electron ceiling); lite ≈89².
+        // High = Mineradio 183²; balanced ≈101²; lite ≈65² (Electron ceiling).
         expect(coverParticleGridForQualityTier('high')).toBe(183);
-        expect(coverParticleGridForQualityTier('balanced')).toBe(119);
-        expect(coverParticleGridForQualityTier('lite')).toBe(89);
+        expect(coverParticleGridForQualityTier('balanced')).toBe(101);
+        expect(coverParticleGridForQualityTier('lite')).toBe(65);
     });
 
     it('supports preset burst trigger and cinema drift', () => {
@@ -31,28 +31,23 @@ describe('cover particle density upgrade', () => {
         ).toBeGreaterThan(0);
     });
 
-    it('keeps active tunnel motion punch stronger than cover', () => {
+    it('exposes emily cover runtime camera defaults', () => {
         const cover = resolveCoverParticlePresetRuntime('emily');
-        const tunnel = resolveCoverParticlePresetRuntime('mineradioTunnel');
         expect(cover.cameraZ).toBe(6.2);
         expect(cover.fov).toBe(45);
         expect(cover.pointScale).toBeCloseTo(1.14);
-        expect(tunnel.bassCameraPunch).toBeGreaterThan(cover.bassCameraPunch);
+        expect(cover.bassCameraPunch).toBeGreaterThan(0);
     });
 
-    it('keeps Mineradio original presets near source camera defaults', () => {
+    it('normalizes retired tunnel/galaxy/orbit onto emily runtime profile', () => {
         const tunnel = resolveCoverParticlePresetRuntime('mineradioTunnel');
         const orbit = resolveCoverParticlePresetRuntime('mineradioOrbit');
+        const emily = resolveCoverParticlePresetRuntime('emily');
         const galaxy = resolveCoverParticlePresetRuntime('mineradioGalaxy');
 
-        expect(tunnel.speedMul).toBeCloseTo(1.06);
-        expect(tunnel.fov).toBe(48);
-        expect(orbit.speedMul).toBe(1);
-        expect(orbit.fov).toBe(45);
-        expect(orbit.bassCameraPunch).toBeGreaterThan(0.1);
-        expect(galaxy.speedMul).toBeCloseTo(1.04);
-        expect(galaxy.fov).toBe(48);
-        expect(galaxy.bassCameraPunch).toBeGreaterThan(0.16);
+        expect(tunnel).toEqual(emily);
+        expect(orbit).toEqual(emily);
+        expect(galaxy).toEqual(emily);
     });
 
     it('maps the retired vinyl preset to the cover runtime profile', () => {

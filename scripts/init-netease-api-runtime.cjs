@@ -1,6 +1,17 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+
+// scripts/init-netease-api-runtime.cjs
+// Prepares device identity and anonymous token before the Netease API server starts.
+// The API package reads anonymous_token at require time, so the file must exist first.
+
+const tokenPath = path.resolve(os.tmpdir(), 'anonymous_token');
+const xeapiPublicKeyPath = path.resolve(os.tmpdir(), 'xeapi_public_key');
+if (!fs.existsSync(tokenPath)) {
+    fs.writeFileSync(tokenPath, '', 'utf-8');
+}
+
 const { register_anonimous } = require('@neteasecloudmusicapienhanced/api/main');
 const { getXeapiPublicKey } = require('@neteasecloudmusicapienhanced/api/util/xeapiKey');
 const {
@@ -8,12 +19,6 @@ const {
     generateDeviceId,
     generateRandomChineseIP,
 } = require('@neteasecloudmusicapienhanced/api/util/index');
-
-// scripts/init-netease-api-runtime.cjs
-// Prepares device identity and anonymous token before the Netease API server starts.
-
-const tokenPath = path.resolve(os.tmpdir(), 'anonymous_token');
-const xeapiPublicKeyPath = path.resolve(os.tmpdir(), 'xeapi_public_key');
 
 async function initializeNcmApiRuntime() {
     global.cnIp = generateRandomChineseIP();

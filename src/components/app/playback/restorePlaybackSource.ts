@@ -10,8 +10,9 @@ import type { ThemeCacheSongKey } from '../../../services/themeCache';
 import type { LyricData, LocalSong, SongResult, StatusMessage } from '../../../types';
 import type { NavidromeSong } from '../../../types/navidrome';
 import { hydrateNavidromeLyricPayload, resolvePreferredNavidromeLyrics } from '../../../utils/appNavidromeLyrics';
-import { hasRenderableLyrics } from '../../../utils/appPlaybackHelpers';
+import { hasRenderableLyrics, toSafePlaybackUrl } from '../../../utils/appPlaybackHelpers';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isYtmPlaybackSong } from '../../../utils/appPlaybackGuards';
+import { isRssPodcastPlaybackSong, resolveRssPodcastEnclosureUrl } from '../../../utils/playback/rssPodcastPlayback';
 import { isBlob } from '../../../utils/blobGuards';
 import { LyricParserFactory } from '../../../utils/lyrics/LyricParserFactory';
 import { processNeteaseLyrics } from '../../../utils/lyrics/neteaseProcessing';
@@ -238,6 +239,20 @@ export const restorePlaybackSourceForSong = async (
         return true;
     }
 
+    if (isRssPodcastPlaybackSong(song)) {
+        const enclosure = resolveRssPodcastEnclosureUrl(song);
+        if (!enclosure) {
+            console.warn('[restorePlaybackSourceForSong] RSS podcast missing enclosure URL');
+            return false;
+        }
+        currentOnlineAudioUrlFetchedAtRef.current = Date.now();
+        setAudioSrc(enclosure);
+        setVideoSrc?.(null);
+        const captions = await getMusicProviderForSong(song).getLyrics(song);
+        setLyrics(captions);
+        return true;
+    }
+
     const onlineLyricsState = await loadOnlineLyricsState(song);
     if (onlineLyricsState) {
         setCurrentSong(prev => prev?.id === song.id ? { ...prev, onlineLyricsState } : prev);
@@ -263,7 +278,11 @@ export const restorePlaybackSourceForSong = async (
         const audioResult = await getMusicProviderForSong(song).getAudioUrl(song, { quality: audioQuality });
         if (audioResult.kind === 'ok') {
             currentOnlineAudioUrlFetchedAtRef.current = Date.now();
-            setAudioSrc(audioResult.audioUrl);
+            const playbackUrl = toSafePlaybackUrl(audioResult.audioUrl);
+            if (!playbackUrl) {
+                return false;
+            }
+            setAudioSrc(playbackUrl);
             setVideoSrc?.(normalizePlaybackVideoSrc(audioResult.videoUrl));
         } else {
             return false;

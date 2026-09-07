@@ -54,7 +54,7 @@ const TIER_PROFILES: Record<GeometricQualityTier, Omit<GeometricQualityProfile, 
         enableBeatBursts: false,
         enableDomShapes: false,
         shapeCount: 0,
-        frameSkip: 6,
+        frameSkip: 8,
     },
 };
 

@@ -139,7 +139,17 @@ const extractColorsInternal = async (imageUrl: string, count: number = 5): Promi
 
         return rankCoverPalette(toPaletteCandidates(palette), count);
     } catch (error) {
-        console.warn('Failed to extract cover colors', error);
+        // Broken / CORS / revoked cover URLs are common; fall back silently.
+        // Logging the raw Image error Event dumps a useless Event object in Electron.
+        if (import.meta.env.DEV) {
+            const hint = typeof imageUrl === 'string' ? imageUrl.slice(0, 96) : '';
+            const reason = error instanceof Event
+                ? `image load error (${error.type})`
+                : error instanceof Error
+                    ? error.message
+                    : 'unknown';
+            console.debug(`[colorExtractor] cover palette skipped: ${reason}`, hint);
+        }
         return [];
     } finally {
         release?.();
