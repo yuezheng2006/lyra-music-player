@@ -782,6 +782,8 @@ async function buildImportedSong(
         title: embeddedMetadata.title || metadata.title,
         artist: embeddedMetadata.artist || metadata.artist,
         album: embeddedMetadata.album,
+        trackNumber: embeddedMetadata.trackNumber,
+        discNumber: embeddedMetadata.discNumber,
         embeddedTitle: embeddedMetadata.title,
         embeddedArtist: embeddedMetadata.artist,
         embeddedAlbum: embeddedMetadata.album,
@@ -848,6 +850,8 @@ async function hydrateSongMetadata(song: LocalSong): Promise<LocalSong> {
         song.title = embeddedMetadata.title || song.title;
         song.artist = embeddedMetadata.artist || song.artist;
         song.album = embeddedMetadata.album || song.album;
+        song.trackNumber = embeddedMetadata.trackNumber ?? song.trackNumber;
+        song.discNumber = embeddedMetadata.discNumber ?? song.discNumber;
         song.embeddedTitle = embeddedMetadata.title;
         song.embeddedArtist = embeddedMetadata.artist;
         song.embeddedAlbum = embeddedMetadata.album;

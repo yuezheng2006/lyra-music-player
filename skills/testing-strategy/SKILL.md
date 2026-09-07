@@ -24,6 +24,8 @@ description: Use when the task involves choosing how to validate a change in thi
 优先使用 Playwright UI 测试：
 
 - 命令：`npm run test:ui`
+- **启动红线**（CI 必跑）：`npm run test:ui:startup` — `boot.ready` 硬预算；3D 交互背景已退役，不再作为启动闸门
+- 本机跑 Playwright 时尽量先停掉 `dev:electron`（否则 Vite×2 + Chromium WebGL 叠烧 CPU）；配置已对本机关闭 SwiftShader、默认 1 worker
 - 更新基线：`npm run test:ui:update`
 
 适用场景：

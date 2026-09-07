@@ -1,7 +1,7 @@
 # Mineradio → Lyra：节奏分析 / 账号 UI / 入口页迁移分析
 
-> 日期：2026-08-01（增量核查；原稿 2026-07-29）  
-> 参考仓：`.temp/Mineradio` @ **v2.1.0** / `96091d1`（已 `git pull --ff-only`；本地曾 stash `desktop/main.js` 杂改）  
+> 日期：2026-08-24（仅核对上游；上次增量核查 2026-08-01；原稿 2026-07-29）  
+> 参考仓：`.temp/Mineradio` @ **v2.1.0** / `89c0d23`（相对 `96091d1` 仅 README；**无产品代码增量**）  
 > 产品仓：happy-player / Lyra  
 > 许可：Mineradio GPL-3.0；Lyra AGPL-3.0 — 移植需保留 NOTICE / 归因，勿整包粘贴未审依赖  
 

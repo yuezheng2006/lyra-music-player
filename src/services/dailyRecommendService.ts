@@ -4,6 +4,8 @@ import {
     type OnlineLibraryProviderId,
 } from '../stores/useOnlineLibraryFilterStore';
 import type { RequestErrorCode } from '../utils/network';
+import { isListeningDeskFullTrack } from '../utils/home/listeningDeskMath';
+import { isListeningDeskMixProvider } from '../utils/ui/homeProviderFilterMath';
 import { isSongMarkedUnavailable } from './netease';
 import {
     dedupeSongsByTitle,
@@ -52,12 +54,12 @@ const QQ_PICK_LIMIT = 12;
 const songKey = (song: SongResult) =>
     `${song.musicProvider || 'unknown'}:${song.providerSongId || song.id}:${song.name}`;
 
-/** Enabled non-NetEase library providers in stable UI order. */
+/** Enabled peer providers that can fill the desk with full tracks (not Bilibili clips). */
 export const listTodayPicksProviders = (
     enabledProviders: Partial<Record<OnlineLibraryProviderId, boolean>>,
 ): OnlineMusicProviderId[] => (
     ONLINE_LIBRARY_PROVIDER_IDS.filter(
-        (id) => id !== 'netease' && enabledProviders[id] !== false,
+        (id) => isListeningDeskMixProvider(id) && enabledProviders[id] !== false,
     ) as OnlineMusicProviderId[]
 );
 
@@ -79,7 +81,7 @@ export const interleaveDailyRecommendSongs = (
         for (const list of queues) {
             const next = list.shift();
             if (!next) continue;
-            if (isSongMarkedUnavailable(next)) continue;
+            if (isSongMarkedUnavailable(next) || !isListeningDeskFullTrack(next)) continue;
             const exact = songKey(next);
             const title = recommendTitleKey(next);
             if (seenExact.has(exact)) continue;

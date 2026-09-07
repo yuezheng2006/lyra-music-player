@@ -5,19 +5,17 @@ import { ChevronLeft } from 'lucide-react';
 import { AudioBands, Theme, type UrlBackgroundItem } from '../../types';
 import { resolveThemeFontStack } from '../../utils/fontStacks';
 import { resolveSpeakerParticleYield } from '../../utils/visualizer/speakerStageShellMath';
-import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
+import { resolveVisualizerBackgroundMode, useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import { usePerformanceMonitorStore } from '../../stores/usePerformanceMonitorStore';
 import { type VisualizerSharedProps } from './definition';
 import FluidBackground from './FluidBackground';
-import GeometricInteractiveBackground from './geometric/GeometricInteractiveBackground';
 import LatentBackground from './backgrounds/latent/LatentBackground';
+import NomandBackgroundLayer from './backgrounds/nomand/NomandBackgroundLayer';
 import MonetBackgroundLayer from './backgrounds/MonetBackgroundLayer';
 import TurntableBackgroundLayer from './backgrounds/turntable/TurntableBackgroundLayer';
 import UrlBackgroundLayer from './backgrounds/UrlBackgroundLayer';
 import SoraBackground from './SoraBackground';
-import LyricRhythmStage from './shared/LyricRhythmStage';
 import SpeakerStageShell from './speaker/SpeakerStageShell';
-import { shouldApplyLyricRhythmToVisualizerMode, shouldEnableInteractive3dWebGlLyrics } from './resolveInteractive3dFumeLayering';
 
 // Shared outer shell for all visualizers.
 type VisualizerShellSharedProps = Pick<
@@ -35,6 +33,7 @@ type VisualizerShellSharedProps = Pick<
     | 'resolvedVisualizerBackgroundMode'
     | 'monetBackgroundTuning'
     | 'latentBackgroundTuning'
+    | 'nomandBackgroundTuning'
     | 'interactive3dSceneTuning'
     | 'monetBackgroundImage'
     | 'urlBackgroundList'
@@ -87,6 +86,8 @@ interface VisualizerShellProps {
     playlistShelfItems?: import('./geometric/shelf/shelfTypes').PlaylistShelfItem[];
     children: React.ReactNode;
     className?: string;
+    /** When false, skip cover/3D/Monet background layers (Still and other low-power modes). */
+    renderBackground?: boolean;
 }
 
 const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
@@ -97,20 +98,21 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     coverUrl,
     shellCanvasBackground,
     useCoverColorBg = false,
-    seed,
+    seed: _seed,
     backgroundOpacity = 0.75,
     visualizerOpacity = 1,
     transparentBackground = false,
-    disableVignette = false,
+    disableVignette: _disableVignette = false,
     staticMode = false,
-    disableGeometricBackground = false,
+    disableGeometricBackground: _disableGeometricBackground = false,
     paused = false,
     onBack,
     urlBackgroundList,
     urlBackgroundSelectedId,
-    playlistShelfItems,
+    playlistShelfItems: _playlistShelfItems,
     children,
     className = '',
+    renderBackground = true,
 }, ref) => {
     const { t } = useTranslation();
     const playbackPresentation = useSettingsUiStore(state => state.playbackPresentation);
@@ -124,15 +126,15 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const resolvedShellCanvasBackground = sharedProps?.shellCanvasBackground ?? shellCanvasBackground;
     const resolvedIsDaylight = sharedProps?.isDaylight ?? true;
     const resolvedUseCoverColorBg = sharedProps?.useCoverColorBg ?? useCoverColorBg;
-    const resolvedSeed = sharedProps?.seed ?? seed;
     const resolvedBackgroundOpacity = sharedProps?.backgroundOpacity ?? backgroundOpacity;
     const resolvedVisualizerOpacity = sharedProps?.visualizerOpacity ?? visualizerOpacity;
     const resolvedTransparentBackground = sharedProps?.transparentBackground ?? transparentBackground;
-    const resolvedDisableGeometricBackground = sharedProps?.disableGeometricBackground ?? disableGeometricBackground;
-    const resolvedDisableVignette = sharedProps?.disableVignette ?? disableVignette;
-    const resolvedBackgroundMode = sharedProps?.resolvedVisualizerBackgroundMode ?? 'interactive3d';
+    const resolvedBackgroundMode = resolveVisualizerBackgroundMode(
+        sharedProps?.resolvedVisualizerBackgroundMode,
+    );
     const resolvedMonetBackgroundTuning = sharedProps?.monetBackgroundTuning;
     const resolvedLatentBackgroundTuning = sharedProps?.latentBackgroundTuning;
+    const resolvedNomandBackgroundTuning = sharedProps?.nomandBackgroundTuning;
     const baseInteractive3dSceneTuning = sharedProps?.interactive3dSceneTuning;
     const resolvedInteractive3dSceneTuning = useMemo(() => {
         if (!baseInteractive3dSceneTuning) return baseInteractive3dSceneTuning;
@@ -152,43 +154,25 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const resolvedMonetBackgroundImage = sharedProps?.monetBackgroundImage;
     const resolvedUrlBackgroundList = sharedProps?.urlBackgroundList ?? urlBackgroundList;
     const resolvedUrlBackgroundSelectedId = sharedProps?.urlBackgroundSelectedId ?? urlBackgroundSelectedId;
-    const resolvedPlaylistShelfItems = sharedProps?.playlistShelfItems ?? playlistShelfItems ?? [];
-    const resolvedBeatPulse = sharedProps?.beatPulse;
     const resolvedCinemaScale = sharedProps?.cinemaScale;
     const resolvedAtmosphereEnergy = sharedProps?.atmosphereEnergy;
-    const resolvedCameraPunch = sharedProps?.cameraPunch;
-    const resolvedSceneParallaxX = sharedProps?.sceneParallaxX;
-    const resolvedSceneParallaxY = sharedProps?.sceneParallaxY;
-    const resolvedSceneRoll = sharedProps?.sceneRoll;
-    const resolvedEnableBeatBursts = sharedProps?.enableBeatBursts ?? sharedProps?.enableAtmosphereLayer ?? true;
     const resolvedStaticMode = sharedProps?.staticMode ?? staticMode;
     const resolvedPaused = sharedProps?.paused ?? paused;
-    const resolvedParticlesYielded = Boolean(sharedProps?.particlesYielded);
     const resolvedOnBack = sharedProps?.onBack ?? onBack;
     const hideBackButton = Boolean(sharedProps?.isPlayerChromeHidden);
-    const resolvedVisualizerMode = sharedProps?.visualizerMode;
     const resolvedCurrentTime = sharedProps?.currentTime;
-    const resolvedLines = sharedProps?.lines ?? [];
-    const resolvedShowText = sharedProps?.showText ?? true;
     const resolvedAudioPlaying = sharedProps?.audioPlaying ?? !resolvedPaused;
-    const resolvedImmersiveLyrics = speakerActive || (sharedProps?.immersiveLyrics ?? false);
-    const shouldRenderCommonBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'common';
-    const shouldRenderInteractive3dBackground = !resolvedTransparentBackground
-        && resolvedBackgroundMode === 'interactive3d'
-        && !resolvedStaticMode
-        && !resolvedDisableGeometricBackground;
-    const shouldRenderMonetBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'monet';
-    const shouldRenderLatentBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'latent';
-    const shouldRenderUrlBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'url';
-    const shouldRenderSoraBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'sora';
-    const shouldRenderTurntableBackground = !resolvedTransparentBackground && resolvedBackgroundMode === 'turntable';
+    const shouldRenderCommonBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'common';
+    const shouldRenderMonetBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'monet';
+    const shouldRenderLatentBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'latent';
+    const shouldRenderNomandBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'nomand';
+    const shouldRenderUrlBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'url';
+    const shouldRenderSoraBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'sora';
+    const shouldRenderTurntableBackground = renderBackground && !resolvedTransparentBackground && resolvedBackgroundMode === 'turntable';
     // Turntable floats on the same stage wash as Common (no wooden table fill).
     const shouldRenderStageWash = shouldRenderCommonBackground || shouldRenderTurntableBackground;
     const latentStaticMode = resolvedStaticMode
         || Boolean(resolvedLatentBackgroundTuning?.dynamicOnlyInPlayer && resolvedIsPreviewMode);
-    // Left-column rail modes must not rhythm-scale — scale > 1 clips lyrics past the stage edge.
-    const shouldApplyLyricRhythm = shouldRenderInteractive3dBackground
-        && shouldApplyLyricRhythmToVisualizerMode(resolvedVisualizerMode);
 
     const fontClassName = theme.fontStyle === 'mono'
         ? 'font-mono'
@@ -254,60 +238,6 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                 />
             )}
 
-            {shouldRenderInteractive3dBackground && (
-                <>
-                    {/* Black base + soft cover tint — welcoming album color without a full fog veil. */}
-                    <div
-                        className="absolute inset-0 z-0 transition-all duration-1000"
-                        style={{
-                            backgroundColor: '#000000',
-                            opacity: 1,
-                        }}
-                    />
-                    {resolvedShellCanvasBackground ? (
-                        <div
-                            className="absolute inset-0 z-0 transition-all duration-1000"
-                            style={{
-                                backgroundImage: resolvedShellCanvasBackground,
-                                opacity: 0.42,
-                                pointerEvents: 'none',
-                            }}
-                            aria-hidden
-                        />
-                    ) : null}
-                    <div
-                        className="absolute inset-0 z-0 isolate pointer-events-auto"
-                    >
-                        <GeometricInteractiveBackground
-                            theme={theme}
-                            audioPower={audioPower}
-                            audioBands={audioBands}
-                            beatPulse={resolvedBeatPulse}
-                            cinemaScale={resolvedCinemaScale}
-                            cameraPunch={resolvedCameraPunch}
-                            sceneParallaxX={resolvedSceneParallaxX}
-                            sceneParallaxY={resolvedSceneParallaxY}
-                            sceneRoll={resolvedSceneRoll}
-                            atmosphereEnergy={resolvedAtmosphereEnergy}
-                            enableBeatBursts={resolvedEnableBeatBursts}
-                            interactive3dSceneTuning={resolvedInteractive3dSceneTuning}
-                            seed={resolvedSeed}
-                            disableVignette={resolvedDisableVignette}
-                            paused={resolvedPaused}
-                            particlesYielded={resolvedParticlesYielded}
-                            coverUrl={resolvedCoverUrl}
-                            playlistShelfItems={resolvedPlaylistShelfItems}
-                            visualizerMode={resolvedVisualizerMode}
-                            currentTime={resolvedCurrentTime}
-                            lines={resolvedLines}
-                            showLyrics={shouldEnableInteractive3dWebGlLyrics(resolvedBackgroundMode) && resolvedShowText}
-                            immersiveLyrics={resolvedImmersiveLyrics}
-                            playing={resolvedAudioPlaying}
-                        />
-                    </div>
-                </>
-            )}
-
             {shouldRenderMonetBackground && (
                 <MonetBackgroundLayer
                     coverUrl={resolvedCoverUrl}
@@ -328,6 +258,16 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                     staticMode={latentStaticMode}
                     paused={resolvedPaused}
                     tuning={resolvedLatentBackgroundTuning}
+                />
+            )}
+
+            {shouldRenderNomandBackground && (
+                <NomandBackgroundLayer
+                    coverUrl={resolvedCoverUrl}
+                    monetBackgroundImage={resolvedMonetBackgroundImage}
+                    theme={theme}
+                    isDaylight={resolvedIsDaylight}
+                    tuning={resolvedNomandBackgroundTuning}
                 />
             )}
 
@@ -378,20 +318,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
                     filter: 'drop-shadow(0 0 28px rgba(0,0,0,0.62)) drop-shadow(0 8px 22px rgba(0,0,0,0.4))',
                 } : undefined}
             >
-                {shouldApplyLyricRhythm ? (
-                    <LyricRhythmStage
-                        audioPower={audioPower}
-                        beatPulse={resolvedBeatPulse}
-                        cameraPunch={resolvedCameraPunch}
-                        cinemaScale={resolvedCinemaScale}
-                        atmosphereEnergy={resolvedAtmosphereEnergy}
-                        scaleMultiplier={theme.lyricRhythmScaleMultiplier}
-                        glowColor={theme.lyricGlowUsesAccent ? theme.primaryColor : null}
-                        className="w-full h-full overflow-hidden"
-                    >
-                        {children}
-                    </LyricRhythmStage>
-                ) : children}
+                {children}
             </div>
         </div>
     );

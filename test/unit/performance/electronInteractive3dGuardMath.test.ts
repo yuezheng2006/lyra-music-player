@@ -49,7 +49,7 @@ describe('electronInteractive3dGuardMath', () => {
         expect(resolveGpuCrashVisualizerFallback('common')).toBeNull();
     });
 
-    it('keeps Retina Electron off interactive3d unless the user opts in', () => {
+    it('maps retired interactive3d to common even when the user previously opted in', () => {
         expect(resolveElectronSafeVisualizerBackgroundMode({
             mode: 'interactive3d',
             isElectron: true,
@@ -64,7 +64,7 @@ describe('electronInteractive3dGuardMath', () => {
             devicePixelRatio: 2,
             gpuUnstable: false,
             interactive3dOptIn: true,
-        })).toBe('interactive3d');
+        })).toBe('common');
 
         expect(resolveElectronSafeVisualizerBackgroundMode({
             mode: 'interactive3d',
@@ -85,12 +85,12 @@ describe('electronInteractive3dGuardMath', () => {
         })).toBe('common');
     });
 
-    it('allows interactive3d retry while blocking other heavy modes under gpuUnstable', () => {
+    it('maps retired interactive3d to common and still blocks other heavy modes under gpuUnstable', () => {
         expect(resolveUserSelectedVisualizerBackgroundMode({
             requested: 'interactive3d',
             isElectron: true,
             gpuUnstable: true,
-        })).toBe('interactive3d');
+        })).toBe('common');
 
         expect(resolveUserSelectedVisualizerBackgroundMode({
             requested: 'latent',
@@ -102,13 +102,13 @@ describe('electronInteractive3dGuardMath', () => {
             requested: 'interactive3d',
             isElectron: true,
             gpuUnstable: false,
-        })).toBe('interactive3d');
+        })).toBe('common');
 
         expect(resolveUserSelectedVisualizerBackgroundMode({
             requested: 'interactive3d',
             isElectron: false,
             gpuUnstable: true,
-        })).toBe('interactive3d');
+        })).toBe('common');
     });
 
     it('does not demote lyric style after a GPU crash (Monet stays available)', () => {

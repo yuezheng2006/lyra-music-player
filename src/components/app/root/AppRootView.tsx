@@ -38,6 +38,8 @@ import { useBootSplashLifecycle } from '@/hooks/useBootSplashLifecycle';
 import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 import { PerformanceHud } from '@/components/performance/PerformanceHud';
 import { isVideoPlaybackStageActive } from '@/utils/playback/resolveVideoPlaybackStage';
+import { resolveLyricPresentation } from '@/utils/lyrics/lyricPresentation';
+import { hasPersonalLibraryAccess } from '@/utils/onlineLibraryAccess';
 
 // src/components/app/root/AppRootView.tsx
 // App shell root: visualizer stage, overlays, and chrome.
@@ -49,6 +51,8 @@ interface AppRootViewProps {
 export function AppRootView({ controller }: AppRootViewProps) {
     const { t } = useTranslation();
     const homeViewTab = useSearchNavigationStore(state => state.homeViewTab);
+    const isSearchOpen = useSearchNavigationStore(state => state.isSearchOpen);
+    const hideSearchOverlay = useSearchNavigationStore(state => state.hideSearchOverlay);
     const setHomeViewTab = useSearchNavigationStore(state => state.setHomeViewTab);
     const preloadDailyRecommend = useDailyRecommendStore(state => state.preload);
     const isOnboardingOpen = useSettingsUiStore(state => state.isOnboardingOpen);
@@ -156,6 +160,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
         monetBackgroundImage,
         monetBackgroundTuning,
         latentBackgroundTuning,
+        nomandBackgroundTuning,
         monetPortraitImage,
         monetTuning,
         navigateToHome,
@@ -186,6 +191,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
         showSubtitleTranslation,
         showTransparentWindowBorder,
         skipAfterPlaybackFailure,
+        setStatusMsg,
         stageActiveEntryKind,
         stageSource,
         staticMode,
@@ -328,12 +334,22 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 recoverOnlinePlaybackSource={recoverOnlinePlaybackSource}
                 playerState={playerState}
                 skipAfterPlaybackFailure={skipAfterPlaybackFailure}
+                onBlockedPermissionPreview={() => {
+                    setStatusMsg({
+                        type: 'error',
+                        text: t('status.previewClipSkipped'),
+                        nonce: Date.now(),
+                        durationMs: 2200,
+                    });
+                }}
             />}
         >
             <div className="relative flex min-h-0 flex-1 w-full">
                 <AppSidebar
                     active={((): AppSidebarActive => {
+                        if (isSearchOpen || homeViewTab === 'charts') return 'charts';
                         if (homeViewTab === 'podcast') return 'podcast';
+                        if (homeViewTab === 'radio') return 'radio';
                         if (homeViewTab === 'local') return 'local';
                         if (homeViewTab === 'navidrome' && navidromeEnabled) return 'navidrome';
                         if (homeViewTab === 'ytmusic') return 'ytmusic';
@@ -344,13 +360,23 @@ export function AppRootView({ controller }: AppRootViewProps) {
                     collapsed={sidebarLayout.collapsed}
                     forceHidden={sidebarLayout.forceHidden}
                     navidromeEnabled={navidromeEnabled}
+                    hasPersonalLibrary={hasPersonalLibraryAccess()}
                     onToggleCollapsed={toggleCollapsed}
                     onOpenHome={() => {
                         setHomeViewTab('playlist');
                         navigateDirectHome();
                     }}
+                    onOpenCharts={() => {
+                        hideSearchOverlay();
+                        setHomeViewTab('charts');
+                        navigateDirectHome({ clearContext: false });
+                    }}
                     onOpenPodcast={() => {
                         setHomeViewTab('podcast');
+                        navigateDirectHome({ clearContext: false });
+                    }}
+                    onOpenRadio={() => {
+                        setHomeViewTab('radio');
                         navigateDirectHome({ clearContext: false });
                     }}
                     onOpenLocal={() => {
@@ -414,6 +440,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         currentTime={lyricCurrentTime}
                         currentLineIndex={currentLineIndex}
                         lines={lyrics?.lines || []}
+                        lyricPresentation={resolveLyricPresentation(lyrics, currentSong)}
                         theme={visualizerTheme}
                         isDaylight={isDaylight}
                         audioPower={audioPower}
@@ -465,6 +492,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         pendoloTuning={pendoloTuning}
                         monetBackgroundTuning={monetBackgroundTuning}
                         latentBackgroundTuning={latentBackgroundTuning}
+                        nomandBackgroundTuning={nomandBackgroundTuning}
                         interactive3dSceneTuning={interactive3dSceneTuning}
                         playlistShelfItems={playlistShelfItems}
                         monetTuning={monetTuning}
@@ -486,6 +514,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
                 <ObsBrowserSourceLyrics
                     lyrics={lyrics}
                     currentLineIndex={currentLineIndex}
+                    lyricPresentation={resolveLyricPresentation(lyrics, currentSong)}
                     visualizerTheme={visualizerTheme}
                     lyricsFontScale={lyricsFontScale}
                     shouldHidePlayerTranslationSubtitle={shouldHidePlayerTranslationSubtitle}
@@ -502,14 +531,14 @@ export function AppRootView({ controller }: AppRootViewProps) {
                         </div>
                         <div className="mt-3 text-2xl font-semibold">
                             {stageSource === 'now-playing'
-                                ? '等待本地 Now Playing 服务输入'
+                                ? t('options.nowPlayingWaiting')
                                 : (t('options.stageSessionEmpty') || '等待外部输入')}
                         </div>
                         <div className="mt-2 text-sm opacity-70">
                             {stageSource === 'now-playing'
                                 ? (nowPlayingConnectionStatus === 'error'
-                                    ? '未能连接到 ws://localhost:9863/api/ws/lyric，请确认 now-playing 服务已在本机运行'
-                                    : '请在本机启动 now-playing 服务，并确保播放器正在播放')
+                                    ? t('options.nowPlayingWsFailed')
+                                    : t('options.nowPlayingNeedService'))
                                 : (t('options.enableStageModeDesc') || '本地 Stage API 已开启')}
                         </div>
                     </div>

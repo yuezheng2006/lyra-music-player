@@ -47,6 +47,7 @@ import type { AudioQuality } from './types';
 
 export const CACHE_SIZE_KEY = 'folia_cache_size';
 export const ENABLE_MEDIA_CACHE_KEY = 'folia_enable_media_cache';
+export const AUTO_RESYNC_DOWNLOAD_FOLDER_KEY = 'folia_auto_resync_download_folder';
 export const LAST_SEEN_GUIDE_VERSION_STORAGE_KEY = 'folia_last_seen_guide_version';
 export const ONBOARDING_COMPLETED_STORAGE_KEY = 'lyra_onboarding_completed';
 
@@ -64,6 +65,7 @@ export const readOnboardingCompleted = (): boolean => {
 export const MINIMIZE_TO_TRAY_STORAGE_KEY = 'minimize_to_tray';
 export const HIDE_TASKBAR_ICON_STORAGE_KEY = 'hide_taskbar_icon';
 export const OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY = 'open_player_on_launch';
+export const AUTO_PLAY_ON_LAUNCH_STORAGE_KEY = 'auto_play_on_launch';
 export const SUBTITLE_OVERLAY_OPACITY_STORAGE_KEY = 'subtitle_overlay_opacity';
 export const SHOW_SUBTITLE_TRANSLATION_STORAGE_KEY = 'show_subtitle_translation';
 export const SHOW_HARMONY_SUBTITLE_STORAGE_KEY = 'show_harmony_subtitle';

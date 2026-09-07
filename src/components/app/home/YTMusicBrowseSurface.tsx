@@ -16,7 +16,8 @@ import { useYtmusicBrowseStore, type YtmusicSearchTab } from '../../../stores/us
 import { SearchClearButton } from '../../shared/SearchClearButton';
 import RemoteLoadState from '../../shared/RemoteLoadState';
 import { captureRequestFailure } from '../../../utils/network';
-import { APP_CONTENT_BOTTOM_PADDING_CLASS, resolveBrowseListRowClass } from './homeSurfaceStyles';
+import { resolveBrowseListRowClass } from './homeSurfaceStyles';
+import PlayerClearanceSpacer from './PlayerClearanceSpacer';
 import YtmusicHomeRails from './ytmusic/YtmusicHomeRails';
 
 // src/components/app/home/YTMusicBrowseSurface.tsx
@@ -309,8 +310,8 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
     );
 
     return (
-        <div className={`flex h-full min-h-0 flex-col px-6 pt-6 ${APP_CONTENT_BOTTOM_PADDING_CLASS}`}>
-            <div className="mb-5 flex items-start gap-3">
+        <div className="flex h-full min-h-0 flex-col px-6 pt-6 md:px-8">
+            <div className="mb-4 flex max-w-3xl items-start gap-3">
                 {activePlaylist ? (
                     <button
                         type="button"
@@ -329,7 +330,7 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
                     <h1 className="text-xl font-semibold tracking-tight">
                         {activePlaylist ? activePlaylist.title : t('ytmusic.title')}
                     </h1>
-                    <p className={`mt-1 text-sm ${muted}`}>
+                    <p className={`mt-1 text-sm leading-relaxed ${muted}`}>
                         {activePlaylist
                             ? (t('ytmusic.playlistSubtitle') || '公开歌单')
                             : t('ytmusic.subtitle')}
@@ -339,18 +340,18 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
 
             {!activePlaylist ? (
                 <form
-                    className="relative mb-3"
+                    className="relative mb-3.5 max-w-xl"
                     onSubmit={(event) => {
                         event.preventDefault();
                         void runSearch(query, searchTab);
                     }}
                 >
-                    <Search className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${muted}`} />
+                    <Search className={`pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 ${muted}`} />
                     <input
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
                         placeholder={t('ytmusic.searchPlaceholder')}
-                        className={`w-full rounded-2xl py-3 pl-10 pr-10 text-sm outline-none transition ${inputBg}`}
+                        className={`w-full rounded-full py-2.5 pl-10 pr-10 text-sm outline-none transition ${inputBg}`}
                         disabled={!runtimeOk}
                     />
                     <SearchClearButton
@@ -366,12 +367,12 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
             ) : null}
 
             {showDiscovery ? (
-                <div className="mb-4 flex flex-wrap gap-2">
+                <div className="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {YTMUSIC_HOME_CHIPS_CN.map((chip) => (
                         <button
                             key={chip}
                             type="button"
-                            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${chipClass}`}
+                            className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition ${chipClass}`}
                             onClick={() => void runSearch(chip, 'songs')}
                         >
                             {chip}
@@ -426,7 +427,7 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
 
             <div
                 ref={listRef}
-                className="min-h-0 flex-1 overflow-y-auto pb-8"
+                className="min-h-0 flex-1 overflow-y-auto"
                 onScroll={(event) => {
                     setListScrollTop(event.currentTarget.scrollTop);
                 }}
@@ -505,6 +506,7 @@ const YTMusicBrowseSurface: React.FC<YTMusicBrowseSurfaceProps> = ({
                         onPlayTrack={onPlayTrack}
                     />
                 )}
+                <PlayerClearanceSpacer />
             </div>
         </div>
     );

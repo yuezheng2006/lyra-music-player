@@ -2,27 +2,19 @@ import * as THREE from 'three';
 import type { AudioBands, Interactive3dSceneTuning } from '../../../../types';
 import type { GeometricQualityProfile } from '../geometricQuality';
 import type { InteractiveCameraSnapshot } from '../interactiveCamera/interactiveCameraTypes';
-import { orbitToCameraPosition } from '../interactiveCamera/interactiveCameraMath';
-import { resolveCoverParticleFitCameraRadius } from './coverParticleViewportFitMath';
-import { resolveVisiblePaneLookAtX } from '../resolveInteractive3dStageContainment';
 import {
     buildCoverParticleGeometry,
 } from './buildCoverParticleGeometry';
 import {
     resolveCoverParticleGridForPreset,
-    shouldEnableCoverParticleBloom,
 } from '../../../../utils/performance/interactive3dFrameCostMath';
 import {
-    applyCoverParticleCinemaOffset,
     CoverParticleCinemaCamera,
 } from './coverParticleCinemaCamera';
 import { createCoverParticleMaterials, type CoverParticleUniforms } from './coverParticleMaterials';
 import { createDotTexture, createEmptyColorTexture } from './createDotTexture';
-import { buildCoverEdgeAndDepthFromSource } from './buildCoverEdgeAndDepth';
 import {
     CoverColorMixTween,
-    DEFAULT_COVER_COLOR_MIX_MS,
-    EMILY_COVER_COLOR_MIX_MS,
 } from './coverColorMixTween';
 import { CoverNumericTween } from './coverNumericTween';
 import {
@@ -32,13 +24,7 @@ import {
 import { subscribeGeometricCanvasFrame } from '../geometricCanvasRuntime';
 import { CoverParticleAudioSmoother } from './coverParticleAudioUniforms';
 import { CoverParticleBurstSmoother } from './coverParticleBurstSmoother';
-import {
-    resolveCoverParticlePointScale,
-    resolveCoverSwapDepthHold,
-    shouldHoldCoverThroughLoadFailure,
-    shouldHoldCoverThroughNullUrl,
-    shouldShowCoverLoadMist,
-} from './coverParticleDisplayTuning';
+import type { CoverParticlePresetRuntimeProfile } from './coverParticlePresetRuntime';
 import { resolveCoverParticlePresetRuntime } from './coverParticlePresetRuntime';
 import { CoverParticleRippleField } from './coverParticleRipples';
 import {
@@ -50,22 +36,22 @@ import {
     COVER_PARTICLE_MORPH_MS,
 } from '../../../../utils/visualizer/coverParticleMorphMath';
 import { shouldSkipCoverParticleFrameWhileYielded } from '../../../../utils/visualizer/coverParticleYieldFramePolicy';
+import { resolveCoverParticleEffectiveFrameSkip } from '../../../../utils/visualizer/coverParticleFrameSkipMath';
 import { LyricStageRuntime, type LyricStageTickInput } from '../mineradio/lyrics/LyricStageRuntime';
-import { drawCoverToSquareCanvas } from './prepareCoverParticleTexture';
-import {
-    QUANTUM_CUBE_FRAGMENT_SHADER,
-    QUANTUM_CUBE_VERTEX_SHADER,
-} from './quantumCubeShaders';
 import { normalizeInteractive3dVisualPreset } from '../mineradioVisualPresets';
-import { fetchCoverViaProxy } from '../../../../utils/fetchCoverViaProxy';
 import {
     type CoverParticleCaptureSnapshot,
     shouldEnableCoverParticleCaptureBridge,
 } from './coverParticleCaptureMath';
 import { trackTelemetry } from '../../../../utils/telemetry/trackTelemetry';
+import { applyCoverParticleInteractiveCamera } from './coverParticleCameraMath';
+import { installCoverParticleInteractionListeners } from './coverParticleInteraction';
+import { tickCoverParticleCoverFrame } from './coverParticleCoverTick';
+import { CoverParticleCoverLoader } from './coverParticleCoverLoader';
+import { resolveCoverParticlePresetModule } from './presets';
 
 // src/components/visualizer/geometric/webgl/coverParticleRuntime.ts
-// Three.js runtime for cover particle WebGL layers.
+// Three.js runtime orchestrator for cover particle WebGL (presets + effects).
 
 const VIZ_FRAME_COST_TELEMETRY_INTERVAL_MS = 2000;
 
@@ -93,46 +79,12 @@ const createCoverMaterial = (
     fallbackCoverTexture: THREE.Texture,
 ) => createCoverParticleMaterials(dotTexture, fallbackCoverTexture);
 
-const MINERADIO_ORBIT_BASELINES: Partial<Record<
-    NonNullable<Interactive3dSceneTuning['visualPreset']>,
-    { theta: number; phi: number; radius: number }
->> = {
-    emily: { theta: 0, phi: 0.08, radius: 6.6 },
-    mineradioTunnel: { theta: 0, phi: 0.03, radius: 6.05 },
-    mineradioOrbit: { theta: 0, phi: 0.12, radius: 8.8 },
-    mineradioVoid: { theta: 0, phi: 0.05, radius: 8.0 },
-    mineradioGalaxy: { theta: -0.52, phi: 0.34, radius: 9.2 },
-    aurora: { theta: 0.08, phi: 0.06, radius: 5.8 },
-};
-
-const UI_HIT_SELECTOR = [
-    'button',
-    'a',
-    'input',
-    'textarea',
-    'select',
-    '[role="button"]',
-    '[role="menu"]',
-    '[data-radix-popper-content-wrapper]',
-    '[data-testid="floating-player-background-menu"]',
-    '[data-testid="floating-player-controls"]',
-    '[data-testid="player-controls"]',
-    '[data-testid="unified-panel"]',
-    '[data-testid="interactive3d-camera-capture"]',
-    // Scrollable / opaque app chrome must keep wheel (search, home lists, panels).
-    '[data-app-ui-surface]',
-].join(',');
-
 export class CoverParticleRuntime {
     private container: HTMLElement | null = null;
 
     private renderer: THREE.WebGLRenderer | null = null;
 
     private scene = new THREE.Scene();
-
-    private quantumScene = new THREE.Scene();
-
-    private quantumCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
     private camera = new THREE.PerspectiveCamera(52, 1, 0.1, 120);
 
@@ -156,10 +108,6 @@ export class CoverParticleRuntime {
 
     private loadingTween = new CoverNumericTween();
 
-    private loadingShownAt = 0;
-
-    private loadingHideTimer: number | null = null;
-
     private coverMaterials = createCoverMaterial(this.dotTexture, this.fallbackCoverTexture);
 
     private uniforms: CoverParticleUniforms = this.coverMaterials.uniforms;
@@ -172,11 +120,9 @@ export class CoverParticleRuntime {
 
     private bloomPoints: THREE.Points | null = null;
 
-    private quantumMaterial: THREE.ShaderMaterial | null = null;
-
-    private quantumMesh: THREE.Mesh | null = null;
-
     private coverTexture: THREE.Texture | null = null;
+
+    private coverLoader: CoverParticleCoverLoader | null = null;
 
     private textureLoader = new THREE.TextureLoader();
 
@@ -188,20 +134,6 @@ export class CoverParticleRuntime {
 
     private coverUrl: string | null = null;
 
-    private loadedCoverUrl: string | null = null;
-
-    /**
-     * URL of the most recent load attempt (success or failure), independent of loadedCoverUrl.
-     * Prevents refetch storms: configure() re-enters on every quality-tier/tuning change, and a
-     * failing CORS/proxy URL would otherwise be retried on each re-entry (network + main-thread churn).
-     */
-    private attemptedCoverUrl: string | null = null;
-
-    private coverLoadToken = 0;
-
-    private coverObjectUrl: string | null = null;
-
-    /** Coalesce configure() paints onto the next frame — never sync-block layout. */
     private configurePaintRaf: number | null = null;
 
     private vinylSpin = 0;
@@ -272,17 +204,14 @@ export class CoverParticleRuntime {
 
     private clock = new THREE.Clock();
 
-    /** When set, renderFrame uses this elapsed instead of the wall clock (capture only). */
     private forcedElapsed: number | null = null;
 
-    /** When set, renderFrame uses this dt instead of clock.getDelta() (capture only). */
     private forcedDt: number | null = null;
 
     private lyricStage = new LyricStageRuntime();
 
     private rippleField = new CoverParticleRippleField();
 
-    /** Extra emission scale so dark cover samples stay readable on near-black shells. */
     private contrastLift = 1;
 
     private lyricStageEnabled = true;
@@ -324,154 +253,44 @@ export class CoverParticleRuntime {
     private applyInteractiveCamera(
         snapshot?: InteractiveCameraSnapshot,
         bassPulse = 0,
-        presetProfile = resolveCoverParticlePresetRuntime('emily'),
+        presetProfile: CoverParticlePresetRuntimeProfile = resolveCoverParticlePresetRuntime('emily'),
         preset: Interactive3dSceneTuning['visualPreset'] = 'emily',
         cinemaShake = 0.5,
         atmosphereEnergy = 0,
         dt = 0.016,
         beat = 0,
     ) {
-        const syncRotation = (rotationX: number, rotationY: number) => {
-            if (this.coverPoints) {
-                this.coverPoints.rotation.set(rotationX, rotationY, 0);
-            }
-            if (this.bloomPoints) {
-                this.bloomPoints.rotation.copy(this.coverPoints?.rotation ?? new THREE.Euler());
-            }
+        const presetModule = resolveCoverParticlePresetModule(preset);
+        const cameraState = {
+            camera: this.camera,
+            coverPoints: this.coverPoints,
+            bloomPoints: this.bloomPoints,
+            cinemaCamera: this.cinemaCamera,
+            mineradioOrbit: this.mineradioOrbit,
+            userOrbitOffset: this.userOrbitOffset,
+            particleRotation: this.particleRotation,
+            particleSpinVelocity: this.particleSpinVelocity,
+            paneLookAtX: this.paneLookAtX,
+            snapPaneLookAt: this.snapPaneLookAt,
+            lyricColumnEndRatio: this.lyricColumnEndRatio,
+            pointerActive: this.latestInputs.pointerActive,
+            pointerX: this.latestInputs.pointerX,
+            pointerY: this.latestInputs.pointerY,
         };
-
-        const immersiveStrength = 0;
-        const responsiveBassPulse = bassPulse * (1 + immersiveStrength * 0.45);
-        const baseZ = presetProfile.cameraZ - responsiveBassPulse * presetProfile.bassCameraPunch;
-        const cinemaOffset = this.cinemaCamera.tick(
+        applyCoverParticleInteractiveCamera(cameraState, {
+            snapshot,
+            bassPulse,
+            presetProfile,
+            preset,
+            orbitBaseline: presetModule.orbitBaseline,
+            cinemaShake,
+            atmosphereEnergy,
             dt,
             beat,
-            cinemaShake * (1 + immersiveStrength * 0.45),
-            atmosphereEnergy,
-        );
-        const cinematicPosition = applyCoverParticleCinemaOffset(baseZ, cinemaOffset);
-        const orbitBaseline = MINERADIO_ORBIT_BASELINES[preset ?? 'emily'];
-        const focusDistance = orbitBaseline
-            ? Math.max(0.5, this.mineradioOrbit.radius)
-            : Math.max(0.5, Math.abs(cinematicPosition.z));
-        const halfFovTan = Math.tan((this.camera.fov * Math.PI) / 360);
-        const halfWidth = halfFovTan * Math.max(0.05, this.camera.aspect) * focusDistance;
-        const ratioFromInputs = this.latestInputs.lyricColumnEndRatio ?? this.lyricColumnEndRatio;
-        const targetPaneLookAtX = resolveVisiblePaneLookAtX(ratioFromInputs, halfWidth);
-        if (this.snapPaneLookAt) {
-            this.paneLookAtX = targetPaneLookAtX;
-            this.snapPaneLookAt = false;
-        } else {
-            const delta = Math.abs(targetPaneLookAtX - this.paneLookAtX);
-            const ease = delta > 1.2 ? 1 : 0.28;
-            this.paneLookAtX += (targetPaneLookAtX - this.paneLookAtX) * ease;
-        }
-        const paneLookAtX = this.paneLookAtX;
-        const targetFov = orbitBaseline
-            ? presetProfile.fov
-                - Math.max(0, beat) * (0.85 + immersiveStrength * 0.55)
-                - (presetProfile.immersiveFovOffset ?? 0) * immersiveStrength
-            : presetProfile.fov;
-        this.camera.fov += (targetFov - this.camera.fov) * (targetFov < this.camera.fov ? 0.24 : 0.12);
-        this.camera.updateProjectionMatrix();
-
-        if (!snapshot || snapshot.mode === 'auto') {
-            if (orbitBaseline) {
-                const targetTheta = orbitBaseline.theta + this.userOrbitOffset.theta + cinemaOffset.thetaKick;
-                const targetPhi = THREE.MathUtils.clamp(
-                    orbitBaseline.phi
-                        + this.userOrbitOffset.phi
-                        + cinemaOffset.phiKick
-                        + (presetProfile.immersivePhiOffset ?? 0) * immersiveStrength,
-                    -Math.PI * 0.45,
-                    Math.PI * 0.45,
-                );
-                // Pull camera back from the shorter viewport axis so authored content stays on-screen.
-                const fittedBaselineRadius = resolveCoverParticleFitCameraRadius({
-                    preset,
-                    fovDeg: presetProfile.fov,
-                    aspect: this.camera.aspect,
-                }) ?? orbitBaseline.radius;
-                const targetRadius = THREE.MathUtils.clamp(
-                    fittedBaselineRadius
-                        + this.userOrbitOffset.radius
-                        - responsiveBassPulse * presetProfile.bassCameraPunch
-                        + cinemaOffset.radiusKick
-                        + (presetProfile.immersiveRadiusOffset ?? 0) * immersiveStrength,
-                    2.4,
-                    18,
-                );
-                const focusEase = Math.max(0.10, 0.12 + beat * 0.12);
-                const radiusEase = Math.max(0.07, 0.09 + beat * 0.12);
-                this.mineradioOrbit.theta += (targetTheta - this.mineradioOrbit.theta) * focusEase;
-                this.mineradioOrbit.phi += (targetPhi - this.mineradioOrbit.phi) * focusEase;
-                this.mineradioOrbit.radius += (targetRadius - this.mineradioOrbit.radius) * radiusEase;
-                this.mineradioOrbit.lookAt.x = paneLookAtX;
-                const cy = Math.cos(this.mineradioOrbit.phi);
-                this.camera.position.set(
-                    this.mineradioOrbit.lookAt.x
-                        + this.mineradioOrbit.radius * cy * Math.sin(this.mineradioOrbit.theta),
-                    this.mineradioOrbit.lookAt.y
-                        + this.mineradioOrbit.radius * Math.sin(this.mineradioOrbit.phi),
-                    this.mineradioOrbit.lookAt.z
-                        + this.mineradioOrbit.radius * cy * Math.cos(this.mineradioOrbit.theta),
-                );
-                this.camera.rotation.set(0, 0, 0);
-                this.camera.lookAt(this.mineradioOrbit.lookAt);
-                const pointerRotationX = this.latestInputs.pointerActive ? -this.latestInputs.pointerY * 0.12 : 0;
-                const pointerRotationY = this.latestInputs.pointerActive ? this.latestInputs.pointerX * 0.18 : 0;
-                this.particleRotation.x += this.particleSpinVelocity.x;
-                this.particleRotation.y += this.particleSpinVelocity.y;
-                this.particleSpinVelocity.x *= 0.92;
-                this.particleSpinVelocity.y *= 0.92;
-                this.particleRotation.x += (pointerRotationX - this.particleRotation.x) * 0.018;
-                this.particleRotation.y += (pointerRotationY - this.particleRotation.y) * 0.018;
-                syncRotation(this.particleRotation.x, this.particleRotation.y);
-                return;
-            }
-
-            syncRotation(0, 0);
-            this.camera.position.set(
-                cinematicPosition.x + paneLookAtX,
-                cinematicPosition.y,
-                cinematicPosition.z,
-            );
-            this.camera.rotation.set(0, 0, 0);
-            this.camera.lookAt(paneLookAtX, 0, 0);
-            return;
-        }
-
-        if (snapshot.mode === 'orbit') {
-            syncRotation(0, 0);
-            const position = orbitToCameraPosition(snapshot.orbit);
-            this.camera.position.set(position.x, position.y, position.z);
-            this.camera.lookAt(
-                snapshot.orbit.lookAtX,
-                snapshot.orbit.lookAtY,
-                snapshot.orbit.lookAtZ,
-            );
-            return;
-        }
-
-        if (snapshot.mode === 'wasd') {
-            syncRotation(0, 0);
-            const { x, y, z, yaw, pitch, roll } = snapshot.free;
-            this.camera.position.set(x, y, z);
-            this.camera.rotation.order = 'YXZ';
-            this.camera.rotation.set(pitch, yaw, roll);
-            return;
-        }
-
-        if (snapshot.mode === 'gesture') {
-            this.camera.position.set(
-                cinematicPosition.x + paneLookAtX,
-                cinematicPosition.y,
-                cinematicPosition.z,
-            );
-            this.camera.rotation.set(0, 0, 0);
-            this.camera.lookAt(paneLookAtX, 0, 0);
-            syncRotation(snapshot.gesture.rotationX, snapshot.gesture.rotationY);
-        }
+            lyricColumnEndRatioFromInputs: this.latestInputs.lyricColumnEndRatio,
+        });
+        this.paneLookAtX = cameraState.paneLookAtX;
+        this.snapPaneLookAt = cameraState.snapPaneLookAt;
     }
 
     mount(container: HTMLElement) {
@@ -503,7 +322,6 @@ export class CoverParticleRuntime {
         this.camera.fov = 45;
         this.camera.updateProjectionMatrix();
         this.camera.lookAt(0, 0, 0);
-        // Quantum cube pass retired with the preset; keep shaders for a possible future remap.
         this.uniforms.uRippleTex.value = this.rippleField.texture;
         this.uniforms.uPrevCoverTex.value = this.prevCoverTexture;
         this.uniforms.uEdgeTex.value = this.fallbackCoverTexture;
@@ -520,11 +338,38 @@ export class CoverParticleRuntime {
             );
             this.renderFrame();
         });
-        this.installInteractionListeners(container);
+        const self = this;
+        this.interactionState = {
+            get interactionDragging() { return self.interactionDragging; },
+            set interactionDragging(value: boolean) { self.interactionDragging = value; },
+            lastInteractionPointer: this.lastInteractionPointer,
+            userOrbitOffset: this.userOrbitOffset,
+            particleSpinVelocity: this.particleSpinVelocity,
+            particleRotation: this.particleRotation,
+            interactivePointer: this.interactivePointer,
+            pointerRaycaster: this.pointerRaycaster,
+            pointerNdc: this.pointerNdc,
+            pointerPlane: this.pointerPlane,
+            pointerPlanePoint: this.pointerPlanePoint,
+            pointerPlaneNormal: this.pointerPlaneNormal,
+            pointerWorldHit: this.pointerWorldHit,
+            pointerLocalHit: this.pointerLocalHit,
+            pointerQuaternion: this.pointerQuaternion,
+        };
+        this.removeInteractionListeners = installCoverParticleInteractionListeners({
+            container,
+            camera: this.camera,
+            getCoverPoints: () => self.coverPoints,
+            rendererDomElement: this.renderer.domElement,
+            state: this.interactionState,
+        });
     }
 
+    private interactionState: import('./coverParticleInteraction').CoverParticleInteractionState | null = null;
+
     dispose() {
-        this.coverLoadToken += 1;
+        this.coverLoader?.dispose();
+        this.coverLoader = null;
         if (this.configurePaintRaf != null) {
             cancelAnimationFrame(this.configurePaintRaf);
             this.configurePaintRaf = null;
@@ -541,10 +386,6 @@ export class CoverParticleRuntime {
         this.depthTween.cancel();
         this.aiBoostTween.cancel();
         this.loadingTween.cancel();
-        if (this.loadingHideTimer) {
-            window.clearTimeout(this.loadingHideTimer);
-            this.loadingHideTimer = null;
-        }
         this.inputProvider = null;
         this.removeInteractionListeners?.();
         this.removeInteractionListeners = null;
@@ -552,14 +393,11 @@ export class CoverParticleRuntime {
         this.coverPoints?.geometry.dispose();
         this.coverMaterial.dispose();
         this.bloomMaterial.dispose();
-        this.quantumMaterial?.dispose();
-        this.quantumMesh?.geometry.dispose();
         this.coverTexture?.dispose();
         this.edgeTexture?.dispose();
         this.fallbackCoverTexture.dispose();
         this.prevCoverTexture.dispose();
         this.dotTexture.dispose();
-        this.revokeCoverObjectUrl();
         this.rippleField.dispose();
         this.lyricStage.dispose();
         this.renderer?.dispose();
@@ -567,10 +405,7 @@ export class CoverParticleRuntime {
         this.container = null;
     }
 
-    /**
-     * Capture/test seam: render one frame at a fixed elapsed time.
-     * Daily playback never calls this; Playwright / export hooks do.
-     */
+    /** Capture/test seam: render one frame at a fixed elapsed (Playwright / export). */
     renderAt(options: {
         elapsed: number;
         inputs?: Partial<CoverParticleRuntimeInputs>;
@@ -592,7 +427,6 @@ export class CoverParticleRuntime {
         };
     }
 
-    /** Attach test-only capture bridge on the stage element. */
     private attachCaptureBridge(container: HTMLElement) {
         container.setAttribute('data-capture-bridge', '1');
         const host = container as HTMLElement & {
@@ -614,172 +448,9 @@ export class CoverParticleRuntime {
         delete host.__coverParticleCapture;
     }
 
-    private isEventInsideContainer(event: MouseEvent | PointerEvent | WheelEvent) {
-        if (!this.container) return false;
-        const rect = this.container.getBoundingClientRect();
-        return event.clientX >= rect.left
-            && event.clientX <= rect.right
-            && event.clientY >= rect.top
-            && event.clientY <= rect.bottom;
-    }
-
-    private isPointerOverUi(event: MouseEvent | PointerEvent | WheelEvent) {
-        const element = document.elementFromPoint(event.clientX, event.clientY);
-        if (!element || element === this.renderer?.domElement || element === this.container) return false;
-        return Boolean(element.closest(UI_HIT_SELECTOR));
-    }
-
-    private updateInteractivePointerFromClient(clientX: number, clientY: number) {
-        if (!this.container) return;
-        const rect = this.container.getBoundingClientRect();
-        const ndcX = ((clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1;
-        const ndcY = -(((clientY - rect.top) / Math.max(1, rect.height)) * 2 - 1);
-        this.pointerNdc.set(ndcX, ndcY);
-        this.pointerRaycaster.setFromCamera(this.pointerNdc, this.camera);
-
-        if (this.coverPoints) {
-            this.coverPoints.updateMatrixWorld(true);
-            this.coverPoints.getWorldPosition(this.pointerPlanePoint);
-            this.coverPoints.getWorldQuaternion(this.pointerQuaternion);
-            this.pointerPlaneNormal.set(0, 0, 1).applyQuaternion(this.pointerQuaternion).normalize();
-            if (Math.abs(this.pointerPlaneNormal.dot(this.pointerRaycaster.ray.direction)) >= 0.16) {
-                this.pointerPlane.setFromNormalAndCoplanarPoint(
-                    this.pointerPlaneNormal,
-                    this.pointerPlanePoint,
-                );
-                if (this.pointerRaycaster.ray.intersectPlane(this.pointerPlane, this.pointerWorldHit)) {
-                    this.pointerLocalHit.copy(this.pointerWorldHit);
-                    this.coverPoints.worldToLocal(this.pointerLocalHit);
-                    if (
-                        Number.isFinite(this.pointerLocalHit.x)
-                        && Number.isFinite(this.pointerLocalHit.y)
-                        && Math.abs(this.pointerLocalHit.x) < 8.5
-                        && Math.abs(this.pointerLocalHit.y) < 8.5
-                    ) {
-                        this.interactivePointer.x = this.pointerLocalHit.x;
-                        this.interactivePointer.y = this.pointerLocalHit.y;
-                        this.interactivePointer.active = true;
-                        return;
-                    }
-                }
-            }
-        }
-
-        this.interactivePointer.x = -999;
-        this.interactivePointer.y = -999;
-        this.interactivePointer.active = false;
-    }
-
-    private installInteractionListeners(container: HTMLElement) {
-        this.removeInteractionListeners?.();
-
-        const beginDrag = (event: PointerEvent) => {
-            if (event.button !== 0 || !this.isEventInsideContainer(event) || this.isPointerOverUi(event)) return;
-            this.interactionDragging = true;
-            container.setAttribute('data-interaction-dragging', 'true');
-            container.setAttribute('data-interaction-last', 'drag-start');
-            this.lastInteractionPointer = {
-                x: event.clientX,
-                y: event.clientY,
-                t: performance.now(),
-            };
-            this.particleSpinVelocity.x = 0;
-            this.particleSpinVelocity.y = 0;
-            this.updateInteractivePointerFromClient(event.clientX, event.clientY);
-            if (event.target === container || event.target === this.renderer?.domElement) {
-                container.setPointerCapture?.(event.pointerId);
-            }
-        };
-
-        const movePointer = (event: PointerEvent) => {
-            if (!this.isEventInsideContainer(event)) {
-                if (!this.interactionDragging) this.interactivePointer.active = false;
-                return;
-            }
-            if (this.isPointerOverUi(event) && !this.interactionDragging) {
-                this.interactivePointer.active = false;
-                return;
-            }
-            this.updateInteractivePointerFromClient(event.clientX, event.clientY);
-            if (!this.interactionDragging) return;
-
-            const dx = event.clientX - this.lastInteractionPointer.x;
-            const dy = event.clientY - this.lastInteractionPointer.y;
-            if (Math.abs(dx) + Math.abs(dy) > 0.5) {
-                container.setAttribute('data-interaction-last', 'drag-move');
-            }
-            const now = performance.now();
-            const dt = Math.max(1 / 120, Math.min(0.08, (now - this.lastInteractionPointer.t) / 1000 || 1 / 60));
-            this.userOrbitOffset.theta -= dx * 0.002;
-            this.userOrbitOffset.phi = THREE.MathUtils.clamp(
-                this.userOrbitOffset.phi - dy * 0.002,
-                -Math.PI * 0.45,
-                Math.PI * 0.45,
-            );
-            this.particleSpinVelocity.x = THREE.MathUtils.clamp(dy * 0.0032 * dt * 60, -0.18, 0.18);
-            this.particleSpinVelocity.y = THREE.MathUtils.clamp(dx * 0.0034 * dt * 60, -0.18, 0.18);
-            this.lastInteractionPointer = { x: event.clientX, y: event.clientY, t: now };
-        };
-
-        const endDrag = (event: PointerEvent) => {
-            this.interactionDragging = false;
-            container.removeAttribute('data-interaction-dragging');
-            if (container.hasPointerCapture?.(event.pointerId)) {
-                container.releasePointerCapture(event.pointerId);
-            }
-        };
-
-        const leavePointer = () => {
-            if (this.interactionDragging) return;
-            this.interactivePointer.active = false;
-        };
-
-        const handleWheel = (event: WheelEvent) => {
-            if (!this.isEventInsideContainer(event) || this.isPointerOverUi(event)) return;
-            event.preventDefault();
-            container.setAttribute('data-interaction-wheel', 'true');
-            container.setAttribute('data-interaction-last', 'wheel');
-            this.userOrbitOffset.radius = THREE.MathUtils.clamp(
-                this.userOrbitOffset.radius + event.deltaY * 0.005,
-                -4.2,
-                7.4,
-            );
-        };
-
-        const resetInteraction = (event: MouseEvent) => {
-            if (!this.isEventInsideContainer(event) || this.isPointerOverUi(event)) return;
-            this.userOrbitOffset = { theta: 0, phi: 0, radius: 0 };
-            this.particleSpinVelocity = { x: 0, y: 0 };
-            this.particleRotation.set(0, 0, 0);
-            container.setAttribute('data-interaction-reset', 'true');
-        };
-
-        container.setAttribute('data-interactive-ready', 'true');
-        window.addEventListener('pointerdown', beginDrag, true);
-        window.addEventListener('pointermove', movePointer, { passive: true });
-        window.addEventListener('pointerup', endDrag);
-        window.addEventListener('pointercancel', endDrag);
-        container.addEventListener('pointerleave', leavePointer);
-        window.addEventListener('wheel', handleWheel, { passive: false, capture: true });
-        window.addEventListener('dblclick', resetInteraction, true);
-
-        this.removeInteractionListeners = () => {
-            container.removeAttribute('data-interactive-ready');
-            container.removeAttribute('data-interaction-dragging');
-            window.removeEventListener('pointerdown', beginDrag, true);
-            window.removeEventListener('pointermove', movePointer);
-            window.removeEventListener('pointerup', endDrag);
-            window.removeEventListener('pointercancel', endDrag);
-            container.removeEventListener('pointerleave', leavePointer);
-            window.removeEventListener('wheel', handleWheel, true);
-            window.removeEventListener('dblclick', resetInteraction, true);
-        };
-    }
-
     resize(width: number, height: number) {
         if (!this.renderer || width <= 0 || height <= 0) return;
         const profileCap = this.qualityProfile?.devicePixelRatioCap ?? 1;
-        // Electron Retina: never upsample the particle pass — compositor freeze risk.
         const electronCap = Boolean((window as Window & { electron?: unknown }).electron);
         const dpr = Math.min(
             window.devicePixelRatio || 1,
@@ -791,20 +462,14 @@ export class CoverParticleRuntime {
         this.camera.updateProjectionMatrix();
         const pixel = this.renderer.getPixelRatio();
         this.uniforms.uPixel.value = pixel;
-        if (this.quantumMaterial) {
-            this.quantumMaterial.uniforms.iResolution.value.set(width * pixel, height * pixel);
-        }
         this.syncLyricStageViewport();
     }
 
-    /**
-     * Lock lyrics to the camera frustum so orbit / cinema never push text off-screen.
-     */
+    /** Lock lyrics to the camera frustum. */
     private syncLyricStageViewport() {
         this.lyricStage.syncScreenLock(this.camera);
     }
 
-    /** Recompute particle dim lift from the shell background CSS color. */
     setShellBackgroundColor(cssColor: string | null | undefined) {
         const rgb = parseCssColorToCoverParticleRgb(cssColor);
         this.contrastLift = rgb ? resolveCoverParticleContrastLift(rgb) : 1;
@@ -863,21 +528,15 @@ export class CoverParticleRuntime {
             }
             this.uniforms.uPreset.value = resolveWebGLPresetIndex(preset);
             this.rebuildCoverGeometry(qualityProfile);
-            // Reveal particles only after a cover is on screen (or when there is no cover to wait for).
-            // Revealing early while the texture loads shows an unordered cloud.
             if (!this.coverUrl) {
                 this.ensureParticleAlphaVisible();
             }
-            this.loadCoverTexture(this.coverUrl);
+            this.ensureCoverLoader().load(this.coverUrl);
             this.scheduleConfigurePaint();
         }
     }
 
-    /**
-     * Defer the post-configure paint so React layout / Strict Mode remounts stay off the GPU critical path.
-     * Always paint once even while particle ticks are yielded (menu / lyric-mode settle) —
-     * otherwise 封面↔滚筒↔星河 only updates chip state and looks like a no-op.
-     */
+    /** Defer post-configure paint so remounts stay off the GPU critical path. */
     private scheduleConfigurePaint() {
         if (this.configurePaintRaf != null) {
             cancelAnimationFrame(this.configurePaintRaf);
@@ -902,7 +561,6 @@ export class CoverParticleRuntime {
         this.lyricStage.setImmersive(enabled);
     }
 
-    /** Bias auto framing into Monet's visible right pane; snap on fullscreen layout jumps. */
     setLyricColumnEndRatio(ratio: number | undefined, options?: { snap?: boolean }) {
         this.lyricColumnEndRatio = ratio;
         if (options?.snap) {
@@ -926,19 +584,18 @@ export class CoverParticleRuntime {
             if (this.inputProvider) {
                 this.latestInputs = this.inputProvider();
             }
-            // Mode-switch yield: skip GPU frames (keep context mounted), but keep painting
-            // while a preset morph is live so 封面↔滚筒↔星河 still previews under yield.
             if (shouldSkipCoverParticleFrameWhileYielded({
                 paused: this.latestInputs.paused,
                 morphLive: this.uniforms.uMorphLive.value > 0.5,
             })) {
                 return;
             }
-            const frameSkip = Math.max(1, this.qualityProfile?.frameSkip ?? 1);
-            const electronCap = Boolean((window as Window & { electron?: unknown }).electron);
-            const retinaElectron = electronCap && (window.devicePixelRatio || 1) >= 2;
-            // Retina Electron: paint rarely even when not yielded — lyric DOM already owns the GPU budget.
-            const effectiveSkip = Math.max(frameSkip, retinaElectron ? 8 : electronCap ? 4 : 1);
+            const effectiveSkip = resolveCoverParticleEffectiveFrameSkip({
+                profileFrameSkip: this.qualityProfile?.frameSkip ?? 1,
+                isElectron: Boolean((window as Window & { electron?: unknown }).electron),
+                devicePixelRatio: window.devicePixelRatio || 1,
+                musicActive: this.latestInputs.musicActive,
+            });
             const skipParticles = effectiveSkip > 1 && frameIndex % effectiveSkip !== 0;
             this.renderFrame({ skipParticles });
         });
@@ -955,33 +612,6 @@ export class CoverParticleRuntime {
             this.coverPoints = null;
         }
         this.mode = mode;
-    }
-
-    private mountQuantumCubePass() {
-        if (this.quantumMesh) return;
-        this.quantumMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                iResolution: { value: new THREE.Vector2(1, 1) },
-                iTime: { value: 0 },
-                uCamPos: { value: new THREE.Vector3(1.3, -0.8, -1.6) },
-                uBass: { value: 0 },
-                uMid: { value: 0 },
-                uTreble: { value: 0 },
-                uBeat: { value: 0 },
-                uEnergy: { value: 0 },
-                uColorMixT: { value: 1 },
-                uCoverTex: { value: this.fallbackCoverTexture },
-                uPrevCoverTex: { value: this.prevCoverTexture },
-            },
-            vertexShader: QUANTUM_CUBE_VERTEX_SHADER,
-            fragmentShader: QUANTUM_CUBE_FRAGMENT_SHADER,
-            transparent: true,
-            depthWrite: false,
-            depthTest: false,
-        });
-        this.quantumMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.quantumMaterial);
-        this.quantumMesh.frustumCulled = false;
-        this.quantumScene.add(this.quantumMesh);
     }
 
     private rebuildCoverGeometry(profile: GeometricQualityProfile) {
@@ -1009,262 +639,28 @@ export class CoverParticleRuntime {
         this.scene.add(this.coverPoints);
     }
 
-    private revokeCoverObjectUrl() {
-        if (!this.coverObjectUrl) return;
-        URL.revokeObjectURL(this.coverObjectUrl);
-        this.coverObjectUrl = null;
-    }
-
-    private async resolveCoverTextureUrl(url: string) {
-        if (url.startsWith('blob:') || url.startsWith('data:')) {
-            return { textureUrl: url, objectUrl: null };
-        }
-
-        const buildObjectUrl = async (response: Response) => {
-            if (!response.ok) {
-                throw new Error(`cover fetch failed: ${response.status}`);
-            }
-            const blob = await response.blob();
-            if (!blob.size) {
-                throw new Error('cover fetch returned empty body');
-            }
-            return { textureUrl: URL.createObjectURL(blob), objectUrl: true as const };
-        };
-
-        try {
-            const response = await fetch(url, { mode: 'cors', credentials: 'omit' });
-            return await buildObjectUrl(response);
-        } catch {
-            try {
-                // Electron IPC or /api/lyric-proxy — needed for Netease/QQ CDN CORS.
-                const proxied = await fetchCoverViaProxy(url);
-                return await buildObjectUrl(proxied);
-            } catch {
-                // Avoid TextureLoader on cross-origin URLs: canvas readback would stay tainted.
-                throw new Error(`cover proxy fetch failed for ${url}`);
-            }
-        }
-    }
-
-    private loadCoverTexture(url: string | null) {
-        if (url === this.loadedCoverUrl) return;
-        // Same URL already failed on a prior configure() re-entry — do not hammer network/IPC again.
-        if (url && url === this.attemptedCoverUrl) return;
-        this.attemptedCoverUrl = url;
-        const loadToken = ++this.coverLoadToken;
-        const hasActiveCover = (this.uniforms.uHasCover.value ?? 0) > 0.5 && !!this.coverTexture;
-        this.container?.setAttribute('data-cover-url', url ?? '');
-        this.container?.removeAttribute('data-cover-load-error');
-
-        if (!url) {
-            // Track changes can briefly clear coverUrl; keep the live 3D field mounted.
-            if (shouldHoldCoverThroughNullUrl(hasActiveCover)) {
-                return;
-            }
-            this.loadedCoverUrl = null;
-            this.uniforms.uHasCover.value = 0;
-            this.setCoverDepthState(0, 0, 1);
-            this.hideLoading();
-            this.revokeCoverObjectUrl();
-            this.container?.removeAttribute('data-loaded-cover-url');
-            this.container?.removeAttribute('data-cover-depth-ready');
-            return;
-        }
-
-        // Keep the current cover on screen while the next texture loads.
-        // Never flash loading mist when a cover URL is pending — that cloud is the
-        // "unordered particles" transition users see on every track change / remount.
-        if (shouldShowCoverLoadMist(hasActiveCover, true)) {
-            this.showLoading();
-        } else {
-            if ((this.uniforms.uLoading.value || 0) > 0.001) {
-                this.loadingTween.cancel();
-                this.uniforms.uLoading.value = 0;
-                this.container?.removeAttribute('data-cover-loading');
-            }
-        }
-
-        this.textureLoader.setCrossOrigin('anonymous');
-        void this.resolveCoverTextureUrl(url).then(({ textureUrl, objectUrl }) => {
-            if (loadToken !== this.coverLoadToken) {
-                if (objectUrl) URL.revokeObjectURL(textureUrl);
-                return;
-            }
-
-            if (objectUrl) {
-                this.revokeCoverObjectUrl();
-                this.coverObjectUrl = textureUrl;
-            }
-
-            this.textureLoader.load(
-                textureUrl,
-                (texture) => {
-                    if (loadToken !== this.coverLoadToken) {
-                        texture.dispose();
-                        if (objectUrl) URL.revokeObjectURL(textureUrl);
-                        return;
-                    }
-                    texture.minFilter = THREE.LinearFilter;
-                    texture.magFilter = THREE.LinearFilter;
-
-                    if (this.coverTexture?.image) {
-                        this.copyCoverImageToPrevious(this.coverTexture.image as CanvasImageSource);
-                        const mixMs = normalizeInteractive3dVisualPreset(this.tuning?.visualPreset) === 'emily'
-                            ? EMILY_COVER_COLOR_MIX_MS
-                            : DEFAULT_COVER_COLOR_MIX_MS;
-                        this.uniforms.uDissolveLive.value = 1;
-                        this.uniforms.uDissolve.value = 0;
-                        this.burstSmoother.trigger(0.22);
-                        this.colorMixTween.start((mix) => {
-                            this.uniforms.uColorMixT.value = mix;
-                            this.uniforms.uDissolve.value = mix;
-                            if (mix >= 1) {
-                                this.uniforms.uDissolveLive.value = 0;
-                            }
-                        }, mixMs);
-                    } else {
-                        this.uniforms.uColorMixT.value = 1;
-                        this.uniforms.uDissolve.value = 1;
-                        this.uniforms.uDissolveLive.value = 0;
-                    }
-
-                    let coverCanvas: HTMLCanvasElement | null = null;
-                    try {
-                        coverCanvas = drawCoverToSquareCanvas(texture.image as CanvasImageSource);
-                    } catch {
-                        coverCanvas = null;
-                    }
-                    texture.dispose();
-                    if (!coverCanvas) {
-                        this.container?.setAttribute('data-cover-load-error', 'canvas-unreadable');
-                        if (!shouldHoldCoverThroughLoadFailure(hasActiveCover)) {
-                            this.loadedCoverUrl = null;
-                            this.uniforms.uHasCover.value = 0;
-                            this.setCoverDepthState(0, 0, 1);
-                        }
-                        this.hideLoading();
-                        return;
-                    }
-
-                    this.coverTexture?.dispose();
-                    this.coverTexture = new THREE.Texture(coverCanvas);
-                    this.coverTexture.minFilter = THREE.LinearFilter;
-                    this.coverTexture.magFilter = THREE.LinearFilter;
-                    this.coverTexture.wrapS = THREE.ClampToEdgeWrapping;
-                    this.coverTexture.wrapT = THREE.ClampToEdgeWrapping;
-                    this.coverTexture.needsUpdate = true;
-                    this.uniforms.uCoverTex.value = this.coverTexture;
-                    this.uniforms.uHasCover.value = 1;
-                    this.loadedCoverUrl = url;
-                    this.container?.setAttribute('data-loaded-cover-url', url);
-
-                    // Hold depth through the swap so particles do not collapse into scatter.
-                    const heldDepth = resolveCoverSwapDepthHold(this.uniforms.uHasDepth.value || 0);
-                    const heldAi = hasActiveCover
-                        ? Math.max(this.uniforms.uAiBoost.value || 0, 0.35)
-                        : 0.20;
-                    this.setCoverDepthState(heldDepth, heldAi, hasActiveCover ? 180 : 120);
-                    try {
-                        this.applyCoverEdgeFromImage(coverCanvas);
-                    } catch {
-                        if (!shouldHoldCoverThroughLoadFailure(hasActiveCover)) {
-                            this.setCoverDepthState(0, 0, 1);
-                        }
-                    }
-                    this.ensureParticleAlphaVisible();
-                    this.hideLoading();
-                    this.renderFrame();
-                },
-                undefined,
-                () => {
-                    if (loadToken !== this.coverLoadToken) return;
-                    this.container?.setAttribute('data-cover-load-error', 'texture-load-failed');
-                    if (!shouldHoldCoverThroughLoadFailure(hasActiveCover)) {
-                        this.loadedCoverUrl = null;
-                        this.uniforms.uHasCover.value = 0;
-                        this.setCoverDepthState(0, 0, 1);
-                    }
-                    this.hideLoading();
-                },
-            );
-        }).catch(() => {
-            if (loadToken !== this.coverLoadToken) return;
-            this.container?.setAttribute('data-cover-load-error', 'proxy-fetch-failed');
-            if (!shouldHoldCoverThroughLoadFailure(hasActiveCover)) {
-                this.loadedCoverUrl = null;
-                this.uniforms.uHasCover.value = 0;
-                this.setCoverDepthState(0, 0, 1);
-            }
-            this.hideLoading();
+    private ensureCoverLoader(): CoverParticleCoverLoader {
+        if (this.coverLoader) return this.coverLoader;
+        const self = this;
+        this.coverLoader = new CoverParticleCoverLoader({
+            get container() { return self.container; },
+            uniforms: this.uniforms,
+            textureLoader: this.textureLoader,
+            prevCoverTexture: this.prevCoverTexture,
+            colorMixTween: this.colorMixTween,
+            loadingTween: this.loadingTween,
+            burstSmoother: this.burstSmoother,
+            getCoverTexture: () => self.coverTexture,
+            setCoverTexture: (texture) => { self.coverTexture = texture; },
+            getEdgeTexture: () => self.edgeTexture,
+            setEdgeTexture: (texture) => { self.edgeTexture = texture; },
+            getTuning: () => self.tuning,
+            getQualityTier: () => self.qualityProfile?.tier ?? 'balanced',
+            setCoverDepthState: (depthTo, aiTo, durationMs) => self.setCoverDepthState(depthTo, aiTo, durationMs),
+            ensureParticleAlphaVisible: () => self.ensureParticleAlphaVisible(),
+            renderFrame: () => self.renderFrame(),
         });
-    }
-
-    private showLoading() {
-        this.loadingShownAt = performance.now();
-        if (this.loadingHideTimer) {
-            window.clearTimeout(this.loadingHideTimer);
-            this.loadingHideTimer = null;
-        }
-        this.container?.setAttribute('data-cover-loading', 'true');
-        const current = this.uniforms.uLoading.value || 0;
-        this.loadingTween.start(current, Math.max(current, 0.56), current > 0.04 ? 86 : 118, (loading) => {
-            this.uniforms.uLoading.value = loading;
-        });
-    }
-
-    private hideLoading() {
-        if (this.loadingHideTimer) window.clearTimeout(this.loadingHideTimer);
-        const elapsed = this.loadingShownAt ? performance.now() - this.loadingShownAt : 999;
-        const wait = Math.max(0, 72 - elapsed);
-        this.loadingHideTimer = window.setTimeout(() => {
-            this.loadingHideTimer = null;
-            const current = this.uniforms.uLoading.value || 0;
-            if (current <= 0.015) {
-                this.loadingTween.cancel();
-                this.uniforms.uLoading.value = 0;
-                this.container?.removeAttribute('data-cover-loading');
-                return;
-            }
-            this.loadingTween.start(current, 0, current > 0.38 ? 126 : 96, (loading) => {
-                this.uniforms.uLoading.value = loading;
-                if (loading <= 0.015) this.container?.removeAttribute('data-cover-loading');
-            });
-        }, wait);
-    }
-
-    /** 将当前封面复制到 prevCover 纹理，供切歌渐变采样。 */
-    private copyCoverImageToPrevious(image: CanvasImageSource) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 256;
-        canvas.height = 256;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(image, 0, 0, 256, 256);
-        this.prevCoverTexture.image = canvas;
-        this.prevCoverTexture.needsUpdate = true;
-        this.uniforms.uPrevCoverTex.value = this.prevCoverTexture;
-    }
-
-    /** 从封面生成边缘/深度图并写入 uEdgeTex。 */
-    private applyCoverEdgeFromImage(image: CanvasImageSource) {
-        const edgeCanvas = buildCoverEdgeAndDepthFromSource(image);
-        if (!edgeCanvas) {
-            this.uniforms.uHasDepth.value = 0;
-            return;
-        }
-
-        if (!this.edgeTexture) {
-            this.edgeTexture = new THREE.Texture(edgeCanvas);
-            this.edgeTexture.minFilter = THREE.LinearFilter;
-            this.edgeTexture.magFilter = THREE.LinearFilter;
-        } else {
-            this.edgeTexture.image = edgeCanvas;
-        }
-        this.edgeTexture.needsUpdate = true;
-        this.uniforms.uEdgeTex.value = this.edgeTexture;
-        this.setCoverDepthState(1, 0.55, 260);
-        this.uniforms.uDepth.value = 1.30;
-        this.container?.setAttribute('data-cover-depth-ready', 'true');
+        return this.coverLoader;
     }
 
     private ensureParticleAlphaVisible() {
@@ -1315,94 +711,52 @@ export class CoverParticleRuntime {
         }
 
         if (this.mode === 'cover' && !skipParticles) {
-            const uniforms = this.uniforms;
-            const preset = normalizeInteractive3dVisualPreset(this.tuning?.visualPreset);
-            const quantumCubeActive = preset === 'quantumCube';
-            const presetProfile = resolveCoverParticlePresetRuntime(preset);
-            const audioUniforms = this.audioSmoother.tick(
+            const tick = tickCoverParticleCoverFrame({
+                uniforms: this.uniforms,
+                tuning: this.tuning,
+                qualityProfile: this.qualityProfile,
+                audioSmoother: this.audioSmoother,
+                burstSmoother: this.burstSmoother,
+                rippleField: this.rippleField,
+                bloomPoints: this.bloomPoints,
+                coverPoints: this.coverPoints,
                 audioBands,
                 directedBeat,
                 intensity,
                 dt,
+                elapsed,
                 musicActive,
                 directedAtmosphereEnergy,
-                preset,
-            );
-            const burstAmt = this.burstSmoother.tick(audioUniforms.beat, dt);
-            const coverRipplePreset = preset === 'emily';
-            const rippleCount = this.rippleField.tick(
-                dt,
-                elapsed,
-                audioUniforms.bass,
-                audioUniforms.mid,
-                audioUniforms.treble,
-                smartAtmosphereEnabled
-                    && coverRipplePreset
-                    && (this.tuning?.enableBassRipples ?? true)
-                    && (this.qualityProfile?.enableRipples ?? true),
-                !musicActive,
-            );
-            const bloomEnabled = shouldEnableCoverParticleBloom(
-                this.tuning?.enableBloomParticles,
-                this.qualityProfile?.tier ?? 'balanced',
-            );
-            const bloomStrength = bloomEnabled
-                ? Math.min((this.tuning?.bloomStrength ?? 0.62) * 1.22, 1.6) * (smartAtmosphereEnabled ? 1 : 0.38)
-                : 0;
-            uniforms.uBloomStrength.value = bloomStrength;
-            if (this.bloomPoints) {
-                this.bloomPoints.visible = !quantumCubeActive && bloomStrength > 0.01;
-            }
-            if (this.coverPoints) this.coverPoints.visible = !quantumCubeActive;
-            uniforms.uRippleCount.value = rippleCount;
-            uniforms.uTime.value = elapsed;
-            uniforms.uSpeed.value = (smartAtmosphereEnabled ? 0.85 + intensity * 0.35 : 0.34 + intensity * 0.18) * presetProfile.speedMul;
-            uniforms.uEdgeEnabled.value = preset === 'emily' ? 0 : 1;
-            // Full Mineradio Z amplitude — prior 0.68 softener flattened Emily too much.
-            uniforms.uCoverWarp.value = 1;
-            uniforms.uIntensity.value = intensity;
-            uniforms.uCoverRes.value = this.resolveCoverResolutionUniform();
-            uniforms.uBass.value = audioUniforms.bass;
-            uniforms.uMid.value = audioUniforms.mid;
-            uniforms.uTreble.value = audioUniforms.treble;
-            uniforms.uBeat.value = audioUniforms.beat;
-            uniforms.uEnergy.value = audioUniforms.energy;
-            uniforms.uBurstAmt.value = burstAmt;
-            uniforms.uPointScale.value = resolveCoverParticlePointScale(presetProfile.pointScale);
-            uniforms.uImmersion.value = 0;
-            this.vinylSpin = (this.vinylSpin + dt * (0.40 + audioUniforms.bass * 0.09) * uniforms.uSpeed.value) % (Math.PI * 2);
-            uniforms.uVinylSpin.value = this.vinylSpin;
-            if (this.interactivePointer.active) {
-                uniforms.uMouseXY.value.set(this.interactivePointer.x, this.interactivePointer.y);
-                uniforms.uMouseActive.value = 1;
-            } else {
-                uniforms.uMouseXY.value.set(pointerX * 2.1, pointerY * 2.1);
-                uniforms.uMouseActive.value = pointerActive ? 1 : 0;
-            }
-            // Keep cover field bright; the old 0.68 dim made album colors muddy/unreadable.
-            uniforms.uParticleDim.value = this.contrastLift;
-            this.updateQuantumCubePass(elapsed, audioUniforms, quantumCubeActive);
+                smartAtmosphereEnabled,
+                vinylSpin: this.vinylSpin,
+                coverResolution: this.resolveCoverResolutionUniform(),
+                contrastLift: this.contrastLift,
+                pointerX,
+                pointerY,
+                pointerActive,
+                interactivePointer: this.interactivePointer,
+            });
+            this.vinylSpin = tick.vinylSpin;
 
             const bassPulse = smartAtmosphereEnabled
-                ? audioUniforms.bass * 0.55 + audioUniforms.beat * 0.35
-                : audioUniforms.bass * 0.12;
+                ? tick.audioUniforms.bass * 0.55 + tick.audioUniforms.beat * 0.35
+                : tick.audioUniforms.bass * 0.12;
             this.applyInteractiveCamera(
                 this.latestInputs.camera,
                 bassPulse,
-                presetProfile,
-                preset,
+                tick.presetProfile,
+                tick.presetModule.id,
                 smartAtmosphereEnabled
                     ? (this.tuning?.cinemaShake ?? 0.5) * cameraPunchStrength
                     : 0.06,
                 directedAtmosphereEnergy,
                 dt,
-                audioUniforms.beat * cameraPunchStrength,
+                tick.audioUniforms.beat * cameraPunchStrength,
             );
         } else if (willTickLyrics || hasParticles) {
             this.applyInteractiveCamera(this.latestInputs.camera);
         }
 
-        // Screen-lock after camera settles so orbit/cinema never clip lyrics.
         if (willTickLyrics) {
             this.syncLyricStageViewport();
             this.lyricStage.tick({
@@ -1417,11 +771,6 @@ export class CoverParticleRuntime {
 
         this.renderer.autoClear = true;
         const renderStarted = performance.now();
-        if (normalizeInteractive3dVisualPreset(this.tuning?.visualPreset) === 'quantumCube' && this.quantumMaterial) {
-            this.renderer.render(this.quantumScene, this.quantumCamera);
-            this.renderer.autoClear = false;
-            this.renderer.clearDepth();
-        }
         this.renderer.render(this.scene, this.camera);
         this.renderer.autoClear = true;
         const renderMs = performance.now() - renderStarted;
@@ -1442,32 +791,10 @@ export class CoverParticleRuntime {
     private resolveCoverResolutionUniform(): number {
         const grid = this.coverPoints?.geometry.userData.grid;
         if (typeof grid !== 'number') return 1;
-        return Math.max(0.75, Math.min(1.55, grid / 118));
+        // Match coverParticleGridForResolution clamp (0.55–1.55).
+        return Math.max(0.55, Math.min(1.55, grid / 118));
     }
 
-    private updateQuantumCubePass(
-        elapsed: number,
-        audioUniforms: { bass: number; mid: number; treble: number; beat: number; energy: number },
-        active: boolean,
-    ) {
-        if (!this.quantumMaterial) return;
-        const uniforms = this.quantumMaterial.uniforms;
-        uniforms.iTime.value = elapsed;
-        uniforms.uBass.value = audioUniforms.bass;
-        uniforms.uMid.value = audioUniforms.mid;
-        uniforms.uTreble.value = audioUniforms.treble;
-        uniforms.uBeat.value = audioUniforms.beat;
-        uniforms.uEnergy.value = audioUniforms.energy;
-        uniforms.uColorMixT.value = this.uniforms.uColorMixT.value;
-        uniforms.uCoverTex.value = this.uniforms.uCoverTex.value;
-        uniforms.uPrevCoverTex.value = this.uniforms.uPrevCoverTex.value;
-        uniforms.uCamPos.value.set(
-            1.3,
-            -0.8 + audioUniforms.beat * 0.025,
-            -1.6 + audioUniforms.bass * 0.025,
-        );
-        if (this.quantumMesh) this.quantumMesh.visible = active;
-    }
 }
 
 export { CoverParticleRuntime as MineradioPlaybackRuntime };

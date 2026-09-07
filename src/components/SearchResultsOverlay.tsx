@@ -7,6 +7,7 @@ import { formatSongName } from '../utils/songNameFormatter';
 import { useSearchNavigationStore } from '../stores/useSearchNavigationStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getSongUnavailableTagText, isSongMarkedUnavailable } from '../services/netease';
+import { canOpenOnlineSong } from '../utils/playback/onlineSongPlayAccess';
 import { isBlob } from '../utils/blobGuards';
 import { OnlineProviderBadge } from './shared/OnlineProviderBadge';
 import { FreeSourceNotice } from './shared/FreeSourceNotice';
@@ -266,7 +267,9 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
             ? searchResults.filter(track => (track.musicProvider || activeProvider) === activeProvider)
             : searchResults);
     const visibleResultCount = visibleResults?.length ?? 0;
-    const playableResults = (visibleResults || []).filter(track => !isSongMarkedUnavailable(track));
+    const playableResults = (visibleResults || []).filter(
+        track => !isSongMarkedUnavailable(track) && canOpenOnlineSong(track),
+    );
     const downloadEnabled = Boolean(
         (onDownloadSong || onDownloadSongs)
         && typeof window !== 'undefined'
@@ -503,8 +506,11 @@ const SearchResultsOverlay: React.FC<SearchResultsOverlayProps> = ({
 
                                     <div className="space-y-1.5">
                                         {visibleResults.map((track, index) => {
-                                            const isUnavailable = isSongMarkedUnavailable(track);
-                                            const unavailableTagText = getSongUnavailableTagText(track, t('status.songUnavailableTag'));
+                                            const sessionBlocked = !canOpenOnlineSong(track);
+                                            const isUnavailable = isSongMarkedUnavailable(track) || sessionBlocked;
+                                            const unavailableTagText = isSongMarkedUnavailable(track)
+                                                ? getSongUnavailableTagText(track, t('status.songUnavailableTag'))
+                                                : t('account.neteaseAnonymous');
                                             const artistNames = track.ar?.map(artist => artist.name).filter(Boolean).join(', ')
                                                 || track.artists?.map(artist => artist.name).filter(Boolean).join(', ')
                                                 || t('player.unknownArtist', '未知歌手');

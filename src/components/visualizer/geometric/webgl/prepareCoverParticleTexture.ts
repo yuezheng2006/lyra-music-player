@@ -1,8 +1,24 @@
+import type { GeometricQualityTier } from '../geometricQuality';
+
 // src/components/visualizer/geometric/webgl/prepareCoverParticleTexture.ts
 // Normalizes cover artwork into square canvases before it is sampled by WebGL particles.
 
-/** 768 balances facial detail vs Electron upload/sample cost (was 1024). */
+/** Default / high-tier upload size. Balanced and lite use smaller canvases. */
 export const COVER_PARTICLE_TEXTURE_SIZE = 768;
+
+/** Pick cover upload resolution from quality tier to cut GPU texture cost on weak paths. */
+export const coverParticleTextureSizeForQualityTier = (tier: GeometricQualityTier): number => {
+    switch (tier) {
+        case 'high':
+            return 768;
+        case 'balanced':
+            return 512;
+        case 'lite':
+            return 384;
+        default:
+            return 512;
+    }
+};
 
 const readCanvasSourceSize = (
     source: CanvasImageSource,

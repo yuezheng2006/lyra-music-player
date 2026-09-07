@@ -90,6 +90,9 @@ export function useAppControllerPresentationShell(
     } = core;
 
     const playbackPresentation = useSettingsUiStore(state => state.playbackPresentation);
+    const globalLyricTimelineOffsetMs = useSettingsUiStore(state => state.globalLyricTimelineOffsetMs);
+    const desktopLyricsYFactor = useSettingsUiStore(state => state.desktopLyricsYFactor);
+    const effectiveLyricTimelineOffsetMs = lyricTimelineOffsetMs + globalLyricTimelineOffsetMs;
     const speakerStageActive = playbackPresentation === 'speaker';
     const effectiveAutoHidePlayerChrome = autoHidePlayerChrome || speakerStageActive;
     const speakerDesktopLyricsFontScale = speakerStageActive
@@ -129,13 +132,14 @@ export function useAppControllerPresentationShell(
         audioRef,
         lyrics,
         currentLineIndex,
-        lyricOffsetMs: lyricTimelineOffsetMs,
+        lyricOffsetMs: effectiveLyricTimelineOffsetMs,
         durationSec: duration,
         playerState,
         currentSong,
         theme: visualizerTheme,
         lyricsFontScale: speakerDesktopLyricsFontScale,
         lyricsCustomFontFamily,
+        desktopLyricsYFactor,
     });
 
     const resolvedVisualizerBackgroundMode = useMemo(
@@ -418,7 +422,7 @@ export function useAppControllerPresentationShell(
         lyrics,
         coverUrl,
         currentTime,
-        offsetMs: lyricTimelineOffsetMs,
+        offsetMs: effectiveLyricTimelineOffsetMs,
         duration,
         playerState,
         theme: visualizerTheme,

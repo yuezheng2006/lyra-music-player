@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, Monitor, PlayCircle, RefreshCw, Settings2 } from 'lucide-react';
+import { Activity, ChevronRight, ListFilter, Monitor, PlayCircle, RefreshCw, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import type { QueueAddBehavior, Theme } from '../../../types';
@@ -8,6 +8,7 @@ import { CustomSelect } from '../../shared/CustomSelect';
 import { LYRIC_MATCH_SOURCES } from '../../../utils/lyrics/lyricMatchSources';
 import { getLyricProviderPreferenceLabel } from '../../../utils/lyrics/lyricSourceLabels';
 import SettingsAdvancedSection from './SettingsAdvancedSection';
+import SleepTimerSettingsSection from './SleepTimerSettingsSection';
 import {
     settingsDescClass,
     settingsDescStyle,
@@ -35,6 +36,7 @@ type PlaybackSettingsSubviewProps = {
     isOpen: boolean;
     isDaylight: boolean;
     onAudioOutputDeviceChange: (deviceId: string) => Promise<boolean> | boolean;
+    onOpenLyricFilterSettings: () => void;
     settingsCardClass: string;
     theme?: Theme;
     utilityGhostButtonClass: string;
@@ -48,6 +50,7 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
     isOpen,
     isDaylight,
     onAudioOutputDeviceChange,
+    onOpenLyricFilterSettings,
     settingsCardClass,
     theme,
     utilityGhostButtonClass,
@@ -73,6 +76,8 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
         onLyricsResolveBaseUrlChange,
         onLyricsResolveApiKeyChange,
         onQueueAddBehaviorChange,
+        globalLyricTimelineOffsetMs,
+        onGlobalLyricTimelineOffsetMsChange,
     } = useSettingsUiStore(useShallow(state => ({
         audioOutputDeviceId: state.audioOutputDeviceId,
         autoUseBestLyric: state.autoUseBestLyric,
@@ -93,6 +98,8 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
         onLyricsResolveBaseUrlChange: state.handleSetLyricsResolveBaseUrl,
         onLyricsResolveApiKeyChange: state.handleSetLyricsResolveApiKey,
         onQueueAddBehaviorChange: state.handleSetQueueAddBehavior,
+        globalLyricTimelineOffsetMs: state.globalLyricTimelineOffsetMs,
+        onGlobalLyricTimelineOffsetMsChange: state.handleSetGlobalLyricTimelineOffsetMs,
     })));
     const [audioOutputDevices, setAudioOutputDevices] = useState<AudioOutputDeviceOption[]>([]);
     const [isAudioOutputDevicesLoading, setIsAudioOutputDevicesLoading] = useState(false);
@@ -213,6 +220,36 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
 
     return (
         <div className="space-y-5">
+            <section>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                    <Activity size={14} /> {t('options.globalLyricTimelineOffset')}
+                </h3>
+                <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
+                    <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
+                        {t('options.globalLyricTimelineOffsetDesc')}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {[-50, -10, -1, 1, 10, 50].map((step) => (
+                            <button
+                                key={step}
+                                type="button"
+                                className={`rounded-full border px-3 py-1.5 text-sm ${utilityGhostButtonClass}`}
+                                onClick={() => onGlobalLyricTimelineOffsetMsChange(globalLyricTimelineOffsetMs + step)}
+                            >
+                                {step > 0 ? `+${step}` : step} ms
+                            </button>
+                        ))}
+                        <span className="font-mono text-sm" style={settingsTitleStyle}>
+                            {globalLyricTimelineOffsetMs} ms
+                        </span>
+                    </div>
+                </div>
+            </section>
+            <SleepTimerSettingsSection
+                isDaylight={isDaylight}
+                settingsCardClass={settingsCardClass}
+                renderToggle={renderToggle}
+            />
             <section>
                 <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
                     <PlayCircle size={14} /> 播放队列
@@ -443,6 +480,24 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                         </div>
                     </SettingsAdvancedSection>
                 )}
+                <button
+                    type="button"
+                    onClick={onOpenLyricFilterSettings}
+                    className={`w-full p-4 rounded-xl border transition-colors hover:bg-white/8 text-left ${settingsCardClass}`}
+                >
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                <ListFilter size={14} />
+                                {t('options.lyricFilterRegex')}
+                            </div>
+                            <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
+                                {t('options.lyricFilterRegexDesc')}
+                            </div>
+                        </div>
+                        <ChevronRight size={18} className="shrink-0 opacity-60" style={{ color: 'var(--text-primary)' }} />
+                    </div>
+                </button>
             </section>
 
             <section>

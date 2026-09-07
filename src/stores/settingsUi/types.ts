@@ -10,6 +10,7 @@ import type {
     GridViewCardLayout,
     Interactive3dSceneTuning,
     LatentBackgroundTuning,
+    NomandBackgroundTuning,
     LyricProviderSource,
     MineradioVisualPresetId,
     LyricWordMode,
@@ -36,11 +37,14 @@ import type {
     VisualizerMode,
 } from '../../types';
 import type { AppLanguagePreference } from '../../i18n/config';
+import type { SettingsChromeDaylightMode } from '../../utils/settings/settingsChromeDaylightMath';
+import type { StageTrackPillMode } from '../../utils/settings/stageTrackPillSettingsMath';
 import type { LyricVisualEffectIntensity } from '../../utils/lyricVisualEffects';
 import type { LyricEffectPackId } from '../../utils/lyricEffectPacks';
 import type { LocalBeatAnalysisMode } from '../../utils/atmosphere/localBeatMapCache';
 import type { LocalBeatAnalysisPromptPolicy } from '../../utils/atmosphere/localBeatAnalysisPolicy';
 import type { GridViewCollectionDescriptor } from '../../components/app/home/gridViewCollectionAdapters';
+import type { LyricStaffAbsorbMode, LyricStaffPolicy } from '../../utils/lyrics/staffCreditsPolicy';
 
 // src/stores/settingsUi/types.ts
 // Settings UI store public types.
@@ -49,7 +53,7 @@ export type StatusSetter = Dispatch<SetStateAction<StatusMessage | null>>;
 
 export type AudioQuality = 'exhigh' | 'lossless' | 'hires';
 export type SettingsModalInitialTab = 'help' | 'options';
-export type SettingsSubviewId = 'appearance' | 'general' | 'playback' | 'integration' | 'storage' | 'desktop' | 'lab' | 'visualizer' | 'themePark' | 'lyricFilter';
+export type SettingsSubviewId = 'appearance' | 'general' | 'playback' | 'integration' | 'storage' | 'desktop' | 'lab' | 'visualizer' | 'themePark' | 'lyricFilter' | 'trackAtmosphereLight';
 export type SettingsModalState = {
     isOpen: boolean;
     initialTab: SettingsModalInitialTab;
@@ -92,7 +96,11 @@ export type SettingsUiState = {
     minimizeToTray: boolean;
     hideTaskbarIcon: boolean;
     openPlayerOnLaunch: boolean;
+    /** Lab: restore last song and start playback on launch. Default off. */
+    autoPlayOnLaunch: boolean;
     enableMediaCache: boolean;
+    /** After download, resync local library if download root was already imported. */
+    autoResyncDownloadFolder: boolean;
     backgroundOpacity: number;
     subtitleOverlayOpacity: number;
     visualizerOpacity: number;
@@ -101,6 +109,7 @@ export type SettingsUiState = {
     urlBackgroundSelectedId: string | null;
     visualizerFrameRate: VisualizerFrameRate;
     isDaylight: boolean;
+    settingsChromeDaylightMode: SettingsChromeDaylightMode;
     visualizerMode: VisualizerMode;
     /** Transient: pause interactive3d particle ticks while lyric modes remount (context stays up). */
     yieldInteractive3dParticles: boolean;
@@ -121,6 +130,7 @@ export type SettingsUiState = {
     pendoloTuning: PendoloTuning;
     monetBackgroundTuning: MonetBackgroundTuning;
     latentBackgroundTuning: LatentBackgroundTuning;
+    nomandBackgroundTuning: NomandBackgroundTuning;
     interactive3dSceneTuning: Interactive3dSceneTuning;
     monetTuning: MonetTuning;
     storedCappellaEmojiPack: StoredCappellaEmojiImage[];
@@ -140,6 +150,26 @@ export type SettingsUiState = {
     lyricsFontScale: number;
     lyricsCustomFont: StoredCustomLyricsFont | null;
     lyricFilterPattern: string;
+    lyricStaffPolicy: LyricStaffPolicy;
+    lyricStaffMinDwellSeconds: number;
+    lyricStaffAbsorbMode: LyricStaffAbsorbMode;
+    lyricStaffPattern: string;
+    /** Device-level lyric clock offset (ms), stacked with the per-song offset. */
+    globalLyricTimelineOffsetMs: number;
+    /** Desktop only: keep the display awake while music is playing. */
+    preventDisplaySleepDuringPlayback: boolean;
+    /** Lyrics-page now-playing card: timed, always on, or hidden. */
+    stageTrackPillMode: StageTrackPillMode;
+    stageTrackPillTimeoutSec: number;
+    stageTrackPillOnHome: boolean;
+    /** Session-armed sleep timer. Preferred duration persists; enabled does not. */
+    sleepTimerEnabled: boolean;
+    sleepTimerHours: number;
+    sleepTimerMinutes: number;
+    sleepTimerDeadlineMs: number | null;
+    sleepTimerActivationId: number;
+    /** Desktop lyrics vertical factor, 0 top through 1 bottom. */
+    desktopLyricsYFactor: number;
     showOpenPanelCloseButton: boolean;
     enableNowPlayingStage: boolean;
     queueAddBehavior: QueueAddBehavior;
@@ -221,7 +251,9 @@ export type SettingsUiState = {
     handleToggleMinimizeToTray: (enable: boolean) => void;
     handleToggleHideTaskbarIcon: (enable: boolean) => void;
     handleToggleOpenPlayerOnLaunch: (enable: boolean) => void;
+    handleToggleAutoPlayOnLaunch: (enable: boolean) => void;
     handleToggleMediaCache: (enable: boolean) => void;
+    handleToggleAutoResyncDownloadFolder: (enable: boolean) => void;
     handleSetBackgroundOpacity: (opacity: number) => void;
     handleSetSubtitleOverlayOpacity: (opacity: number) => void;
     handleSetVisualizerOpacity: (opacity: number) => void;
@@ -236,8 +268,17 @@ export type SettingsUiState = {
     handleSetUrlBackgroundList: (items: UrlBackgroundItem[]) => void;
     handleSetVisualizerFrameRate: (frameRate: VisualizerFrameRate) => void;
     setDaylightPreference: (isDaylight: boolean) => void;
-    handleSetVisualizerMode: (mode: VisualizerMode) => void;
+    handleSetVisualizerMode: (mode: VisualizerMode, options?: { notify?: boolean }) => void;
     handleSetLyricWordMode: (mode: LyricWordMode) => void;
+    handleSetGlobalLyricTimelineOffsetMs: (offsetMs: number) => void;
+    handleSetDesktopLyricsYFactor: (factor: number) => void;
+    handleTogglePreventDisplaySleepDuringPlayback: (enable: boolean) => void;
+    handleSetStageTrackPillMode: (mode: StageTrackPillMode) => void;
+    handleSetStageTrackPillTimeoutSec: (timeoutSec: number) => void;
+    handleToggleStageTrackPillOnHome: (enable: boolean) => void;
+    handleToggleSleepTimer: (enable: boolean) => void;
+    handleSetSleepTimerHours: (hours: number) => void;
+    handleSetSleepTimerMinutes: (minutes: number) => void;
     handleSetLyricFontPresetId: (presetId: string) => void;
     handleSetVisualEffectIntensity: (intensity: LyricVisualEffectIntensity) => void;
     handleSetLyricEffectPackId: (packId: LyricEffectPackId) => void;
@@ -261,6 +302,8 @@ export type SettingsUiState = {
     handleResetMonetBackgroundTuning: () => void;
     handleSetLatentBackgroundTuning: (patch: Partial<LatentBackgroundTuning>) => void;
     handleResetLatentBackgroundTuning: () => void;
+    handleSetNomandBackgroundTuning: (patch: Partial<NomandBackgroundTuning>) => void;
+    handleResetNomandBackgroundTuning: () => void;
     handleSetInteractive3dSceneTuning: (patch: Partial<Interactive3dSceneTuning>) => void;
     /** Atomically enter interactive3d + apply 封面/滚筒/星河 (avoids mode/tuning race). */
     handleSelectInteractive3dVisualPreset: (preset: MineradioVisualPresetId) => void;
@@ -280,7 +323,12 @@ export type SettingsUiState = {
     handleSetLyricsCustomFont: (font: StoredCustomLyricsFont | null) => void;
     handleUploadLyricsCustomFont: (file: File) => Promise<{ ok: boolean; error?: string; }>;
     handleSetAppLanguagePreference: (preference: AppLanguagePreference) => Promise<void>;
+    handleSetSettingsChromeDaylightMode: (mode: SettingsChromeDaylightMode) => void;
     handleSetLyricFilterPattern: (pattern: string) => void;
+    handleSetLyricStaffPolicy: (policy: LyricStaffPolicy) => void;
+    handleSetLyricStaffMinDwellSeconds: (seconds: number) => void;
+    handleSetLyricStaffAbsorbMode: (mode: LyricStaffAbsorbMode) => void;
+    handleSetLyricStaffPattern: (pattern: string) => void;
     handleToggleOpenPanelCloseButton: (enable: boolean) => void;
     handleToggleNowPlayingStage: (enable: boolean) => void;
     handleSetQueueAddBehavior: (behavior: QueueAddBehavior) => void;

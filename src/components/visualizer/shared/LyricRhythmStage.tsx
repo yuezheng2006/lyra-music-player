@@ -3,7 +3,8 @@ import { motion, type MotionValue } from 'framer-motion';
 import { useLyricRhythmMotion } from '../../../hooks/visualizer/useLyricRhythmMotion';
 
 // src/components/visualizer/shared/LyricRhythmStage.tsx
-// Wraps lyric content with the shared rhythm scale/glow used by the 3D background.
+// Folia: lyrics are a sibling compositor to the background. Scale via transform only —
+// never animate CSS `filter` on this tree (Chrome re-rasters every glyph + karaoke wipe).
 
 interface LyricRhythmStageProps {
     audioPower: MotionValue<number>;
@@ -24,27 +25,22 @@ const LyricRhythmStage: React.FC<LyricRhythmStageProps> = ({
     cinemaScale,
     atmosphereEnergy,
     scaleMultiplier,
-    glowColor,
     className = '',
     children,
 }) => {
-    const { scale, glowShadow } = useLyricRhythmMotion({
+    const { scale } = useLyricRhythmMotion({
         audioPower,
         beatPulse,
         cameraPunch,
         cinemaScale,
         atmosphereEnergy,
         scaleMultiplier,
-        glowColor,
     });
 
     return (
         <motion.div
             className={`${className} relative isolate z-[1]`}
-            style={{
-                scale,
-                filter: glowShadow,
-            }}
+            style={{ scale }}
         >
             {children}
         </motion.div>

@@ -243,8 +243,10 @@ describe('lyricColorPresets', () => {
         expect(pinned.dark.primaryColor.toLowerCase()).toBe('#ef3473');
     });
 
-    it('lists the default lyrics font scale first in quick options', () => {
-        expect(LYRICS_FONT_SCALE_QUICK_OPTIONS[0]?.value).toBe(DEFAULT_LYRICS_FONT_SCALE);
+    it('lists lyrics font-scale chips in ascending order and includes the default', () => {
+        const values = LYRICS_FONT_SCALE_QUICK_OPTIONS.map(option => option.value);
+        expect(values).toEqual([...values].sort((left, right) => left - right));
+        expect(values).toContain(DEFAULT_LYRICS_FONT_SCALE);
     });
 
     afterEach(() => {

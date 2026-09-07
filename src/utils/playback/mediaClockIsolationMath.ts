@@ -9,10 +9,12 @@ import { resolveLyricPlaybackTimes } from './syncLyricPlaybackClock';
 export const resolveMediaClocksFromAudioElement = (input: {
     audioCurrentTimeSec: number;
     lyricTimelineOffsetMs?: number;
+    globalLyricTimelineOffsetMs?: number;
 }): { currentTimeSec: number; lyricTimeSec: number } => (
     resolveLyricPlaybackTimes({
         audioCurrentTimeSec: input.audioCurrentTimeSec,
         lyricTimelineOffsetMs: input.lyricTimelineOffsetMs ?? 0,
+        globalLyricTimelineOffsetMs: input.globalLyricTimelineOffsetMs ?? 0,
     })
 );
 

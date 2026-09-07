@@ -31,6 +31,9 @@ describe('resolveSpeakerGlassStyle', () => {
         expect(electron?.tier).toBe('soft');
         expect(electron?.useBackdropFilter).toBe(false);
         expect(electron?.backdropBlurPx).toBe(0);
+        // Must stay light enough that Particles / Plasma remain visible behind lyrics.
+        expect(electron?.fogOpacity).toBeLessThanOrEqual(0.16);
+        expect(electron?.vignetteOpacity).toBeLessThanOrEqual(0.28);
 
         const lite = resolveSpeakerGlassStyle({
             speakerActive: true,

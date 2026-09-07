@@ -36,7 +36,6 @@ import {
     parseLyricEffectPackId,
 } from '../../utils/lyricEffectPacks';
 import { clampLyricsFontScale } from '../../utils/lyrics/lyricsFontScaleMath';
-import { readInteractive3dOptIn, writeInteractive3dOptIn } from '../../utils/performance/electronInteractive3dGuardMath';
 import {
     applyGpuCrashVisualDemote,
     applyResetVisualizerBackgroundMode,
@@ -50,13 +49,14 @@ import { buildStoredMonetPortraitImage, clearMonetPortraitImage, isSupportedMone
 import { setGlobalVisualizerFrameRate, VISUALIZER_FRAME_RATE_STORAGE_KEY } from '../../utils/frameRateLimiter';
 import { sanitizeUrlBackgroundItem, sanitizeUrlBackgroundList } from '../../utils/urlBackground';
 import { getLyricProviderPreferenceLabel } from '../../utils/lyrics/lyricSourceLabels';
-import { applyAppLanguagePreference } from '../../i18n/config';
+import i18n, { applyAppLanguagePreference } from '../../i18n/config';
 import type { LocalBeatAnalysisPromptPolicy } from '../../utils/atmosphere/localBeatAnalysisPolicy';
 import { scheduleInteractive3dParticleYieldResume } from '../../utils/visualizer/yieldInteractive3dParticlesForModeSwitch';
 import { planVisualizerModeSwitchGpuSafety } from '../../utils/visualizer/visualizerModeSwitchGpuSafety';
 import type { SettingsModalInitialTab, SettingsSubviewId, SettingsUiState } from './types';
 import { notify } from './notify';
 import {
+    AUTO_RESYNC_DOWNLOAD_FOLDER_KEY,
     ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY,
     ENABLE_BILIBILI_VIDEO_BACKGROUND_STORAGE_KEY,
     ENABLE_SMART_ATMOSPHERE_STORAGE_KEY,
@@ -67,6 +67,7 @@ import {
     MINIMIZE_TO_TRAY_STORAGE_KEY,
     ONBOARDING_COMPLETED_STORAGE_KEY,
     OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY,
+    AUTO_PLAY_ON_LAUNCH_STORAGE_KEY,
     SHOW_HARMONY_SUBTITLE_STORAGE_KEY,
     SHOW_SUBTITLE_TRANSLATION_STORAGE_KEY,
     SUBTITLE_CONTENT_MODE_STORAGE_KEY,
@@ -399,13 +400,10 @@ export const createSettingsUiActionsAppearance = (set: SetState, get: GetState) 
             text: enable ? 'B 站视频背景已开启' : 'B 站视频背景已关闭',
         });
     },
-    handleToggleEnable3dInteractiveBackground: (enable) => {
-        setStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, enable);
-        set({ enable3dInteractiveBackground: enable });
-        notify(get, {
-            type: 'info',
-            text: enable ? '3D 交互背景已开启' : '3D 交互背景已关闭',
-        });
+    handleToggleEnable3dInteractiveBackground: (_enable) => {
+        void _enable;
+        setStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, false);
+        set({ enable3dInteractiveBackground: false });
     },
     handleToggleMinimizeToTray: (enable) => {
         setStoredBoolean(MINIMIZE_TO_TRAY_STORAGE_KEY, enable);
@@ -437,9 +435,21 @@ export const createSettingsUiActionsAppearance = (set: SetState, get: GetState) 
             text: enable ? '启动后将直接进入播放页' : '启动后将默认进入首页',
         });
     },
+    handleToggleAutoPlayOnLaunch: (enable) => {
+        setStoredBoolean(AUTO_PLAY_ON_LAUNCH_STORAGE_KEY, enable);
+        set({ autoPlayOnLaunch: enable });
+        notify(get, {
+            type: 'info',
+            text: i18n.t(enable ? 'status.autoPlayOnLaunchOn' : 'status.autoPlayOnLaunchOff'),
+        });
+    },
     handleToggleMediaCache: (enable) => {
         setStoredBoolean('enable_media_cache', enable);
         set({ enableMediaCache: enable });
+    },
+    handleToggleAutoResyncDownloadFolder: (enable) => {
+        setStoredBoolean(AUTO_RESYNC_DOWNLOAD_FOLDER_KEY, enable);
+        set({ autoResyncDownloadFolder: enable });
     },
     handleSetBackgroundOpacity: (opacity) => {
         if (typeof window !== 'undefined') {
@@ -498,12 +508,8 @@ export const createSettingsUiActionsAppearance = (set: SetState, get: GetState) 
         });
     },
     forceSafeVisualizerBackgroundAfterGpuCrash: () => {
-        const state = get();
-        const keep3dOptIn = state.visualizerBackgroundMode === 'interactive3d'
-            || state.enable3dInteractiveBackground
-            || (typeof window !== 'undefined' && readInteractive3dOptIn(localStorage));
         set(applyGpuCrashVisualDemote({
-            keep3dOptIn,
+            keep3dOptIn: false,
             storage: typeof window !== 'undefined' ? localStorage : null,
         }));
     },
@@ -583,7 +589,7 @@ export const createSettingsUiActionsAppearance = (set: SetState, get: GetState) 
             void window.electron.setNativeTheme(enabled ? 'light' : 'dark');
         }
     },
-    handleSetVisualizerMode: (mode) => {
+    handleSetVisualizerMode: (mode, options) => {
         // Legacy path: karaoke was briefly a visualizer mode.
         if (mode === 'karaoke') {
             get().handleSetLyricWordMode('karaoke');
@@ -626,10 +632,12 @@ export const createSettingsUiActionsAppearance = (set: SetState, get: GetState) 
                 data: { key: 'visualizerMode', from: prevMode, to: mode },
             });
         });
-        notify(get, {
-            type: 'info',
-            text: `已切换到${entry.labelFallback}歌词`,
-        });
+        if (options?.notify !== false) {
+            notify(get, {
+                type: 'info',
+                text: `已切换到${entry.labelFallback}歌词`,
+            });
+        }
     },
     handleSetLyricWordMode: (mode) => {
         const next = parseLyricWordMode(mode);

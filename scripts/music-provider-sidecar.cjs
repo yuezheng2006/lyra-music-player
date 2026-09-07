@@ -59,7 +59,7 @@ const sendJson = (res, status, payload) => {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'content-type',
+    'Access-Control-Allow-Headers': 'content-type, x-lyra-qishui-cookie',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
   });
   res.end(JSON.stringify(payload));
@@ -185,6 +185,27 @@ const runExtractor = (provider, action, payload) => new Promise((resolve, reject
     ...payload,
   }));
 });
+
+const parseProviderAuthFromRequest = (req, body = {}) => {
+  const auth = {};
+  if (body.qishuiAuth && typeof body.qishuiAuth === 'object') {
+    auth.qishuiAuth = body.qishuiAuth;
+  } else {
+    const cookieHeader = req.headers['x-lyra-qishui-cookie'];
+    if (typeof cookieHeader === 'string' && cookieHeader.trim()) {
+      auth.qishuiAuth = { cookieHeader: cookieHeader.trim(), isLoggedIn: true };
+    }
+  }
+  if (body.kugouAuth && typeof body.kugouAuth === 'object') {
+    auth.kugouAuth = body.kugouAuth;
+  } else {
+    const cookieHeader = req.headers['x-lyra-kugou-cookie'];
+    if (typeof cookieHeader === 'string' && cookieHeader.trim()) {
+      auth.kugouAuth = { cookieHeader: cookieHeader.trim(), isLoggedIn: true };
+    }
+  }
+  return auth;
+};
 
 const parseProviderPath = (pathname) => {
   if (pathname === '/providers') {
@@ -351,6 +372,7 @@ const server = http.createServer(async (req, res) => {
         query: url.searchParams.get('q') || '',
         limit: Number(url.searchParams.get('limit') || 30),
         offset: Number(url.searchParams.get('offset') || 0),
+        ...parseProviderAuthFromRequest(req),
       };
       const payload = await runAdapter(route.provider, 'search', requestPayload)
         || await runBuiltInProvider(route.provider, 'search', requestPayload)
@@ -367,9 +389,13 @@ const server = http.createServer(async (req, res) => {
 
     if (route.endpoint === 'song-url' && req.method === 'POST') {
       const body = JSON.parse(await readBody(req) || '{}');
-      const payload = await runAdapter(route.provider, 'audio', body)
-        || await runBuiltInProvider(route.provider, 'audio', body)
-        || await runExtractor(route.provider, 'audio', body);
+      const requestPayload = {
+        ...body,
+        ...parseProviderAuthFromRequest(req, body),
+      };
+      const payload = await runAdapter(route.provider, 'audio', requestPayload)
+        || await runBuiltInProvider(route.provider, 'audio', requestPayload)
+        || await runExtractor(route.provider, 'audio', requestPayload);
       const audioUrl = payload?.audioUrl || payload?.url || null;
       const videoUrl = typeof payload?.videoUrl === 'string' && payload.videoUrl.trim()
         ? payload.videoUrl.trim()
@@ -385,11 +411,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (route.endpoint === 'lyrics' && (req.method === 'GET' || req.method === 'POST')) {
-      const requestPayload = req.method === 'POST'
+      const body = req.method === 'POST'
         ? JSON.parse(await readBody(req) || '{}')
         : {
           id: url.searchParams.get('id') || '',
         };
+      const requestPayload = {
+        ...body,
+        ...parseProviderAuthFromRequest(req, body),
+      };
       const payload = await runAdapter(route.provider, 'lyrics', requestPayload)
         || await runBuiltInProvider(route.provider, 'lyrics', requestPayload)
         || await runExtractor(route.provider, 'lyrics', requestPayload);
@@ -398,14 +428,18 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (route.endpoint === 'recommend' && (req.method === 'GET' || req.method === 'POST')) {
-      const requestPayload = req.method === 'POST'
+      const body = req.method === 'POST'
         ? JSON.parse(await readBody(req) || '{}')
         : {
           limit: Number(url.searchParams.get('limit') || 20),
         };
+      const requestPayload = {
+        ...body,
+        ...parseProviderAuthFromRequest(req, body),
+      };
       if (requestPayload.limit == null) {
         requestPayload.limit = Number(url.searchParams.get('limit') || 20);
-      }
+      };
       const payload = await runAdapter(route.provider, 'recommend', requestPayload)
         || await runExtractor(route.provider, 'recommend', requestPayload);
       sendJson(res, 200, normalizeSearchResponse(payload));

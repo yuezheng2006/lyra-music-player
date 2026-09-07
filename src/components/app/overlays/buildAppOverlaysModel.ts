@@ -6,6 +6,7 @@ import type DevDebugOverlay from '../../DevDebugOverlay';
 import type PlaylistView from '../views/PlaylistView';
 import type AlbumView from '../views/AlbumView';
 import type ArtistView from '../views/ArtistView';
+import type NowPlayingToast from './NowPlayingToast';
 import { PlayerState } from '../../../types';
 import type {
     Interactive3dSceneTuning,
@@ -26,6 +27,7 @@ type DebugOverlayProps = React.ComponentProps<typeof DevDebugOverlay>;
 type PlaylistOverlayProps = React.ComponentProps<typeof PlaylistView>;
 type AlbumOverlayProps = React.ComponentProps<typeof AlbumView>;
 type ArtistOverlayProps = React.ComponentProps<typeof ArtistView>;
+type NowPlayingToastProps = React.ComponentProps<typeof NowPlayingToast>;
 
 export type AppOverlaysModel = {
     searchOverlay?: SearchOverlayProps | null;
@@ -36,6 +38,7 @@ export type AppOverlaysModel = {
     ) | null;
     debugOverlay?: DebugOverlayProps | null;
     floatingControls?: FloatingControlsProps | null;
+    nowPlayingToast?: NowPlayingToastProps | null;
 };
 
 type BuildAppOverlaysModelParams = {
@@ -53,6 +56,7 @@ type BuildAppOverlaysModelParams = {
     handleSearchResultArtistSelect: (track: UnifiedSong, artistName: string, artistId?: number) => void;
     handleSearchResultAlbumSelect: (track: UnifiedSong, albumName: string, albumId?: number) => void;
     onDownloadSong?: (song: SongResult) => void | Promise<boolean>;
+    onDownloadSongs?: (songs: SongResult[]) => void | Promise<boolean>;
     canDownloadSong?: (song: SongResult | null | undefined) => boolean;
     downloadSongLabel?: string;
     popOverlay: () => void;
@@ -152,6 +156,7 @@ type BuildAppOverlaysModelParams = {
     openSongSettingsLabel?: string;
     getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
     getVisualizerModeLabel?: (mode: VisualizerMode) => string;
+    nowPlayingToast?: NowPlayingToastProps | null;
 };
 
 // Builds the full overlay model, including detail overlays and floating playback controls.
@@ -170,6 +175,7 @@ export const buildAppOverlaysModel = ({
     handleSearchResultArtistSelect,
     handleSearchResultAlbumSelect,
     onDownloadSong,
+    onDownloadSongs,
     canDownloadSong,
     downloadSongLabel = 'Download',
     popOverlay,
@@ -261,6 +267,7 @@ export const buildAppOverlaysModel = ({
     openSongSettingsLabel,
     getBackgroundPresetLabel,
     getVisualizerModeLabel,
+    nowPlayingToast = null,
 }: BuildAppOverlaysModelParams): AppOverlaysModel => ({
     searchOverlay: currentView === 'home'
         ? {
@@ -278,6 +285,7 @@ export const buildAppOverlaysModel = ({
             onSelectArtist: handleSearchResultArtistSelect,
             onSelectAlbum: handleSearchResultAlbumSelect,
             onDownloadSong,
+            onDownloadSongs,
             canDownloadSong,
             downloadSongLabel,
         }
@@ -452,4 +460,5 @@ export const buildAppOverlaysModel = ({
             downloadSongLabel,
         }
         : null,
+    nowPlayingToast,
 });

@@ -49,7 +49,9 @@ const resolveQqAudioUrl = async (song: SongResult, quality: string) => {
     }
 
     const auth = getQQMusicAuth();
-    if (!auth.isLoggedIn) {
+    const authst = auth.playbackKey || auth.musicKey;
+    // Need qm_keyst / qqmusic_key for stream URLs; a bare login skey is not enough.
+    if (!auth.isLoggedIn || !auth.playbackKeyReady || !authst) {
         return null;
     }
 
@@ -72,7 +74,7 @@ const resolveQqAudioUrl = async (song: SongResult, quality: string) => {
         uin: auth.uin,
     }, {
         comm: {
-            authst: auth.musicKey,
+            authst,
             ct: 19,
             cv: 0,
             format: 'json',

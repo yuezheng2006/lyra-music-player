@@ -5,12 +5,11 @@ import {
 } from '../../../types';
 
 // src/components/visualizer/geometric/mineradioVisualPresets.ts
-// Interactive 3D visual preset bundles (cover bloom + Mineradio originals).
+// Interactive 3D visual preset bundles — single soft cover atmosphere entry.
 
+/** UI chips / settings deck: one Atmosphere entry (legacy ids normalize to emily). */
 export const INTERACTIVE3D_VISUAL_PRESET_OPTIONS: MineradioVisualPresetId[] = [
     'emily',
-    'mineradioTunnel',
-    'mineradioGalaxy',
 ];
 
 /** @deprecated use INTERACTIVE3D_VISUAL_PRESET_OPTIONS */
@@ -30,22 +29,24 @@ const LEGACY_VISUAL_PRESET_MAP: Record<string, MineradioVisualPresetId> = {
     blackhole: 'emily',
     aurora: 'emily',
     mineradioVoid: 'emily',
-    nebula: 'mineradioGalaxy',
+    nebula: 'emily',
     orbit: 'emily',
     mineradioOrbit: 'emily',
-    wallpaper: 'mineradioGalaxy',
+    wallpaper: 'emily',
     requiem: 'emily',
     custom: 'emily',
+    mineradioTunnel: 'emily',
+    mineradioGalaxy: 'emily',
 };
 
-/** Maps stored or legacy preset ids to the shipped visual styles. */
+/** Maps stored or legacy preset ids to the shipped atmosphere style (emily). */
 export const normalizeInteractive3dVisualPreset = (value: unknown): MineradioVisualPresetId => {
-    if (INTERACTIVE3D_VISUAL_PRESET_OPTIONS.includes(value as MineradioVisualPresetId)) {
-        return value as MineradioVisualPresetId;
-    }
+    if (value === 'emily') return 'emily';
     if (typeof value === 'string' && value in LEGACY_VISUAL_PRESET_MAP) {
         return LEGACY_VISUAL_PRESET_MAP[value];
     }
+    // Former tunnel / galaxy music-particle ids collapse to atmosphere.
+    if (value === 'mineradioTunnel' || value === 'mineradioGalaxy') return 'emily';
     return DEFAULT_INTERACTIVE3D_SCENE_TUNING.visualPreset;
 };
 
@@ -241,14 +242,14 @@ export const getMineradioPresetLabelFallback = (preset: MineradioVisualPresetId)
         case 'aurora':
         case 'mineradioVoid':
         case 'mineradioOrbit':
-            return '封面';
+            return '氛围';
         case 'nebula':
-            return '星云';
+            return '氛围';
         case 'mineradioTunnel':
-            return '滚筒';
+            return '氛围';
         case 'mineradioGalaxy':
-            return '星河';
+            return '氛围';
         default:
-            return '封面';
+            return '氛围';
     }
 };

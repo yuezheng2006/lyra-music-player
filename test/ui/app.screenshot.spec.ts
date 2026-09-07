@@ -220,7 +220,7 @@ async function installBaseState(
     localStorage.setItem('default_theme_daylight', 'true');
     localStorage.setItem('static_mode', 'true');
     localStorage.setItem('last_app_view', 'home');
-    localStorage.setItem('last_home_view_tab', 'playlist');
+    localStorage.setItem('last_home_view_tab', 'charts');
     // Avoid first-run / version overlays intercepting screenshot clicks.
     localStorage.setItem('lyra_onboarding_completed', 'true');
     localStorage.setItem('folia_last_seen_guide_version', payload.appVersion);
@@ -582,6 +582,18 @@ test.describe('frontend screenshot coverage', () => {
 
     // 首页改版后不再有 Daily Mix 卡片；以登录态歌单区作为就绪锚点。
     await expect(page.getByText('My playlists').first()).toBeVisible();
+    await expect(page.getByText('Discover').first()).toBeVisible();
+    await expect(page.getByText('Yours').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Playlists' })).toBeVisible();
+    const surfaces = await page.locator('[data-app-ui-surface]').evaluateAll(
+      nodes => nodes.map(node => node.getAttribute('data-app-ui-surface')),
+    );
+    const heroIndex = surfaces.indexOf('home-discovery-hero');
+    const chartIndex = surfaces.indexOf('home-chart-preview');
+    const deskIndex = surfaces.indexOf('home-listening-desk');
+    expect(heroIndex).toBeGreaterThanOrEqual(0);
+    expect(chartIndex).toBeGreaterThan(heroIndex);
+    expect(deskIndex).toBe(-1);
     await expect(page).toHaveScreenshot('netease-home.png', {
       animations: 'disabled',
       scale: 'css',

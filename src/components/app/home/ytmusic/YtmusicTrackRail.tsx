@@ -35,20 +35,25 @@ const YtmusicTrackRail: React.FC<YtmusicTrackRailProps> = ({
         : 'bg-white/[0.12] ring-1 ring-white/14';
 
     return (
-        <section className="space-y-2.5">
-            <div className="flex items-end justify-between gap-3 px-1">
-                <h3 className="min-w-0 truncate text-sm font-semibold tracking-tight">{title}</h3>
+        <section className="space-y-3">
+            <div className="flex items-start justify-between gap-4 px-1">
+                <h3
+                    className="min-w-0 flex-1 text-[15px] font-semibold leading-snug tracking-tight line-clamp-2"
+                    title={title}
+                >
+                    {title}
+                </h3>
                 {onSeeAll ? (
                     <button
                         type="button"
                         onClick={onSeeAll}
-                        className={`shrink-0 text-xs font-medium transition ${muted} hover:opacity-100 opacity-80`}
+                        className={`mt-0.5 shrink-0 text-xs font-medium transition ${muted} hover:opacity-100 opacity-75`}
                     >
                         {seeAllLabel}
                     </button>
                 ) : null}
             </div>
-            <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+            <div className="-mx-1 flex gap-3.5 overflow-x-auto px-1 pb-1.5 [scrollbar-width:thin]">
                 {tracks.map((track) => {
                     const isActive = Boolean(currentVideoId && track.videoId === currentVideoId);
                     return (
@@ -56,24 +61,25 @@ const YtmusicTrackRail: React.FC<YtmusicTrackRailProps> = ({
                             key={track.videoId}
                             type="button"
                             onClick={() => onPlayTrack(track, queue)}
-                            className={`group w-[112px] shrink-0 rounded-2xl p-1.5 text-left transition-colors ${cardHover} ${isActive ? activeCard : ''}`}
+                            className={`group w-[148px] shrink-0 rounded-2xl p-2 text-left transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] sm:w-[156px] ${cardHover} ${isActive ? activeCard : ''}`}
                             aria-current={isActive ? 'true' : undefined}
+                            title={`${track.title}${track.artist ? ` · ${track.artist}` : ''}`}
                         >
                             <div className={`aspect-square w-full overflow-hidden rounded-xl bg-black/10 ${coverRing}`}>
                                 {track.coverUrl ? (
                                     <img
                                         src={track.coverUrl}
                                         alt=""
-                                        className="h-full w-full object-contain transition group-hover:scale-[1.02]"
+                                        className="h-full w-full object-cover transition duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-[1.03]"
                                         loading="lazy"
                                         referrerPolicy="no-referrer"
                                     />
                                 ) : null}
                             </div>
-                            <div className={`mt-2 truncate text-[13px] ${isActive ? 'font-semibold' : 'font-medium'}`}>
+                            <div className={`mt-2.5 line-clamp-2 text-[13px] leading-snug ${isActive ? 'font-semibold' : 'font-medium'}`}>
                                 {track.title}
                             </div>
-                            <div className={`mt-0.5 truncate text-[11px] ${muted}`}>
+                            <div className={`mt-1 truncate text-[11px] leading-tight ${muted}`}>
                                 {track.artist}
                             </div>
                         </button>

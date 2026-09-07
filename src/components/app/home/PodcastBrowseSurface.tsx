@@ -7,7 +7,7 @@ import {
     fetchPodcastPrograms,
     searchPodcasts,
     type NeteasePodcastRadio,
-} from '../../../services/neteasePodcast';
+} from '../../../services/podcast/podcastCatalog';
 import { ProviderIconBadge } from './ProviderIconBadge';
 import { SearchClearButton } from '../../shared/SearchClearButton';
 import LazyCoverImage from '../../shared/LazyCoverImage';
@@ -20,7 +20,7 @@ import {
 import { resolveBrowseListRowClass, resolveHomeContentBottomPaddingClass } from './homeSurfaceStyles';
 
 // src/components/app/home/PodcastBrowseSurface.tsx
-// Sidebar podcast surface: hot/search radios → episode list → play.
+// Sidebar podcast surface: Apple/RSS catalog (NetEase fallback) → episode list → play.
 
 type PodcastBrowseSurfaceProps = {
     isDaylight: boolean;
@@ -135,7 +135,7 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
         setDiagnostic(null);
         setErrorCode(null);
         try {
-            const { programs: list, radio: detail } = await fetchPodcastPrograms(radio.id, 40, 0);
+            const { programs: list, radio: detail } = await fetchPodcastPrograms(radio, 40, 0);
             if (detail?.name) setActiveRadio({ ...radio, ...detail });
             setPrograms(list);
         } catch (err) {
@@ -182,7 +182,7 @@ const PodcastBrowseSurface: React.FC<PodcastBrowseSurfaceProps> = ({
                                 {activeRadio ? activeRadio.name : t('home.podcastTitle')}
                             </div>
                             <ProviderIconBadge
-                                provider="netease"
+                                provider={activeRadio?.catalogSource === 'netease' ? 'netease' : 'rss'}
                                 size="sm"
                                 isDaylight={isDaylight}
                             />

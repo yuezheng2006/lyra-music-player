@@ -3,6 +3,7 @@ import { splitCombinedTimeline } from './timelineSplitter';
 export interface EmbeddedLrcNormalizationResult {
     mainText: string;
     translationText: string;
+    romanizationText?: string;
 }
 
 export interface EmbeddedUsltLikeTag {
@@ -52,10 +53,11 @@ export function normalizeEmbeddedLrcText(
         };
     }
 
-    const { main, trans } = splitCombinedTimeline(textContent);
+    const { main, trans, romanization } = splitCombinedTimeline(textContent);
     return {
         mainText: main,
-        translationText: trans
+        translationText: trans,
+        romanizationText: romanization,
     };
 }
 
@@ -107,6 +109,7 @@ export function normalizeEmbeddedStructuredLyrics(
 
     const mainLines: string[] = [];
     const translationLines: string[] = [];
+    const romanizationLines: string[] = [];
 
     [...groups.entries()]
         .sort((a, b) => a[0] - b[0])
@@ -118,10 +121,14 @@ export function normalizeEmbeddedStructuredLyrics(
             if (values[1]) {
                 translationLines.push(`${prefix}${values[1]}`);
             }
+            if (values[2]) {
+                romanizationLines.push(`${prefix}${values[2]}`);
+            }
         });
 
     return {
         mainText: mainLines.join('\n'),
-        translationText: translationLines.join('\n')
+        translationText: translationLines.join('\n'),
+        romanizationText: romanizationLines.join('\n'),
     };
 }

@@ -8,6 +8,7 @@ import {
     DEFAULT_FUME_TUNING,
     DEFAULT_INTERACTIVE3D_SCENE_TUNING,
     DEFAULT_LATENT_BACKGROUND_TUNING,
+    DEFAULT_NOMAND_BACKGROUND_TUNING,
     DEFAULT_MONET_BACKGROUND_TUNING,
     DEFAULT_MONET_TUNING,
     DEFAULT_PARTITA_TUNING,
@@ -54,6 +55,10 @@ import { setGlobalVisualizerFrameRate, VISUALIZER_FRAME_RATE_STORAGE_KEY } from 
 import { sanitizeUrlBackgroundItem, sanitizeUrlBackgroundList } from '../../utils/urlBackground';
 import { getLyricProviderPreferenceLabel } from '../../utils/lyrics/lyricSourceLabels';
 import { applyAppLanguagePreference } from '../../i18n/config';
+import {
+    SETTINGS_CHROME_DAYLIGHT_MODE_STORAGE_KEY,
+    type SettingsChromeDaylightMode,
+} from '../../utils/settings/settingsChromeDaylightMath';
 import type { LocalBeatAnalysisPromptPolicy } from '../../utils/atmosphere/localBeatAnalysisPolicy';
 import { scheduleInteractive3dParticleYieldResume } from '../../utils/visualizer/yieldInteractive3dParticlesForModeSwitch';
 import { planVisualizerModeSwitchGpuSafety } from '../../utils/visualizer/visualizerModeSwitchGpuSafety';
@@ -82,6 +87,7 @@ import {
     LOCAL_BEAT_ANALYSIS_PROMPT_STORAGE_KEY,
     resolveStoredCustomLyricsFont,
     resolveStoredLatentBackgroundTuning,
+    resolveStoredNomandBackgroundTuning,
     resolveStoredMonetBackgroundTuning,
     resolveStoredMonetTuning,
 } from './settingsPersistenceExtended';
@@ -295,6 +301,24 @@ export const createSettingsUiActionsTuning = (set: SetState, get: GetState) => (
         }
         set({ latentBackgroundTuning: DEFAULT_LATENT_BACKGROUND_TUNING });
         notify(get, { type: 'info', text: 'Latent 背景参数已重置' });
+    },
+    handleSetNomandBackgroundTuning: (patch) => {
+        const prev = get().nomandBackgroundTuning;
+        const next = resolveStoredNomandBackgroundTuning({
+            ...prev,
+            ...patch,
+        });
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('nomand_background_tuning', JSON.stringify(next));
+        }
+        set({ nomandBackgroundTuning: next });
+    },
+    handleResetNomandBackgroundTuning: () => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('nomand_background_tuning', JSON.stringify(DEFAULT_NOMAND_BACKGROUND_TUNING));
+        }
+        set({ nomandBackgroundTuning: DEFAULT_NOMAND_BACKGROUND_TUNING });
+        notify(get, { type: 'info', text: '漫游背景参数已重置' });
     },
     handleSetInteractive3dSceneTuning: (patch) => {
         const prev = get().interactive3dSceneTuning;
@@ -570,6 +594,12 @@ export const createSettingsUiActionsTuning = (set: SetState, get: GetState) => (
                 ? '界面语言已切换为跟随系统'
                 : `界面语言已切换为 ${preference === 'zh-CN' ? '简体中文' : 'English'}`,
         });
+    },
+    handleSetSettingsChromeDaylightMode: (mode: SettingsChromeDaylightMode) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(SETTINGS_CHROME_DAYLIGHT_MODE_STORAGE_KEY, mode);
+        }
+        set({ settingsChromeDaylightMode: mode });
     },
     handleSetLyricFilterPattern: (pattern) => {
         const next = pattern.trim();

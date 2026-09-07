@@ -6,6 +6,7 @@ import {
 import {
     writeInteractive3dOptIn,
 } from '../utils/visualizer/interactive3dOptInStorage';
+import { migrateVisualizerBackgroundMode } from '../utils/visualizer/retiredVisualizerBackgroundModes';
 import {
     resolveElectronSafeVisualizerBackgroundMode,
     resolveUserSelectedVisualizerBackgroundMode,
@@ -22,7 +23,7 @@ const setStoredBoolean = (storage: BooleanStorage, key: string, value: boolean) 
     storage.setItem(key, value ? 'true' : 'false');
 };
 
-/** Apply a user background-mode selection (3D tap clears GPU lockout). */
+/** Apply a user background-mode selection. Retired interactive3d maps to common. */
 export const applyVisualizerBackgroundModeSelection = (input: {
     mode: VisualizerBackgroundMode;
     isElectron: boolean;
@@ -33,22 +34,18 @@ export const applyVisualizerBackgroundModeSelection = (input: {
 } => {
     const storage = input.storage;
     const gpuUnstable = storage ? readGpuUnstableFlag(storage) : false;
-    const retryInteractive3d = input.mode === 'interactive3d';
-    if (storage && retryInteractive3d && gpuUnstable) {
-        writeGpuUnstableFlag(storage, false);
-    }
+    const requested = migrateVisualizerBackgroundMode(input.mode) ?? 'common';
     const resolvedMode = resolveUserSelectedVisualizerBackgroundMode({
-        requested: input.mode,
+        requested,
         isElectron: input.isElectron,
-        gpuUnstable: gpuUnstable && !retryInteractive3d,
+        gpuUnstable,
     });
-    const enable3dInteractiveBackground = resolvedMode === 'interactive3d';
     if (storage) {
         storage.setItem('visualizer_background_mode', resolvedMode);
-        setStoredBoolean(storage, ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, enable3dInteractiveBackground);
-        writeInteractive3dOptIn(storage, enable3dInteractiveBackground);
+        setStoredBoolean(storage, ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, false);
+        writeInteractive3dOptIn(storage, false);
     }
-    return { resolvedMode, enable3dInteractiveBackground };
+    return { resolvedMode, enable3dInteractiveBackground: false };
 };
 
 /** Visual-only demote after GPU crash — never touches audio / media clocks. */
@@ -81,7 +78,7 @@ export const applyResetVisualizerBackgroundMode = (input: {
     resolvedMode: VisualizerBackgroundMode;
     enable3dInteractiveBackground: boolean;
 } => {
-    let resolvedMode = input.defaultMode;
+    let resolvedMode = migrateVisualizerBackgroundMode(input.defaultMode) ?? 'common';
     const storage = input.storage;
     if (storage) {
         resolvedMode = resolveElectronSafeVisualizerBackgroundMode({
@@ -92,11 +89,11 @@ export const applyResetVisualizerBackgroundMode = (input: {
             interactive3dOptIn: false,
         });
         storage.setItem('visualizer_background_mode', resolvedMode);
-        setStoredBoolean(storage, ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, resolvedMode === 'interactive3d');
+        setStoredBoolean(storage, ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, false);
         writeInteractive3dOptIn(storage, false);
     }
     return {
         resolvedMode,
-        enable3dInteractiveBackground: resolvedMode === 'interactive3d',
+        enable3dInteractiveBackground: false,
     };
 };

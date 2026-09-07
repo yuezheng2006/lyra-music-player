@@ -4,6 +4,8 @@ import { getFromCache } from '../services/db';
 import type { ThemeCacheSongKey } from '../services/themeCache';
 import { restorePlaybackSourceForSong } from '../components/app/playback/restorePlaybackSource';
 import { isStagePlaybackSong } from '../utils/appPlaybackGuards';
+import { armLaunchAutoPlay } from '../utils/audioAutoPlayGuard';
+import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import type { LyricData, SongResult, StatusMessage } from '../types';
 
 // src/hooks/useSessionRestoreController.ts
@@ -30,6 +32,7 @@ type UseSessionRestoreControllerParams = {
     loadLocalSongs: () => Promise<void>;
     loadLocalPlaylists: () => Promise<void>;
     canRestoreSession?: boolean;
+    shouldAutoPlayRef: MutableRefObject<boolean>;
 };
 
 // Restores the main playback session without pushing more boot logic into App.tsx.
@@ -50,6 +53,7 @@ export function useSessionRestoreController({
     loadLocalSongs,
     loadLocalPlaylists,
     canRestoreSession = true,
+    shouldAutoPlayRef,
 }: UseSessionRestoreControllerParams) {
     const hasInitializedRef = useRef(false);
     const hasLoadedLocalLibraryRef = useRef(false);
@@ -91,6 +95,10 @@ export function useSessionRestoreController({
                 console.log('[Session] Restoring last song:', lastSong.name);
                 setCurrentSong(lastSong);
                 setPlayQueue(lastQueue && lastQueue.length > 0 ? lastQueue : [lastSong]);
+                armLaunchAutoPlay(
+                    shouldAutoPlayRef,
+                    useSettingsUiStore.getState().autoPlayOnLaunch,
+                );
 
                 try {
                     await restorePlaybackSourceForSong(lastSong, {

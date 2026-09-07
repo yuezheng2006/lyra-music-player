@@ -1,6 +1,7 @@
 import {
     DEFAULT_INTERACTIVE3D_SCENE_TUNING,
     DEFAULT_LATENT_BACKGROUND_TUNING,
+    DEFAULT_NOMAND_BACKGROUND_TUNING,
     DEFAULT_MONET_BACKGROUND_TUNING,
     DEFAULT_MONET_TUNING,
     type GridViewCardLayout,
@@ -8,6 +9,7 @@ import {
     type LatentBackgroundColorSource,
     type LatentBackgroundDisplayMode,
     type LatentBackgroundTuning,
+    type NomandBackgroundTuning,
     type LyricProviderSource,
     type LyricWordMode,
     type MonetBackgroundTuning,
@@ -19,6 +21,15 @@ import {
     type VisualizerBackgroundMode,
     type VisualizerMode,
 } from '../../types';
+import { resolveStoredNomandBackgroundTuning } from '../../utils/visualizer/nomandBackgroundMath';
+import {
+    DEFAULT_LYRIC_STAFF_ABSORB_MODE,
+    DEFAULT_LYRIC_STAFF_MIN_DWELL_SECONDS,
+    DEFAULT_LYRIC_STAFF_POLICY,
+    LYRIC_STAFF_MIN_DWELL_RANGE,
+    type LyricStaffAbsorbMode,
+    type LyricStaffPolicy,
+} from '../../utils/lyrics/staffCreditsPolicy';
 import { resolveStoredInteractive3dSceneTuning } from '../../components/visualizer/geometric/interactive3dSceneRegistry';
 import {
     DEFAULT_LYRIC_WORD_MODE,
@@ -53,6 +64,7 @@ import {
     writeInteractive3dOptIn,
 } from '../../utils/performance/electronInteractive3dGuardMath';
 import { sanitizeUrlBackgroundList } from '../../utils/urlBackground';
+import { migrateVisualizerBackgroundMode } from '../../utils/visualizer/retiredVisualizerBackgroundModes';
 import type { LocalBeatAnalysisMode } from '../../utils/atmosphere/localBeatMapCache';
 import {
     DEFAULT_LOCAL_BEAT_ANALYSIS_PROMPT_POLICY,
@@ -84,6 +96,7 @@ export const VISUALIZER_BACKGROUND_MODES: VisualizerBackgroundMode[] = [
     'common',
     'interactive3d',
     'monet',
+    'nomand',
     'url',
     'sora',
     'latent',
@@ -104,6 +117,21 @@ export const clampLatentUnit = (value: number | undefined, fallback: number, min
     const next = Number.isFinite(value) ? Number(value) : fallback;
     return Math.min(max, Math.max(min, next));
 };
+
+export const readStoredNomandBackgroundTuning = (): NomandBackgroundTuning => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_NOMAND_BACKGROUND_TUNING;
+    }
+    try {
+        const saved = localStorage.getItem('nomand_background_tuning');
+        if (!saved) return DEFAULT_NOMAND_BACKGROUND_TUNING;
+        return resolveStoredNomandBackgroundTuning(JSON.parse(saved) as Partial<NomandBackgroundTuning>);
+    } catch {
+        return DEFAULT_NOMAND_BACKGROUND_TUNING;
+    }
+};
+
+export { resolveStoredNomandBackgroundTuning };
 
 export const resolveStoredLatentBackgroundTuning = (
     parsed: Partial<LatentBackgroundTuning>,
@@ -144,13 +172,20 @@ export const readStoredVisualizerBackgroundMode = (): VisualizerBackgroundMode |
 
     const saved = localStorage.getItem('visualizer_background_mode');
     if (saved && VISUALIZER_BACKGROUND_MODES.includes(saved as VisualizerBackgroundMode)) {
-        return saved as VisualizerBackgroundMode;
+        const migrated = migrateVisualizerBackgroundMode(saved as VisualizerBackgroundMode) ?? 'common';
+        if (migrated !== saved) {
+            localStorage.setItem('visualizer_background_mode', migrated);
+            setStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, false);
+            writeInteractive3dOptIn(localStorage, false);
+        }
+        return migrated;
     }
 
     if (getStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, false)) {
-        localStorage.setItem('visualizer_background_mode', 'interactive3d');
+        localStorage.setItem('visualizer_background_mode', 'common');
         localStorage.removeItem(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY);
-        return 'interactive3d';
+        writeInteractive3dOptIn(localStorage, false);
+        return 'common';
     }
 
     return null;
@@ -185,7 +220,9 @@ export const DEFAULT_VISUALIZER_BACKGROUND_MODE: VisualizerBackgroundMode = 'com
 export const resolveVisualizerBackgroundMode = (
     storedMode: VisualizerBackgroundMode | null | undefined,
     _visualizerMode?: VisualizerMode,
-): VisualizerBackgroundMode => storedMode ?? DEFAULT_VISUALIZER_BACKGROUND_MODE;
+): VisualizerBackgroundMode => (
+    migrateVisualizerBackgroundMode(storedMode) ?? DEFAULT_VISUALIZER_BACKGROUND_MODE
+);
 
 export const bootstrapVisualizerBackgroundMode = (): VisualizerBackgroundMode => {
     const storedMode = readStoredVisualizerBackgroundMode();
@@ -207,10 +244,7 @@ export const bootstrapVisualizerBackgroundMode = (): VisualizerBackgroundMode =>
         } else if (!storedMode) {
             localStorage.setItem('visualizer_background_mode', resolvedMode);
         }
-        setStoredBoolean(
-            ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY,
-            resolvedMode === 'interactive3d',
-        );
+        setStoredBoolean(ENABLE_3D_INTERACTIVE_BACKGROUND_STORAGE_KEY, false);
     }
 
     return resolvedMode;
@@ -255,6 +289,11 @@ export const resolveStoredMonetBackgroundTuning = (parsed: StoredMonetBackground
     backgroundWashCustomColor: normalizeHexColor(
         parsed.backgroundWashCustomColor,
         DEFAULT_MONET_BACKGROUND_TUNING.backgroundWashCustomColor,
+    ),
+    backgroundDriftEnabled: parsed.backgroundDriftEnabled ?? DEFAULT_MONET_BACKGROUND_TUNING.backgroundDriftEnabled,
+    backgroundDriftStrength: clampUnitInterval(
+        parsed.backgroundDriftStrength ?? DEFAULT_MONET_BACKGROUND_TUNING.backgroundDriftStrength ?? 0.55,
+        DEFAULT_MONET_BACKGROUND_TUNING.backgroundDriftStrength ?? 0.55,
     ),
 });
 
@@ -424,13 +463,56 @@ export const readStoredLyricFilterPattern = (): string => {
     return localStorage.getItem('lyrics_filter_pattern')?.trim() || '';
 };
 
-export const readStoredLoopMode = (): 'off' | 'all' | 'one' => {
+export const readStoredLyricStaffPolicy = (): LyricStaffPolicy => {
     if (typeof window === 'undefined') {
-        return 'off';
+        return DEFAULT_LYRIC_STAFF_POLICY;
+    }
+
+    const saved = localStorage.getItem('lyrics_staff_policy');
+    return saved === 'keep' || saved === 'hide' || saved === 'smart' ? saved : DEFAULT_LYRIC_STAFF_POLICY;
+};
+
+export const readStoredLyricStaffMinDwellSeconds = (): number => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_LYRIC_STAFF_MIN_DWELL_SECONDS;
+    }
+
+    const parsed = Number.parseFloat(localStorage.getItem('lyrics_staff_min_dwell') || '');
+    if (!Number.isFinite(parsed)) {
+        return DEFAULT_LYRIC_STAFF_MIN_DWELL_SECONDS;
+    }
+
+    return Math.min(LYRIC_STAFF_MIN_DWELL_RANGE.max, Math.max(LYRIC_STAFF_MIN_DWELL_RANGE.min, parsed));
+};
+
+export const readStoredLyricStaffAbsorbMode = (): LyricStaffAbsorbMode => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_LYRIC_STAFF_ABSORB_MODE;
+    }
+
+    const saved = localStorage.getItem('lyrics_staff_absorb_mode');
+    return saved === 'before' || saved === 'both' || saved === 'off' ? saved : DEFAULT_LYRIC_STAFF_ABSORB_MODE;
+};
+
+export const readStoredLyricStaffPattern = (): string => {
+    if (typeof window === 'undefined') {
+        return '';
+    }
+
+    return localStorage.getItem('lyrics_staff_pattern')?.trim() || '';
+};
+
+export const readStoredLoopMode = (): 'off' | 'all' | 'one' => {
+    // Default list-loop so song-end auto-advances (and wraps) without an extra click.
+    if (typeof window === 'undefined') {
+        return 'all';
     }
 
     const saved = localStorage.getItem('player_loop_mode');
-    return saved === 'all' || saved === 'one' ? saved : 'off';
+    if (saved === 'off' || saved === 'all' || saved === 'one') {
+        return saved;
+    }
+    return 'all';
 };
 
 export const readStoredGridViewCardLayout = (): GridViewCardLayout => {

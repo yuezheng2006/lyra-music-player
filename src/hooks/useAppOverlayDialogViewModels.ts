@@ -1,10 +1,16 @@
 import { useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { buildAppOverlaysModel } from '@/components/app/overlays/buildAppOverlaysModel';
+import { buildNowPlayingToastOverlayProps } from '@/components/app/overlays/now-playing-toast/buildNowPlayingToastOverlayProps';
+import { resolveNextUpTrack } from '@/components/app/overlays/now-playing-toast/resolveNextUpTrack';
 import { buildSettingsDialogModel } from '@/components/app/dialogs/buildSettingsDialogModel';
 import { buildAppDialogsModel } from '@/components/app/dialogs/buildAppDialogsModel';
 import { getVisualizerModeLabel as resolveVisualizerModeLabel } from '@/components/visualizer/registry';
 import { isLocalPlaybackSong, isNavidromePlaybackSong } from '@/utils/appPlaybackGuards';
+import { buildTrackAtmosphereSongMeta } from '@/utils/atmosphere/trackAtmosphereLightPlanMath';
 import { canDownloadSongToDirectory } from '@/services/songDownloadService';
+import { useNowPlayingToastCountdown } from '@/hooks/useNowPlayingToastCountdown';
+import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
 import type { AppViewModelContext } from './useAppViewModels.shared';
 import type { AudioQuality } from '@/stores/useSettingsUiStore';
 
@@ -25,6 +31,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         handleSearchResultArtistSelect,
         handleSearchResultAlbumSelect,
         downloadSong,
+        downloadSongs,
         popOverlay,
         playSong,
         playOnlineQueueFromStart,
@@ -44,6 +51,8 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         playerState,
         duration,
         effectiveLoopMode,
+        isFmMode,
+        isNowPlayingStageActive,
         playerLyricsVisible,
         handleTogglePlayerLyricsVisible,
         playQueue,
@@ -127,6 +136,71 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         handleUnavailableReplacementConfirm,
     } = core;
 
+    const {
+        stageTrackPillMode,
+        stageTrackPillTimeoutSec,
+        stageTrackPillOnHome,
+    } = useSettingsUiStore(useShallow(state => ({
+        stageTrackPillMode: state.stageTrackPillMode,
+        stageTrackPillTimeoutSec: state.stageTrackPillTimeoutSec,
+        stageTrackPillOnHome: state.stageTrackPillOnHome,
+    })));
+
+    const nextUpTrack = useMemo(() => resolveNextUpTrack({
+        playQueue,
+        song: currentSong,
+        loopMode: effectiveLoopMode,
+        isFmMode,
+        isStageActive: isNowPlayingStageActive,
+        fallbackToQueueHead: true,
+    }), [currentSong, effectiveLoopMode, isFmMode, isNowPlayingStageActive, playQueue]);
+
+    const countdownActive = useNowPlayingToastCountdown({
+        currentTime,
+        durationSec: duration,
+        enabled: stageTrackPillMode !== 'never',
+        hasNextUp: Boolean(nextUpTrack),
+    });
+
+    const nowPlayingToast = useMemo(() => buildNowPlayingToastOverlayProps({
+        currentSong,
+        playQueue,
+        loopMode: effectiveLoopMode,
+        isFmMode,
+        isStageActive: isNowPlayingStageActive,
+        isDaylight,
+        currentView,
+        stageTrackPillMode,
+        stageTrackPillTimeoutSec,
+        stageTrackPillOnHome,
+        countdownActive,
+        coverUrl,
+        onOpenPlayer: navigateToPlayer,
+        onOpenSongCard: () => {
+            setPanelTab('cover');
+            setIsPanelOpen(true);
+        },
+        openPlayerLabel: t('ui.stageTrackPillOpenPlayer'),
+        openSongCardLabel: t('ui.stageTrackPillOpenSongCard'),
+    }), [
+        countdownActive,
+        coverUrl,
+        currentSong,
+        currentView,
+        effectiveLoopMode,
+        isDaylight,
+        isFmMode,
+        isNowPlayingStageActive,
+        navigateToPlayer,
+        playQueue,
+        setIsPanelOpen,
+        setPanelTab,
+        stageTrackPillMode,
+        stageTrackPillOnHome,
+        stageTrackPillTimeoutSec,
+        t,
+    ]);
+
     const appOverlaysModel = useMemo(() => buildAppOverlaysModel({
         currentView,
         isOverlayVisible,
@@ -142,6 +216,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         handleSearchResultArtistSelect,
         handleSearchResultAlbumSelect,
         onDownloadSong: downloadSong,
+        onDownloadSongs: downloadSongs,
         canDownloadSong: canDownloadSongToDirectory,
         downloadSongLabel: t('search.download') || t('player.download') || 'Download',
         popOverlay,
@@ -260,6 +335,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         openSongSettingsLabel: t('player.openSongSettings') || t('ui.songSettings') || 'Song settings',
         getBackgroundPresetLabel: (preset) => t(`options.mineradioPreset.${preset}`),
         getVisualizerModeLabel: (mode) => resolveVisualizerModeLabel(mode, t),
+        nowPlayingToast,
     }), [
         activePlaybackContext,
         addNeteaseSongToQueue,
@@ -276,6 +352,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         currentView,
         devDebugSnapshot,
         downloadSong,
+        downloadSongs,
         duration,
         effectiveLoopMode,
         handleNextTrack,
@@ -339,6 +416,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         onApplyLyricColorPreset,
         setIsPanelOpen,
         setPanelTab,
+        nowPlayingToast,
     ]);
 
     const settingsDialog = useMemo(() => buildSettingsDialogModel({
@@ -349,6 +427,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         onToggleNavidrome: handleToggleNavidromeEnabled,
         currentSongTitle: currentSong?.name || null,
         currentCoverUrl: coverUrl,
+        trackAtmosphereSongMeta: buildTrackAtmosphereSongMeta(currentSong),
         loadLyricFilterPreview: loadCurrentSongLyricPreview,
         onSaveLyricFilterPattern: handleSaveLyricFilterPattern,
         stageStatus,
@@ -373,7 +452,7 @@ export function useAppOverlayDialogViewModels(core: AppViewModelContext) {
         clearStagePlaybackSession,
         closeSettings,
         coverUrl,
-        currentSong?.name,
+        currentSong,
         desktopLyricsStatus,
         handleAudioOutputDeviceChange,
         handleSaveLyricFilterPattern,

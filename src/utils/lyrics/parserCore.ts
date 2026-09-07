@@ -5,14 +5,14 @@ import type { LyricProcessingOptions } from './types';
 import { TTMLParser } from '@applemusic-like-lyrics/ttml';
 import { DOMParser } from '@xmldom/xmldom';
 import { buildLyricDataFromTTMLResult } from './ttmlConversion';
+import { parseAwlrc } from './parseAwlrc';
+import { bindBuiltinLyricFormatParsers, parseRegisteredLyricFormat } from './parseLyricFormat';
+import {
+    findTranslationsForSortedStartTimes,
+    type TimedTextEntry,
+} from './timedTextEntries';
 
-export type LyricParseFormat = TimedLyricFormat | 'yrc' | 'qrc' | 'krc';
-
-interface TimedTextEntry {
-    startTime: number;
-    endTime?: number;
-    text: string;
-}
+export type LyricParseFormat = TimedLyricFormat | 'yrc' | 'qrc' | 'krc' | 'awlrc' | (string & {});
 
 interface DraftWord {
     text: string;
@@ -188,49 +188,6 @@ const sortByStartTimeIfNeeded = <T extends { startTime: number }>(items: T[], is
     }
 
     return [...items].sort((left, right) => left.startTime - right.startTime);
-};
-
-const findTranslationsForSortedStartTimes = (
-    startTimes: number[],
-    entries: TimedTextEntry[]
-): Array<string | undefined> => {
-    if (startTimes.length === 0 || entries.length === 0) {
-        return startTimes.map(() => undefined);
-    }
-
-    const translations: Array<string | undefined> = [];
-    let upperIndex = 0;
-
-    for (const startTime of startTimes) {
-        while (upperIndex < entries.length && entries[upperIndex].startTime < startTime) {
-            upperIndex += 1;
-        }
-
-        let bestEntry: TimedTextEntry | undefined;
-        let bestDiff = 1.0;
-
-        const previous = entries[upperIndex - 1];
-        if (previous) {
-            const diff = Math.abs(previous.startTime - startTime);
-            if (diff < bestDiff) {
-                bestDiff = diff;
-                bestEntry = previous;
-            }
-        }
-
-        const current = entries[upperIndex];
-        if (current) {
-            const diff = Math.abs(current.startTime - startTime);
-            if (diff < bestDiff) {
-                bestDiff = diff;
-                bestEntry = current;
-            }
-        }
-
-        translations.push(bestEntry?.text);
-    }
-
-    return translations;
 };
 
 const parseTimestamp = (minute: string, second: string, fraction: string): number => {
@@ -1037,27 +994,23 @@ export const parseKRC = (
     return { lines: finalizeParsedLyricLines(lines, options) };
 };
 
+bindBuiltinLyricFormatParsers({
+    parseLRC,
+    parseEnhancedLRC,
+    parseYRC,
+    parseQRC,
+    parseKRC,
+    parseVTT,
+    parseTTML,
+    parseAwlrc,
+});
+
 export const parseLyricsByFormat = (
     format: LyricParseFormat,
     content: string,
     translation: string = '',
-    options: LyricProcessingOptions = {}
-): LyricData => {
-    switch (format) {
-        case 'yrc':
-            return parseYRC(content, translation, options);
-        case 'qrc':
-            return parseQRC(content, translation, options);
-        case 'krc':
-            return parseKRC(content, translation, options);
-        case 'enhanced-lrc':
-            return parseEnhancedLRC(content, translation, options);
-        case 'vtt':
-            return parseVTT(content, translation, options);
-        case 'ttml':
-            return parseTTML(content, translation, options);
-        case 'lrc':
-        default:
-            return parseLRC(content, translation, options);
-    }
-};
+    options: LyricProcessingOptions = {},
+    romanization: string = '',
+): LyricData => (
+    parseRegisteredLyricFormat(format, content, translation, options, romanization, parseLRC)
+);

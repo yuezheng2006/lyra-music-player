@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { DEFAULT_MONET_BACKGROUND_TUNING, type MonetBackgroundImage, type MonetBackgroundTuning, type Theme } from '../../../types';
 import { colorWithAlpha } from '../colorMix';
 import { getMonetBackgroundCacheKey, resolveMonetBackgroundDataUrl, checkCanvasFilterSupport } from '../monet/monetBackgroundPipeline';
+import { useMonetBackgroundDrift } from '../../../hooks/useMonetBackgroundDrift';
 
 // src/components/visualizer/backgrounds/MonetBackgroundLayer.tsx
 // Shared shell-level Monet image background with debounced bitmap post-processing.
@@ -38,7 +39,13 @@ const MonetBackgroundLayer: React.FC<MonetBackgroundLayerProps> = ({
     transparentBackground = false,
 }) => {
     const [pipelineUrl, setPipelineUrl] = useState<string | null>(null);
+    const driftRef = useRef<HTMLDivElement>(null);
     const sourceUrl = resolveSourceUrl(coverUrl, monetBackgroundImage, tuning);
+    useMonetBackgroundDrift(
+        driftRef,
+        Boolean(tuning.backgroundDriftEnabled),
+        tuning.backgroundDriftStrength ?? 0.55,
+    );
 
     const fallbackGradient = useMemo(
         () => `linear-gradient(135deg, ${colorWithAlpha(theme.accentColor, 0.22)}, ${colorWithAlpha(theme.backgroundColor, 0.96)} 50%, ${colorWithAlpha(theme.primaryColor, 0.18)})`,
@@ -115,6 +122,7 @@ const MonetBackgroundLayer: React.FC<MonetBackgroundLayerProps> = ({
     if (tuning.backgroundLayout === 'full-overlay') {
         return (
             <div className="absolute inset-0 z-0 overflow-hidden">
+                <div ref={driftRef} className="absolute inset-0">
                 <AnimatePresence initial={false}>
                     <motion.div
                         key={pipelineUrl || sourceUrl || 'fallback'}
@@ -132,6 +140,7 @@ const MonetBackgroundLayer: React.FC<MonetBackgroundLayerProps> = ({
                         }}
                     />
                 </AnimatePresence>
+                </div>
                 <div
                     className="absolute inset-0"
                     style={{ background: readabilityGradient }}
@@ -162,6 +171,7 @@ const MonetBackgroundLayer: React.FC<MonetBackgroundLayerProps> = ({
                             maskImage: 'linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,0.94) 48%, rgba(0,0,0,0.46) 74%, rgba(0,0,0,0) 100%)',
                         }}
                     >
+                        <div ref={driftRef} className="absolute inset-0">
                         <motion.div
                             key={pipelineUrl || sourceUrl || 'fallback'}
                             initial={{ opacity: 0 }}
@@ -177,6 +187,7 @@ const MonetBackgroundLayer: React.FC<MonetBackgroundLayerProps> = ({
                                 ...blurStyle,
                             }}
                         />
+                        </div>
                     </div>
                 ) : null}
             </AnimatePresence>

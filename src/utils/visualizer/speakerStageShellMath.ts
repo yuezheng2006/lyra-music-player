@@ -36,11 +36,12 @@ export const resolveSpeakerGlassStyle = (input: ResolveSpeakerGlassStyleInput): 
 
     const lite = input.qualityTier === 'lite';
     if (lite || input.isElectron) {
+        // Keep lyrics readable, but don't crush React Bits (Particles/Plasma looked "missing").
         return {
             tier: 'soft',
             backdropBlurPx: 0,
-            fogOpacity: input.isElectron ? 0.34 : 0.3,
-            vignetteOpacity: 0.48,
+            fogOpacity: input.isElectron ? 0.12 : 0.22,
+            vignetteOpacity: input.isElectron ? 0.22 : 0.36,
             useBackdropFilter: false,
         };
     }

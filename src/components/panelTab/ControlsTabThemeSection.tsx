@@ -7,11 +7,14 @@ import { resolveVisualizerBackgroundMode, useSettingsUiStore } from '../../store
 import { useThemeQuickEditorStore } from '../../stores/useThemeQuickEditorStore';
 import QuickEffectPicker from './QuickEffectPicker';
 import type { ControlsTabOptionStyles } from './controlsTabOptionStyles';
+import {
+    getPanelBackgroundModeLabel,
+    isPanelPlayerBackgroundMode,
+    PANEL_PLAYER_BACKGROUND_MODES,
+} from '../../utils/visualizer/panelBackgroundModes';
 
 // src/components/panelTab/ControlsTabThemeSection.tsx
 // Advanced theme/background cluster: intensity, background engine, theme source, quick editor, AI generation.
-
-const PLAYER_BACKGROUND_MODES: VisualizerBackgroundMode[] = ['interactive3d', 'common', 'monet', 'latent'];
 
 type ControlsTabThemeSectionProps = {
     theme: Theme;
@@ -29,24 +32,6 @@ type ControlsTabThemeSectionProps = {
     onGenerateAITheme: () => void;
     isGeneratingTheme: boolean;
     canGenerateAITheme: boolean;
-};
-
-const getBackgroundModeLabel = (
-    mode: VisualizerBackgroundMode,
-    t: (key: string) => string,
-) => {
-    switch (mode) {
-        case 'interactive3d':
-            return t('options.visualizerBackgroundModeInteractive3d') || '3D';
-        case 'common':
-            return t('options.visualizerBackgroundModeCommon') || 'Common';
-        case 'monet':
-            return t('options.visualizerBackgroundModeMonet') || 'Monet';
-        case 'latent':
-            return t('options.visualizerBackgroundModeLatent') || 'Latent';
-        default:
-            return mode;
-    }
 };
 
 const ControlsTabThemeSection: React.FC<ControlsTabThemeSectionProps> = ({
@@ -89,9 +74,9 @@ const ControlsTabThemeSection: React.FC<ControlsTabThemeSectionProps> = ({
     const customSwatchColor = customThemeSource.theme?.accentColor ?? 'rgba(114,119,134,0.4)';
     const resolvedBackgroundMode = resolveVisualizerBackgroundMode(visualizerBackgroundMode);
 
-    const backgroundOptions = PLAYER_BACKGROUND_MODES.map(mode => ({
+    const backgroundOptions = PANEL_PLAYER_BACKGROUND_MODES.map(mode => ({
         value: mode,
-        label: getBackgroundModeLabel(mode, t),
+        label: getPanelBackgroundModeLabel(mode, t),
     }));
 
     const toggleAnimationIntensity = () => {
@@ -138,9 +123,9 @@ const ControlsTabThemeSection: React.FC<ControlsTabThemeSectionProps> = ({
                     </span>
                     <QuickEffectPicker<VisualizerBackgroundMode>
                         value={
-                            PLAYER_BACKGROUND_MODES.includes(resolvedBackgroundMode)
+                            isPanelPlayerBackgroundMode(resolvedBackgroundMode)
                                 ? resolvedBackgroundMode
-                                : 'interactive3d'
+                                : 'common'
                         }
                         options={backgroundOptions}
                         onChange={handleBackgroundChange}

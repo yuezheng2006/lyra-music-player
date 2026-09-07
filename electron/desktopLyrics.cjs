@@ -62,7 +62,7 @@ function normalizeDesktopLyricsUpdatePayload(payload = {}) {
     next.opacity = clampNumber(next.opacity, 0.28, 1, 0.92);
   }
   if (Object.prototype.hasOwnProperty.call(next, 'y')) {
-    next.y = clampNumber(next.y, 0.08, 0.92, 0.76);
+    next.y = clampNumber(next.y, 0, 1, 0.76);
   }
   if (Object.prototype.hasOwnProperty.call(next, 'size')) {
     next.size = clampNumber(next.size, 0.72, 1.55, 1);
@@ -141,7 +141,7 @@ function createDesktopLyricsController(options = {}) {
     desktopLyricsUserBounds = readStoredBounds();
     desktopLyricsState = {
       ...desktopLyricsState,
-      y: clampNumber(store.get(DESKTOP_LYRICS_SETTING_KEYS.y), 0.08, 0.92, 0.76),
+      y: clampNumber(store.get(DESKTOP_LYRICS_SETTING_KEYS.y), 0, 1, 0.76),
       opacity: clampNumber(store.get(DESKTOP_LYRICS_SETTING_KEYS.opacity), 0.28, 1, 0.92),
       clickThrough: desktopLyricsState.clickThrough !== false,
     };
@@ -152,7 +152,7 @@ function createDesktopLyricsController(options = {}) {
       ? screen.getDisplayMatching(desktopLyricsUserBounds)
       : screen.getPrimaryDisplay();
     const bounds = display.bounds;
-    const yRatio = clampNumber(payload.y, 0.08, 0.92, 0.76);
+    const yRatio = clampNumber(payload.y, 0, 1, 0.76);
     const width = Math.round(Math.min(Math.max(880, bounds.width * 0.72), bounds.width - 96));
     const height = Math.round(Math.min(Math.max(340, bounds.height * 0.38), 560, bounds.height - 96));
     return {
@@ -354,8 +354,8 @@ while ($true) {
     const previousOpacity = desktopLyricsState.opacity;
     desktopLyricsState = { ...desktopLyricsState, ...normalizeDesktopLyricsUpdatePayload(payload), enabled: true };
     const hasY = Object.prototype.hasOwnProperty.call(payload || {}, 'y');
-    const nextY = clampNumber(desktopLyricsState.y, 0.08, 0.92, 0.76);
-    const yChanged = hasY && Number.isFinite(Number(previousY)) && Math.abs(nextY - clampNumber(previousY, 0.08, 0.92, 0.76)) > 0.001;
+    const nextY = clampNumber(desktopLyricsState.y, 0, 1, 0.76);
+    const yChanged = hasY && Number.isFinite(Number(previousY)) && Math.abs(nextY - clampNumber(previousY, 0, 1, 0.76)) > 0.001;
     const opacityChanged = Object.prototype.hasOwnProperty.call(payload || {}, 'opacity')
       && Math.abs(clampNumber(desktopLyricsState.opacity, 0.28, 1, 0.92) - clampNumber(previousOpacity, 0.28, 1, 0.92)) > 0.001;
 
@@ -455,7 +455,7 @@ while ($true) {
     return {
       enabled: !!desktopLyricsState.enabled && !!(desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()),
       locked: desktopLyricsState.clickThrough !== false,
-      y: clampNumber(desktopLyricsState.y, 0.08, 0.92, 0.76),
+      y: clampNumber(desktopLyricsState.y, 0, 1, 0.76),
       opacity: clampNumber(desktopLyricsState.opacity, 0.28, 1, 0.92),
       bounds: desktopLyricsUserBounds || (desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()
         ? desktopLyricsWindow.getBounds()

@@ -4,7 +4,22 @@ if (process.env.ELECTRON_DEV === 'true' || process.env.NODE_ENV === 'development
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 }
 
-const { app, BrowserWindow, ipcMain, session, screen, dialog, shell, nativeImage, desktopCapturer, Menu, Tray, nativeTheme, net } = require('electron');
+const { app, BrowserWindow, ipcMain, session, screen, dialog, shell, nativeImage, desktopCapturer, Menu, Tray, nativeTheme, net, powerSaveBlocker } = require('electron');
+const { createDisplaySleepBlocker } = require('./displaySleepBlocker.cjs');
+const { registerAppQuitIpc } = require('./appQuitIpc.cjs');
+const { registerPodcastProxyIpc } = require('./podcastProxyIpc.cjs');
+const { createEncryptedAuthSessionRepository, createQQAuthSessionRepository } = require('./qqAuthSessionRepository.cjs');
+const { createQishuiAuthLogin } = require('./qishuiAuthLogin.cjs');
+const { createKugouAuthLogin } = require('./kugouAuthLogin.cjs');
+const qqAuthSession = createQQAuthSessionRepository();
+const qishuiAuthSession = createEncryptedAuthSessionRepository({
+  fileName: 'qishui-auth-session.json',
+  ipcChannel: 'qishui-save-auth-session',
+});
+const kugouAuthSession = createEncryptedAuthSessionRepository({
+  fileName: 'kugou-auth-session.json',
+  ipcChannel: 'kugou-save-auth-session',
+});
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
@@ -105,43 +120,33 @@ const store = new Store({ projectName: 'Lyra' });
 let mainWindow = null;
 
 /**
- * Repeated GPU-process deaths on macOS even survive the visual demotion in
- * child-process-gone below — see electron/electron#49904 (ANGLE Metal backend
- * crashes on command-encoder reset, unresolved upstream as of Electron 41 /
- * macOS 26 Tahoe). Escalate away from the default Metal ANGLE backend across
- * boots instead of looping crash → relaunch → crash forever on Apple GPUs.
- *
- * Confirmed via live chrome://gpu (SystemInfo.getInfo) probing: on Apple
- * Silicon, `--use-angle=gl` fails outright (CreateCommandBuffer error) and
- * Chromium silently falls back to *full* software compositing (webgl
- * disabled_off, gpu_compositing disabled_software) — worse than staying on
- * Metal. Legacy GL ANGLE only actually works on Intel Macs. So arm64 must
- * jump straight to SwiftShader (software, but a real supported backend);
- * x64 keeps the existing two-step ladder.
- * Level 0: default (Metal, or GL-optimized on x64 — see above). Level 1+:
- * SwiftShader (arm64) / legacy GL then SwiftShader (x64) — always stable, slow.
+ * GPU-process deaths on macOS even survive the visual demotion in
+ * child-process-gone below. macOS 26 Tahoe's default Skia Graphite (Dawn
+ * Metal) backend sporadically kills the GPU helper mid-playback (exit 512)
+ * even on Electron 41.8.0, which already contains the upstream Graphite
+ * fixes (electron#49608 / #49904) — a driver-level crash we can only route
+ * around. Ladder and rationale live in gpuCrashEscalationPolicy.cjs:
+ * level 1 = disable-skia-graphite (Ganesh, still hardware-accelerated,
+ * applied on the FIRST crash), level 2+ = SwiftShader / legacy GL.
  */
+const {
+  resolveDeEscalatedLevel,
+  resolveGpuEscalationSwitches,
+  resolveNextEscalationLevel,
+} = require('./gpuCrashEscalationPolicy.cjs');
 const GPU_CRASH_ESCALATION_STORE_KEY = 'gpu_crash_escalation_level_v1';
 const GPU_CRASH_LAST_RELAUNCH_AT_STORE_KEY = 'gpu_crash_last_relaunch_at_v1';
-// A fresh process reliably comes up with real HW GL (verified live via
-// SystemInfo.getInfo: webgl/gpu_compositing all "enabled" on a clean boot) —
-// one-off crashes recover fine from relaunch alone. Only escalate when crashes
-// repeat close together, i.e. a genuine loop, not a rare fluke.
-const GPU_CRASH_REPEAT_WINDOW_MS = 15 * 60 * 1000;
-const GPU_CRASH_ESCALATION_MAX_LEVEL = process.arch === 'x64' ? 2 : 1;
 const gpuCrashEscalationLevel = process.platform === 'darwin'
-  ? Math.min(Math.max(store.get(GPU_CRASH_ESCALATION_STORE_KEY, 0), 0), GPU_CRASH_ESCALATION_MAX_LEVEL)
+  ? Math.max(store.get(GPU_CRASH_ESCALATION_STORE_KEY, 0), 0)
   : 0;
-if (gpuCrashEscalationLevel >= 1) {
-  app.commandLine.appendSwitch('ignore-gpu-blocklist');
-  const useSwiftshader = process.arch !== 'x64' || gpuCrashEscalationLevel >= 2;
-  if (useSwiftshader) {
-    app.commandLine.appendSwitch('use-angle', 'swiftshader');
-    app.commandLine.appendSwitch('enable-unsafe-swiftshader');
-  } else {
-    app.commandLine.appendSwitch('use-angle', 'gl');
+{
+  const escalationSwitches = resolveGpuEscalationSwitches(gpuCrashEscalationLevel, process.arch);
+  for (const [name, value] of escalationSwitches) {
+    app.commandLine.appendSwitch(name, value);
   }
-  console.warn(`[gpu] applying crash-escalation ANGLE backend, level=${gpuCrashEscalationLevel}, backend=${useSwiftshader ? 'swiftshader' : 'gl'}`);
+  if (escalationSwitches.length > 0) {
+    console.warn(`[gpu] applying crash-escalation GPU backend, level=${gpuCrashEscalationLevel}`);
+  }
 }
 
 // interactive3d / WebGL / heavy backgrounds can crash the GPU helper (exit_code=512)
@@ -218,28 +223,28 @@ app.on('child-process-gone', (_event, details) => {
   // Chromium falls back to --use-gl=disabled after GPU deaths; window reload
   // cannot restore HW GL and leaves the renderer wedged at 100% CPU.
   // Packaged: app.relaunch(). Concurrent-dev: exit 75 so scripts/run-electron-dev.mjs
-  // restarts Electron only (vite / sidecars stay up under concurrently -k).
+  // restarts Electron only. A normal quit (code 0) is final and does not respawn.
   if (gpuProcessGoneCount >= GPU_CRASH_RELAUNCH_AFTER && !gpuCrashRelaunchArmed) {
     gpuCrashRelaunchArmed = true;
     void (async () => {
       await persistGpuCrashVisualDemote();
-      // Visual demotion alone doesn't stop the ANGLE Metal command-encoder-reset
-      // crash (electron/electron#49904). A single crash + relaunch already
-      // recovers to real HW GL, so only escalate the ANGLE backend when this
-      // crash lands soon after the previous one — an actual loop, not a fluke.
+      // Visual demotion alone doesn't stop the Metal/Graphite GPU crash.
+      // First crash always moves off Graphite (level 1 keeps HW acceleration);
+      // costlier fallbacks still require a repeat crash — see policy module.
       if (process.platform === 'darwin') {
         const now = Date.now();
-        const lastRelaunchAt = store.get(GPU_CRASH_LAST_RELAUNCH_AT_STORE_KEY, 0);
-        const isRepeatCrash = lastRelaunchAt > 0 && (now - lastRelaunchAt) < GPU_CRASH_REPEAT_WINDOW_MS;
+        const nextLevel = resolveNextEscalationLevel({
+          currentLevel: gpuCrashEscalationLevel,
+          lastRelaunchAt: store.get(GPU_CRASH_LAST_RELAUNCH_AT_STORE_KEY, 0),
+          now,
+          arch: process.arch,
+        });
         store.set(GPU_CRASH_LAST_RELAUNCH_AT_STORE_KEY, now);
-        if (isRepeatCrash) {
-          const nextLevel = Math.min(gpuCrashEscalationLevel + 1, GPU_CRASH_ESCALATION_MAX_LEVEL);
-          if (nextLevel !== gpuCrashEscalationLevel) {
-            store.set(GPU_CRASH_ESCALATION_STORE_KEY, nextLevel);
-            console.warn(`[gpu] repeat crash within ${GPU_CRASH_REPEAT_WINDOW_MS}ms — escalating ANGLE backend for next boot: level ${gpuCrashEscalationLevel} -> ${nextLevel}`);
-          }
+        if (nextLevel !== gpuCrashEscalationLevel) {
+          store.set(GPU_CRASH_ESCALATION_STORE_KEY, nextLevel);
+          console.warn(`[gpu] escalating GPU backend for next boot: level ${gpuCrashEscalationLevel} -> ${nextLevel}`);
         } else {
-          console.warn('[gpu] isolated crash, not within repeat window — relaunching without escalation');
+          console.warn(`[gpu] staying at GPU backend level ${gpuCrashEscalationLevel} — relaunching`);
         }
       }
       escapeSoftwareGlAfterGpuCrash();
@@ -459,6 +464,12 @@ function qqCookieHasPlaybackLogin(cookieText) {
   return Boolean(uin && playbackKey);
 }
 
+function persistQQMusicAuthCookie(cookie) {
+  // Encrypts the QQ cookie into userData when safeStorage is available. Never writes plaintext.
+  if (!cookie || !qqCookieHasLogin(cookie)) return;
+  qqAuthSession.saveCookie(cookie);
+}
+
 function isQQCookieDomain(domain) {
   const normalized = String(domain || '').replace(/^\./, '').toLowerCase();
   return normalized === 'qq.com' || normalized.endsWith('.qq.com') || normalized.endsWith('qqmusic.qq.com');
@@ -492,6 +503,7 @@ async function openQQMusicLoginWindow(owner) {
   const cookieSession = session.fromPartition(QQ_LOGIN_PARTITION);
   const initialCookie = await readQQLoginCookieHeader(cookieSession);
   if (qqCookieHasPlaybackLogin(initialCookie)) {
+    persistQQMusicAuthCookie(initialCookie);
     return { ok: true, cookie: initialCookie, reused: true };
   }
 
@@ -524,6 +536,7 @@ async function openQQMusicLoginWindow(owner) {
       if (settled) return;
       settled = true;
       if (pollTimer) clearInterval(pollTimer);
+      if (result?.ok && result.cookie) persistQQMusicAuthCookie(result.cookie);
       if (loginWindow && !loginWindow.isDestroyed()) loginWindow.close();
       resolve(result);
     };
@@ -588,11 +601,11 @@ async function openQQMusicLoginWindow(owner) {
       if (pollTimer) clearInterval(pollTimer);
       try {
         const cookie = await readQQLoginCookieHeader(cookieSession);
-        resolve(qqCookieHasLogin(cookie)
+        finish(qqCookieHasLogin(cookie)
           ? { ok: true, cookie, partial: !qqCookieHasPlaybackLogin(cookie) }
           : { ok: false, cancelled: true, message: 'QQ 登录窗口已关闭' });
       } catch (error) {
-        resolve({ ok: false, error: error.message || 'QQ 登录窗口已关闭' });
+        finish({ ok: false, error: error.message || 'QQ 登录窗口已关闭' });
       }
     });
 
@@ -602,6 +615,7 @@ async function openQQMusicLoginWindow(owner) {
 }
 
 async function clearQQMusicLoginSession() {
+  qqAuthSession.clearCookie();
   const cookieSession = session.fromPartition(QQ_LOGIN_PARTITION);
   await cookieSession.clearStorageData({
     storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage'],
@@ -708,7 +722,19 @@ const desktopLyrics = createDesktopLyricsController({
   isTrustedSender: (sender) => isTrustedMainWindowContents(sender),
 });
 desktopLyrics.registerIpcHandlers(ipcMain);
+qqAuthSession.registerIpcHandlers(ipcMain);
+kugouAuthSession.registerIpcHandlers(ipcMain);
+const qishuiAuthLogin = createQishuiAuthLogin({
+  repository: qishuiAuthSession,
+  getAppIconPath: () => APP_ICON_PATH,
+});
+qishuiAuthLogin.registerIpcHandlers(ipcMain, { getSenderWindow });
+const kugouAuthLogin = createKugouAuthLogin({
+  repository: kugouAuthSession,
+});
+kugouAuthLogin.registerIpcHandlers(ipcMain);
 ytmusicBridge.registerIpcHandlers(ipcMain);
+const displaySleepBlocker = createDisplaySleepBlocker(powerSaveBlocker);
 
 function buildPlaybackSyncBridgeStatus() {
   return {
@@ -739,6 +765,35 @@ function getStoredWindowState() {
   };
 }
 
+function boundsOverlapWorkArea(bounds, workArea) {
+  const horizontalOverlap =
+    Math.min(bounds.x + bounds.width, workArea.x + workArea.width) - Math.max(bounds.x, workArea.x);
+  const verticalOverlap =
+    Math.min(bounds.y + bounds.height, workArea.y + workArea.height) - Math.max(bounds.y, workArea.y);
+  return horizontalOverlap > 0 && verticalOverlap > 0;
+}
+
+/** Prefer the display under the cursor so Dock clicks don't "lose" the window on another monitor. */
+function resolvePreferredWorkArea() {
+  try {
+    const cursor = screen.getCursorScreenPoint();
+    return screen.getDisplayNearestPoint(cursor).workArea;
+  } catch {
+    return screen.getPrimaryDisplay().workArea;
+  }
+}
+
+function fitBoundsIntoWorkArea(bounds, workArea) {
+  const width = Math.min(bounds.width, workArea.width);
+  const height = Math.min(bounds.height, workArea.height);
+  return {
+    width,
+    height,
+    x: workArea.x + Math.max(0, Math.floor((workArea.width - width) / 2)),
+    y: workArea.y + Math.max(0, Math.floor((workArea.height - height) / 2)),
+  };
+}
+
 function ensureWindowBoundsVisible(bounds) {
   if (typeof bounds.x !== 'number' || typeof bounds.y !== 'number') {
     return bounds;
@@ -750,27 +805,35 @@ function ensureWindowBoundsVisible(bounds) {
     return bounds;
   }
 
-  const visibleDisplay = displays.find(({ workArea }) => {
-    const horizontalOverlap =
-      Math.min(bounds.x + bounds.width, workArea.x + workArea.width) - Math.max(bounds.x, workArea.x);
-    const verticalOverlap =
-      Math.min(bounds.y + bounds.height, workArea.y + workArea.height) - Math.max(bounds.y, workArea.y);
-
-    return horizontalOverlap > 0 && verticalOverlap > 0;
-  });
+  const visibleDisplay = displays.find(({ workArea }) => boundsOverlapWorkArea(bounds, workArea));
 
   if (visibleDisplay) {
     return bounds;
   }
 
-  const primaryWorkArea = screen.getPrimaryDisplay().workArea;
+  return fitBoundsIntoWorkArea(bounds, resolvePreferredWorkArea());
+}
 
-  return {
-    width: Math.min(bounds.width, primaryWorkArea.width),
-    height: Math.min(bounds.height, primaryWorkArea.height),
-    x: primaryWorkArea.x + Math.max(0, Math.floor((primaryWorkArea.width - Math.min(bounds.width, primaryWorkArea.width)) / 2)),
-    y: primaryWorkArea.y + Math.max(0, Math.floor((primaryWorkArea.height - Math.min(bounds.height, primaryWorkArea.height)) / 2)),
-  };
+/** If the window sits only on another display, move it to the cursor's screen (Dock-click rescue). */
+function ensureMainWindowOnPreferredDisplay() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  const preferred = resolvePreferredWorkArea();
+  const bounds = mainWindow.getBounds();
+  if (boundsOverlapWorkArea(bounds, preferred)) {
+    return;
+  }
+
+  const wasMaximized = mainWindow.isMaximized();
+  if (wasMaximized) {
+    mainWindow.unmaximize();
+  }
+  mainWindow.setBounds(fitBoundsIntoWorkArea(bounds, preferred), false);
+  if (wasMaximized) {
+    mainWindow.maximize();
+  }
 }
 
 function persistWindowStateSnapshot(snapshot) {
@@ -1074,8 +1137,14 @@ function focusMainWindow() {
     mainWindow.restore();
   }
 
+  // Dock / tray click: don't leave the window maximized on the other monitor
+  // while the user clicks the icon on the laptop (looks like "icon flash then gone").
+  ensureMainWindowOnPreferredDisplay();
   mainWindow.show();
   mainWindow.focus();
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.show();
+  }
   refreshTrayMenu();
 }
 
@@ -2641,25 +2710,50 @@ const waitForNeteaseApiPort = async (timeoutMs = 30000) => {
   throw new Error('Netease API startup timed out');
 };
 
+let neteaseApiStartPromise = null;
+
 async function startApi() {
-  try {
-    assignedPort = await startResilientLocalApi({
-      getFreePort,
-      prepareLocalRuntime: prepareLocalNcmApiRuntime,
-      bootstrapRemoteRuntime: bootstrapRemoteNcmApiRuntime,
-      serve: port => serveNcmApi({ port }),
-      updateStatus: updateNeteaseApiStatus,
-      onBootstrapWarning: (error, phase) => {
-        console.warn(
-          `[Netease API] Remote bootstrap ${phase}; starting local API with cached credentials`,
-          error,
-        );
-      },
-    });
-    console.log('Netease API started on port', assignedPort);
-  } catch (e) {
-    console.error('Failed to start Netease API', e);
+  if (neteaseApiStartPromise) {
+    return neteaseApiStartPromise;
   }
+  neteaseApiStartPromise = (async () => {
+    try {
+      assignedPort = await startResilientLocalApi({
+        getFreePort,
+        prepareLocalRuntime: prepareLocalNcmApiRuntime,
+        bootstrapRemoteRuntime: bootstrapRemoteNcmApiRuntime,
+        serve: port => serveNcmApi({ port }),
+        updateStatus: updateNeteaseApiStatus,
+        onBootstrapWarning: (error, phase) => {
+          console.warn(
+            `[Netease API] Remote bootstrap ${phase}; starting local API with cached credentials`,
+            error,
+          );
+        },
+      });
+      console.log('Netease API started on port', assignedPort);
+    } catch (e) {
+      console.error('Failed to start Netease API', e);
+    } finally {
+      neteaseApiStartPromise = null;
+    }
+  })();
+  return neteaseApiStartPromise;
+}
+
+async function restartNeteaseApi() {
+  if (usesExternalDevApis()) {
+    return neteaseApiStatus;
+  }
+  if (neteaseApiStatus.status === 'running') {
+    return neteaseApiStatus;
+  }
+  if (neteaseApiStartPromise) {
+    await neteaseApiStartPromise;
+    return neteaseApiStatus;
+  }
+  await startApi();
+  return neteaseApiStatus;
 }
 
 // ELECTRON_RUN_AS_NODE cannot read files inside app.asar; prefer asar.unpacked copies.
@@ -3444,6 +3538,8 @@ function createWindow(options = {}) {
   }
 
   if (isMaximized) {
+    // Maximize on the cursor/primary work area, not a stale external-display bounds rect.
+    win.setBounds(fitBoundsIntoWorkArea(windowBounds, resolvePreferredWorkArea()), false);
     win.maximize();
   }
 
@@ -3451,6 +3547,7 @@ function createWindow(options = {}) {
   if (!showImmediately) {
     win.once('ready-to-show', () => {
       if (!win.isDestroyed()) {
+        ensureMainWindowOnPreferredDisplay();
         win.show();
       }
     });
@@ -3609,16 +3706,18 @@ app.whenReady().then(async () => {
   createWindow();
   focusMainWindow();
 
-  // A long crash-free run means either the escalation fixed it or the upstream
-  // ANGLE bug stopped reproducing here — step back down so future boots get a
-  // chance at real GPU acceleration again instead of staying pinned to gl/swiftshader forever.
+  // A long crash-free run steps the ladder back down so future boots regain
+  // performance — but never below level 1 (Ganesh): returning to the crashed
+  // Graphite backend just restarts the freeze-every-session loop.
   if (process.platform === 'darwin' && gpuCrashEscalationLevel > 0) {
     const GPU_CRASH_DEESCALATION_STABLE_MS = 20 * 60 * 1000;
     setTimeout(() => {
       if (gpuProcessGoneCount === 0) {
-        const steppedDownLevel = Math.max(gpuCrashEscalationLevel - 1, 0);
-        store.set(GPU_CRASH_ESCALATION_STORE_KEY, steppedDownLevel);
-        console.warn(`[gpu] stable for ${GPU_CRASH_DEESCALATION_STABLE_MS}ms, stepping ANGLE escalation down: level ${gpuCrashEscalationLevel} -> ${steppedDownLevel}`);
+        const steppedDownLevel = resolveDeEscalatedLevel(gpuCrashEscalationLevel);
+        if (steppedDownLevel !== gpuCrashEscalationLevel) {
+          store.set(GPU_CRASH_ESCALATION_STORE_KEY, steppedDownLevel);
+          console.warn(`[gpu] stable for ${GPU_CRASH_DEESCALATION_STABLE_MS}ms, stepping GPU escalation down: level ${gpuCrashEscalationLevel} -> ${steppedDownLevel}`);
+        }
       }
     }, GPU_CRASH_DEESCALATION_STABLE_MS);
   }
@@ -3675,6 +3774,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   clearPendingWindowPlaybackHandoffRequests();
   desktopLyrics.destroy();
+  displaySleepBlocker.stop();
   void discordPresence.destroy();
   stopMusicProviderSidecar();
 });
@@ -3682,6 +3782,26 @@ app.on('before-quit', () => {
 // Settings Management IPC
 ipcMain.handle('window-set-native-theme', (event, themeSource) => {
   nativeTheme.themeSource = themeSource;
+});
+
+ipcMain.handle('playback-display-sleep-set-active', (event, active) => {
+  if (!isTrustedMainWindowContents(event.sender)) {
+    return false;
+  }
+  return displaySleepBlocker.setActive(Boolean(active));
+});
+
+registerAppQuitIpc(ipcMain, {
+  isTrustedSender: isTrustedMainWindowContents,
+  quitApp: () => app.quit(),
+});
+
+registerPodcastProxyIpc(ipcMain, {
+  isTrustedSender: isTrustedMainWindowContents,
+  fetchUpstream: async (url, init) => {
+    await ensureProxyFallbackHelper();
+    return fetchWithProxyFallback(url, init);
+  },
 });
 
 ipcMain.handle('get-settings', () => {
@@ -3904,14 +4024,23 @@ ipcMain.handle('qq-music-open-login', (event) => {
 ipcMain.handle('qq-music-get-login-cookie', async () => {
   const cookieSession = session.fromPartition(QQ_LOGIN_PARTITION);
   const cookie = await readQQLoginCookieHeader(cookieSession);
-  if (!qqCookieHasLogin(cookie)) {
-    return { ok: false };
+  if (qqCookieHasLogin(cookie)) {
+    persistQQMusicAuthCookie(cookie);
+    return {
+      ok: true,
+      cookie,
+      playbackReady: qqCookieHasPlaybackLogin(cookie),
+    };
   }
-  return {
-    ok: true,
-    cookie,
-    playbackReady: qqCookieHasPlaybackLogin(cookie),
-  };
+  const loaded = qqAuthSession.loadCookie();
+  if (loaded.ok && loaded.cookie && qqCookieHasLogin(loaded.cookie)) {
+    return {
+      ok: true,
+      cookie: loaded.cookie,
+      playbackReady: qqCookieHasPlaybackLogin(loaded.cookie),
+    };
+  }
+  return { ok: false };
 });
 
 ipcMain.handle('qq-music-clear-login', () => {
@@ -3969,6 +4098,8 @@ ipcMain.handle('get-netease-port', async () => {
 ipcMain.handle('get-netease-api-status', () => {
   return neteaseApiStatus;
 });
+
+ipcMain.handle('restart-netease-api', () => restartNeteaseApi());
 
 ipcMain.handle('get-music-provider-port', async () => {
   try {

@@ -22,10 +22,14 @@ import {
     shouldExitFullscreenOnEscape,
     shouldOpenShortcutsCheatSheet,
 } from '@/components/shortcuts/shortcutKeyboardGuards';
-import { PlayerState, type SongResult } from '@/types';
+import { PlayerState } from '@/types';
 import { isLocalPlaybackSong, isNavidromePlaybackSong } from '@/utils/appPlaybackGuards';
-import { downloadSongToUserDirectory } from '@/services/songDownloadService';
 import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
+import { useNeteaseDiscoveryStore } from '@/stores/useNeteaseDiscoveryStore';
+import { resolveNeteaseLikedPlaylist } from '@/utils/home/neteaseDiscoveryMath';
+import { playDiscoverySongs } from '@/utils/home/startNeteaseDiscoveryPlayback';
+import { hasNeteaseSession } from '@/utils/onlineLibraryAccess';
+import { useAppControllerSongDownload } from '@/hooks/useAppControllerSongDownload';
 import { hasPlayableHtmlMediaSource } from '@/utils/audioAutoPlayGuard';
 import { resolveVolumeStepAdjustment } from '@/utils/playback/adjustVolumeByStepMath';
 import { getAtmosphereSongKey } from '@/hooks/atmosphere/getAtmosphereSongKey';
@@ -82,6 +86,7 @@ export function useAppControllerCommandLayer(
         handleSetAppLanguagePreference,
         handleSetMonetBackgroundTuning,
         handleSetLatentBackgroundTuning,
+        handleSetNomandBackgroundTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
         handleSetLyricWordMode,
@@ -124,6 +129,7 @@ export function useAppControllerCommandLayer(
         pendingUnavailableReplacement,
         playQueue,
         playSong,
+        replacePlayQueue,
         playerState,
         publishStagePlayerPlaybackUpdate,
         saveCustomDualTheme,
@@ -161,6 +167,8 @@ export function useAppControllerCommandLayer(
         togglePlay,
         toggleTransparentModeWithHandoff,
         transparentPlayerBackground,
+        user,
+        playlists,
         visualizerMode,
         volume,
     } = core;
@@ -227,36 +235,43 @@ export function useAppControllerCommandLayer(
         handleToggleEnableBilibiliVideoBackground(!enableBilibiliVideoBackground);
     }, [enableBilibiliVideoBackground, handleToggleEnableBilibiliVideoBackground]);
 
-    const handleSetLyricEffectPackId = useSettingsUiStore(state => state.handleSetLyricEffectPackId);
-
-    const downloadSong = useCallback(async (song?: SongResult | null) => {
-        const target = song ?? currentSong;
-        if (!target) {
-            setStatusMsg({ type: 'error', text: t('status.noSongPlaying'), nonce: Date.now(), durationMs: 1600 });
+    const startNeteasePersonalFm = useCallback(async () => {
+        if (!hasNeteaseSession(user)) {
+            setHomeViewTab('radio');
+            navigateDirectHome({ clearContext: false });
             return false;
         }
-
-        setStatusMsg({ type: 'info', text: t('status.downloadingSong'), nonce: Date.now(), durationMs: 4000 });
-        const result = await downloadSongToUserDirectory(target, audioQuality, { reveal: true });
-        if (result.ok === true) {
-            setStatusMsg({ type: 'success', text: t('status.songDownloaded'), nonce: Date.now(), durationMs: 2200 });
-            return true;
+        const songs = await useNeteaseDiscoveryStore.getState().startPersonalFm();
+        const started = playDiscoverySongs(songs, playSong, true);
+        if (started) {
+            setHomeViewTab('radio');
+            navigateDirectHome({ clearContext: false });
         }
+        return started;
+    }, [navigateDirectHome, playSong, setHomeViewTab, user]);
 
-        const errorCode = result.ok === false ? result.error : 'download-failed';
-        const errorKey = ({
-            'no-song': 'status.noSongPlaying',
-            'electron-only': 'status.songDownloadElectronOnly',
-            'unsupported-source': 'status.songDownloadUnsupported',
-            unavailable: 'status.songDownloadUnavailable',
-            'download-failed': 'status.songDownloadFailed',
-        } as const)[errorCode] || 'status.songDownloadFailed';
+    const startNeteaseHeartbeat = useCallback(async () => {
+        if (!hasNeteaseSession(user) || !user) return false;
+        const likedPlaylist = resolveNeteaseLikedPlaylist(playlists, user);
+        if (!likedPlaylist) return false;
+        const songs = await useNeteaseDiscoveryStore.getState().startHeartbeat({
+            user,
+            likedPlaylistId: likedPlaylist.id,
+        });
+        return playDiscoverySongs(songs, playSong, false);
+    }, [playSong, playlists, user]);
 
-        setStatusMsg({ type: 'error', text: t(errorKey), nonce: Date.now(), durationMs: 2200 });
-        return false;
-    }, [audioQuality, currentSong, setStatusMsg, t]);
-
-    const downloadCurrentSong = useCallback(async () => downloadSong(currentSong), [currentSong, downloadSong]);
+    const handleSetLyricEffectPackId = useSettingsUiStore(state => state.handleSetLyricEffectPackId);
+    const {
+        downloadSong,
+        downloadSongs,
+        downloadCurrentSong,
+        downloadSearchResults,
+    } = useAppControllerSongDownload({
+        audioQuality,
+        currentSong,
+        setStatusMsg,
+    });
 
     const currentSearchSourceTabInPalette = useMemo(() => {
         if (currentSong) {
@@ -422,10 +437,15 @@ export function useAppControllerCommandLayer(
         handleNextTrack,
         handlePrevTrack,
         adjustVolumeByStep,
+        setVolume: handleSetVolume,
         toggleMute: handleToggleMute,
         shuffleQueue,
         playQueue,
+        currentSong,
+        replacePlayQueue,
         playSong,
+        startNeteasePersonalFm,
+        startNeteaseHeartbeat,
         canGenerateAITheme,
         isGeneratingTheme,
         generateAITheme: generateCurrentSongTheme,
@@ -435,6 +455,7 @@ export function useAppControllerCommandLayer(
         setVisualizerBackgroundMode: handleSetVisualizerBackgroundMode,
         setMonetBackgroundTuning: handleSetMonetBackgroundTuning,
         setLatentBackgroundTuning: handleSetLatentBackgroundTuning,
+        setNomandBackgroundTuning: handleSetNomandBackgroundTuning,
         toggleTransparentBackground: () => {
             void toggleTransparentModeWithHandoff(!transparentPlayerBackground);
         },
@@ -476,7 +497,11 @@ export function useAppControllerCommandLayer(
         setDesktopLyricsLocked: (locked: boolean) => setDesktopLyricsLocked(locked),
         desktopLyricsEnabled: desktopLyricsStatus.enabled,
         desktopLyricsLocked: desktopLyricsStatus.locked,
+        setDesktopLyricsYFactor: (factor: number) => {
+            useSettingsUiStore.getState().handleSetDesktopLyricsYFactor(factor);
+        },
         downloadCurrentSong,
+        downloadSearchResults,
         startVideoExport,
         isElectronWindow,
     }), [
@@ -486,6 +511,7 @@ export function useAppControllerCommandLayer(
         desktopLyricsStatus.enabled,
         desktopLyricsStatus.locked,
         downloadCurrentSong,
+        downloadSearchResults,
         startVideoExport,
         isElectronWindow,
         enableAlternativeLyricSources,
@@ -501,6 +527,7 @@ export function useAppControllerCommandLayer(
         handleSetAppLanguagePreference,
         handleSetMonetBackgroundTuning,
         handleSetLatentBackgroundTuning,
+        handleSetNomandBackgroundTuning,
         handleSetVisualizerBackgroundMode,
         handleSetVisualizerMode,
         handleSetLyricWordMode,
@@ -519,9 +546,11 @@ export function useAppControllerCommandLayer(
         openLocalBeatAnalysis,
         openSettings,
         openThemeQuickEditor,
-        playQueue,
-        playSong,
+        playQueue, currentSong, playSong, replacePlayQueue,
+        playlists,
         playerState,
+        startNeteaseHeartbeat,
+        startNeteasePersonalFm,
         setDesktopLyricsLocked,
         setHomeViewTab,
         setIsPanelOpen,
@@ -549,6 +578,7 @@ export function useAppControllerCommandLayer(
         togglePlay,
         toggleTransparentModeWithHandoff,
         transparentPlayerBackground,
+        user,
         exitWindowFullscreen,
     ]);
 
@@ -745,7 +775,9 @@ export function useAppControllerCommandLayer(
         devDebugSnapshot,
         activateCurrentSmartTheme,
         downloadSong,
+        downloadSongs,
         downloadCurrentSong,
+        downloadSearchResults,
         generateCurrentSongTheme,
         handleMonetLyricLineSeek,
         handlePlayerPanelAlbumSelect,

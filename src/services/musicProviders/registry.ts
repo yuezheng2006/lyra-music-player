@@ -7,6 +7,7 @@ import { kugouMusicProvider } from './kugouMusicProvider';
 import { kuwoMusicProvider } from './kuwoMusicProvider';
 import { qishuiMusicProvider } from './qishuiMusicProvider';
 import { qqMusicProvider } from './qqMusicProvider';
+import { RSS_PODCAST_PROVIDER_ID, rssPodcastProvider } from './rssPodcastProvider';
 import type { MusicProvider, ProviderAudioResult } from './types';
 
 // src/services/musicProviders/registry.ts
@@ -51,9 +52,14 @@ const builtinProviders: Record<BuiltInOnlineMusicProviderId, MusicProvider> = {
 
 const dynamicProviderCache = new Map<string, MusicProvider>();
 
-export const getSongMusicProviderId = (song?: Pick<SongResult, 'musicProvider' | 't'> | null): OnlineMusicProviderId => {
+export const getSongMusicProviderId = (
+    song?: Pick<SongResult, 'musicProvider' | 't' | 'contentType' | 'audioUrl'> | null,
+): OnlineMusicProviderId => {
     if (song?.musicProvider) {
         return song.musicProvider;
+    }
+    if (song?.contentType === 'podcast' && song.audioUrl) {
+        return RSS_PODCAST_PROVIDER_ID;
     }
     return 'netease';
 };
@@ -62,6 +68,9 @@ export const isNeteaseOnlineSong = (song?: Pick<SongResult, 'musicProvider' | 't
     getSongMusicProviderId(song) === 'netease';
 
 export const getMusicProvider = (providerId: OnlineMusicProviderId): MusicProvider => {
+    if (providerId === RSS_PODCAST_PROVIDER_ID) {
+        return rssPodcastProvider;
+    }
     if (providerId in builtinProviders) {
         return builtinProviders[providerId as BuiltInOnlineMusicProviderId];
     }

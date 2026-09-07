@@ -1,6 +1,6 @@
 import type { LyricData, ReplayGainMode, SongResult } from '../types';
-import type { StructuredLyric } from '../types/navidrome';
-import { detectTimedLyricFormat } from './lyrics/formatDetection';
+import type { StructuredLyric, StructuredLyricLine } from '../types/navidrome';
+import { hasCachedNavidromeStructuredLyrics, hasEnhancedNavidromeStructuredLyrics } from './lyrics/navidromeStructuredLyrics';
 import { getLineRenderHints } from './lyrics/renderHints';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong } from './appPlaybackGuards';
 
@@ -92,16 +92,57 @@ export const getAudioSrcKind = (audioSrc: string | null): 'empty' | 'blob' | 'ht
     return 'other';
 };
 
+const firstHttpCandidate = (url: string): string => (
+    url.split(/,\s*(?=https?:\/\/)/i)[0]?.trim() || url
+);
+
+const isKugouFsHttpHost = (hostname: string): boolean => (
+    hostname.startsWith('fs.') && hostname.endsWith('.kugou.com')
+);
+
 export const toSafeRemoteUrl = (url: string | null | undefined): string | null | undefined => {
     if (!url) {
         return url;
     }
 
-    if (url.startsWith('http:') && url.includes('music.126.net')) {
-        return url.replace('http:', 'https:');
+    const normalizedUrl = firstHttpCandidate(url);
+
+    if (normalizedUrl.startsWith('http:') && normalizedUrl.includes('music.126.net')) {
+        return normalizedUrl.replace('http:', 'https:');
     }
 
-    return url;
+    try {
+        const parsedUrl = new URL(normalizedUrl);
+        if (parsedUrl.protocol === 'http:' && isKugouFsHttpHost(parsedUrl.hostname)) {
+            return normalizedUrl.replace(/^http:/, 'https:');
+        }
+    } catch {
+        return normalizedUrl;
+    }
+
+    return normalizedUrl;
+};
+
+/** Keep KuGou fs CDN HTTP only in Electron; Web still upgrades those hosts to HTTPS. */
+export const toSafePlaybackUrl = (
+    url: string | null | undefined,
+    isElectron = typeof window !== 'undefined' && Boolean(window.electron),
+): string | null | undefined => {
+    if (!url || !isElectron) {
+        return toSafeRemoteUrl(url);
+    }
+
+    const normalizedUrl = firstHttpCandidate(url);
+    try {
+        const parsedUrl = new URL(normalizedUrl);
+        if (parsedUrl.protocol === 'http:' && isKugouFsHttpHost(parsedUrl.hostname)) {
+            return normalizedUrl;
+        }
+    } catch {
+        return normalizedUrl;
+    }
+
+    return toSafeRemoteUrl(normalizedUrl);
 };
 
 export const resolveDebugSongSource = (song: SongResult | null): 'none' | 'local' | 'navidrome' | 'online' => {
@@ -153,7 +194,7 @@ export const resolveDebugLyricsSource = (
         if (navidromeSong.matchedLyrics) {
             return 'online';
         }
-        if (lyrics || navidromeSong.cachedStructuredLyrics?.length || navidromeSong.cachedPlainLyrics?.trim()) {
+        if (lyrics || hasCachedNavidromeStructuredLyrics(navidromeSong.cachedStructuredLyrics) || navidromeSong.cachedPlainLyrics?.trim()) {
             return 'navi';
         }
         return 'none';
@@ -169,13 +210,13 @@ export const resolveDebugLyricsSource = (
 type NavidromeSongLike = SongResult & {
     lyricsSource?: 'navi' | 'online';
     matchedLyrics?: LyricData;
-    cachedStructuredLyrics?: StructuredLyric['line'];
+    cachedStructuredLyrics?: StructuredLyric | StructuredLyric[] | StructuredLyricLine[];
     cachedPlainLyrics?: string;
 };
 
-export const hasEnhancedStructuredLines = (item: StructuredLyric): boolean => {
-    return item.line?.some(line => detectTimedLyricFormat(line.value) === 'enhanced-lrc') ?? false;
-};
+export const hasEnhancedStructuredLines = (item: StructuredLyric): boolean => (
+    hasEnhancedNavidromeStructuredLyrics(item)
+);
 
 export const toDebugLineSnapshot = (line: LyricData['lines'][number] | null) => {
     if (!line) {

@@ -5,6 +5,7 @@ import {
     readTelemetrySnapshot,
     waitForTelemetryEvent,
 } from './helpers/telemetry';
+import { BOOT_READY_REDLINE_MS } from '../../src/utils/performance/startupRedlineBudgets';
 
 // test/ui/telemetry-boot-playback.spec.ts
 // E2E: assert boot + play/pause paths via the local telemetry ring.
@@ -111,8 +112,14 @@ test.describe('telemetry boot + playback e2e', () => {
             return snap ? 'ready' : null;
         }, { timeout: 20_000 }).toBe('ready');
 
-        const boot = await waitForTelemetryEvent(page, 'boot.ready', { timeout: 20_000 });
-        expect(typeof boot.durMs === 'number' || boot.durMs === undefined).toBe(true);
+        const boot = await waitForTelemetryEvent(page, 'boot.ready', {
+            timeout: BOOT_READY_REDLINE_MS + 2_000,
+        });
+        expect(typeof boot.durMs).toBe('number');
+        expect(
+            boot.durMs!,
+            `boot.ready ${boot.durMs}ms exceeded red-line ${BOOT_READY_REDLINE_MS}ms`,
+        ).toBeLessThanOrEqual(BOOT_READY_REDLINE_MS);
 
         const snap = await readTelemetrySnapshot(page);
         expect(snap!.size).toBeGreaterThan(0);
@@ -169,9 +176,9 @@ test.describe('telemetry boot + playback e2e', () => {
         await expect(menuTrigger).toBeVisible({ timeout: 20_000 });
         await menuTrigger.click();
 
-        const emily = page.getByTestId('floating-player-background-preset-emily');
-        await expect(emily).toBeVisible({ timeout: 10_000 });
-        await emily.click();
+        const nomand = page.getByTestId('floating-player-background-preset-nomand');
+        await expect(nomand).toBeVisible({ timeout: 10_000 });
+        await nomand.click();
 
         await waitForTelemetryEvent(page, 'settings.changed', {
             timeout: 15_000,
@@ -180,6 +187,6 @@ test.describe('telemetry boot + playback e2e', () => {
 
         await expect.poll(async () => page.evaluate(() => (
             localStorage.getItem('visualizer_background_mode')
-        )), { timeout: 10_000 }).toBe('interactive3d');
+        )), { timeout: 10_000 }).toBe('nomand');
     });
 });

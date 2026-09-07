@@ -44,7 +44,7 @@ const song = (
     providerSongId: String(id),
     artists: [{ id: 0, name: 'A' }],
     album: { id: 0, name: 'Alb' },
-    duration: 1000,
+    duration: 180_000,
 });
 
 describe('dailyRecommendService', () => {
@@ -87,16 +87,29 @@ describe('dailyRecommendService', () => {
         ]).map(item => item.name)).toEqual(['only']);
     });
 
-    it('lists enabled peer providers and excludes netease', () => {
+    it('lists enabled peer providers and excludes netease and bilibili clips', () => {
         expect(listTodayPicksProviders({
             netease: true,
             qq: true,
             qishui: false,
             coco: true,
             kugou: false,
-            bilibili: false,
+            bilibili: true,
             kuwo: false,
         })).toEqual(['qq', 'coco']);
+    });
+
+    it('drops 30-second clip titles from the interleaved mix', () => {
+        expect(interleaveDailyRecommendSongs([
+            {
+                provider: 'coco',
+                kind: 'picks',
+                songs: [
+                    song('coco', 1, '海屿你 (30秒鼓手版片段)'),
+                    song('coco', 2, '晴天'),
+                ],
+            },
+        ]).map(item => item.name)).toEqual(['晴天']);
     });
 
     describe('fetchAggregatedDailyRecommend', () => {

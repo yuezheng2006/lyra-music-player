@@ -17,6 +17,7 @@ import { isPureMusicLyricText } from '../utils/lyrics/pureMusic';
 import { migrateLyricDataRenderHints } from '../utils/lyrics/renderHints';
 import { migrateMatchedLyricsCarrierRenderHints } from '../utils/lyrics/storageMigration';
 import { processNeteaseLyrics } from '../utils/lyrics/neteaseProcessing';
+import { applyUploadedLocalLyrics } from '../utils/lyrics/localLyricsUpload';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import { resolveBestLyric } from '../utils/lyrics/resolveBestLyric';
 import { loadYtmSongLyrics } from '../utils/lyrics/loadYtmSongLyrics';
@@ -1252,15 +1253,11 @@ export function useLibraryPlaybackController({
         const localData = currentSong.localData;
         if (!localData) return;
 
-        const updatedLocalSong = { ...localData };
-        if (isTranslation) {
-            updatedLocalSong.hasLocalTranslationLyrics = true;
-            updatedLocalSong.localTranslationLyricsContent = content;
-        } else {
-            updatedLocalSong.hasLocalLyrics = true;
-            updatedLocalSong.localLyricsContent = content;
-            updatedLocalSong.localLyricsFormat = resolveExplicitFileTimedLyricFormat(fileName);
-        }
+        const updatedLocalSong = applyUploadedLocalLyrics(localData, {
+            content,
+            isTranslation,
+            fileName,
+        });
 
         try {
             const { saveLocalSong } = await import('../services/db');

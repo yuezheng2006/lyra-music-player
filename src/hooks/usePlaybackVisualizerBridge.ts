@@ -8,6 +8,7 @@ import {
 } from '../utils/playback/syncLyricPlaybackClock';
 import { PlayerState } from '../types';
 import type { LyricData } from '../types';
+import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 
 // src/hooks/usePlaybackVisualizerBridge.ts
 
@@ -91,6 +92,7 @@ export function usePlaybackVisualizerBridge({
     isAudioSourceLoadingRef,
     onAtmosphereTick,
 }: UsePlaybackVisualizerBridgeParams) {
+    const globalLyricTimelineOffsetMs = useSettingsUiStore(state => state.globalLyricTimelineOffsetMs);
     const currentLineIndexRef = useRef(-1);
     const lastLoopTimeRef = useRef<number | null>(null);
 
@@ -166,6 +168,7 @@ export function usePlaybackVisualizerBridge({
             const { currentTimeSec, lyricTimeSec } = resolveLyricPlaybackTimes({
                 audioCurrentTimeSec: audioElement.currentTime,
                 lyricTimelineOffsetMs,
+                globalLyricTimelineOffsetMs,
             });
             currentTime.set(currentTimeSec);
             lyricCurrentTime.set(lyricTimeSec);
@@ -181,7 +184,7 @@ export function usePlaybackVisualizerBridge({
 
             currentTime.set(nextTime);
 
-            const effectiveLyricTime = nextTime - lyricTimelineOffsetMs / 1000;
+            const effectiveLyricTime = nextTime - (lyricTimelineOffsetMs + globalLyricTimelineOffsetMs) / 1000;
             lyricCurrentTime.set(effectiveLyricTime);
 
             if (lyrics) {
@@ -264,6 +267,7 @@ export function usePlaybackVisualizerBridge({
         syncNowPlayingClock,
         syncStageLyricsClock,
         lyricTimelineOffsetMs,
+        globalLyricTimelineOffsetMs,
         lyricCurrentTime,
         isAudioSourceLoadingRef,
         onAtmosphereTick,
@@ -294,6 +298,7 @@ export function usePlaybackVisualizerBridge({
             const { currentTimeSec, lyricTimeSec } = resolveLyricPlaybackTimes({
                 audioCurrentTimeSec: audioElement.currentTime,
                 lyricTimelineOffsetMs,
+                globalLyricTimelineOffsetMs,
             });
             currentTime.set(currentTimeSec);
             lyricCurrentTime.set(lyricTimeSec);
@@ -322,6 +327,7 @@ export function usePlaybackVisualizerBridge({
         lyrics,
         lyricCurrentTime,
         lyricTimelineOffsetMs,
+        globalLyricTimelineOffsetMs,
         setCurrentLineIndex,
     ]);
 }

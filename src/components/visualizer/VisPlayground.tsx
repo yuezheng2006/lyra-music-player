@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useMotionValue, useMotionValueEvent } from 'framer-motion';
-import { ChevronLeft, Loader2, Search, Sparkles, Upload, X } from 'lucide-react';
+import { ChevronLeft, Loader2, Pause, Play, Search, Sparkles, Upload, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { List, useListRef } from 'react-window';
 import VisualizerRenderer from './VisualizerRenderer';
@@ -13,6 +13,7 @@ import {
     DEFAULT_FUME_TUNING,
     DEFAULT_INTERACTIVE3D_SCENE_TUNING,
     DEFAULT_LATENT_BACKGROUND_TUNING,
+    DEFAULT_NOMAND_BACKGROUND_TUNING,
     DEFAULT_MONET_BACKGROUND_TUNING,
     DEFAULT_MONET_TUNING,
     DEFAULT_PARTITA_TUNING,
@@ -28,6 +29,7 @@ import {
     type FumeTuning,
     type Interactive3dSceneTuning,
     type LatentBackgroundTuning,
+    type NomandBackgroundTuning,
     type MonetBackgroundImage,
     type MonetBackgroundTuning,
     type MonetPortraitImage,
@@ -46,7 +48,6 @@ import { LYRICS_FONT_SCALE_QUICK_OPTIONS } from '../../utils/lyrics/lyricsFontSc
 import { colorWithAlpha } from './colorMix';
 import {
     findPreviewPlaceholderLineIndex,
-    getPreviewPlaceholderStartOffset,
     VIS_PLAYGROUND_PREVIEW_COVER_URL,
     VIS_PLAYGROUND_PREVIEW_LINES,
     VIS_PLAYGROUND_PREVIEW_LOOP_DURATION,
@@ -54,6 +55,7 @@ import {
 import { getVisualizerModeLabel, getVisualizerScopedSeed, useVisualizerRegistryEntry } from './registry';
 import VisPlaygroundPreviewHotspots, { type VisPlaygroundEditSection } from './VisPlaygroundPreviewHotspots';
 import VisPlaygroundSettingsPanel from './VisPlaygroundSettingsPanel';
+import { useVisPlaygroundPreviewPlayback } from './useVisPlaygroundPreviewPlayback';
 import { SearchClearButton } from '../shared/SearchClearButton';
 
 interface VisPlaygroundProps {
@@ -89,6 +91,7 @@ interface VisPlaygroundProps {
     pendoloTuning?: PendoloTuning;
     monetBackgroundTuning?: MonetBackgroundTuning;
     latentBackgroundTuning?: LatentBackgroundTuning;
+    nomandBackgroundTuning?: NomandBackgroundTuning;
     interactive3dSceneTuning?: Interactive3dSceneTuning;
     monetTuning?: MonetTuning;
     cappellaCustomEmojiImages?: CappellaEmojiImage[];
@@ -141,6 +144,8 @@ interface VisPlaygroundProps {
     onResetMonetBackgroundTuning?: () => void;
     onLatentBackgroundTuningChange?: (patch: Partial<LatentBackgroundTuning>) => void;
     onResetLatentBackgroundTuning?: () => void;
+    onNomandBackgroundTuningChange?: (patch: Partial<NomandBackgroundTuning>) => void;
+    onResetNomandBackgroundTuning?: () => void;
     onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
     onResetInteractive3dSceneTuning?: () => void;
     onMonetTuningChange?: (patch: Partial<MonetTuning>) => void;
@@ -294,7 +299,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     transparentPlayerBackground = false,
     disableVisualizerVignette = false,
     enableSmartAtmosphere = true,
-    enable3dInteractiveBackground = true,
+    enable3dInteractiveBackground = false,
     visualizerBackgroundMode = null,
     coverUrl = null,
     hideTranslationSubtitle = false,
@@ -316,6 +321,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     pendoloTuning = DEFAULT_PENDOLO_TUNING,
     monetBackgroundTuning = DEFAULT_MONET_BACKGROUND_TUNING,
     latentBackgroundTuning = DEFAULT_LATENT_BACKGROUND_TUNING,
+    nomandBackgroundTuning = DEFAULT_NOMAND_BACKGROUND_TUNING,
     interactive3dSceneTuning = DEFAULT_INTERACTIVE3D_SCENE_TUNING,
     monetTuning = DEFAULT_MONET_TUNING,
     cappellaCustomEmojiImages = [],
@@ -366,6 +372,8 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     onResetMonetBackgroundTuning,
     onLatentBackgroundTuningChange,
     onResetLatentBackgroundTuning,
+    onNomandBackgroundTuningChange,
+    onResetNomandBackgroundTuning,
     onInteractive3dSceneTuningChange,
     onResetInteractive3dSceneTuning,
     onMonetTuningChange,
@@ -412,6 +420,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     const treble = useMotionValue(0.1);
     const spectrum = useMotionValue(new Uint8Array(64));
     const [currentLineIndex, setCurrentLineIndex] = useState(() => findPreviewPlaceholderLineIndex(VIS_PLAYGROUND_PREVIEW_LINES, 0));
+    const [isPreviewPaused, setIsPreviewPaused] = useState(false);
     const [isFontPickerOpen, setIsFontPickerOpen] = useState(false);
     const [isLoadingSystemFonts, setIsLoadingSystemFonts] = useState(false);
     const [systemFonts, setSystemFonts] = useState<LocalFontEntry[]>([]);
@@ -431,6 +440,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     const [draftPendoloTuning, setDraftPendoloTuning] = useState<PendoloTuning>(pendoloTuning);
     const [draftMonetBackgroundTuning, setDraftMonetBackgroundTuning] = useState<MonetBackgroundTuning>(monetBackgroundTuning);
     const [draftLatentBackgroundTuning, setDraftLatentBackgroundTuning] = useState<LatentBackgroundTuning>(latentBackgroundTuning);
+    const [draftNomandBackgroundTuning, setDraftNomandBackgroundTuning] = useState<NomandBackgroundTuning>(nomandBackgroundTuning);
     const [draftInteractive3dSceneTuning, setDraftInteractive3dSceneTuning] = useState<Interactive3dSceneTuning>(interactive3dSceneTuning);
     const [draftMonetTuning, setDraftMonetTuning] = useState<MonetTuning>(monetTuning);
     const [activeEditSection, setActiveEditSection] = useState<VisPlaygroundEditSection>('common');
@@ -524,47 +534,24 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
     useEffect(() => { setDraftPendoloTuning(pendoloTuning); }, [pendoloTuning]);
     useEffect(() => { setDraftMonetBackgroundTuning(monetBackgroundTuning); }, [monetBackgroundTuning]);
     useEffect(() => { setDraftLatentBackgroundTuning(latentBackgroundTuning); }, [latentBackgroundTuning]);
+    useEffect(() => { setDraftNomandBackgroundTuning(nomandBackgroundTuning); }, [nomandBackgroundTuning]);
     useEffect(() => { setDraftInteractive3dSceneTuning(interactive3dSceneTuning); }, [interactive3dSceneTuning]);
     useEffect(() => { setDraftMonetTuning(monetTuning); }, [monetTuning]);
 
-    useEffect(() => {
-        let frameId = 0;
-        const startedAt = performance.now();
-        const previewOffset = getPreviewPlaceholderStartOffset(visualizerMode, VIS_PLAYGROUND_PREVIEW_LOOP_DURATION);
-
-        const tick = (now: number) => {
-            const elapsed = (previewOffset + (now - startedAt) / 1000) % VIS_PLAYGROUND_PREVIEW_LOOP_DURATION;
-            currentTime.set(elapsed);
-
-            const wave = (offset: number, speed: number, floor: number, amplitude: number) =>
-                floor + (Math.sin(now * speed + offset) * 0.5 + 0.5) * amplitude;
-
-            audioPower.set(wave(0.2, 0.0024, 0.16, 0.18));
-            bass.set(wave(0.9, 0.0032, 0.14, 0.2));
-            lowMid.set(wave(1.7, 0.0028, 0.12, 0.16));
-            mid.set(wave(2.6, 0.0023, 0.1, 0.14));
-            vocal.set(wave(3.4, 0.0038, 0.16, 0.22));
-            treble.set(wave(4.2, 0.0046, 0.08, 0.14));
-
-            const nextSpectrum = new Uint8Array(64);
-            for (let index = 0; index < nextSpectrum.length; index += 1) {
-                const normalizedIndex = index / Math.max(1, nextSpectrum.length - 1);
-                const lowShape = Math.exp(-normalizedIndex * 2.4);
-                const harmonic =
-                    Math.sin(now * 0.0027 + normalizedIndex * Math.PI * 3.4) * 0.18 +
-                    Math.sin(now * 0.0052 + normalizedIndex * Math.PI * 11.5) * 0.08;
-                const shimmer = Math.sin(now * 0.0018 + normalizedIndex * Math.PI * 1.2) * 0.12;
-                const amplitude = Math.max(0, Math.min(1, lowShape * 0.8 + 0.08 + harmonic + shimmer));
-                nextSpectrum[index] = Math.round(amplitude * 255);
-            }
-            spectrum.set(nextSpectrum);
-
-            frameId = window.requestAnimationFrame(tick);
-        };
-
-        frameId = window.requestAnimationFrame(tick);
-        return () => window.cancelAnimationFrame(frameId);
-    }, [audioPower, bass, currentTime, lowMid, mid, spectrum, treble, visualizerMode, vocal]);
+    useVisPlaygroundPreviewPlayback({
+        audioPower,
+        bass,
+        lowMid,
+        mid,
+        vocal,
+        treble,
+        spectrum,
+        currentTime,
+        visualizerMode,
+        loopDuration: VIS_PLAYGROUND_PREVIEW_LOOP_DURATION,
+        playbackKey: visualizerMode,
+        isPaused: isPreviewPaused,
+    });
 
     useMotionValueEvent(currentTime, 'change', latest => {
         const nextIndex = findPreviewPlaceholderLineIndex(VIS_PLAYGROUND_PREVIEW_LINES, latest);
@@ -874,6 +861,16 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
         }
     };
 
+    const handleNomandBackgroundTuningDraft = (patch: Partial<NomandBackgroundTuning>) => {
+        const next = { ...draftNomandBackgroundTuning, ...patch };
+        setDraftNomandBackgroundTuning(next);
+        if (!isDraggingSlider.current) {
+            onNomandBackgroundTuningChange?.(patch);
+        } else {
+            pendingCommitRef.current = () => onNomandBackgroundTuningChange?.(patch);
+        }
+    };
+
     const handleInteractive3dSceneTuningDraft = (patch: Partial<Interactive3dSceneTuning>) => {
         const next = { ...draftInteractive3dSceneTuning, ...patch };
         setDraftInteractive3dSceneTuning(next);
@@ -900,12 +897,14 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
         onToggleCoverColorBg?.(false);
         onToggleDisableVisualizerVignette?.(false);
         onToggleEnableSmartAtmosphere?.(true);
-        onToggleEnable3dInteractiveBackground?.(true);
+        onToggleEnable3dInteractiveBackground?.(false);
         onResetVisualizerBackgroundMode?.();
         setDraftMonetBackgroundTuning(DEFAULT_MONET_BACKGROUND_TUNING);
         onResetMonetBackgroundTuning?.();
         setDraftLatentBackgroundTuning(DEFAULT_LATENT_BACKGROUND_TUNING);
         onResetLatentBackgroundTuning?.();
+        setDraftNomandBackgroundTuning(DEFAULT_NOMAND_BACKGROUND_TUNING);
+        onResetNomandBackgroundTuning?.();
         setDraftInteractive3dSceneTuning(DEFAULT_INTERACTIVE3D_SCENE_TUNING);
         onResetInteractive3dSceneTuning?.();
     };
@@ -1027,6 +1026,7 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                                 pendoloTuning={draftPendoloTuning}
                                 monetBackgroundTuning={draftMonetBackgroundTuning}
                                 latentBackgroundTuning={draftLatentBackgroundTuning}
+                                nomandBackgroundTuning={draftNomandBackgroundTuning}
                                 interactive3dSceneTuning={draftInteractive3dSceneTuning}
                                 monetTuning={draftMonetTuning}
                                 onMonetTuningChange={handleMonetTuningDraft}
@@ -1045,6 +1045,19 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                             theme={previewTheme}
                             labels={hotspotLabels}
                         />
+                        <button
+                            type="button"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                setIsPreviewPaused(previous => !previous);
+                            }}
+                            aria-label={t(isPreviewPaused ? 'options.resumePreview' : 'options.pausePreview') || (isPreviewPaused ? 'Resume preview' : 'Pause preview')}
+                            title={t(isPreviewPaused ? 'options.resumePreview' : 'options.pausePreview') || (isPreviewPaused ? 'Resume preview' : 'Pause preview')}
+                            className="absolute bottom-4 right-4 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-lg backdrop-blur-md transition-colors hover:bg-black/65 focus:outline-none focus:ring-2 focus:ring-white/70"
+                            data-testid="vis-playground-preview-pause"
+                        >
+                            {isPreviewPaused ? <Play size={17} fill="currentColor" /> : <Pause size={17} fill="currentColor" />}
+                        </button>
                     </div>
 
 <VisPlaygroundSettingsPanel
@@ -1107,6 +1120,8 @@ const VisPlayground: React.FC<VisPlaygroundProps> = ({
                         onMonetBackgroundTuningChange={handleMonetBackgroundTuningDraft}
                         latentBackgroundTuning={draftLatentBackgroundTuning}
                         onLatentBackgroundTuningChange={handleLatentBackgroundTuningDraft}
+                        nomandBackgroundTuning={draftNomandBackgroundTuning}
+                        onNomandBackgroundTuningChange={handleNomandBackgroundTuningDraft}
                         interactive3dSceneTuning={draftInteractive3dSceneTuning}
                         onInteractive3dSceneTuningChange={handleInteractive3dSceneTuningDraft}
                         onResetInteractive3dSceneTuning={onResetInteractive3dSceneTuning}

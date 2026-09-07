@@ -4,8 +4,10 @@ import { resolveVisualizerBackgroundMode, useSettingsUiStore } from '../../store
 import { type VisualizerSharedProps } from './definition';
 import { useVisualizerRegistryEntry } from './registry';
 import { resolveShellGeometricBackgroundDisabled } from './resolveShellGeometricBackground';
+import VisualizerCaptionOverlay from './VisualizerCaptionOverlay';
 import VisualizerHarmonyOverlay from './VisualizerHarmonyOverlay';
 import VisualizerShell from './VisualizerShell';
+import { isCaptionLyricPresentation, resolveVisualizerLyricStageLines } from '../../utils/lyrics/lyricPresentation';
 
 // src/components/visualizer/VisualizerRenderer.tsx
 // Stable Shell host: interactive3d WebGL stays mounted; only the lyric slot swaps by mode.
@@ -32,8 +34,12 @@ const VisualizerRenderer: React.FC<VisualizerRendererProps> = ({ mode, ...props 
         )
         : props.disableGeometricBackground;
 
+    const isCaptions = isCaptionLyricPresentation(props.lyricPresentation);
+    const stageLines = resolveVisualizerLyricStageLines(props.lines, props.lyricPresentation);
+
     const resolvedProps = {
         ...props,
+        lines: stageLines,
         visualizerMode: mode,
         resolvedVisualizerBackgroundMode: resolvedBackgroundMode,
         disableGeometricBackground,
@@ -50,20 +56,29 @@ const VisualizerRenderer: React.FC<VisualizerRendererProps> = ({ mode, ...props 
             >
                 {entry ? entry.render(resolvedProps) : null}
             </VisualizerShell>
-            <VisualizerHarmonyOverlay
-                currentTime={resolvedProps.currentTime}
-                lines={resolvedProps.lines}
-                showText={resolvedProps.showText ?? true}
-                theme={resolvedProps.theme}
-                subtitleTheme={resolvedProps.subtitleTheme}
-                isPlayerChromeHidden={resolvedProps.isPlayerChromeHidden}
-                hideTranslationSubtitle={resolvedProps.hideTranslationSubtitle}
-                showSubtitleTranslation={resolvedProps.showSubtitleTranslation ?? storeShowSubtitleTranslation}
-                subtitleContentMode={resolvedProps.subtitleContentMode ?? storeSubtitleContentMode}
-                showHarmonySubtitle={resolvedProps.showHarmonySubtitle ?? storeShowHarmonySubtitle}
-                harmonySubtitleBackground={resolvedProps.harmonySubtitleBackground ?? storeHarmonySubtitleBackground}
-                subtitleFontScale={resolvedProps.subtitleFontScale ?? storeSubtitleFontScale}
-            />
+            {isCaptions ? (
+                <VisualizerCaptionOverlay
+                    showText={resolvedProps.showText ?? true}
+                    lines={props.lines}
+                    currentLineIndex={resolvedProps.currentLineIndex}
+                    isPlayerChromeHidden={resolvedProps.isPlayerChromeHidden}
+                />
+            ) : (
+                <VisualizerHarmonyOverlay
+                    currentTime={resolvedProps.currentTime}
+                    lines={resolvedProps.lines}
+                    showText={resolvedProps.showText ?? true}
+                    theme={resolvedProps.theme}
+                    subtitleTheme={resolvedProps.subtitleTheme}
+                    isPlayerChromeHidden={resolvedProps.isPlayerChromeHidden}
+                    hideTranslationSubtitle={resolvedProps.hideTranslationSubtitle}
+                    showSubtitleTranslation={resolvedProps.showSubtitleTranslation ?? storeShowSubtitleTranslation}
+                    subtitleContentMode={resolvedProps.subtitleContentMode ?? storeSubtitleContentMode}
+                    showHarmonySubtitle={resolvedProps.showHarmonySubtitle ?? storeShowHarmonySubtitle}
+                    harmonySubtitleBackground={resolvedProps.harmonySubtitleBackground ?? storeHarmonySubtitleBackground}
+                    subtitleFontScale={resolvedProps.subtitleFontScale ?? storeSubtitleFontScale}
+                />
+            )}
         </>
     );
 };

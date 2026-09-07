@@ -1,5 +1,13 @@
+import { createRequire } from 'node:module';
+
 // scripts/music-provider-adapters/kugou-provider-adapter.mjs
-// Kugou search / free-tier audio / LRC lyrics via public mobile endpoints.
+// Kugou search / LRC lyrics; audio uses a login ticket when present, else free playInfo.
+
+const require = createRequire(import.meta.url);
+const {
+  fetchAuthenticatedAudioUrl,
+  kugouCookieHasLogin,
+} = require('../../shared/kugouWebClient.cjs');
 
 const MOBILE_UA =
   'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
@@ -41,6 +49,11 @@ const encodeId = (hash, albumId) => {
   const safeHash = String(hash || '').trim();
   const safeAlbum = String(albumId || '').trim();
   return safeAlbum ? `${safeHash}:${safeAlbum}` : safeHash;
+};
+
+const firstMediaUrl = (url) => {
+  const raw = String(url || '').trim();
+  return raw.split(/,\s*(?=https?:\/\/)/i)[0]?.trim() || raw;
 };
 
 const normalizeCover = (image) => {
@@ -101,11 +114,25 @@ export async function search({ query, limit = 30, offset = 0 }) {
   };
 }
 
-export async function audio({ id, song }) {
+export async function audio({ id, song, kugouAuth } = {}) {
   const fromSong = String(song?.providerSongId || song?.id || id || '');
-  const { hash } = parseId(fromSong);
+  const { hash, albumId } = parseId(fromSong);
   if (!hash) {
     return { audioUrl: null };
+  }
+
+  const cookie = String(kugouAuth?.cookieHeader || '').trim();
+  if (kugouCookieHasLogin(cookie)) {
+    try {
+      for (const quality of [320, 128]) {
+        const audioUrl = await fetchAuthenticatedAudioUrl({ hash, albumId, cookie, quality });
+        if (audioUrl) {
+          return { audioUrl: firstMediaUrl(audioUrl) };
+        }
+      }
+    } catch {
+      // Fall back to the free playInfo path when the signed tracker request fails.
+    }
   }
 
   // Free-tier mobile playInfo. VIP / privilege tracks often return an empty url.
@@ -119,7 +146,7 @@ export async function audio({ id, song }) {
         return { audioUrl: null };
       }
       return {
-        audioUrl: audioUrl.replace('http://', 'https://'),
+        audioUrl: firstMediaUrl(audioUrl),
         bitrate: payload?.bitRate || payload?.bitrate || undefined,
       };
     } catch (error) {

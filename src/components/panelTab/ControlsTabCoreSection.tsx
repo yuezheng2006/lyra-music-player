@@ -2,27 +2,22 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Theme, VisualizerBackgroundMode, VisualizerMode, Interactive3dSceneTuning } from '../../types';
 import { getVisualizerModeLabel, VISUALIZER_REGISTRY } from '../visualizer/registry';
-import {
-    getMineradioPresetLabelFallback,
-    INTERACTIVE3D_VISUAL_PRESET_OPTIONS,
-    normalizeInteractive3dVisualPreset,
-} from '../visualizer/geometric/mineradioVisualPresets';
-import { resolveVisualizerBackgroundMode, useSettingsUiStore } from '../../stores/useSettingsUiStore';
+import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import {
     resolveActiveLyricColorPresetId,
     type LyricColorPresetId,
 } from '../../utils/theme/lyricColorPresets';
 import { LYRICS_FONT_SCALE_QUICK_OPTIONS } from '../../utils/lyrics/lyricsFontScaleMath';
 import { getControlsTabOptionButtonClass, type ControlsTabOptionStyles } from './controlsTabOptionStyles';
-import QuickEffectPicker from './QuickEffectPicker';
+import { useVisualizerModeStepper } from '../../hooks/useVisualizerModeStepper';
+import ModeStepperRow from './controls/ModeStepperRow';
+import { VisualizerModeGlyph } from './controls/modeGlyphs';
+import ControlsTabBackgroundStepper from './ControlsTabBackgroundStepper';
 import LyricColorPresetGrid from '../shared/LyricColorPresetGrid';
 import LyricFontPresetSelector from '../shared/LyricFontPresetSelector';
-import GpuBackgroundFallbackNote, {
-    shouldShowGpuBackgroundFallbackNote,
-} from '../shared/GpuBackgroundFallbackNote';
 
 // src/components/panelTab/ControlsTabCoreSection.tsx
-// Controls tab: always-visible core lyric settings (layout / 3D background / color / font / size).
+// Controls tab: always-visible core lyric settings (layout / background / color / font / size).
 
 type ControlsTabCoreSectionProps = {
     theme: Theme;
@@ -46,9 +41,9 @@ const ControlsTabCoreSection: React.FC<ControlsTabCoreSectionProps> = ({
     visualizerMode,
     onVisualizerModeChange,
     visualizerBackgroundMode = null,
-    interactive3dSceneTuning,
+    interactive3dSceneTuning: _interactive3dSceneTuning,
     onVisualizerBackgroundModeChange,
-    onInteractive3dSceneTuningChange,
+    onInteractive3dSceneTuningChange: _onInteractive3dSceneTuningChange,
     onApplyLyricColorPreset,
     isDaylight,
     optionStyles,
@@ -60,68 +55,40 @@ const ControlsTabCoreSection: React.FC<ControlsTabCoreSectionProps> = ({
     const handleSetLyricsCustomFont = useSettingsUiStore(state => state.handleSetLyricsCustomFont);
     const handleSetLyricsFontScale = useSettingsUiStore(state => state.handleSetLyricsFontScale);
     const { wellBg } = optionStyles;
-    const resolvedBackgroundMode = resolveVisualizerBackgroundMode(visualizerBackgroundMode, visualizerMode);
+    const openSettings = useSettingsUiStore(state => state.openSettings);
 
     const visualizerOptions = VISUALIZER_REGISTRY.map(entry => ({
         value: entry.mode,
         label: getVisualizerModeLabel(entry.mode, t),
     }));
+    const stepVisualizerMode = useVisualizerModeStepper(visualizerOptions.map(option => option.value));
 
     return (
         <div className="space-y-2.5" data-testid="controls-core-section">
-            <div
-                className="flex items-center justify-between gap-2"
-                data-testid="controls-lyrics-animation-section"
-            >
+            <div className="space-y-1" data-testid="controls-lyrics-animation-section">
                 <span className={labelClass}>{t('ui.lyricLayout') || 'Layout'}</span>
-                <QuickEffectPicker
+                <ModeStepperRow
                     value={visualizerMode}
                     options={visualizerOptions}
-                    onChange={onVisualizerModeChange}
+                    onSelect={onVisualizerModeChange}
+                    onStep={stepVisualizerMode}
+                    renderGlyph={mode => <VisualizerModeGlyph mode={mode} />}
+                    ariaLabel={t('ui.lyricLayout') || 'Layout'}
+                    moreLabel={t('ui.moreSettings') || 'More settings'}
+                    onOpenMore={() => openSettings('options', 'visualizer')}
                     isDaylight={isDaylight}
                     primaryColor={theme.primaryColor}
-                    ariaLabel={t('ui.lyricLayout') || 'Layout'}
                     testIdPrefix="controls-visualizer-mode"
                 />
             </div>
 
-            {interactive3dSceneTuning && onInteractive3dSceneTuningChange ? (
-                <div className="space-y-1" data-testid="controls-interactive3d-presets-section">
-                    <span className={labelClass}>{t('ui.background3d') || '3D Background'}</span>
-                    <GpuBackgroundFallbackNote
-                        visible={shouldShowGpuBackgroundFallbackNote({
-                            resolvedMode: resolvedBackgroundMode,
-                        })}
-                        variant="controls"
-                        testId="controls-background-gpu-fallback-note"
-                    />
-                    <div className={`grid grid-cols-4 gap-0.5 ${wellBg} p-0.5 rounded-lg`}>
-                        {INTERACTIVE3D_VISUAL_PRESET_OPTIONS.map(preset => {
-                            // Highlight only when the live background engine is interactive3d.
-                            const isActive = resolvedBackgroundMode === 'interactive3d'
-                                && normalizeInteractive3dVisualPreset(
-                                    interactive3dSceneTuning.visualPreset,
-                                ) === preset;
-                            return (
-                                <button
-                                    key={preset}
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={isActive}
-                                    data-testid={`controls-interactive3d-preset-${preset}`}
-                                    onClick={() => {
-                                        // Atomic mode+preset — matches floating menu / avoids desync.
-                                        useSettingsUiStore.getState().handleSelectInteractive3dVisualPreset(preset);
-                                    }}
-                                    className={`py-1 ${getControlsTabOptionButtonClass(isActive, optionStyles)}`}
-                                >
-                                    {t(`options.mineradioPreset.${preset}`) || getMineradioPresetLabelFallback(preset)}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            ) : null}
+            <ControlsTabBackgroundStepper
+                theme={theme}
+                visualizerMode={visualizerMode}
+                visualizerBackgroundMode={visualizerBackgroundMode}
+                onVisualizerBackgroundModeChange={onVisualizerBackgroundModeChange}
+                isDaylight={isDaylight}
+            />
 
             {onApplyLyricColorPreset ? (
                 <div className="space-y-1" data-testid="controls-lyric-color-section">

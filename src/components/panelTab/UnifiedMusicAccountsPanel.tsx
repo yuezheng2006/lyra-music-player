@@ -7,9 +7,11 @@ import {
     DEFAULT_UNIFIED_ACCOUNT_PROVIDER_ID,
     UNIFIED_ACCOUNT_PROVIDERS,
 } from '../../utils/musicAccounts/unifiedMusicAccountProviders';
-import { hasNeteaseSession, hasQQMusicSession } from '../../utils/onlineLibraryAccess';
+import { hasNeteaseSession, hasQQMusicSession, hasQishuiSession, hasKugouSession } from '../../utils/onlineLibraryAccess';
 import NeteaseAccountCard from './NeteaseAccountCard';
 import QQMusicAccountCard from './QQMusicAccountCard';
+import QishuiAccountCard from './QishuiAccountCard';
+import KugouAccountCard from './KugouAccountCard';
 import PeerFreeAccountDetail from './PeerFreeAccountDetail';
 
 // src/components/panelTab/UnifiedMusicAccountsPanel.tsx
@@ -46,6 +48,8 @@ const UnifiedMusicAccountsPanel: React.FC<UnifiedMusicAccountsPanelProps> = ({
 
     const qqReady = hasQQMusicSession();
     const neteaseReady = hasNeteaseSession(user);
+    const qishuiReady = hasQishuiSession();
+    const kugouReady = hasKugouSession();
 
     const statusLabel = (id: OnlineMusicProviderId) => {
         if (id === 'netease') {
@@ -57,6 +61,16 @@ const UnifiedMusicAccountsPanel: React.FC<UnifiedMusicAccountsPanelProps> = ({
             return qqReady
                 ? (t('account.connected') || '已接入')
                 : (t('account.qqMusicAnonymous') || '需要登录');
+        }
+        if (id === 'qishui') {
+            return qishuiReady
+                ? (t('account.connected') || '已接入')
+                : (t('account.qishuiAnonymous') || '需要登录');
+        }
+        if (id === 'kugou') {
+            return kugouReady
+                ? (t('account.connected') || '已接入')
+                : (t('account.kugouAnonymous') || '需要登录');
         }
         return t('account.peerFreeAvailable') || '无需登录';
     };
@@ -134,6 +148,10 @@ const UnifiedMusicAccountsPanel: React.FC<UnifiedMusicAccountsPanelProps> = ({
                     />
                 ) : selected.id === 'qq' ? (
                     <QQMusicAccountCard onOpenSettings={onOpenQQMusicSettings} />
+                ) : selected.id === 'qishui' ? (
+                    <QishuiAccountCard />
+                ) : selected.id === 'kugou' ? (
+                    <KugouAccountCard />
                 ) : (
                     <PeerFreeAccountDetail
                         providerId={selected.id}

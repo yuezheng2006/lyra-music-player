@@ -5,12 +5,14 @@ import {
   createFpsTracker,
   isMemoryPressureHigh,
   PERFORMANCE_DEGRADE_HOLD_SEC,
+  PERFORMANCE_FPS_SAMPLE_STRIDE,
   PERFORMANCE_STORE_PUBLISH_MS,
   PERFORMANCE_UPGRADE_HOLD_SEC,
   pushFpsSample,
   readPerformanceMemorySample,
   shouldHoldDegrade,
   shouldHoldUpgrade,
+  shouldRunPerformanceFpsSampler,
   stepTierDown,
   stepTierUp,
 } from '../utils/performance/performanceMonitorMath';
@@ -19,13 +21,14 @@ import { installTelemetryDevBridge } from '../utils/telemetry/installTelemetryDe
 import { trackTelemetry } from '../utils/telemetry/trackTelemetry';
 
 // src/hooks/usePerformanceMonitor.ts
-// Global RAF FPS sampler + auto tier ladder (store updates are throttled).
+// Optional FPS sampler + auto tier ladder. GPU demote handler always stays armed.
 
 const PERF_FPS_TELEMETRY_MIN_INTERVAL_MS = 5000;
 const PERF_FPS_TELEMETRY_LOW_AVG = 40;
 
 /**
- * Mount once near the app root. Samples FPS every frame; publishes to Zustand ~2Hz.
+ * Mount once near the app root.
+ * FPS RAF runs only when HUD is on or performance mode is auto; GPU crash demote always listens.
  */
 export function usePerformanceMonitor(): void {
   useEffect(() => {
@@ -35,9 +38,16 @@ export function usePerformanceMonitor(): void {
     return startDevTelemetryDump();
   }, []);
 
+  const showHud = usePerformanceMonitorStore((state) => state.showHud);
+  const mode = usePerformanceMonitorStore((state) => state.mode);
+  const runFpsSampler = shouldRunPerformanceFpsSampler({ showHud, mode });
+
   useEffect(() => {
+    if (!runFpsSampler) return undefined;
+
     const tracker = createFpsTracker(90);
     let raf = 0;
+    let frameCounter = 0;
     let lastTs = performance.now();
     let lastPublish = 0;
     let lastFpsTelemetryAt = 0;
@@ -48,7 +58,13 @@ export function usePerformanceMonitor(): void {
     const frame = (ts: number) => {
       const dt = Math.min(0.08, Math.max(0.001, (ts - lastTs) / 1000));
       lastTs = ts;
+      frameCounter += 1;
+      // Keep per-frame dt for accurate FPS; only run ladder/publish on stride.
       pushFpsSample(tracker, dt);
+      if (frameCounter % PERFORMANCE_FPS_SAMPLE_STRIDE !== 0) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
 
       const state = usePerformanceMonitorStore.getState();
       if (state.mode === 'auto') {
@@ -121,7 +137,7 @@ export function usePerformanceMonitor(): void {
 
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [runFpsSampler]);
 
   useEffect(() => {
     const onGpuGone = window.electron?.onGpuProcessGone;

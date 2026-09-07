@@ -67,6 +67,40 @@ declare global {
     playbackReady?: boolean;
   }
 
+  interface ElectronQishuiLoginResult {
+    ok: boolean;
+    cookie?: string;
+    reused?: boolean;
+    cancelled?: boolean;
+    message?: string;
+    error?: string;
+  }
+
+  interface ElectronQishuiLoginCookieResult {
+    ok: boolean;
+    cookie?: string;
+  }
+
+  interface ElectronKugouQrStartResult {
+    ok: boolean;
+    qrcodeImg?: string;
+    qrUrl?: string;
+    error?: string;
+  }
+
+  interface ElectronKugouQrCheckResult {
+    ok: boolean;
+    status?: number;
+    cookie?: string;
+    userid?: string;
+    error?: string;
+  }
+
+  interface ElectronKugouLoginCookieResult {
+    ok: boolean;
+    cookie?: string;
+  }
+
   interface ElectronLyricProxyResponse {
     ok: boolean;
     status: number;
@@ -285,10 +319,14 @@ declare global {
     lrc?: StageNeteaseLyricBranch & {
       yrc?: StageNeteaseLyricBranch;
       ytlrc?: StageNeteaseLyricBranch;
+      yromalrc?: StageNeteaseLyricBranch;
+      romalrc?: StageNeteaseLyricBranch;
     };
     yrc?: StageNeteaseLyricBranch;
     ytlrc?: StageNeteaseLyricBranch;
+    yromalrc?: StageNeteaseLyricBranch;
     tlyric?: StageNeteaseLyricBranch;
+    romalrc?: StageNeteaseLyricBranch;
     pureMusic?: boolean;
   }
 
@@ -505,7 +543,18 @@ declare global {
       openExternalUrl: (url: string) => Promise<boolean>;
       openQQMusicLogin: () => Promise<ElectronQQMusicLoginResult>;
       getQQMusicLoginCookie: () => Promise<ElectronQQMusicLoginCookieResult>;
+      saveQQMusicAuthSession: (cookie: string) => Promise<{ ok: boolean; encrypted?: boolean; error?: string }>;
       clearQQMusicLogin: () => Promise<{ ok: boolean; error?: string }>;
+      openQishuiLogin: () => Promise<ElectronQishuiLoginResult>;
+      getQishuiLoginCookie: () => Promise<ElectronQishuiLoginCookieResult>;
+      saveQishuiAuthSession: (cookie: string) => Promise<{ ok: boolean; encrypted?: boolean; error?: string }>;
+      clearQishuiLogin: () => Promise<{ ok: boolean; error?: string }>;
+      startKugouQrLogin: () => Promise<ElectronKugouQrStartResult>;
+      checkKugouQrLogin: () => Promise<ElectronKugouQrCheckResult>;
+      cancelKugouQrLogin: () => Promise<{ ok: boolean }>;
+      getKugouLoginCookie: () => Promise<ElectronKugouLoginCookieResult>;
+      saveKugouAuthSession: (cookie: string) => Promise<{ ok: boolean; encrypted?: boolean; error?: string }>;
+      clearKugouLogin: () => Promise<{ ok: boolean; error?: string }>;
       downloadUpdate: () => Promise<ElectronUpdateStatus>;
       quitAndInstallUpdate: () => Promise<boolean>;
       onUpdateStatusChanged: (callback: (status: ElectronUpdateStatus) => void) => () => void;
@@ -524,8 +573,10 @@ declare global {
           body?: string;
         },
       ) => Promise<ElectronLyricProxyResponse>;
+      fetchPodcastProxy: (url: string) => Promise<ElectronLyricProxyResponse>;
       getNeteasePort: () => Promise<number>;
       getNeteaseApiStatus: () => Promise<ElectronNeteaseApiStatus>;
+      restartNeteaseApi: () => Promise<ElectronNeteaseApiStatus>;
       onNeteaseApiStatusChanged: (callback: (status: ElectronNeteaseApiStatus) => void) => () => void;
       onGpuProcessGone: (callback: (payload: {
         reason: string;
@@ -561,6 +612,8 @@ declare global {
       setMainWindowClickThroughUnlockHover: (active: boolean) => Promise<boolean>;
       getMainWindowAlwaysOnTop: () => Promise<boolean>;
       setMainWindowAlwaysOnTop: (enabled: boolean) => Promise<boolean>;
+      setPlaybackDisplaySleepActive: (active: boolean) => Promise<boolean>;
+      quitApp: () => Promise<boolean>;
       onMainWindowClickThroughChanged: (callback: (state: ElectronMainWindowClickThroughState) => void) => () => void;
       getObsBrowserSourceStatus: () => Promise<ElectronObsBrowserSourceStatus>;
       setObsBrowserSourceEnabled: (enabled: boolean) => Promise<ElectronObsBrowserSourceStatus>;

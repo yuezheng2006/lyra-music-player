@@ -65,6 +65,8 @@ describe('Monet tuning and lyric helpers', () => {
             backgroundHalfPaneOffsetX: 40,
             backgroundWashColorMode: 'custom',
             backgroundWashCustomColor: '#aabbcc',
+            backgroundDriftEnabled: true,
+            backgroundDriftStrength: 0.55,
         });
 
         expect(resolveStoredMonetBackgroundTuning({
@@ -244,6 +246,41 @@ describe('Monet tuning and lyric helpers', () => {
         expect(hiddenLayout.translationLineCount).toBe(0);
         expect(hiddenLayout.translationHeightPx).toBe(0);
         expect(hiddenLayout.visualHeightPx).toBe(hiddenLayout.textHeightPx);
+    });
+
+    it('measures Monet romanization when subtitle mode is romanization', () => {
+        const line: Line = {
+            startTime: 0,
+            endTime: 3,
+            fullText: '君の名前',
+            translation: '你的名字',
+            romanization: 'kimi no namae',
+            words: [],
+        };
+
+        const translationLayout = measureMonetLineLayout({
+            line,
+            status: 'active',
+            fontPx: 32,
+            translationFontPx: 18,
+            fontStack: 'Arial, sans-serif',
+            maxWidthPx: 520,
+            showSubtitleTranslation: true,
+            subtitleContentMode: 'translation',
+        });
+        const romanizationLayout = measureMonetLineLayout({
+            line,
+            status: 'active',
+            fontPx: 32,
+            translationFontPx: 18,
+            fontStack: 'Arial, sans-serif',
+            maxWidthPx: 520,
+            showSubtitleTranslation: true,
+            subtitleContentMode: 'romanization',
+        });
+
+        expect(translationLayout.translationHeightPx).toBeGreaterThan(0);
+        expect(romanizationLayout.translationHeightPx).toBeGreaterThan(0);
     });
 
     it('gates Monet keyword coloring through tuning', () => {

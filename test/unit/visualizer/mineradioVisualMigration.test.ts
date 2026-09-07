@@ -22,13 +22,15 @@ describe('Mineradio visual migration', () => {
         expect(tuning.visualPreset).toBe('emily');
     });
 
-    it('applies Mineradio original preset bundles', () => {
+    it('collapses tunnel/galaxy/orbit onto emily atmosphere bundle', () => {
         const tunnel = applyMineradioVisualPreset('mineradioTunnel');
+        const galaxy = applyMineradioVisualPreset('mineradioGalaxy');
         const orbit = applyMineradioVisualPreset('mineradioOrbit');
 
-        expect(tunnel.visualPreset).toBe('mineradioTunnel');
+        expect(tunnel.visualPreset).toBe('emily');
         expect(tunnel.enableCoverParticles).toBe(true);
-        expect(tunnel.enableBassRipples).toBe(false);
+        expect(tunnel.enableBassRipples).toBe(true);
+        expect(galaxy.visualPreset).toBe('emily');
         expect(orbit.visualPreset).toBe('emily');
         expect(orbit.enableCoverParticles).toBe(true);
         expect(orbit.enableBloomParticles).toBe(false);
@@ -64,10 +66,12 @@ describe('Mineradio visual migration', () => {
         expect(normalizeInteractive3dVisualPreset('aurora')).toBe('emily');
         expect(normalizeInteractive3dVisualPreset('mineradioVoid')).toBe('emily');
         expect(normalizeInteractive3dVisualPreset('void')).toBe('emily');
-        expect(normalizeInteractive3dVisualPreset('nebula')).toBe('mineradioGalaxy');
+        expect(normalizeInteractive3dVisualPreset('nebula')).toBe('emily');
         expect(normalizeInteractive3dVisualPreset('orbit')).toBe('emily');
         expect(normalizeInteractive3dVisualPreset('mineradioOrbit')).toBe('emily');
-        expect(normalizeInteractive3dVisualPreset('wallpaper')).toBe('mineradioGalaxy');
+        expect(normalizeInteractive3dVisualPreset('wallpaper')).toBe('emily');
+        expect(normalizeInteractive3dVisualPreset('mineradioTunnel')).toBe('emily');
+        expect(normalizeInteractive3dVisualPreset('mineradioGalaxy')).toBe('emily');
     });
 
     it('falls back removed experimental presets to cover', () => {

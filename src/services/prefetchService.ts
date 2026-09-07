@@ -20,6 +20,7 @@ import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import { resolveBestLyric } from '../utils/lyrics/resolveBestLyric';
 import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState } from '../utils/onlineLyricsState';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isYtmPlaybackSong } from '../utils/appPlaybackGuards';
+import { toSafePlaybackUrl } from '../utils/appPlaybackHelpers';
 
 // Prefetch configuration
 const PREFETCH_COUNT_NEXT = 2;
@@ -41,6 +42,7 @@ export interface PrefetchedSongData {
         mainLrc: string | null;
         yrcLrc: string | null;
         transLrc: string | null;
+        romaLrc: string | null;
         isPureMusic: boolean;
     } | null;
     coverUrl: string | null;
@@ -191,13 +193,9 @@ export const prefetchSongAudio = async (
             return null;
         }
         if (audioResult.kind === 'ok' && audioResult.audioUrl) {
-            const url = audioResult.audioUrl.startsWith('http:')
-                ? audioResult.audioUrl.replace('http:', 'https:')
-                : audioResult.audioUrl;
+            const url = toSafePlaybackUrl(audioResult.audioUrl) || audioResult.audioUrl;
             const videoUrl = typeof audioResult.videoUrl === 'string' && audioResult.videoUrl.trim()
-                ? (audioResult.videoUrl.startsWith('http:')
-                    ? audioResult.videoUrl.replace('http:', 'https:')
-                    : audioResult.videoUrl)
+                ? (toSafePlaybackUrl(audioResult.videoUrl) || audioResult.videoUrl)
                 : null;
             data.audioUrl = url;
             data.audioUrlFetchedAt = Date.now();
@@ -271,6 +269,7 @@ const prefetchSongLyrics = async (
                         mainLrc,
                         yrcLrc: null,
                         transLrc: null,
+                        romaLrc: null,
                         isPureMusic,
                         lyrics: null,
                         chorusRanges: [],
@@ -282,6 +281,7 @@ const prefetchSongLyrics = async (
                     mainLrc,
                     yrcLrc: null,
                     transLrc: null,
+                    romaLrc: null,
                     isPureMusic,
                     lyrics,
                     chorusRanges: [],
@@ -298,6 +298,7 @@ const prefetchSongLyrics = async (
             mainLrc: processed.mainLrc,
             yrcLrc: processed.yrcLrc,
             transLrc: processed.transLrc,
+            romaLrc: processed.romaLrc,
             isPureMusic: processed.isPureMusic,
         };
 

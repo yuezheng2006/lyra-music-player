@@ -13,6 +13,7 @@ import {
 describe('visualizer registry', () => {
     it('auto-loads the built-in visualizer entries in stable order', () => {
         expect(VISUALIZER_REGISTRY.map(entry => entry.mode)).toEqual([
+            'still',
             'classic',
             'cadenza',
             'partita',
@@ -50,9 +51,9 @@ describe('visualizer registry', () => {
         expect(label).toBe('云阶');
     });
 
-    it('does not expose wildfire as a layout mode', () => {
+    it('does not expose wildfire as a picker mode', () => {
         expect(VISUALIZER_REGISTRY.some(entry => entry.mode === 'dazibao')).toBe(false);
-        expect(getVisualizerRegistryEntry('dazibao' as never).mode).toBe('classic');
+        expect(hasVisualizerMode('dazibao')).toBe(false);
     });
 
     it('lazy-loads a full visualizer entry module', async () => {

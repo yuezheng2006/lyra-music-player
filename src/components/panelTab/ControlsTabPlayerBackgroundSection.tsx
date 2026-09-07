@@ -9,11 +9,13 @@ import {
 import { resolveVisualizerBackgroundMode } from '../../stores/useSettingsUiStore';
 import ControlsTabInteractive3dScenePanel from './ControlsTabInteractive3dScenePanel';
 import { getControlsTabOptionButtonClass, getControlsTabOptionStyles } from './controlsTabOptionStyles';
+import {
+    getPanelBackgroundModeLabel,
+    PANEL_PLAYER_BACKGROUND_MODES,
+} from '../../utils/visualizer/panelBackgroundModes';
 
 // src/components/panelTab/ControlsTabPlayerBackgroundSection.tsx
 // Compact player-panel controls for visualizer background mode and 3D presets.
-
-const PLAYER_BACKGROUND_MODES: VisualizerBackgroundMode[] = ['interactive3d', 'common', 'monet', 'latent', 'turntable'];
 
 type ControlsTabPlayerBackgroundSectionProps = {
     visualizerMode: VisualizerMode;
@@ -25,30 +27,6 @@ type ControlsTabPlayerBackgroundSectionProps = {
     onInteractive3dSceneTuningChange: (patch: Partial<Interactive3dSceneTuning>) => void;
     onToggleEnableSmartAtmosphere: (enabled: boolean) => void;
     onOpenAdvancedBackgroundSettings?: () => void;
-};
-
-const getBackgroundModeLabel = (
-    mode: VisualizerBackgroundMode,
-    t: (key: string) => string,
-) => {
-    switch (mode) {
-        case 'interactive3d':
-            return t('options.visualizerBackgroundModeInteractive3d') || '3D 交互';
-        case 'common':
-            return t('options.visualizerBackgroundModeCommon') || '通用';
-        case 'monet':
-            return t('options.visualizerBackgroundModeMonet') || '莫奈';
-        case 'latent':
-            return t('options.visualizerBackgroundModeLatent') || 'Latent';
-        case 'url':
-            return t('options.visualizerBackgroundModeUrl') || '嵌入';
-        case 'sora':
-            return t('options.visualizerBackgroundModeSora') || '空';
-        case 'turntable':
-            return t('options.visualizerBackgroundModeTurntable') || '唱盘';
-        default:
-            return mode;
-    }
 };
 
 const ControlsTabPlayerBackgroundSection: React.FC<ControlsTabPlayerBackgroundSectionProps> = ({
@@ -68,7 +46,7 @@ const ControlsTabPlayerBackgroundSection: React.FC<ControlsTabPlayerBackgroundSe
     const resolvedBackgroundMode = resolveVisualizerBackgroundMode(visualizerBackgroundMode, visualizerMode);
     const isInteractive3d = resolvedBackgroundMode === 'interactive3d';
     const isAdvancedBackgroundMode = visualizerBackgroundMode != null
-        && !PLAYER_BACKGROUND_MODES.includes(visualizerBackgroundMode);
+        && !PANEL_PLAYER_BACKGROUND_MODES.includes(visualizerBackgroundMode);
 
     return (
         <div className="space-y-1.5 pt-1" data-testid="controls-player-background-section">
@@ -88,7 +66,7 @@ const ControlsTabPlayerBackgroundSection: React.FC<ControlsTabPlayerBackgroundSe
             </div>
 
             <div className={`grid grid-cols-2 gap-0.5 ${wellBg} p-0.5 rounded-xl`} data-testid="controls-player-background-mode-group">
-                {PLAYER_BACKGROUND_MODES.map(mode => (
+                {PANEL_PLAYER_BACKGROUND_MODES.map(mode => (
                     <button
                         key={mode}
                         type="button"
@@ -99,7 +77,7 @@ const ControlsTabPlayerBackgroundSection: React.FC<ControlsTabPlayerBackgroundSe
                             optionStyles,
                         )}`}
                     >
-                        {getBackgroundModeLabel(mode, t)}
+                        {getPanelBackgroundModeLabel(mode, t)}
                     </button>
                 ))}
             </div>

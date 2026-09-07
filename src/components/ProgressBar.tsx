@@ -21,6 +21,8 @@ interface ProgressBarProps {
     isDaylight?: boolean;
     /** default: 带时间标签；edge: 贴顶细线进度，悬停/拖动显示时间气泡 */
     variant?: 'default' | 'edge';
+    previousLabel?: string;
+    nextLabel?: string;
 }
 
 const ProgressBar: React.FC<ProgressBarProps> = ({
@@ -36,6 +38,8 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
     isLoading = false,
     isDaylight = false,
     variant = 'default',
+    previousLabel,
+    nextLabel,
 }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
@@ -195,6 +199,12 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
                     >
                         {/* Text painted in applyProgress — avoid React children resetting on hover toggles. */}
                         <span data-testid="progress-edge-tooltip-label">0:00 / {formatTime(duration)}</span>
+                        {previousLabel ? (
+                            <div className="mt-0.5 max-w-[220px] truncate text-[10px] opacity-70">{previousLabel}</div>
+                        ) : null}
+                        {nextLabel ? (
+                            <div className="max-w-[220px] truncate text-[10px] opacity-70">{nextLabel}</div>
+                        ) : null}
                         <span
                             className={`absolute left-1/2 top-full -translate-x-1/2 border-x-4 border-t-4 border-x-transparent ${
                                 isDaylight ? 'border-t-zinc-900/90' : 'border-t-black/85'

@@ -1,10 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
-  <!-- Bilibili-like peer mark: pink tile + classic TV face (in-app identity). -->
   <rect width="512" height="512" rx="112" fill="#FB7299"/>
-  <path fill="#FFFFFF" d="M184 112c10-10 26-10 36 0l44 44h-80l-28-28c-10-10-10-26 0-36zm144 0c10-10 26-10 36 0 10 10 10 26 0 36l-28 28h-80l44-44z"/>
-  <rect x="96" y="168" width="320" height="248" rx="48" fill="#FFFFFF"/>
-  <rect x="128" y="200" width="256" height="184" rx="28" fill="#FB7299"/>
-  <circle cx="200" cy="270" r="22" fill="#FFFFFF"/>
-  <circle cx="312" cy="270" r="22" fill="#FFFFFF"/>
-  <path fill="#FFFFFF" d="M214 332c18 20 66 20 84 0 8-8 20-8 28 0 8 8 8 20 0 28-36 36-104 36-140 0-8-8-8-20 0-28 8-8 20-8 28 0z"/>
+  <path d="M168 118c8-10 22-10 30 0l50 58h-72l-20-36c-8-12-4-22 12-22zm176 0c16 0 20 10 12 22l-20 36h-72l50-58c8-10 22-10 30 0z" fill="#FFFFFF"/>
+  <rect x="88" y="168" width="336" height="256" rx="56" fill="#FFFFFF"/>
+  <circle cx="196" cy="284" r="28" fill="#FB7299"/>
+  <circle cx="316" cy="284" r="28" fill="#FB7299"/>
 </svg>

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { CaptionsOff, Languages, Monitor, PanelTop, RotateCcw, type LucideIcon } from 'lucide-react';
 import {
     DEFAULT_LATENT_BACKGROUND_TUNING,
+    DEFAULT_NOMAND_BACKGROUND_TUNING,
     DEFAULT_MONET_BACKGROUND_TUNING,
     DEFAULT_INTERACTIVE3D_SCENE_TUNING,
     type CappellaAvatarImage,
@@ -12,6 +13,7 @@ import {
     type FumeTuning,
     type Interactive3dSceneTuning,
     type LatentBackgroundTuning,
+    type NomandBackgroundTuning,
     type MonetBackgroundImage,
     type MonetBackgroundTuning,
     type MonetPortraitImage,
@@ -25,11 +27,12 @@ import {
 } from '../../types';
 import { colorWithAlpha } from './colorMix';
 import { MonetBackgroundSettingsCard } from './MonetBackgroundSettingsCard';
-import { Interactive3dBackgroundSettingsCard } from './backgrounds/Interactive3dBackgroundSettingsCard';
 import LatentBackgroundSettingsCard from './backgrounds/latent/LatentBackgroundSettingsCard';
+import NomandBackgroundSettingsCard from './backgrounds/nomand/NomandBackgroundSettingsCard';
 import { UrlBackgroundSettingsCard } from './backgrounds/UrlBackgroundSettingsCard';
 import { VISUALIZER_REGISTRY, getVisualizerModeLabel, type VisualizerRegistryEntry } from './registry';
 import { type VisPlaygroundEditSection } from './VisPlaygroundPreviewHotspots';
+import { resolveVisualizerBackgroundMode } from '../../stores/useSettingsUiStore';
 
 // src/components/visualizer/VisPlaygroundSettingsPanel.tsx
 // Right-side settings panel for the click-to-edit visualizer playground.
@@ -117,6 +120,8 @@ interface VisPlaygroundSettingsPanelProps {
     onMonetBackgroundTuningChange?: (patch: Partial<MonetBackgroundTuning>) => void;
     latentBackgroundTuning?: LatentBackgroundTuning;
     onLatentBackgroundTuningChange?: (patch: Partial<LatentBackgroundTuning>) => void;
+    nomandBackgroundTuning?: NomandBackgroundTuning;
+    onNomandBackgroundTuningChange?: (patch: Partial<NomandBackgroundTuning>) => void;
     interactive3dSceneTuning?: Interactive3dSceneTuning;
     onInteractive3dSceneTuningChange?: (patch: Partial<Interactive3dSceneTuning>) => void;
     onResetInteractive3dSceneTuning?: () => void;
@@ -328,8 +333,8 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
         onToggleDisableVisualizerVignette,
         enableSmartAtmosphere,
         onToggleEnableSmartAtmosphere,
-        enable3dInteractiveBackground,
-        onToggleEnable3dInteractiveBackground,
+        enable3dInteractiveBackground: _enable3dInteractiveBackground,
+        onToggleEnable3dInteractiveBackground: _onToggleEnable3dInteractiveBackground,
         visualizerBackgroundMode,
         onVisualizerBackgroundModeChange,
         onResetBackgroundSettings,
@@ -365,10 +370,12 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
         monetBackgroundTuning = DEFAULT_MONET_BACKGROUND_TUNING,
         onMonetBackgroundTuningChange,
         latentBackgroundTuning = DEFAULT_LATENT_BACKGROUND_TUNING,
+        nomandBackgroundTuning = DEFAULT_NOMAND_BACKGROUND_TUNING,
+        onNomandBackgroundTuningChange,
         onLatentBackgroundTuningChange,
-        interactive3dSceneTuning = DEFAULT_INTERACTIVE3D_SCENE_TUNING,
-        onInteractive3dSceneTuningChange,
-        onResetInteractive3dSceneTuning,
+        interactive3dSceneTuning: _interactive3dSceneTuning = DEFAULT_INTERACTIVE3D_SCENE_TUNING,
+        onInteractive3dSceneTuningChange: _onInteractive3dSceneTuningChange,
+        onResetInteractive3dSceneTuning: _onResetInteractive3dSceneTuning,
         monetTuning,
         onMonetTuningChange,
         monetBackgroundImage,
@@ -414,11 +421,11 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
             value: entry.mode,
         }))
     ), [t]);
-    const resolvedBackgroundMode: VisualizerBackgroundMode = visualizerBackgroundMode ?? 'interactive3d';
+    const resolvedBackgroundMode = resolveVisualizerBackgroundMode(visualizerBackgroundMode);
     const backgroundModeOptions = useMemo<PresetOption<VisualizerBackgroundMode>[]>(() => ([
         { value: 'common', label: t('options.visualizerBackgroundModeCommon') || '通用' },
-        { value: 'interactive3d', label: t('options.visualizerBackgroundModeInteractive3d') || '3D 交互' },
         { value: 'monet', label: t('options.visualizerBackgroundModeMonet') || '莫奈' },
+        { value: 'nomand', label: t('options.visualizerBackgroundModeNomand') || 'Nomand' },
         { value: 'latent', label: t('options.visualizerBackgroundModeLatent') || 'Latent' },
         { value: 'url', label: t('options.visualizerBackgroundModeUrl') || 'URL' },
         { value: 'sora', label: t('options.visualizerBackgroundModeSora') || '空' },
@@ -598,20 +605,6 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
                                     </div>
                                 </div>
                             </>
-                        ) : resolvedBackgroundMode === 'interactive3d' ? (
-                            <Interactive3dBackgroundSettingsCard
-                                t={t}
-                                theme={theme}
-                                controlCardBg={controlCardBg}
-                                isDaylight={isDaylight}
-                                tuning={interactive3dSceneTuning}
-                                onTuningChange={onInteractive3dSceneTuningChange}
-                                onResetTuning={onResetInteractive3dSceneTuning}
-                                enableSmartAtmosphere={enableSmartAtmosphere}
-                                onToggleEnableSmartAtmosphere={onToggleEnableSmartAtmosphere}
-                                disableVisualizerVignette={disableVisualizerVignette}
-                                onToggleDisableVisualizerVignette={onToggleDisableVisualizerVignette}
-                            />
                         ) : resolvedBackgroundMode === 'url' ? (
                             <UrlBackgroundSettingsCard
                                 t={t}
@@ -641,6 +634,22 @@ const VisPlaygroundSettingsPanel: React.FC<VisPlaygroundSettingsPanelProps> = (p
                                 onSliderPointerDown={onSliderPointerDown}
                                 onSliderCommit={onSliderCommit}
                                 />
+                        ) : resolvedBackgroundMode === 'nomand' ? (
+                            <NomandBackgroundSettingsCard
+                                t={t}
+                                isDaylight={isDaylight}
+                                theme={theme}
+                                controlCardBg={controlCardBg}
+                                rangeInputClass={rangeInputClass}
+                                tuning={nomandBackgroundTuning}
+                                onTuningChange={onNomandBackgroundTuningChange}
+                                monetBackgroundImage={monetBackgroundImage}
+                                onUploadMonetBackgroundImage={onUploadMonetBackgroundImage}
+                                onClearMonetBackgroundImage={onClearMonetBackgroundImage}
+                                isLoadingMonetBackgroundImage={isLoadingMonetBackgroundImage}
+                                onSliderPointerDown={onSliderPointerDown}
+                                onSliderCommit={onSliderCommit}
+                            />
                         ) : resolvedBackgroundMode === 'latent' ? (
                             <LatentBackgroundSettingsCard
                                 t={t}

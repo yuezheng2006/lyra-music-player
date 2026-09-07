@@ -1,16 +1,29 @@
 import type { Interactive3dSceneTuning } from '../../../../types';
-import { normalizeInteractive3dVisualPreset } from '../mineradioVisualPresets';
-import { shouldRenderMineradioWebGL } from './mineradioPresetMap';
 
 // src/components/visualizer/geometric/webgl/coverParticleWebGLGateMath.ts
-// Pure gate for whether cover-particle WebGL may mount. Preset/cost changes stay here.
+// Legacy CoverParticle WebGL is debug-only. Live interactive3d uses R3F+GSAP.
+// Escape hatch: localStorage lyra_force_cover_webgl=1
 
+/** Pure gate — legacy CoverParticle WebGL only when force flag is set. */
 export const resolveShouldShowCoverParticleWebGL = (input: {
     tuning?: Interactive3dSceneTuning;
     isElectron?: boolean;
+    forceWebGL?: boolean;
 }): boolean => {
     void input.isElectron;
-    const preset = normalizeInteractive3dVisualPreset(input.tuning?.visualPreset);
-    const enabled = input.tuning?.enableCoverParticles ?? true;
-    return shouldRenderMineradioWebGL(preset, enabled);
+    void input.tuning;
+    if (input.forceWebGL) return true;
+    if (typeof localStorage !== 'undefined') {
+        try {
+            if (localStorage.getItem('lyra_force_cover_webgl') === '1') return true;
+        } catch {
+            // ignore storage access failures
+        }
+    }
+    return false;
 };
+
+/** Convenience gate used by GeometricLayer / CoverParticleStage. */
+export const shouldShowCoverParticleWebGL = (tuning?: Interactive3dSceneTuning): boolean => (
+    resolveShouldShowCoverParticleWebGL({ tuning })
+);

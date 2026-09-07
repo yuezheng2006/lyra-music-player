@@ -1,7 +1,8 @@
 // scripts/music-provider-adapters/qishui-provider-adapter.mjs
 // Keyword search + audition playback for Qishui (Soda), following musicdl's LunaPC path.
-// Cookie / track_v2 / play_auth decrypt are intentionally out of scope for this first cut.
+// Optional official web cookie is attached to Luna / share-page requests; play_auth decrypt stays out of scope.
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { fetchWithProxyFallback } from './fetchWithProxyFallback.mjs';
 
 const DEVICE_ID = process.env.MUSIC_PROVIDER_QISHUI_DEVICE_ID || '3753066532709850';
@@ -10,6 +11,15 @@ const LUNA_UA = 'LunaPC/3.5.1(408871041)';
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 const QISHUI_SHARE_URL_RE = /^https?:\/\/qishui\.douyin\.com\/s\/[A-Za-z0-9]+/i;
 const BUGPK_API = process.env.MUSIC_PROVIDER_QISHUI_API_BASE || 'https://api.bugpk.com/api/qsmusic';
+
+const qishuiAuthStore = new AsyncLocalStorage();
+
+const withQishuiAuth = (qishuiAuth, task) => qishuiAuthStore.run(qishuiAuth || {}, task);
+
+const cookieHeaderFromAuth = () => {
+  const cookie = String(qishuiAuthStore.getStore()?.cookieHeader || '').trim();
+  return cookie ? { Cookie: cookie } : {};
+};
 
 const buildLunaQuery = (extra = {}) => {
   const params = new URLSearchParams({
@@ -306,6 +316,10 @@ const fetchWithTimeout = async (url, init = {}, timeoutMs = DEFAULT_FETCH_TIMEOU
   try {
     return await fetchWithProxyFallback(url, {
       ...init,
+      headers: {
+        ...cookieHeaderFromAuth(),
+        ...(init.headers || {}),
+      },
       signal: controller.signal,
     });
   } catch (error) {
@@ -502,7 +516,8 @@ const resolveTrackId = (payload) => {
   return value;
 };
 
-export async function search({ query, limit = 30, offset = 0 }) {
+export async function search({ query, limit = 30, offset = 0, qishuiAuth } = {}) {
+  return withQishuiAuth(qishuiAuth, async () => {
   const trimmed = String(query || '').trim();
   if (!trimmed) {
     return { songs: [], total: 0, hasMore: false };
@@ -529,9 +544,11 @@ export async function search({ query, limit = 30, offset = 0 }) {
     return searchAuto(intent.query, limit, offset);
   }
   return searchOfficialTracks(intent.query, limit, offset);
+  });
 }
 
-export async function audio({ id, song }) {
+export async function audio({ id, song, qishuiAuth } = {}) {
+  return withQishuiAuth(qishuiAuth, async () => {
   const shareId = String(song?.providerSongId || id || '').trim();
   if (isQishuiShareUrl(shareId)) {
     const parsed = await parseShareShortLinkViaBugpk(shareId);
@@ -545,9 +562,11 @@ export async function audio({ id, song }) {
 
   const page = await parseShareTrackPage(trackId);
   return { audioUrl: page.audioUrl || null };
+  });
 }
 
-export async function lyrics({ id, song }) {
+export async function lyrics({ id, song, qishuiAuth } = {}) {
+  return withQishuiAuth(qishuiAuth, async () => {
   const shareId = String(song?.providerSongId || id || '').trim();
   if (isQishuiShareUrl(shareId)) {
     const parsed = await parseShareShortLinkViaBugpk(shareId);
@@ -563,6 +582,7 @@ export async function lyrics({ id, song }) {
   return page.lyricsText
     ? { lyricsText: page.lyricsText }
     : { lyrics: null };
+  });
 }
 
 const QISHUI_DAILY_QUERIES = ['消愁', '光年之外', '孤勇者', '错位时空', '演员', '起风了', '晴天'];
@@ -574,8 +594,10 @@ const pickQishuiDailyQuery = () => {
 };
 
 /** Day-seeded keyword picks — Qishui has no personalized daily API yet. */
-export async function recommend({ limit = 12 } = {}) {
-  const query = pickQishuiDailyQuery();
-  const result = await search({ query, limit, offset: 0 });
-  return { ...result, kind: 'picks', query };
+export async function recommend({ limit = 12, qishuiAuth } = {}) {
+  return withQishuiAuth(qishuiAuth, async () => {
+    const query = pickQishuiDailyQuery();
+    const result = await search({ query, limit, offset: 0, qishuiAuth });
+    return { ...result, kind: 'picks', query };
+  });
 }

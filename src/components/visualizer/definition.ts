@@ -17,6 +17,7 @@ import {
     type MonetTuning,
     type PartitaTuning,
     type PendoloTuning,
+    type LyricPresentation,
     type SubtitleContentMode,
     type Theme,
     type TiltTuning,
@@ -62,6 +63,8 @@ export interface VisualizerSharedProps {
     lyricsFontScale?: number;
     subtitleOverlayOpacity?: number;
     subtitleOverlayBackground?: boolean;
+    /** When captions, modes hide the lyric rail and the shared overlay draws a subtitle plate. */
+    lyricPresentation?: LyricPresentation;
     visualizerBackgroundMode?: VisualizerBackgroundMode | null;
     resolvedVisualizerBackgroundMode?: VisualizerBackgroundMode;
     isPlayerChromeHidden?: boolean;
@@ -93,6 +96,7 @@ export interface VisualizerSharedProps {
     pendoloTuning?: PendoloTuning;
     monetBackgroundTuning?: MonetBackgroundTuning;
     latentBackgroundTuning?: import('../../types').LatentBackgroundTuning;
+    nomandBackgroundTuning?: import('../../types').NomandBackgroundTuning;
     interactive3dSceneTuning?: Interactive3dSceneTuning;
     monetTuning?: MonetTuning;
     monetBackgroundImage?: MonetBackgroundImage | null;
@@ -153,6 +157,8 @@ export interface VisualizerSettingsPanelProps {
     onMonetBackgroundTuningChange?: (patch: Partial<MonetBackgroundTuning>) => void;
     latentBackgroundTuning?: import('../../types').LatentBackgroundTuning;
     onLatentBackgroundTuningChange?: (patch: Partial<import('../../types').LatentBackgroundTuning>) => void;
+    nomandBackgroundTuning?: import('../../types').NomandBackgroundTuning;
+    onNomandBackgroundTuningChange?: (patch: Partial<import('../../types').NomandBackgroundTuning>) => void;
     interactive3dSceneTuning?: import('../../types').Interactive3dSceneTuning;
     onInteractive3dSceneTuningChange?: (patch: Partial<import('../../types').Interactive3dSceneTuning>) => void;
     onUploadMonetBackgroundImage?: (files: File[]) => Promise<{ ok: boolean; error?: string; }>;

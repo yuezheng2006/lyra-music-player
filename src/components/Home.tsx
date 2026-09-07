@@ -10,7 +10,6 @@ import Carousel3D from './Carousel3D';
 import { useSearchNavigationStore } from '../stores/useSearchNavigationStore';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import OnlineMusicGuestConnect from './shared/OnlineMusicGuestConnect';
-import OnlineProviderFilterBar from './shared/OnlineProviderFilterBar';
 import HomeDiscoveryRail from './app/home/HomeDiscoveryRail';
 import { useOnlineLibraryFilterStore } from '../stores/useOnlineLibraryFilterStore';
 import { hasAnyOnlineMusicSession, hasNeteaseSession, hasQQMusicSession } from '../utils/onlineLibraryAccess';
@@ -18,7 +17,6 @@ import { resolveSearchableLibraryProviders } from '../utils/onlineSearchRouting'
 import { useOnlineGuestStore } from '../stores/useOnlineGuestStore';
 import { useShallow } from 'zustand/react/shallow';
 import {
-    HOME_FILTER_BOTTOM_PADDING_CLASS,
     HOME_HEADER_BOTTOM_PADDING_CLASS,
     HOME_HEADER_TOP_PADDING_CLASS,
     resolveHomeContentBottomPaddingClass,
@@ -323,9 +321,9 @@ const Home: React.FC<HomeProps> = ({
         }
     };
 
-    const handleSearch = async (e?: React.FormEvent) => {
+    const handleSearch = async (e?: React.FormEvent, rawQuery?: string) => {
         e?.preventDefault();
-        const query = homeSearchQuery.trim();
+        const query = (rawQuery ?? homeSearchQuery).trim();
         if (!query) return;
 
         const sourceTab = viewTab === 'playlist'
@@ -457,7 +455,10 @@ const Home: React.FC<HomeProps> = ({
                                 ) : null}
                             </div>
 
-                            {/* Right: Search Bar */}
+                            {/* Right: Search Bar — playlist home uses the source-search card instead */}
+                            {showOnlineLibrary ? (
+                                <div className="order-2 md:order-none" />
+                            ) : (
                             <div className="flex justify-end order-2 md:order-none">
                                 <form onSubmit={handleSearch} className="relative group w-full md:w-56 lg:w-60 transition-all focus-within:w-full md:focus-within:w-72 lg:focus-within:w-80">
                                     {isSearching ? (
@@ -488,6 +489,7 @@ const Home: React.FC<HomeProps> = ({
                                     />
                                 </form>
                             </div>
+                            )}
                         </div>
                 )}
 
@@ -497,16 +499,13 @@ const Home: React.FC<HomeProps> = ({
                         <OnlineMusicGuestConnect onRefreshUser={onRefreshUser} user={user} />
                     ) : showOnlineLibrary && viewTab === 'playlist' ? (
                         <>
-                            <div className={`w-full pt-2 ${HOME_FILTER_BOTTOM_PADDING_CLASS} relative z-30 shrink-0`}>
-                                <OnlineProviderFilterBar
-                                    neteaseConnected={hasNeteaseLogin}
-                                    qqConnected={hasQQLogin}
-                                    onRefreshUser={onRefreshUser}
-                                />
-                            </div>
                             <HomeDiscoveryRail
                                 isDaylight={isDaylight}
+                                user={user}
+                                playlists={playlists}
                                 onPlaySong={onPlaySong}
+                                onSelectPlaylist={onSelectPlaylist}
+                                onRefreshUser={onRefreshUser}
                             />
                             <motion.div
                                 key="playlist"

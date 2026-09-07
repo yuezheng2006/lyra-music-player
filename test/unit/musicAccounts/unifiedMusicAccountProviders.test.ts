@@ -17,6 +17,6 @@ describe('unifiedMusicAccountProviders', () => {
             'coco',
         ]);
         expect(UNIFIED_ACCOUNT_PROVIDERS.filter((item) => item.kind === 'login').map((item) => item.id))
-            .toEqual(['netease', 'qq']);
+            .toEqual(['netease', 'qq', 'qishui', 'kugou']);
     });
 });

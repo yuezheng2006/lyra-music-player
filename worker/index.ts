@@ -1,6 +1,7 @@
 import { handleGenerateTheme } from "./generate-theme.ts";
 import { handleGenerateOpenAITheme } from "./generate-theme_openai.ts";
 import { handleLyricProxy } from "./lyric-proxy.ts";
+import { handlePodcastProxy } from "./podcast-proxy.ts";
 
 type Env = {
   ASSETS: {
@@ -26,6 +27,10 @@ export default {
 
     if (url.pathname === "/api/lyric-proxy") {
       return handleLyricProxy(request);
+    }
+
+    if (url.pathname === "/api/podcast-proxy") {
+      return handlePodcastProxy(request);
     }
 
     return env.ASSETS.fetch(request);

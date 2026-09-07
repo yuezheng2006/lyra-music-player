@@ -160,7 +160,8 @@ export function useAppHomeAndPanelViewModels(core: AppViewModelContext) {
         onApplyLyricColorPreset,
     } = core;
 
-    const homeModel = useMemo(() => buildHomeModel({
+    const homeModel = useMemo(() => ({
+        ...buildHomeModel({
         playSong,
         navigateToPlayer,
         refreshUserData,
@@ -215,6 +216,26 @@ export function useAppHomeAndPanelViewModels(core: AppViewModelContext) {
         playAll: playOnlineQueueFromStart,
         addAllToQueue: addNeteaseSongsToQueue,
         addSongToQueue: addNeteaseSongToQueue,
+        }),
+        fm: {
+            isFmMode,
+            playQueue,
+            playerState,
+            isLiked: (() => {
+                if (!currentSong) return false;
+                if (isLocalPlaybackSong(currentSong)) return isLocalSongLiked(currentSong);
+                if (isNavidromePlaybackSong(currentSong)) {
+                    const navidromeSong = resolveNavidromePlaybackCarrier(currentSong);
+                    return navidromeSong ? starredNavidromeSongIds.has(navidromeSong.navidromeData.id) : false;
+                }
+                return likedSongIds.has(currentSong.id);
+            })(),
+            onTogglePlay: togglePlay,
+            onNext: handleNextTrack,
+            onPrev: handlePrevTrack,
+            onTrash: handleFmTrash,
+            onLike: handleLike,
+        },
     }), [
         activePlaybackContext,
         addNavidromeSongsToQueue,
@@ -234,7 +255,14 @@ export function useAppHomeAndPanelViewModels(core: AppViewModelContext) {
         handlePlaylistSelect,
         handleUnifiedAlbumSelect,
         handleUnifiedArtistSelect,
+        handleFmTrash,
+        handleLike,
+        handleNextTrack,
+        handlePrevTrack,
         isFavoriteAlbumsLoading,
+        isFmMode,
+        isLocalSongLiked,
+        likedSongIds,
         leaveStagePlayback,
         loadStageSessionIntoPlayback,
         localMusicState,
@@ -255,6 +283,7 @@ export function useAppHomeAndPanelViewModels(core: AppViewModelContext) {
         openStagePlayer,
         pendingNavidromeSelection,
         playOnlineQueueFromStart,
+        playQueue,
         playSong,
         playerState,
         playlists,
@@ -266,9 +295,11 @@ export function useAppHomeAndPanelViewModels(core: AppViewModelContext) {
         setNavidromeFocusedAlbumIndex,
         setPendingNavidromeSelection,
         setStageStatus,
+        starredNavidromeSongIds,
         stageSource,
         stageStatus,
         theme,
+        togglePlay,
         user,
     ]);
 

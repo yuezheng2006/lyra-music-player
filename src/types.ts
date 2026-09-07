@@ -42,6 +42,8 @@ export interface LyricBackgroundVocal {
 }
 
 export type SubtitleContentMode = 'translation' | 'romanization' | 'none';
+/** Lyrics drive the visualizer rail; captions render as a bottom subtitle plate. */
+export type LyricPresentation = 'lyrics' | 'captions';
 
 export interface LyricAgent {
   id: string;
@@ -73,6 +75,7 @@ export interface LyricData {
   title?: string;
   artist?: string;
   isWordByWord?: boolean;
+  presentation?: LyricPresentation;
   ttml?: {
     timingMode?: 'Word' | 'Line';
     agents?: Record<string, LyricAgent>;
@@ -87,6 +90,8 @@ export interface Theme {
   secondaryColor: string;
   fontStyle: 'sans' | 'serif' | 'mono';
   fontFamily?: string;
+  /** Extra fallback families after the primary lyric font. */
+  fontFamilyStack?: string[];
   fontWeight?: number;
   animationIntensity: 'calm' | 'normal' | 'chaotic';
   /** Optional beat-sync scale boost multiplier for lyric rhythm staging. */
@@ -119,7 +124,7 @@ export type LyricWordMode = 'default' | 'karaoke';
 export type PlaybackPresentation = 'default' | 'speaker';
 export type VisualizerFrameRate = 'off' | 120 | 90 | 60;
 
-export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'ytmusic' | 'radio' | 'daily' | 'podcast' | 'history';
+export type HomeViewTab = 'playlist' | 'local' | 'albums' | 'navidrome' | 'ytmusic' | 'radio' | 'daily' | 'podcast' | 'history' | 'charts';
 /** Curated in-app online sources (not user plugins). */
 export type BuiltInOnlineMusicProviderId =
   | 'netease'
@@ -173,10 +178,14 @@ export interface StageNeteaseLyricSource {
   lrc?: StageNeteaseLyricBranch & {
     yrc?: StageNeteaseLyricBranch;
     ytlrc?: StageNeteaseLyricBranch;
+    yromalrc?: StageNeteaseLyricBranch;
+    romalrc?: StageNeteaseLyricBranch;
   };
   yrc?: StageNeteaseLyricBranch;
   ytlrc?: StageNeteaseLyricBranch;
+  yromalrc?: StageNeteaseLyricBranch;
   tlyric?: StageNeteaseLyricBranch;
+  romalrc?: StageNeteaseLyricBranch;
   pureMusic?: boolean;
 }
 
@@ -541,7 +550,15 @@ export type MonetBackgroundLayout = 'full-overlay' | 'half-pane-gradient';
 export type MonetBackgroundWashColorMode = 'theme' | 'custom';
 export type MonetAudioStyle = 'bar' | 'line';
 export type MonetPortraitSource = 'cover' | 'custom';
-export type VisualizerBackgroundMode = 'common' | 'interactive3d' | 'monet' | 'url' | 'sora' | 'latent' | 'turntable';
+export type VisualizerBackgroundMode = 'common' | 'interactive3d' | 'monet' | 'nomand' | 'url' | 'sora' | 'latent' | 'turntable';
+export type {
+    NomandBackgroundDitheringType,
+    NomandBackgroundEffect,
+    NomandBackgroundSource,
+    NomandBackgroundTuning,
+    NomandBuiltinEffect,
+} from './types/nomandBackground';
+export { DEFAULT_NOMAND_BACKGROUND_TUNING } from './types/nomandBackground';
 export type LatentBackgroundDisplayMode = 'dithering' | 'mesh' | 'both';
 export type LatentBackgroundColorSource = 'cover-theme' | 'cover-only';
 
@@ -597,6 +614,8 @@ export interface MonetBackgroundTuning {
   backgroundHalfPaneOffsetX: number;
   backgroundWashColorMode: MonetBackgroundWashColorMode;
   backgroundWashCustomColor: string;
+  backgroundDriftEnabled?: boolean;
+  backgroundDriftStrength?: number;
 }
 
 export interface MonetTuning {
@@ -712,6 +731,8 @@ export const DEFAULT_MONET_BACKGROUND_TUNING: MonetBackgroundTuning = {
   backgroundHalfPaneOffsetX: 0,
   backgroundWashColorMode: 'theme',
   backgroundWashCustomColor: '#8fb7ff',
+  backgroundDriftEnabled: true,
+  backgroundDriftStrength: 0.55,
 };
 
 export const DEFAULT_MONET_TUNING: MonetTuning = {
@@ -866,6 +887,12 @@ export interface SongResult {
   sourceType?: 'netease' | 'cloud';
   /** Catalog content kind; podcast episodes use mainSong id for playback. */
   contentType?: 'music' | 'podcast' | 'audiobook';
+  /** Direct playable URL for RSS/enclosure podcasts; skips provider URL lookup. */
+  audioUrl?: string;
+  /** RSS shownotes HTML/text used as caption lyrics when no transcript exists. */
+  podcastDescription?: string;
+  /** Podcasting 2.0 transcript URL (VTT / SRT / JSON). */
+  podcastTranscriptUrl?: string;
   programId?: number;
   radioId?: number;
   radioName?: string;
@@ -934,6 +961,8 @@ export interface LocalSong {
   title?: string;
   artist?: string;
   album?: string;
+  trackNumber?: number;
+  discNumber?: number;
 
   // Embedded metadata from file tags
   embeddedTitle?: string;

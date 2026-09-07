@@ -1,9 +1,10 @@
 import React from 'react';
-import { Languages } from 'lucide-react';
+import { Languages, SunMoon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import type { Theme } from '../../../types';
 import type { AppLanguagePreference } from '../../../i18n/config';
+import type { SettingsChromeDaylightMode } from '../../../utils/settings/settingsChromeDaylightMath';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { CustomSelect } from '../../shared/CustomSelect';
 import {
@@ -33,9 +34,13 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
     const {
         appLanguagePreference,
         onAppLanguagePreferenceChange,
+        settingsChromeDaylightMode,
+        onSettingsChromeDaylightModeChange,
     } = useSettingsUiStore(useShallow(state => ({
         appLanguagePreference: state.appLanguagePreference,
         onAppLanguagePreferenceChange: state.handleSetAppLanguagePreference,
+        settingsChromeDaylightMode: state.settingsChromeDaylightMode,
+        onSettingsChromeDaylightModeChange: state.handleSetSettingsChromeDaylightMode,
     })));
 
     const currentResolvedLanguage = i18n.resolvedLanguage?.startsWith('zh')
@@ -81,6 +86,34 @@ const GeneralSettingsSubview: React.FC<GeneralSettingsSubviewProps> = ({
                             {languageHint}
                         </div>
                     )}
+                </div>
+            </section>
+            <section>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                    <SunMoon size={14} /> {t('options.settingsChromeDaylight') || 'Settings panel'}
+                </h3>
+                <div className={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}>
+                    <div className="space-y-1">
+                        <div className={settingsTitleClass} style={settingsTitleStyle}>
+                            {t('options.settingsChromeDaylightMode') || 'Panel light / dark'}
+                        </div>
+                        <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
+                            {t('options.settingsChromeDaylightDesc') || 'Keep the settings window light even when the player is dark.'}
+                        </div>
+                    </div>
+                    <CustomSelect
+                        value={settingsChromeDaylightMode}
+                        onChange={(value) => {
+                            onSettingsChromeDaylightModeChange(value as SettingsChromeDaylightMode);
+                        }}
+                        options={[
+                            { value: 'follow', label: t('options.settingsChromeFollow') || 'Follow player' },
+                            { value: 'light', label: t('options.settingsChromeLight') || 'Always light' },
+                            { value: 'dark', label: t('options.settingsChromeDark') || 'Always dark' },
+                        ]}
+                        isDaylight={isDaylight}
+                        theme={theme}
+                    />
                 </div>
             </section>
         </div>

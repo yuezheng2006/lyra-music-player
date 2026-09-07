@@ -29,11 +29,12 @@ describe('mineradioPresetMap', () => {
         expect(shouldRenderMineradioWebGL('emily', false)).toBe(false);
     });
 
-    it('resolves removed presets to the cover shader branch', () => {
+    it('resolves removed / retired presets to the cover (emily) shader branch', () => {
         expect(resolveWebGLPresetIndex('aurora')).toBe(0);
         expect(resolveWebGLPresetIndex('mineradioVoid')).toBe(0);
         expect(resolveWebGLPresetIndex('mineradioOrbit')).toBe(0);
-        expect(resolveWebGLPresetIndex('mineradioGalaxy')).toBe(11);
-        expect(resolveWebGLPresetIndex('mineradioTunnel')).toBe(7);
+        expect(resolveWebGLPresetIndex('mineradioGalaxy')).toBe(0);
+        expect(resolveWebGLPresetIndex('mineradioTunnel')).toBe(0);
+        expect(resolveWebGLPresetIndex('nebula')).toBe(0);
     });
 });

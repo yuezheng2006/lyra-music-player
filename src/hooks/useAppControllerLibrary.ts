@@ -27,6 +27,10 @@ export function useAppControllerLibrary(core: AppControllerCoreResult) {
         handleAlbumSelect: navigateToNeteaseAlbum,
         handleArtistSelect: navigateToNeteaseArtist,
         handleSetLyricFilterPattern,
+        handleSetLyricStaffPolicy,
+        handleSetLyricStaffMinDwellSeconds,
+        handleSetLyricStaffAbsorbMode,
+        handleSetLyricStaffPattern,
         hideSearchOverlay,
         interruptStagePlaybackForMainTransition,
         isFmMode,
@@ -37,6 +41,7 @@ export function useAppControllerLibrary(core: AppControllerCoreResult) {
         loadMoreSearchResults,
         loopMode,
         lyrics,
+        lyricFilterPattern,
         mainPlaybackSnapshotRef,
         navigateDirectHome,
         navigateToPlayer,
@@ -196,6 +201,7 @@ export function useAppControllerLibrary(core: AppControllerCoreResult) {
         loadLocalSongs,
         loadLocalPlaylists,
         canRestoreSession: windowPlaybackHandoffRestoreStatus === 'none',
+        shouldAutoPlayRef: shouldAutoPlay,
     });
 
     const {
@@ -213,14 +219,19 @@ export function useAppControllerLibrary(core: AppControllerCoreResult) {
     });
 
     const handleSaveLyricFilterPattern = createLyricFilterPatternSaver({
+        currentPattern: lyricFilterPattern,
         handleSetLyricFilterPattern,
+        handleSetLyricStaffPolicy,
+        handleSetLyricStaffMinDwellSeconds,
+        handleSetLyricStaffAbsorbMode,
+        handleSetLyricStaffPattern,
         loadCurrentSongLyricPreview,
         setLyrics,
         setCurrentLineIndex,
         setStatusMsg,
     });
 
-    const { addNavidromeSongsToQueue } = createQueueMutations({
+    const { addNavidromeSongsToQueue, replacePlayQueue } = createQueueMutations({
         currentSong,
         playQueue,
         setPlayQueue,
@@ -228,6 +239,7 @@ export function useAppControllerLibrary(core: AppControllerCoreResult) {
         setStatusMsg,
         t: key => t(key),
         queueAddBehavior,
+        isNowPlayingStageActive,
     });
 
     const {
@@ -384,6 +396,7 @@ export function useAppControllerLibrary(core: AppControllerCoreResult) {
         playOnlineQueueFromStart,
         playSong,
         playlistShelfItems,
+        replacePlayQueue,
         saveCurrentQueueAsLocalPlaylist,
         setPendingUnavailableReplacement,
         setShowLyricMatchModal,

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Play, Pause, Repeat, Repeat1, RepeatOff, SkipBack, SkipForward, Disc3, Download, Home, Maximize, Minimize, Maximize2, Minimize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { MotionValue } from 'framer-motion';
-import ProgressBar from './ProgressBar';
+import FloatingPlayerProgressRail from './FloatingPlayerProgressRail';
 import FloatingPlayerBackgroundMenu from './FloatingPlayerBackgroundMenu';
 import FloatingPlayerDockTime from './FloatingPlayerDockTime';
 import FloatingPlayerQueueMenu from './FloatingPlayerQueueMenu';
@@ -24,7 +24,6 @@ import { getMineradioPresetLabelFallback } from './visualizer/geometric/mineradi
 import {
     FLOATING_PLAYER_DOCK_MAX_WIDTH_PX,
     FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX,
-    FLOATING_PLAYER_PROGRESS_INSET_PX,
     resolveFloatingPlayerDockFrameStyle,
 } from './floatingPlayerDockLayout';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
@@ -412,7 +411,8 @@ const FloatingPlayerControls: React.FC<FloatingPlayerControlsProps> = ({
                         getVisualizerModeLabel={getVisualizerModeLabel}
                         onDockPopoverOpenChange={onDockPopoverOpenChange}
                         onEnsurePlayerView={() => {
-                            if (currentView !== 'player') onNavigateToPlayer();
+                            // Always route — hash/#player and React view can desync after dock hops.
+                            onNavigateToPlayer();
                         }}
                     />
                 </motion.div>
@@ -648,27 +648,19 @@ const DockedBar: React.FC<DockedBarProps> = ({
 
     return (
         <div className="relative h-full w-full overflow-visible">
-            {/* Edge scrubber inset clears capsule corners so the rail is not clipped. */}
-            <div
-                className="absolute top-[4px] z-20 overflow-visible"
-                style={{
-                    left: FLOATING_PLAYER_PROGRESS_INSET_PX,
-                    right: FLOATING_PLAYER_PROGRESS_INSET_PX,
-                }}
-            >
-                <ProgressBar
-                    currentTime={currentTime}
-                    duration={duration}
-                    onSeek={onSeek}
-                    primaryColor={primaryColor}
-                    secondaryColor={secondaryColor}
-                    trackColor={trackColor}
-                    disabled={controlsDisabled}
-                    isLoading={isAudioSourceLoading}
-                    isDaylight={isDaylight}
-                    variant="edge"
-                />
-            </div>
+            <FloatingPlayerProgressRail
+                currentTime={currentTime}
+                duration={duration}
+                onSeek={onSeek}
+                primaryColor={primaryColor}
+                secondaryColor={secondaryColor}
+                trackColor={trackColor}
+                disabled={controlsDisabled}
+                isLoading={isAudioSourceLoading}
+                isDaylight={isDaylight}
+                playQueue={playQueue}
+                currentSongId={currentSong?.id}
+            />
 
             {/* Mineradio order: cover · quality · loop · prev/play/next · home · bg · 词 · queue · fullscreen · time */}
             <div className="grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-5 pt-2.5 sm:gap-3 sm:px-6 md:px-7">

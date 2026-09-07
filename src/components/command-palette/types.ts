@@ -60,10 +60,15 @@ export type CommandPaletteContext = {
     handlePrevTrack: () => void;
     /** Adjust volume by a relative step (e.g. ±0.05); may unmute on step-up. */
     adjustVolumeByStep: (delta: number) => void;
+    setVolume: (volume: number) => void;
     toggleMute: () => void;
     shuffleQueue: () => void;
     playQueue: SongResult[];
+    currentSong: SongResult | null;
+    replacePlayQueue: (nextQueue: SongResult[], toastText?: string) => boolean;
     playSong: (song: SongResult, queue?: SongResult[]) => void | Promise<void>;
+    startNeteasePersonalFm: () => Promise<boolean>;
+    startNeteaseHeartbeat: () => Promise<boolean>;
     canGenerateAITheme: boolean;
     isGeneratingTheme: boolean;
     generateAITheme: () => void;
@@ -73,6 +78,7 @@ export type CommandPaletteContext = {
     setVisualizerBackgroundMode: (mode: VisualizerBackgroundMode) => void;
     setMonetBackgroundTuning: (patch: Partial<MonetBackgroundTuning>) => void;
     setLatentBackgroundTuning: (patch: Partial<import('../../types').LatentBackgroundTuning>) => void;
+    setNomandBackgroundTuning: (patch: Partial<import('../../types').NomandBackgroundTuning>) => void;
     toggleTransparentBackground: () => void;
     hideBottomSubtitleOverlay: boolean;
     toggleBottomSubtitleOverlay: () => void;
@@ -104,7 +110,9 @@ export type CommandPaletteContext = {
     setDesktopLyricsLocked: (locked: boolean) => Promise<boolean>;
     desktopLyricsEnabled: boolean;
     desktopLyricsLocked: boolean;
+    setDesktopLyricsYFactor: (factor: number) => void;
     downloadCurrentSong: () => Promise<boolean>;
+    downloadSearchResults: () => Promise<boolean>;
     startVideoExport: (startMode?: import('../../types/videoExport').VideoExportStartMode) => void;
     isElectronWindow: boolean;
 };

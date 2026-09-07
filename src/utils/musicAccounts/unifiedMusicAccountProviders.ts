@@ -32,14 +32,14 @@ export const UNIFIED_ACCOUNT_PROVIDERS: readonly UnifiedAccountProviderDef[] = [
     },
     {
         id: 'qishui',
-        kind: 'peer-free',
+        kind: 'login',
         badge: 'QS',
         titleKey: 'home.qishuiProvider',
         hintKey: 'home.qishuiProviderHint',
     },
     {
         id: 'kugou',
-        kind: 'peer-free',
+        kind: 'login',
         badge: 'KG',
         titleKey: 'home.kugouProvider',
         hintKey: 'home.kugouProviderHint',

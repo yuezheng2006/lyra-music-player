@@ -1,74 +1,32 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { NeteasePlaylist, OnlineMusicProviderId } from '../../types';
+import type { NeteaseUser } from '../../types';
 import { HomeShelfCard } from '../shared/HomeShelfCard';
-import { resolveOnlineProviderIconUrl } from '../../utils/onlineProviderAssets';
 import { isProviderDefaultPlaylist } from '../../utils/onlineDefaultPlaylists';
-import { shouldShowHomePeerShortcuts } from '../../utils/ui/homePeerSectionMath';
+import { formatCompactPlayCount } from '../../utils/home/personalizedPlaylistMath';
+import { HOME_PLAYLIST_SHELF_GRID_CLASS } from '../../utils/home/discoveryRailMath';
+import { resolveOnlineHomeLibrarySections } from '../../utils/home/onlineHomeLibraryMath';
 import { resolveHomeContentBottomPaddingClass } from '../app/home/homeSurfaceStyles';
+import type { OnlineHomeFlatItem } from './onlineHomeFlatTypes';
+
+export type { OnlineHomeFlatItem } from './onlineHomeFlatTypes';
 
 // src/components/folia-grid/OnlineHomeFlatSurface.tsx
-// Flat sectional home: peer shortcuts stay demoted; personal playlists own the fold.
-
-export type OnlineHomeFlatItem = {
-    id: string | number;
-    name: string;
-    coverUrl?: string;
-    trackCount?: number;
-    description?: string;
-    musicProvider?: OnlineMusicProviderId;
-    raw: NeteasePlaylist;
-};
+// Personal playlist covers after login. Guest login lives on the discovery rail.
 
 type OnlineHomeFlatSurfaceProps = {
     items: OnlineHomeFlatItem[];
     isDaylight: boolean;
     hasFloatingPlayer?: boolean;
+    hasPersonalAccount?: boolean;
+    user?: NeteaseUser | null;
     moduleFilter: 'all' | 'created' | 'liked';
     onSelectPlaylist: (item: OnlineHomeFlatItem) => void;
+    onRefreshUser?: () => void;
     emptyMessage?: string;
 };
 
-const isLikedName = (item: OnlineHomeFlatItem) => {
-    const name = item.name?.trim() || '';
-    return name.includes('喜欢') || name.includes('红心') || name.includes('Favorite');
-};
-
-const SHELF_GRID_CLASS = 'grid grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-2.5 md:gap-3';
-
-const chipShellClass = (isDaylight: boolean) => (
-    isDaylight
-        ? 'bg-black/[0.04] border-black/10 text-black/75 hover:bg-black/[0.07] hover:text-black'
-        : 'bg-white/[0.06] border-white/12 text-white/80 hover:bg-white/[0.1] hover:text-white'
-);
-
-/** Compact platform entry: opens peer search without competing with「来源」pills. */
-const PeerShortcutChip: React.FC<{
-    item: OnlineHomeFlatItem;
-    isDaylight: boolean;
-    onSelect: () => void;
-}> = ({ item, isDaylight, onSelect }) => {
-    const iconUrl = resolveOnlineProviderIconUrl(item.musicProvider) || item.coverUrl;
-
-    return (
-        <button
-            type="button"
-            onClick={onSelect}
-            title={item.description || item.name}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors active:scale-[0.97] ${chipShellClass(isDaylight)}`}
-        >
-            {iconUrl ? (
-                <img
-                    src={iconUrl}
-                    alt=""
-                    aria-hidden="true"
-                    className="h-3.5 w-3.5 rounded-[3px] object-cover shrink-0"
-                />
-            ) : null}
-            <span className="max-w-[7.5rem] truncate">{item.name}</span>
-        </button>
-    );
-};
+const SHELF_GRID_CLASS = HOME_PLAYLIST_SHELF_GRID_CLASS;
 
 const PlaylistCard: React.FC<{
     item: OnlineHomeFlatItem;
@@ -79,6 +37,7 @@ const PlaylistCard: React.FC<{
         title={item.name}
         subtitle={item.description}
         coverUrl={item.coverUrl}
+        coverBadge={formatCompactPlayCount(item.playCount ?? item.raw.playCount ?? 0)}
         placeholderVariant="playlist"
         provider={item.musicProvider}
         isDaylight={isDaylight}
@@ -104,23 +63,6 @@ const SectionTitle: React.FC<{
                 {count}
             </span>
         ) : null}
-    </div>
-);
-
-const PeerShortcutRow: React.FC<{
-    items: OnlineHomeFlatItem[];
-    isDaylight: boolean;
-    onSelectPlaylist: (item: OnlineHomeFlatItem) => void;
-}> = ({ items, isDaylight, onSelectPlaylist }) => (
-    <div className="flex flex-wrap gap-1.5">
-        {items.map(item => (
-            <PeerShortcutChip
-                key={`${item.musicProvider || 'netease'}-${item.id}`}
-                item={item}
-                isDaylight={isDaylight}
-                onSelect={() => onSelectPlaylist(item)}
-            />
-        ))}
     </div>
 );
 
@@ -153,96 +95,60 @@ const PlaylistGrid: React.FC<{
     );
 };
 
+const LIBRARY_SECTION_TITLE_KEY = {
+    likedSongs: 'home.sectionLikedSongs',
+    created: 'home.sectionCreatedPlaylists',
+    collected: 'home.sectionCollectedPlaylists',
+    liked: 'home.sectionLiked',
+    playlists: 'home.sectionPlaylists',
+} as const;
+
 export const OnlineHomeFlatSurface: React.FC<OnlineHomeFlatSurfaceProps> = ({
     items,
     isDaylight,
     hasFloatingPlayer = false,
+    user,
     moduleFilter,
     onSelectPlaylist,
     emptyMessage,
 }) => {
     const { t } = useTranslation();
 
-    const specialItems = useMemo(
-        () => items.filter(item => isProviderDefaultPlaylist(item.raw)),
+    const personalItems = useMemo(
+        () => items.filter(item => !isProviderDefaultPlaylist(item.raw)),
         [items],
     );
-    const likedItems = useMemo(
-        () => items.filter(item => !isProviderDefaultPlaylist(item.raw) && isLikedName(item)),
-        [items],
+    const sections = useMemo(
+        () => resolveOnlineHomeLibrarySections(personalItems, {
+            moduleFilter,
+            userId: user?.userId,
+        }),
+        [moduleFilter, personalItems, user?.userId],
     );
-    const libraryItems = useMemo(
-        () => items.filter(item => !isProviderDefaultPlaylist(item.raw) && !isLikedName(item)),
-        [items],
-    );
-
-    const personalItemCount = libraryItems.length + likedItems.length;
-    const showPeerShortcuts = moduleFilter === 'all'
-        && shouldShowHomePeerShortcuts(specialItems.length, personalItemCount);
-    const primaryItems = moduleFilter === 'all'
-        ? libraryItems
-        : items.filter(item => !isProviderDefaultPlaylist(item.raw));
-    const showLikedSection = moduleFilter === 'all' && likedItems.length > 0;
-    const showPrimarySection = moduleFilter !== 'all'
-        || libraryItems.length > 0
-        || specialItems.length === 0;
-    const primaryTitle = moduleFilter === 'liked'
-        ? t('home.sectionLiked')
-        : t('home.sectionPlaylists');
 
     return (
         <div
-            className={`custom-scrollbar h-full min-h-0 w-full overflow-y-auto overscroll-contain px-4 md:px-8 ${
+            className={`w-full px-4 md:px-8 ${
                 resolveHomeContentBottomPaddingClass(hasFloatingPlayer)
             }`}
             data-app-ui-surface="home-playlists"
         >
             <div className="mx-auto max-w-6xl space-y-4">
-                {showPeerShortcuts ? (
-                    <section>
+                {sections.map((section) => (
+                    <section key={section.id}>
                         <SectionTitle
-                            title={t('home.sectionPeerShortcuts')}
+                            title={t(LIBRARY_SECTION_TITLE_KEY[section.titleKey])}
                             isDaylight={isDaylight}
-                            count={specialItems.length}
-                        />
-                        <PeerShortcutRow
-                            items={specialItems}
-                            isDaylight={isDaylight}
-                            onSelectPlaylist={onSelectPlaylist}
-                        />
-                    </section>
-                ) : null}
-
-                {showPrimarySection ? (
-                    <section>
-                        <SectionTitle
-                            title={primaryTitle}
-                            isDaylight={isDaylight}
-                            count={primaryItems.length}
+                            count={section.items.length}
                         />
                         <PlaylistGrid
-                            items={primaryItems}
+                            items={section.items}
                             isDaylight={isDaylight}
                             onSelectPlaylist={onSelectPlaylist}
-                            emptyMessage={emptyMessage}
+                            emptyMessage={section.id === 'primary' ? emptyMessage : undefined}
                         />
                     </section>
-                ) : null}
-
-                {showLikedSection ? (
-                    <section>
-                        <SectionTitle
-                            title={t('home.sectionLiked')}
-                            isDaylight={isDaylight}
-                            count={likedItems.length}
-                        />
-                        <PlaylistGrid
-                            items={likedItems}
-                            isDaylight={isDaylight}
-                            onSelectPlaylist={onSelectPlaylist}
-                        />
-                    </section>
-                ) : null}
+                ))}
             </div>
         </div>
     );

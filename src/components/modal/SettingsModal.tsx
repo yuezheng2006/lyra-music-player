@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Command, MousePointer2, Keyboard, Settings2, Trash2, Database, Monitor, PlayCircle, Loader2, Server, Check, AlertCircle, FlaskConical, ChevronLeft, ChevronRight, RefreshCw, Download, ExternalLink, Sparkles, Palette, CircleHelp, Languages, Clock } from 'lucide-react';
+import { X, Command, MousePointer2, Keyboard, Settings2, Trash2, Database, Monitor, PlayCircle, Loader2, Server, Check, AlertCircle, FlaskConical, ChevronRight, RefreshCw, Download, ExternalLink, Sparkles, Palette, CircleHelp, Languages, Clock, Lightbulb } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getCacheUsageByCategory, clearCacheByCategory, clearAllData } from '../../services/db';
 import { DualTheme, StageStatus, StageSource, Theme, ThemeMode, type CadenzaTuning, type CappellaEmojiImage, type CappellaTuning, type FumeTuning, type NowPlayingConnectionStatus, type PartitaTuning, type TiltTuning, type StoredCustomLyricsFont, type VisualizerMode } from '../../types';
@@ -10,6 +10,7 @@ import VisPlayground from '../visualizer/VisPlayground';
 import { VISUALIZER_REGISTRY, getVisualizerModeLabel } from '../visualizer/registry';
 import ThemePark from './ThemePark';
 import LyricFilterSettingsModal from './LyricFilterSettingsModal';
+import type { LyricFilterDraft } from './LyricFilterSettingsModal';
 import { PlayHistoryModal } from './PlayHistoryModal';
 import AppearanceSettingsSubview from './settings/AppearanceSettingsSubview';
 import DesktopSettingsSubview from './settings/DesktopSettingsSubview';
@@ -17,7 +18,10 @@ import GeneralSettingsSubview from './settings/GeneralSettingsSubview';
 import IntegrationSettingsSubview from './settings/IntegrationSettingsSubview';
 import LabSettingsModal from './settings/LabSettingsModal';
 import PlaybackSettingsSubview from './settings/PlaybackSettingsSubview';
+import { SettingsSubviewShell } from './settings/SettingsSubviewShell';
 import StorageSettingsSection from './settings/StorageSettingsSection';
+import TrackAtmosphereLightPlanSettingsModal from './settings/TrackAtmosphereLightPlanSettingsModal';
+import type { TrackAtmosphereSongMeta } from '../../types/trackAtmosphereLightPlan';
 import { AiHelpPromptModal } from './AiHelpPromptModal';
 import meowImageUrl from '../../../build/miao.png';
 import type { LyricData } from '../../types';
@@ -26,6 +30,7 @@ import { useShallow } from 'zustand/react/shallow';
 import type { ObsBrowserSourceStatus } from '../../types/obsBrowserSource';
 import type { DesktopLyricsStatus } from '../../types/desktopLyrics';
 import { isDiscordPresenceUiEnabled, isNavidromeUiEnabled } from '../../utils/featureFlags';
+import { useSettingsChromeDaylight } from '../../hooks/useSettingsChromeDaylight';
 
 
 interface SettingsModalProps {
@@ -49,7 +54,8 @@ interface SettingsModalProps {
     loadLyricFilterPreview: () => Promise<LyricData | null>;
     currentSongTitle?: string | null;
     currentCoverUrl?: string | null;
-    onSaveLyricFilterPattern: (pattern: string) => Promise<void> | void;
+    trackAtmosphereSongMeta?: TrackAtmosphereSongMeta | null;
+    onSaveLyricFilterPattern: (draft: LyricFilterDraft) => Promise<void> | void;
     stageStatus?: StageStatus | null;
     stageSource?: StageSource | null;
     onToggleStageMode?: (enabled: boolean) => Promise<void> | void;
@@ -93,6 +99,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     loadLyricFilterPreview,
     currentSongTitle,
     currentCoverUrl,
+    trackAtmosphereSongMeta = null,
     onSaveLyricFilterPattern,
     stageStatus = null,
     stageSource = null,
@@ -114,6 +121,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     onSetDesktopLyricsLocked,
 }) => {
     const { t } = useTranslation();
+    const isDaylight = useSettingsChromeDaylight();
     const {
         useCoverColorBg,
         staticMode,
@@ -133,11 +141,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         hideTaskbarIcon,
         openPlayerOnLaunch,
         enableMediaCache,
+        autoResyncDownloadFolder,
         backgroundOpacity,
         subtitleOverlayOpacity,
         visualizerOpacity,
         visualizerBackgroundMode,
-        isDaylight,
         visualizerMode,
         homeLayoutStyle,
         grid3dCardStyle,
@@ -151,6 +159,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         pendoloTuning,
         monetBackgroundTuning,
         latentBackgroundTuning,
+        nomandBackgroundTuning,
         interactive3dSceneTuning,
         monetTuning,
         cappellaCustomEmojiImages,
@@ -168,6 +177,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         lyricsCustomFontFamily,
         lyricsCustomFontLabel,
         lyricFilterPattern,
+        lyricStaffPolicy,
+        lyricStaffMinDwellSeconds,
+        lyricStaffAbsorbMode,
+        lyricStaffPattern,
         showOpenPanelCloseButton,
         enableNowPlayingStage,
         handleToggleCoverColorBg: onToggleCoverColorBg,
@@ -188,6 +201,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         handleToggleHideTaskbarIcon: onToggleHideTaskbarIcon,
         handleToggleOpenPlayerOnLaunch: onToggleOpenPlayerOnLaunch,
         handleToggleMediaCache: onToggleMediaCache,
+        handleToggleAutoResyncDownloadFolder: onToggleAutoResyncDownloadFolder,
         handleSetBackgroundOpacity: setBackgroundOpacity,
         handleSetSubtitleOverlayOpacity: setSubtitleOverlayOpacity,
         handleSetVisualizerOpacity: setVisualizerOpacity,
@@ -212,6 +226,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         handleResetMonetBackgroundTuning: onResetMonetBackgroundTuning,
         handleSetLatentBackgroundTuning: onLatentBackgroundTuningChange,
         handleResetLatentBackgroundTuning: onResetLatentBackgroundTuning,
+        handleSetNomandBackgroundTuning: onNomandBackgroundTuningChange,
+        handleResetNomandBackgroundTuning: onResetNomandBackgroundTuning,
         handleSetInteractive3dSceneTuning: onInteractive3dSceneTuningChange,
         handleResetInteractive3dSceneTuning: onResetInteractive3dSceneTuning,
         handleSetMonetTuning: onMonetTuningChange,
@@ -249,6 +265,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     const [showStorageSettings, setShowStorageSettings] = useState(false);
     const [showDesktopSettings, setShowDesktopSettings] = useState(false);
     const [showLabSettings, setShowLabSettings] = useState(false);
+    const [showTrackAtmosphereLightSettings, setShowTrackAtmosphereLightSettings] = useState(false);
     const [showLyricFilterSettings, setShowLyricFilterSettings] = useState(false);
     const [showPlayHistory, setShowPlayHistory] = useState(false);
     const [showAiHelpPrompt, setShowAiHelpPrompt] = useState(false);
@@ -269,6 +286,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         setShowStorageSettings(initialSubview === 'storage');
         setShowDesktopSettings(initialSubview === 'desktop');
         setShowLabSettings(initialSubview === 'lab');
+        setShowTrackAtmosphereLightSettings(initialSubview === 'trackAtmosphereLight');
         setShowLyricFilterSettings(initialSubview === 'lyricFilter');
     }, [initialSubview, initialTab]);
 
@@ -846,6 +864,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         || showStorageSettings
         || showDesktopSettings
         || showLabSettings
+        || showTrackAtmosphereLightSettings
         || showLyricFilterSettings;
 
     const closeAllSubviews = () => {
@@ -862,6 +881,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         setShowStorageSettings(false);
         setShowDesktopSettings(false);
         setShowLabSettings(false);
+        setShowTrackAtmosphereLightSettings(false);
         setShowLyricFilterSettings(false);
         setShowPlayHistory(false);
     };
@@ -935,64 +955,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         action?: React.ReactNode;
         zIndex?: number;
     }) => (
-        <AnimatePresence>
-            {isOpen && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={shellTransition}
-                    className="fixed inset-0 p-3 sm:p-5"
-                    style={{ backgroundColor: overlayBackground, zIndex }}
-                    onClick={(event) => handleBackdropClose(event, handleClose)}
-                >
-                    <motion.div
-                        {...panelMotion}
-                        transition={shellTransition}
-                        className={`mx-auto flex h-full max-w-3xl flex-col overflow-hidden rounded-[32px] border ${borderColor} ${subviewPanelBg} shadow-[0_24px_80px_rgba(0,0,0,0.28)] relative`}
-                        onClick={(event) => event.stopPropagation()}
-                    >
-                        {/* Decorative background blobs */}
-                        <div className="absolute inset-0 pointer-events-none z-0">
-                            <div
-                                className={`absolute -top-24 -right-24 w-64 h-64 rounded-full blur-[80px] ${isDaylight ? 'opacity-20' : 'opacity-10'}`}
-                                style={{ backgroundColor: theme?.accentColor || (isDaylight ? '#60a5fa' : '#3b82f6') }}
-                            />
-                            <div
-                                className={`absolute -bottom-24 -left-24 w-64 h-64 rounded-full blur-[80px] ${isDaylight ? 'opacity-20' : 'opacity-10'}`}
-                                style={{ backgroundColor: theme?.secondaryColor || theme?.accentColor || (isDaylight ? '#c084fc' : '#a855f7') }}
-                            />
-                        </div>
-                        <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6 relative z-10">
-                            <div className="flex items-center gap-3 min-w-0">
-                                <button
-                                    type="button"
-                                    onClick={handleClose}
-                                    className="h-10 w-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center transition-colors hover:bg-white/10"
-                                    style={{ color: 'var(--text-primary)' }}
-                                >
-                                    <ChevronLeft size={18} />
-                                </button>
-                                <div className="min-w-0">
-                                    <div className="text-lg sm:text-xl font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                                        {title}
-                                    </div>
-                                    <div className="text-xs opacity-50 mt-1" style={{ color: 'var(--text-secondary)' }}>
-                                        {description}
-                                    </div>
-                                </div>
-                            </div>
-                            {action ?? null}
-                        </div>
-                        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-5 sm:px-6 relative z-10">
-                            <div className="space-y-8">
-                                {children}
-                            </div>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
+        <SettingsSubviewShell
+            isOpen={isOpen}
+            onClose={handleClose}
+            title={title}
+            description={description}
+            action={action}
+            zIndex={zIndex}
+            isDaylight={isDaylight}
+            theme={theme}
+            overlayBackground={overlayBackground}
+            borderColor={borderColor}
+            panelBackgroundClass={subviewPanelBg}
+        >
+            {children}
+        </SettingsSubviewShell>
     );
     const closeSubviewOrModal = (closeSubview: () => void) => {
         if (shouldCloseModalOnSubviewBack) {
@@ -1515,6 +1492,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                             <ChevronRight size={18} className="shrink-0 opacity-60" style={{ color: 'var(--text-primary)' }} />
                                         </div>
                                     </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTrackAtmosphereLightSettings(true)}
+                                        className={`w-full p-4 rounded-xl border transition-colors ${settingsCardInteractiveClass}`}
+                                        data-testid="settings-open-track-atmosphere-light"
+                                    >
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-start gap-3 text-left">
+                                                <div className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 ${settingsIconClass}`} style={{ color: 'var(--text-primary)' }}>
+                                                    <Lightbulb size={18} />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                                        {t('options.trackAtmosphereLightPlanSettings') || '曲级氛围灯光'}
+                                                    </div>
+                                                    <div className="text-xs opacity-50 max-w-[260px]" style={{ color: 'var(--text-secondary)' }}>
+                                                        {t('options.trackAtmosphereLightPlanSettingsDesc') || '预提取氛围灯光配方：内置目录、本地覆盖与当前歌曲匹配。'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <ChevronRight size={18} className="shrink-0 opacity-60" style={{ color: 'var(--text-primary)' }} />
+                                        </div>
+                                    </button>
                                 </section>
 
                             </motion.div>
@@ -1575,6 +1576,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         pendoloTuning={pendoloTuning}
                         monetBackgroundTuning={monetBackgroundTuning}
                         latentBackgroundTuning={latentBackgroundTuning}
+                        nomandBackgroundTuning={nomandBackgroundTuning}
                         interactive3dSceneTuning={interactive3dSceneTuning}
                         monetTuning={monetTuning}
                         cappellaCustomEmojiImages={cappellaCustomEmojiImages}
@@ -1622,6 +1624,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         onResetMonetBackgroundTuning={onResetMonetBackgroundTuning}
                         onLatentBackgroundTuningChange={onLatentBackgroundTuningChange}
                         onResetLatentBackgroundTuning={onResetLatentBackgroundTuning}
+                        onNomandBackgroundTuningChange={onNomandBackgroundTuningChange}
+                        onResetNomandBackgroundTuning={onResetNomandBackgroundTuning}
                         onInteractive3dSceneTuningChange={onInteractive3dSceneTuningChange}
                         onResetInteractive3dSceneTuning={onResetInteractive3dSceneTuning}
                         onMonetTuningChange={onMonetTuningChange}
@@ -1707,6 +1711,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         isOpen={showPlaybackSettings}
                         isDaylight={isDaylight}
                         onAudioOutputDeviceChange={onAudioOutputDeviceChange}
+                        onOpenLyricFilterSettings={() => setShowLyricFilterSettings(true)}
                         settingsCardClass={settingsCardClass}
                         theme={theme}
                         utilityGhostButtonClass={utilityGhostButtonClass}
@@ -1777,6 +1782,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         downloadDirectoryIsDefault={downloadDirectoryIsDefault}
                         downloadDirectoryStatus={downloadDirectoryStatus}
                         enableMediaCache={enableMediaCache}
+                        autoResyncDownloadFolder={autoResyncDownloadFolder}
                         errorTextColor={errorTextColor}
                         isCleaning={isCleaning}
                         isElectron={isElectron}
@@ -1788,6 +1794,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         onOpenDownloadDirectory={handleOpenDownloadDirectory}
                         onResetDownloadDirectory={handleResetDownloadDirectory}
                         onToggleMediaCache={onToggleMediaCache}
+                        onToggleAutoResyncDownloadFolder={onToggleAutoResyncDownloadFolder}
                         settingsCardClass={settingsCardClass}
                         settingsIconClass={settingsIconClass}
                         theme={theme}
@@ -1909,14 +1916,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             })}<LabSettingsModal
                 isOpen={showLabSettings}
                 onClose={() => closeSubviewOrModal(() => setShowLabSettings(false))}
-                onOpenLyricFilterSettings={() => setShowLyricFilterSettings(true)}
+                onOpenTrackAtmosphereLightPlanSettings={() => setShowTrackAtmosphereLightSettings(true)}
                 theme={theme}
+            />
+            <TrackAtmosphereLightPlanSettingsModal
+                isOpen={showTrackAtmosphereLightSettings}
+                onClose={() => closeSubviewOrModal(() => setShowTrackAtmosphereLightSettings(false))}
+                theme={theme}
+                songMeta={trackAtmosphereSongMeta}
             />
             <LyricFilterSettingsModal
                 isOpen={showLyricFilterSettings}
                 isDaylight={isDaylight}
                 currentSongTitle={currentSongTitle}
                 initialPattern={lyricFilterPattern}
+                initialStaffPolicy={lyricStaffPolicy}
+                initialStaffMinDwellSeconds={lyricStaffMinDwellSeconds}
+                initialStaffAbsorbMode={lyricStaffAbsorbMode}
+                initialStaffPattern={lyricStaffPattern}
                 loadPreviewLyrics={loadLyricFilterPreview}
                 onClose={() => closeSubviewOrModal(() => setShowLyricFilterSettings(false))}
                 onSave={onSaveLyricFilterPattern}

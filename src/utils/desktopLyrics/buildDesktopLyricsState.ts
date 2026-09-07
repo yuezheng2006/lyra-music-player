@@ -96,7 +96,7 @@ export const buildDesktopLyricsState = ({
             rate: clamp(playbackRate, 0.25, 4, 1),
         },
         opacity: clamp(opacity, 0.28, 1, 0.92),
-        y: clamp(y, 0.08, 0.92, 0.76),
+        y: clamp(y, 0, 1, 0.76),
         size: clamp(lyricsFontScale, 0.72, 1.55, 1),
         clickThrough,
         highlightFollow,

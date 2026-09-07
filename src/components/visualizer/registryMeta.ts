@@ -3,6 +3,8 @@ import type { VisualizerTuningKind } from './definition';
 
 // src/components/visualizer/registryMeta.ts
 // Lightweight sync metadata so mode lists do not eager-load every visualizer module.
+// dazibao/ remains on disk but is not a picker mode: the billboard layout did not meet
+// the compact-stage quality bar (Folia-primary lyric PV).
 
 export type VisualizerRegistryMeta = {
     mode: VisualizerMode;
@@ -15,6 +17,15 @@ export type VisualizerRegistryMeta = {
 };
 
 export const VISUALIZER_REGISTRY_META: VisualizerRegistryMeta[] = [
+    {
+        mode: 'still',
+        order: 0,
+        labelKey: 'ui.visualizerStill',
+        labelFallback: 'Still',
+        previewSeed: 'still',
+        previewStartOffset: 0,
+        tuningKind: 'none',
+    },
     {
         mode: 'classic',
         order: 10,

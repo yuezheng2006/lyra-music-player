@@ -63,12 +63,12 @@ const YtmusicHomeRails: React.FC<YtmusicHomeRailsProps> = ({
     }
 
     return (
-        <div className="space-y-5">
-            <div className="space-y-1 px-1">
-                <h2 className="text-sm font-semibold tracking-tight">
+        <div className="space-y-7">
+            <div className="space-y-1.5 px-1">
+                <h2 className="text-base font-semibold tracking-tight">
                     {t('ytmusic.homeRailsHeading')}
                 </h2>
-                <p className={`text-xs leading-relaxed ${muted}`}>
+                <p className={`max-w-2xl text-xs leading-relaxed ${muted}`}>
                     {t('ytmusic.homeRailsCaption')}
                 </p>
             </div>

@@ -17,11 +17,12 @@ import { resolveOverlaySearchProviders } from '../utils/onlineSearchRouting';
 import { useSearchNavigationStore } from '../stores/useSearchNavigationStore';
 import type { NextTrackOptions, PlaybackNavigationOptions, SkipPromptMessageKey, UnavailableReplacementRequest } from '../types/appPlayback';
 import type { NavidromeSong } from '../types/navidrome';
-import { isLocalPlaybackSong, isNavidromePlaybackSong, isYtmPlaybackSong, resolveNavidromePlaybackCarrier, resolveYtmPlaybackCarrier } from '../utils/appPlaybackGuards';
+import { getPlaybackSongKey, isLocalPlaybackSong, isNavidromePlaybackSong, isYtmPlaybackSong, resolveNavidromePlaybackCarrier, resolveYtmPlaybackCarrier } from '../utils/appPlaybackGuards';
 import { applyQueueAddBehavior } from '../utils/queueAddBehavior';
 import { buildStagePlayerSnapshot, resolveStagePlayerQueueItemIndex } from '../utils/stagePlayerSnapshot';
 import { clearOnlinePlaybackRecoveryState } from '../components/app/playback/createOnlineRecoveryController';
 import { resolveSongDurationSec } from '../utils/appPlaybackHelpers';
+import { canOpenOnlineSong, hasProviderSessionForSong } from '../utils/playback/onlineSongPlayAccess';
 import {
     armAutoPlayIntent,
     hasPlayableHtmlMediaSource,
@@ -224,7 +225,7 @@ export function usePlaybackQueueController({
 }: UsePlaybackQueueControllerParams) {
     const [pendingUnavailableReplacement, setPendingUnavailableReplacement] = useState<UnavailableReplacementRequest | null>(null);
     /** Online playSong in-flight song id — prevents same-card re-clicks from aborting URL fetch. */
-    const pendingOnlinePlaySongIdRef = useRef<SongResult['id'] | null>(null);
+    const pendingOnlinePlaySongKeyRef = useRef<string | null>(null);
 
     const appendNeteaseSongsToMainQueue = useCallback((songs: SongResult[], options?: { suppressToast?: boolean }) => {
         if (songs.length === 0) {
@@ -235,7 +236,9 @@ export function usePlaybackQueueController({
         const queueAnchorSong = mainSnapshot?.currentSong ?? (activePlaybackContext === 'main' ? currentSong : null);
         const existingQueue = mainSnapshot?.playQueue ?? (activePlaybackContext === 'main' ? playQueue : []);
         const baseQueue = existingQueue.length > 0 ? existingQueue : (queueAnchorSong ? [queueAnchorSong] : []);
-        const queueableSongs = songs.filter(song => !isSongMarkedUnavailable(song));
+        const queueableSongs = songs.filter(
+            song => !isSongMarkedUnavailable(song) && canOpenOnlineSong(song),
+        );
         const { nextQueue, affectedSongs, changed } = applyQueueAddBehavior({
             queue: baseQueue,
             songs: queueableSongs,
@@ -312,10 +315,11 @@ export function usePlaybackQueueController({
 
     const getPlayableOnlineQueue = useCallback((queue: SongResult[]) => {
         return queue.filter(queuedSong => {
-            if (isLocalPlaybackSong(queuedSong) || isNavidromePlaybackSong(queuedSong)) {
+            if (isLocalPlaybackSong(queuedSong) || isNavidromePlaybackSong(queuedSong) || isYtmPlaybackSong(queuedSong)) {
                 return true;
             }
-            return !isSongMarkedUnavailable(queuedSong);
+            if (isSongMarkedUnavailable(queuedSong)) return false;
+            return canOpenOnlineSong(queuedSong);
         });
     }, []);
 
@@ -544,6 +548,18 @@ export function usePlaybackQueueController({
             return;
         }
 
+        if (!isLocal && !isNavidrome && !isYtm && !canOpenOnlineSong(song)) {
+            setStatusMsg({
+                type: 'error',
+                text: hasProviderSessionForSong(song)
+                    ? t('status.previewClipSkipped')
+                    : t('status.loginRequiredToPlay'),
+                nonce: Date.now(),
+                durationMs: 2200,
+            });
+            return;
+        }
+
         if (isYtm) {
             const ytmSong = resolveYtmPlaybackCarrier(song);
             if (!ytmSong) {
@@ -559,7 +575,8 @@ export function usePlaybackQueueController({
         }
 
         // Same-song re-clicks must not cancel an in-flight URL fetch (that feels like “click does nothing”).
-        if (pendingOnlinePlaySongIdRef.current === song.id) {
+        const playbackSongKey = getPlaybackSongKey(song);
+        if (pendingOnlinePlaySongKeyRef.current === playbackSongKey) {
             if (shouldNavigateToPlayer) {
                 navigateToPlayer();
             }
@@ -569,7 +586,7 @@ export function usePlaybackQueueController({
 
         const playbackRequestId = ++playbackRequestIdRef.current;
         const isLatestPlaybackRequest = () => playbackRequestIdRef.current === playbackRequestId;
-        pendingOnlinePlaySongIdRef.current = song.id;
+        pendingOnlinePlaySongKeyRef.current = playbackSongKey;
         const providerId = getSongMusicProviderId(song);
         trackTelemetry('song.switch', {
             data: {
@@ -586,8 +603,8 @@ export function usePlaybackQueueController({
         });
 
         const clearPendingIfCurrent = () => {
-            if (pendingOnlinePlaySongIdRef.current === song.id) {
-                pendingOnlinePlaySongIdRef.current = null;
+            if (pendingOnlinePlaySongKeyRef.current === playbackSongKey) {
+                pendingOnlinePlaySongKeyRef.current = null;
             }
         };
 

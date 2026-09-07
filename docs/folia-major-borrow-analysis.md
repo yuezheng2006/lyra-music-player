@@ -1,9 +1,14 @@
 # Folia Major → Lyra 可迁移分析
 
-> 日期：2026-08-01（增量核查；原稿 2026-07-28）  
-> 参考仓：`.temp/folia-major` @ `002b581` / **v0.6.8**（已 `git pull --ff-only`）  
-> 产品仓：happy-player / Lyra @ `adcb9c7` / **1.0.4**  
-> 许可：两边均为 **AGPL-3.0**，可在保持 AGPL 的前提下直接 cherry-pick / 适配移植
+> 日期：2026-09-06（增量核查；上次 2026-08-30 / 2026-08-29 / 2026-08-24；原稿 2026-07-28）  
+> 参考仓：folia-major **v0.7.3** + origin/main `08fc072f`（相对 v0.7.1：歌词过滤出实验室 / staff credits / 全局 Cmd+K；壁纸与 Tempera 不做）  
+> 产品仓：happy-player / Lyra / **1.0.4**  
+> 许可：两边均为 **AGPL-3.0**，可在保持 AGPL 的前提下直接 cherry-pick / 适配移植  
+> 三仓合阅：`docs/research/2026-08-24-kumone-mineradio-folia-borrow.md`；**2026-08-29 上游增量**：`docs/research/2026-08-29-folia-kumone-upstream.md`；**2026-08-30 v0.7.1**：`docs/research/2026-08-30-folia-v0.7.1-upstream.md`；**2026-09-06 v0.7.3**：`docs/research/2026-09-06-folia-v0.7.3-upstream.md`  
+>  
+> **2026-09-06 对照结论**  
+> - Folia **v0.7.3** 已发布（main 再超前 macOS 壁纸 #337–#340）。本轮落地：**歌词过滤迁到播放设置 + 开头制作人员智能处理（含吸收相邻行）**；**命令面板 Cmd/Ctrl+K 全 app 唤起**（播放页 Cmd+S 保留）。  
+> - 明确不做：automix/stem/onnx、Forge mod loader、Windows/Linux/macOS 壁纸、Tempera/Pixi/Sonnet、god-store 整包拆分、ts-code-map。
 
 ## 1. 关系与版本差
 
@@ -11,12 +16,13 @@ Lyra 是 **folia-major fork + Mineradio 合成**。歌词管线、Visualizer reg
 
 | 项 | Folia (参考) | Lyra |
 |---|---|---|
-| 包名 / 版本 | `folia-major` **0.6.8** | `lyra-music-player` 1.0.4 |
-| 本地参考 HEAD | `002b581`（相对 borrow 旧基线 `3d975a2` / v0.6.5 领先 **35 commits** / ~91 files） | `adcb9c7` |
+| 包名 / 版本 | `folia-major` **0.6.18**（main 再超前 14 commits） | `lyra-music-player` 1.0.4 |
+| 本地参考 HEAD | `cc4c57c9`（相对上次 borrow 基线 `9894ef9` / v0.6.12 领先 **~80 commits** / 276 files） | `feat/lyric-clock-sync-offset-persistence` + 未提交 WIP |
 | 注册歌词模式 | classic, cadenza, partita, fume, tilt, claddagh, monet, cappella, **diorama**, **pendolo** | classic, cadenza, partita, fume, tilt, claddagh, monet, cappella, **pendolo**（**dazibao 有代码未注册**）；**和声字幕已落地** |
-| 产品定位 | 全屏歌词 PV + 网易云/多源在线 | Mineradio 舞台质感 + Folia 歌词设置分层 |
+| 产品定位 | 全屏歌词 PV + 网易云/多源在线 | **Folia 为主、Mineradio 为辅**；硬筛：高性能 / 高B格 / 高氛围 / 高实用 |
 
-产品决策（既有）：**只吸收优点；冲突时保留 Lyra 已校准默认与性能策略**。
+产品决策（2026-09-07）：**对标 Folia（folia-player）为主，Mineradio 为辅。** 冲突时用四条硬筛：高性能、高B格、高氛围、高实用。2026-08-16 的「性能优先、效果其次」收进「高性能」，不再单独压过 B 格和氛围。  
+DOM 歌词走位/时序/设置分层对齐 Folia；新渲染引擎（sonnet/Pixi、diorama 整包、均衡器 AudioContext）在 DOM 主路径未到 Folia 质感前不整包。Lyra 独有常开成本（智能氛围 tick、全局限帧监控）不得为追 B 格而默认打开。氛围是背景特色、视频是匹配/收集，都不替代歌词特效主深度。
 
 ---
 
@@ -57,6 +63,77 @@ Lyra 是 **folia-major fork + Mineradio 合成**。歌词管线、Visualizer reg
 2. 设置面板明暗（体验增量）  
 3. sidecar 对照酷狗 http / 登录缓存清理（另立小修）  
 4. OBS PlayerCap / diorama 等原 P0–P1 队列
+
+---
+
+## 1.2 v0.6.13–origin/main 增量（相对 v0.6.12）
+
+相对 `9894ef9`（v0.6.12）→ `cc4c57c9`（origin/main，2026-08-16 fetch）。Release：v0.6.13 … v0.6.18；main 在 v0.6.18 之后还有 OBS Custom CSS 资源、`/v1/lyric` offset、播放页歌词区重做、去掉商籁性能警告。
+
+### 建议吸收（同源 polish / 小功能）
+
+| 项 | 上游 | 方式 | Lyra 对照 |
+|---|---|---|---|
+| **播放时阻止休眠** | `1b510a4d`；`electron/displaySleepBlocker.cjs` + Lab 设置 + command palette | **适配移植**（P0，体积小） | Lyra 无 `powerSaveBlocker`；可接 Lab + command palette |
+| **播放页控制面板歌词区重做** | `baff1110`；`ControlsTab` 拆 `AppearanceSection` / `ModeStepperRow` / `VolumeRow` 等 | **适配移植**（P1） | Lyra 已拆 `ControlsTabCoreSection` 等，勿整文件覆盖；只学分区与步进器 |
+| **QQ / 酷狗 Electron `safeStorage` 持久化** | `af905666`；`qqAuthSessionRepository.cjs` | **只学架构** | Lyra 已有 QQ provider（当前 WIP）；对照加密落盘，勿整包换 Folia 的 qqProvider |
+| **均衡器** | `acdc2b58`；`audioEqualizer.ts` + `AudioEqualizerDialog` | **产品确认后** | Lyra 无均衡器；会加 AudioContext 节点，和轻氛围/GPU 简化方向冲突，默认不做 |
+| **`/v1/lyric` 增加 offset** | `be3ebcff` | **只学架构** | Lyra 无 Electron lyric HTTP API；已有 `lyricOffsetStore` / Lyric Clock ADR-0006，勿另起一套接口 |
+| **OBS Custom CSS 携带上传资源** | `#258` / `obsCustomCss.ts` | **适配移植**（P2，仅推流） | Lyra 目前只有「复制 OBS 地址」 |
+
+### 只学架构 / 对照（勿整包）
+
+| 项 | 说明 |
+|---|---|
+| QQ 音乐 provider 接入（`8458e9df`） | Lyra 已有 QQ sidecar / `qqMusicProvider`；只对照登录持久化与 provider capabilities（`806d0c3f`） |
+| 本地曲库 OPFS / 封面去重缩略图 / `.foliaignore` / m3u8（v0.6.18） | Lyra 本地库路径不同；可学封面去重与 ignore，勿迁 OPFS 整栈 |
+| 单曲封面 / 封面缩放 | 对照 Lyra 封面氛围与 `coverUrl`，按需摘缩略图策略 |
+| 在线控件按 provider capabilities 显隐 | 对照 Lyra 多源控件，避免对无能力源露出空按钮 |
+
+### 本增量明确不做 / 低优先级
+
+| 项 | 原因 |
+|---|---|
+| **sonnet** 摄影机平滑、后处理、光学扭曲、背景变体、去掉性能警告 | Pixi MG；Lyra 无 `pixi.js`，仍属二期 |
+| `mask-reveal` 裁切边界 | 仅 sonnet 场景 |
+| `deploy/docker/*`、contributors、release 渠道 | 运维/文档噪声 |
+| GridMap 搜索 v2 / 本地目录树 / 专辑艺术家批处理 | 仅在 Lyra 本地库主线时有价值 |
+
+### 建议的下一刀（本增量后）
+
+1. **播放时阻止休眠**（Lab + command palette，体积小、无视觉成本）  
+2. **ControlsTab 歌词区分区/步进器**（对照 `baff1110`，接 Lyra 已拆模块，勿覆盖 interactive3d 段）  
+3. QQ Electron `safeStorage` 对照当前 WIP 登录持久化  
+4. 均衡器 / OBS CSS 资源 / 本地库 OPFS — 需产品确认后再立项
+
+---
+
+## 1.3 v0.6.19–origin/main 增量（相对 cc4c57c9 / v0.6.18+14）
+
+相对 `cc4c57c9` → `29882de8`（2026-08-24 fetch）。Release：v0.6.19 … v0.6.22；main 再超前 19 commits（awlrc、命令队列语法等）。
+
+### 建议吸收
+
+| 项 | 上游 | 方式 | Lyra 对照 |
+|---|---|---|---|
+| **awlrc 容器解析** | `a3a934c5` / `29882de8`；`awlrcContainer.ts` | **适配移植**（P0） | 无 awlrc；本地 LX 导出仍走 `splitCombinedTimeline` |
+| **Media Session 时序门闩** | `87d22f1d`；`mediaSessionSync.ts` | **适配移植**（P0） | `useMediaSessionBridge.ts` 直接写 metadata |
+| **visualizerStill** | `5f7ec163`；`visualizer/still/` | **适配移植**（P1） | 无低功耗静态歌词档 |
+| **设备级全局歌词 offset** | `d683f64d`；`globalLyricTimelineOffsetMs` | **适配移植**（P1） | 仅有按歌 ADR-0006 |
+| **命令面板队列 DSL / 音量 / 记忆排序** | `d2a74fde` 等 | **适配移植**（P2） | 有 registry + recent(5)，无 facet/批量语法 |
+| **播放时阻止休眠** | 基线 `displaySleepBlocker.cjs` | **cherry-pick**（仍缺） | Lab 无此项 |
+
+### 只学架构 / 明确不做
+
+- Tempera（Pixi、自定义贴图、Linux 壁纸）整包不做；可学 bridge shot 时序反哺 DOM。
+- ThemePark 模块化、封面 dual-theme fallback、邻曲预览、OBS 参数补齐：对照即可。
+- 均衡器后处理链、docker、windowtolayer：**不做**（或需产品确认）。
+
+### 建议的下一刀（本增量后）
+
+1. **awlrc + mediaSessionSync**  
+2. **displaySleep** 或 **visualizerStill**  
+3. 全局 offset / 队列 DSL（产品排期）
 
 ---
 
@@ -122,7 +199,7 @@ Lyra 是 **folia-major fork + Mineradio 合成**。歌词管线、Visualizer reg
 | 项 | 方式 | 备注 |
 |---|---|---|
 | 多平台登录首页 / Omni provider | 只学架构 | 上游 `services/onlineMusic/*`；Lyra 已走 sidecar（QQ/汽水/酷狗等），勿整包替换 |
-| 酷狗账号 / VIP / KRM | 只学架构 | 对照 sidecar 能力缺口即可；有 skill `kugou-provider-alignment`；含 v0.6.8 Electron http 保留 |
+| 酷狗账号 / VIP / KRM | 登录与播链 **适配移植**；youth VIP **不做** | 面板内二维码 + Electron `fs.*` http 保留已按 Folia 落地；不整包 `kugoumusicapi`、不领取概念 VIP |
 | Navidrome 0.63+ structured lyrics | 适配移植 | `navidromeStructuredLyrics.ts` |
 | Navidrome 最近加入/最近播放子页 | 适配移植（低优先级） | v0.6.8 `useNavidromeGridLibrary.ts`；仅 Navidrome 主线时做 |
 | 隐藏歌单 / 本地文件夹排序记忆 | 适配移植 | UI 小功能 |
@@ -193,7 +270,29 @@ Lyra 是 **folia-major fork + Mineradio 合成**。歌词管线、Visualizer reg
 
 ---
 
-## 8. 同源能力快照（不必再「迁移」）
+## 1.3 v0.7.2–v0.7.3 增量（相对 v0.7.1）
+
+相对 v0.7.1 → origin/main `08fc072f`。报告：`docs/research/2026-09-06-folia-v0.7.3-upstream.md`。
+
+### 本轮已落地
+
+| 项 | 上游 | Lyra |
+|---|---|---|
+| **歌词过滤迁到播放设置** + 开头制作人员智能处理 + 吸收相邻行 | `47aa9b90` / `47e198de` / #329 | 设置 → 播放控制；`staffCredits*`；默认 `smart`；正则 textarea |
+| **命令面板 Cmd/Ctrl+K 全 app** | #330 `cb03b5e9` | 首页和播放页都可开；播放页 Cmd+S 保留；不做裸 S |
+
+### 明确不做
+
+Tempera / Pixi / Sonnet、automix、Forge mod loader、Windows/Linux/macOS 壁纸、god-store 整包拆分、ts-code-map。
+
+### 下一刀候选
+
+1. 本地歌词上传后切到来源 `local`（`6f800c23`）
+2. 网易云后端失败后重启（`8d4c18e5`）
+3. 实验室启动自动续播（默认关）
+4. 命令面板 fuzzy / frequency（拼音构建插件可后置）
+
+---
 
 以下 Lyra 已具备，评估上游时勿重复立项：
 
@@ -209,17 +308,17 @@ Lyra 是 **folia-major fork + Mineradio 合成**。歌词管线、Visualizer reg
 
 ## 9. 建议的下一刀
 
-1. **§1.1 polish**：和声光晕 + 底部字幕渐隐 + Grid3DSlider 竞态（默认下一刀）  
-2. **cappella 动态行高安全区**  
-3. **OBS PlayerCap + AI overlay** — 推流场景；注意时钟隔离  
-4. **diorama / localLyricsPriority / 命令面板 pin** — 原 P1 队列  
+1. **本地歌词上传后切到来源 `local`**（Folia `6f800c23`；体积小）  
+2. **网易云后端失败后重启**（`8d4c18e5`）  
+3. 实验室启动自动续播（默认关）  
+4. 命令面板 fuzzy / frequency
 
 ---
 
 ## 10. 参考路径速查
 
 ```
-.temp/folia-major/                         # 已更新到 v0.6.8 @ 002b581
+.temp/folia-major/                         # 已更新到 origin/main @ 08fc072f（v0.7.3+12）
   src/components/visualizer/pendolo/
   src/components/visualizer/diorama/
   src/components/visualizer/VisualizerHarmonyOverlay.tsx   # 光晕背景

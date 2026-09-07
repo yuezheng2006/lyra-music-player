@@ -1,7 +1,5 @@
 import type { CSSProperties } from 'react';
 import type { Theme, VisualizerBackgroundMode, VisualizerMode } from '../../../types';
-import { DEFAULT_THEME } from '../root/appConstants';
-import { resolveVisualizerBackgroundMode } from '../../../stores/useSettingsUiStore';
 import { getLyricFontPresetById } from '../../../utils/lyricFontPresets';
 
 // src/components/app/presentation/buildVisualizerTheme.ts
@@ -26,11 +24,9 @@ export const buildVisualizerTheme = ({
     visualizerMode: VisualizerMode;
     visualizerBackgroundMode: VisualizerBackgroundMode | null;
 }) => {
-    const resolvedBackgroundMode = resolveVisualizerBackgroundMode(visualizerBackgroundMode, visualizerMode);
-    const useDarkInteractive3dStage = resolvedBackgroundMode === 'interactive3d';
-    const visualizerBackgroundColor = useDarkInteractive3dStage
-        ? DEFAULT_THEME.backgroundColor
-        : String(appStyle['--bg-color']);
+    void visualizerMode;
+    void visualizerBackgroundMode;
+    const visualizerBackgroundColor = String(appStyle['--bg-color']);
     const lyricPreset = lyricFontPresetId ? getLyricFontPresetById(lyricFontPresetId) : null;
     // Custom upload wins; otherwise lyric font presets drive the on-stage family.
     const resolvedFontFamily = lyricsCustomFontFamily?.trim()
@@ -42,9 +38,7 @@ export const buildVisualizerTheme = ({
 
     return {
         visualizerTheme: {
-            // Interactive3d keeps a dark stage wash, but lyric text colors must stay on the
-            // active app theme so preset chips / on-stage lyrics stay in sync.
-            ...(useDarkInteractive3dStage ? DEFAULT_THEME : theme),
+            ...theme,
             primaryColor: theme.primaryColor,
             accentColor: theme.accentColor,
             secondaryColor: theme.secondaryColor,

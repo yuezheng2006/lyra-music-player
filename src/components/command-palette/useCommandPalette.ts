@@ -72,12 +72,12 @@ export const useCommandPalette = ({
     }, [activeIndex, matches]);
 
     const open = useCallback(() => {
-        if (currentView !== 'player' || isBlocked) {
+        if (isBlocked) {
             return;
         }
         setIsOpen(true);
         setActiveIndex(0);
-    }, [currentView, isBlocked]);
+    }, [isBlocked]);
 
     const close = useCallback(() => {
         setIsOpen(false);
@@ -178,20 +178,32 @@ export const useCommandPalette = ({
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (!isModKeyChord({
+            const chordParams = {
                 code: event.code,
-                expectedCode: 'KeyS',
                 metaKey: event.metaKey,
                 ctrlKey: event.ctrlKey,
                 altKey: event.altKey,
                 shiftKey: event.shiftKey,
-            })) {
+            };
+            const isPaletteS = isModKeyChord({
+                ...chordParams,
+                expectedCode: 'KeyS',
+            });
+            const isPaletteK = isModKeyChord({
+                ...chordParams,
+                expectedCode: 'KeyK',
+            });
+            if (!isPaletteS && !isPaletteK) {
                 return;
             }
             if (isTextEntryTarget(event.target)) {
                 return;
             }
-            if (currentView !== 'player' || isBlocked) {
+            if (isBlocked) {
+                return;
+            }
+            // Cmd/Ctrl+S stays a player-page chord; Cmd/Ctrl+K opens from home or player.
+            if (isPaletteS && currentView !== 'player') {
                 return;
             }
 

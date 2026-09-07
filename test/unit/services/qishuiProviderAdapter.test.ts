@@ -54,7 +54,7 @@ describe('qishui-provider-adapter', () => {
     });
 
     it('routes category queries through playlist search and expands tracks', async () => {
-        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
             if (url.includes('/search/artist?')) {
                 return jsonResponse({
@@ -124,7 +124,7 @@ describe('qishui-provider-adapter', () => {
     });
 
     it('filters artist category playlists to tracks that include the matched artist', async () => {
-        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
             if (url.includes('/search/artist?')) {
                 return jsonResponse({
@@ -230,7 +230,7 @@ describe('qishui-provider-adapter', () => {
     });
 
     it('routes a top exact artist name through playlist search instead of mixed track hits', async () => {
-        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
             if (url.includes('/search/artist?')) {
                 return jsonResponse({
@@ -297,7 +297,7 @@ describe('qishui-provider-adapter', () => {
     });
 
     it('keeps song-title queries on track search when the top artist is someone else', async () => {
-        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
             if (url.includes('/search/artist?')) {
                 return jsonResponse({
@@ -357,7 +357,7 @@ describe('qishui-provider-adapter', () => {
     });
 
     it('routes title-like queries through the working Luna track endpoint', async () => {
-        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
             if (url.includes('/search/artist?')) {
                 return jsonResponse({ result_groups: [{ id: 'artists', data: [] }] });
@@ -396,7 +396,7 @@ describe('qishui-provider-adapter', () => {
     });
 
     it('treats an empty official track body as no hits instead of failing the search', async () => {
-        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
             if (url.includes('/luna/search/track?')) {
                 return new Response('', {
@@ -416,7 +416,7 @@ describe('qishui-provider-adapter', () => {
     });
 
     it('routes bare AI queries through playlist search instead of empty track hits', async () => {
-        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
             if (url.includes('/search/playlist?')) {
                 return jsonResponse({
@@ -464,5 +464,47 @@ describe('qishui-provider-adapter', () => {
         expect(result.songs[0].title).toBe('晴天');
         expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/search/playlist?'))).toBe(true);
         expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/search/track?'))).toBe(false);
+    });
+
+    it('attaches the official session cookie to Luna requests when qishuiAuth is present', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+            const url = String(input);
+            if (url.includes('/search/artist?')) {
+                return jsonResponse({ result_groups: [{ id: 'artists', data: [] }] });
+            }
+            if (url.includes('/luna/search/track?')) {
+                return jsonResponse({
+                    result_groups: [{
+                        id: 'tracks',
+                        data: [{
+                            entity: {
+                                track: {
+                                    id: '9',
+                                    name: '晴天',
+                                    artists: [{ name: '周杰伦' }],
+                                    album: { name: '叶惠美' },
+                                    duration: 269000,
+                                },
+                            },
+                        }],
+                    }],
+                });
+            }
+            throw new Error(`Unexpected fetch: ${url}`);
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const adapter = await loadAdapter();
+        await adapter.search({
+            query: '晴天',
+            limit: 5,
+            offset: 0,
+            qishuiAuth: { cookieHeader: 'sessionid=abcdefghij; sid_tt=token1234', isLoggedIn: true },
+        });
+
+        const lunaCall = fetchMock.mock.calls.find(([url]) => String(url).includes('api.qishui.com'));
+        expect(lunaCall).toBeTruthy();
+        const headers = (lunaCall?.[1] as { headers?: Record<string, string> } | undefined)?.headers || {};
+        expect(headers.Cookie).toContain('sessionid=abcdefghij');
     });
 });

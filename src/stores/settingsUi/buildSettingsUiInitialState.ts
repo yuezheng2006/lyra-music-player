@@ -1,8 +1,10 @@
 import type { StoreApi } from 'zustand';
 import { readStoredAppLanguagePreference } from '../../i18n/config';
+import { readStoredSettingsChromeDaylightMode } from '../../utils/settings/settingsChromeDaylightMath';
 import type { SettingsModalInitialTab, SettingsUiState } from './types';
 import {
     ENABLE_BILIBILI_VIDEO_BACKGROUND_STORAGE_KEY,
+    AUTO_RESYNC_DOWNLOAD_FOLDER_KEY,
     ENABLE_MEDIA_CACHE_KEY,
     ENABLE_SMART_ATMOSPHERE_STORAGE_KEY,
     HARMONY_SUBTITLE_BACKGROUND_STORAGE_KEY,
@@ -10,6 +12,7 @@ import {
     LAST_SEEN_GUIDE_VERSION_STORAGE_KEY,
     MINIMIZE_TO_TRAY_STORAGE_KEY,
     OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY,
+    AUTO_PLAY_ON_LAUNCH_STORAGE_KEY,
     PLAYBACK_PRESENTATION_STORAGE_KEY,
     SHOW_HARMONY_SUBTITLE_STORAGE_KEY,
     SUBTITLE_FONT_INHERITS_LYRICS_STORAGE_KEY,
@@ -47,11 +50,16 @@ import {
     readStoredHomeLayoutStyle,
     readStoredInteractive3dSceneTuning,
     readStoredLatentBackgroundTuning,
+    readStoredNomandBackgroundTuning,
     readStoredLocalBeatAnalysisMode,
     readStoredLocalBeatAnalysisPromptPolicy,
     readStoredLoopMode,
     readStoredLyricEffectPackId,
     readStoredLyricFilterPattern,
+    readStoredLyricStaffAbsorbMode,
+    readStoredLyricStaffMinDwellSeconds,
+    readStoredLyricStaffPattern,
+    readStoredLyricStaffPolicy,
     readStoredLyricFontPresetId,
     readStoredLyricWordMode,
     readStoredLyricsFontScale,
@@ -66,6 +74,15 @@ import {
     readStoredVisualEffectIntensity,
     readStoredVolume,
 } from './settingsPersistenceExtended';
+import { readStoredGlobalLyricTimelineOffsetMs } from '../../utils/playback/globalLyricTimelineOffsetMath';
+import { readStoredPreventDisplaySleepDuringPlayback } from '../../utils/settings/displaySleepSettingsMath';
+import {
+    readStoredStageTrackPillMode,
+    readStoredStageTrackPillOnHome,
+    readStoredStageTrackPillTimeoutSec,
+} from '../../utils/settings/stageTrackPillSettingsMath';
+import { readStoredSleepTimerHours, readStoredSleepTimerMinutes } from '../../utils/settings/sleepTimerSettingsMath';
+import { readStoredDesktopLyricsYFactor } from '../../utils/desktopLyrics/desktopLyricsPlacementMath';
 
 // src/stores/settingsUi/buildSettingsUiInitialState.ts
 // Data-only initial fields for the settings UI store.
@@ -105,13 +122,16 @@ export const buildSettingsUiInitialState = (set: SetState) => ({
         typeof localStorage !== 'undefined' ? localStorage.getItem(PLAYBACK_PRESENTATION_STORAGE_KEY) : null,
     ),
     disableVisualizerVignette: getStoredBoolean('disable_visualizer_vignette', false),
-    enableSmartAtmosphere: getStoredBoolean(ENABLE_SMART_ATMOSPHERE_STORAGE_KEY, true),
+    // Opt-in beat/cinema analysis. Light cover atmosphere stays the product fallback without it.
+    enableSmartAtmosphere: getStoredBoolean(ENABLE_SMART_ATMOSPHERE_STORAGE_KEY, false),
     enableBilibiliVideoBackground: getStoredBoolean(ENABLE_BILIBILI_VIDEO_BACKGROUND_STORAGE_KEY, true),
-    enable3dInteractiveBackground: bootVisualizerBackgroundMode === 'interactive3d',
+    enable3dInteractiveBackground: false,
     minimizeToTray: getStoredBoolean(MINIMIZE_TO_TRAY_STORAGE_KEY, false),
     hideTaskbarIcon: getStoredBoolean(HIDE_TASKBAR_ICON_STORAGE_KEY, false),
     openPlayerOnLaunch: getStoredBoolean(OPEN_PLAYER_ON_LAUNCH_STORAGE_KEY, false),
+    autoPlayOnLaunch: getStoredBoolean(AUTO_PLAY_ON_LAUNCH_STORAGE_KEY, false),
     enableMediaCache: getStoredBoolean(ENABLE_MEDIA_CACHE_KEY, false),
+    autoResyncDownloadFolder: getStoredBoolean(AUTO_RESYNC_DOWNLOAD_FOLDER_KEY, true),
     backgroundOpacity: readStoredBackgroundOpacity(),
     subtitleOverlayOpacity: readStoredSubtitleOverlayOpacity(),
     visualizerOpacity: readStoredVisualizerOpacity(),
@@ -120,6 +140,7 @@ export const buildSettingsUiInitialState = (set: SetState) => ({
     urlBackgroundSelectedId: readStoredUrlBackgroundSelectedId(),
     visualizerFrameRate: readStoredVisualizerFrameRate(),
     isDaylight: readDefaultDaylightPreference(),
+    settingsChromeDaylightMode: readStoredSettingsChromeDaylightMode(),
     visualizerMode: readStoredVisualizerMode(),
     yieldInteractive3dParticles: false,
     holdInteractive3dParticleYield: false,
@@ -138,6 +159,7 @@ export const buildSettingsUiInitialState = (set: SetState) => ({
     pendoloTuning: readStoredPendoloTuning(),
     monetBackgroundTuning: readStoredMonetBackgroundTuning(),
     latentBackgroundTuning: readStoredLatentBackgroundTuning(),
+    nomandBackgroundTuning: readStoredNomandBackgroundTuning(),
     interactive3dSceneTuning: readStoredInteractive3dSceneTuning(),
     monetTuning: readStoredMonetTuning(),
     storedCappellaEmojiPack: [],
@@ -157,6 +179,21 @@ export const buildSettingsUiInitialState = (set: SetState) => ({
     lyricsFontScale: readStoredLyricsFontScale(),
     lyricsCustomFont: readStoredCustomLyricsFont(),
     lyricFilterPattern: readStoredLyricFilterPattern(),
+    lyricStaffPolicy: readStoredLyricStaffPolicy(),
+    lyricStaffMinDwellSeconds: readStoredLyricStaffMinDwellSeconds(),
+    lyricStaffAbsorbMode: readStoredLyricStaffAbsorbMode(),
+    lyricStaffPattern: readStoredLyricStaffPattern(),
+    globalLyricTimelineOffsetMs: readStoredGlobalLyricTimelineOffsetMs(),
+    preventDisplaySleepDuringPlayback: readStoredPreventDisplaySleepDuringPlayback(),
+    stageTrackPillMode: readStoredStageTrackPillMode(),
+    stageTrackPillTimeoutSec: readStoredStageTrackPillTimeoutSec(),
+    stageTrackPillOnHome: readStoredStageTrackPillOnHome(),
+    sleepTimerEnabled: false,
+    sleepTimerHours: readStoredSleepTimerHours(),
+    sleepTimerMinutes: readStoredSleepTimerMinutes(),
+    sleepTimerDeadlineMs: null,
+    sleepTimerActivationId: 0,
+    desktopLyricsYFactor: readStoredDesktopLyricsYFactor(),
     showOpenPanelCloseButton: getStoredBoolean('show_open_panel_close_button', true),
     enableNowPlayingStage: getStoredBoolean('enable_now_playing_stage', false),
     queueAddBehavior: readStoredQueueAddBehavior(),
