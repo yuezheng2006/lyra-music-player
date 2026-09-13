@@ -7,6 +7,7 @@ import { resolveThemeFontStack } from '../../utils/fontStacks';
 import { resolveSpeakerParticleYield } from '../../utils/visualizer/speakerStageShellMath';
 import { resolveVisualizerBackgroundMode, useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import { usePerformanceMonitorStore } from '../../stores/usePerformanceMonitorStore';
+import { useReducedMotionFor } from '../../hooks/useReducedMotionFor';
 import { type VisualizerSharedProps } from './definition';
 import FluidBackground from './FluidBackground';
 import LatentBackground from './backgrounds/latent/LatentBackground';
@@ -119,9 +120,7 @@ const VisualizerShell = forwardRef<HTMLDivElement, VisualizerShellProps>(({
     const speakerActive = playbackPresentation === 'speaker';
     const performanceMode = usePerformanceMonitorStore(state => state.mode);
     const isElectronRenderer = typeof window !== 'undefined' && Boolean(window.electron);
-    const reducedMotion = typeof window !== 'undefined'
-        && typeof window.matchMedia === 'function'
-        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reducedMotion = useReducedMotionFor('visualizerStage');
     const resolvedCoverUrl = sharedProps?.coverUrl ?? coverUrl;
     const resolvedShellCanvasBackground = sharedProps?.shellCanvasBackground ?? shellCanvasBackground;
     const resolvedIsDaylight = sharedProps?.isDaylight ?? true;

@@ -197,19 +197,17 @@
   border-color: rgba(255, 255, 255, 0.3);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .emotion-button-face {
-    will-change: auto;
-    transform: none !important;
-  }
+:root[data-reduce-motion~='uiMicroMotion'] .emotion-button-face {
+  will-change: auto;
+  transform: none !important;
+}
 
-  .emotion-button--beat {
-    box-shadow: none;
-  }
+:root[data-reduce-motion~='uiMicroMotion'] .emotion-button--beat {
+  box-shadow: none;
+}
 
-  .emotion-button--compact {
-    transition: background 0.2s, border-color 0.2s;
-  }
+:root[data-reduce-motion~='uiMicroMotion'] .emotion-button--compact {
+  transition: background 0.2s, border-color 0.2s;
 }
 
 .emotion-button.loading {

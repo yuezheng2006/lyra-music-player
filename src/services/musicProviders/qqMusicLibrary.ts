@@ -5,6 +5,26 @@ import { getQQMusicAuth } from './qqMusicAuth';
 // src/services/musicProviders/qqMusicLibrary.ts
 // Fetches QQ Music user playlists and playlist tracks for the home library surface.
 
+export type QQPlaylistLoadErrorCode = 'not-public' | 'unreadable';
+
+/** Thrown when a playlist shell is returned instead of a readable playlist (Folia #373 class). */
+export class QQPlaylistLoadError extends Error {
+    readonly code: QQPlaylistLoadErrorCode;
+
+    constructor(code: QQPlaylistLoadErrorCode, message: string) {
+        super(message);
+        this.name = 'QQPlaylistLoadError';
+        this.code = code;
+    }
+}
+
+/** Anonymous/public CGI returns code 0 with a hollow cdlist[0] (no dissname) for private lists. */
+export const isQQPlaylistDetailEmptyShell = (detail: unknown): boolean => {
+    if (!detail || typeof detail !== 'object') return true;
+    const dissname = String((detail as { dissname?: unknown }).dissname ?? '').trim();
+    return dissname.length === 0;
+};
+
 type QQProxyFetchInit = {
     method?: string;
     headers?: Record<string, string>;
@@ -360,6 +380,15 @@ const fetchQQPlaylistTracksFromPublicApi = async (
     }
 
     const cdlist = Array.isArray(payload?.cdlist) ? payload.cdlist[0] : null;
+    // code:0 + hollow cdlist (no dissname) means the anonymous CGI cannot read this playlist —
+    // usually a non-public owned list. A truly empty playlist still echoes dissname.
+    if (isQQPlaylistDetailEmptyShell(cdlist)) {
+        throw new QQPlaylistLoadError(
+            'not-public',
+            `QQ playlist ${normalizedId} is not readable via the public CGI (empty shell; likely not public)`,
+        );
+    }
+
     const songlist = Array.isArray(cdlist?.songlist) ? cdlist.songlist : [];
     return songlist.map((song: Record<string, any>) => mapQQPlaylistSong(song));
 };
@@ -433,6 +462,7 @@ export async function fetchQQPlaylistTracks(dissid: string): Promise<SongResult[
     }
 
     const auth = getQQMusicAuth();
+    let publicShellError: QQPlaylistLoadError | null = null;
 
     // Public playlist API first: works for many open lists without mobile DissInfo.
     try {
@@ -445,7 +475,11 @@ export async function fetchQQPlaylistTracks(dissid: string): Promise<SongResult[
             return songs;
         }
     } catch (error) {
-        console.warn('[QQMusic] Public playlist API failed, trying DissInfo', error);
+        if (error instanceof QQPlaylistLoadError) {
+            publicShellError = error;
+        } else {
+            console.warn('[QQMusic] Public playlist API failed, trying DissInfo', error);
+        }
     }
 
     try {
@@ -453,9 +487,22 @@ export async function fetchQQPlaylistTracks(dissid: string): Promise<SongResult[
         if (songs.length > 0) {
             return songs;
         }
+        // DissInfo also empty: if public CGI returned a hollow shell, surface that — do not
+        // pretend the playlist is simply empty.
+        if (publicShellError) {
+            throw publicShellError;
+        }
+        return [];
     } catch (error) {
+        if (error instanceof QQPlaylistLoadError) {
+            throw error;
+        }
         console.warn('[QQMusic] DissInfo playlist fetch failed', error);
+        if (publicShellError) {
+            throw publicShellError;
+        }
+        throw error instanceof Error
+            ? error
+            : new QQPlaylistLoadError('unreadable', `QQ playlist ${normalizedId} could not be loaded`);
     }
-
-    return [];
 }

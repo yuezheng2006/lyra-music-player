@@ -8,6 +8,7 @@ import type {
     CommandPaletteSearchSource,
 } from './types';
 import { usePerformanceMonitorStore } from '../../stores/usePerformanceMonitorStore';
+import { useMotionSettingsStore } from '../../stores/useMotionSettingsStore';
 import { useAmbientVisualStore } from '../../stores/useAmbientVisualStore';
 import { useCharacterStore } from '../../stores/useCharacterStore';
 import { useMagneticPullStore } from '../../stores/useMagneticPullStore';
@@ -488,6 +489,44 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
         },
     },
     createSettingsCommand('settings-lab', 'Lab settings', 'Open experimental settings', ['lab', 'experimental', '实验', '实验室', 'shiyan', 'shiyanshi', 'sy', 'sys'], 'options', 'lab'),
+    createSettingsCommand(
+        'settings-reduce-motion',
+        'Reduce motion',
+        'Open explicit reduce-motion controls in Lab',
+        [
+            'reduce motion',
+            'reduced motion',
+            'accessibility motion',
+            '降低动态效果',
+            '减少动画',
+            '无障碍动画',
+            'jiangdidongtaixiaoguo',
+            'jianshaodonghua',
+            'yddtxg',
+            'jsdh',
+        ],
+        'options',
+        'lab',
+    ),
+    {
+        id: 'toggle-follow-system-reduced-motion',
+        group: 'settings',
+        title: 'Toggle follow system reduced motion',
+        description: 'Let the OS animation setting reduce motion everywhere again',
+        keywords: [
+            'follow system motion',
+            'system reduced motion',
+            '跟随系统动画',
+            '跟随系统动态效果',
+            'gensuixitong',
+            'gsxt',
+        ],
+        execute: () => {
+            const store = useMotionSettingsStore.getState();
+            store.handleToggleFollowSystemReducedMotion(!store.followSystemReducedMotion);
+            return true;
+        },
+    },
     createSettingsCommand(
         'settings-track-atmosphere-light',
         'Track atmosphere lighting',

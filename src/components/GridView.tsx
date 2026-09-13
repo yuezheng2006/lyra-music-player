@@ -83,6 +83,9 @@ interface GridViewProps {
     onPlaylistMutated?: () => Promise<void> | void;
     externalTracks?: SongResult[];
     externalTracksLoading?: boolean;
+    /** Host-resolved load failure for QQ / Navidrome / local external tracks. */
+    externalLoadError?: string | null;
+    onExternalRetry?: () => void;
     sourceActions?: GridViewSourceActions;
     currentTrackId?: number | string | null;
     isPlaying?: boolean;
@@ -605,6 +608,8 @@ export const GridView: React.FC<GridViewProps> = ({
     onPlaylistMutated,
     externalTracks,
     externalTracksLoading = false,
+    externalLoadError = null,
+    onExternalRetry,
     sourceActions,
     currentTrackId = null,
     isPlaying = false,
@@ -2056,12 +2061,16 @@ export const GridView: React.FC<GridViewProps> = ({
                         <Loader2 className="animate-spin" size={32} />
                         <span className="text-sm font-semibold font-sans">{t('playlist.loading') || 'Loading...'}</span>
                     </div>
-                ) : loadError && displayTracks.length === 0 ? (
+                ) : (loadError || externalLoadError) && displayTracks.length === 0 ? (
                     <RemoteLoadState
                         status="error"
                         isDaylight={isDaylight}
-                        errorLabel={loadError}
-                        onRetry={() => void loadTracks(true)}
+                        errorLabel={loadError || externalLoadError || undefined}
+                        onRetry={
+                            externalLoadError && onExternalRetry
+                                ? onExternalRetry
+                                : () => void loadTracks(true)
+                        }
                         diagnostic={loadDiagnostic}
                         className="min-h-[220px]"
                     />

@@ -12,6 +12,7 @@ import { useAmbientVisualStore } from '../../../stores/useAmbientVisualStore';
 import { useCharacterStore } from '../../../stores/useCharacterStore';
 import { useMagneticPullStore } from '../../../stores/useMagneticPullStore';
 import { VISUALIZER_FRAME_RATE_OPTIONS } from '../../../utils/frameRateLimiter';
+import MotionReductionSettingsSection from './MotionReductionSettingsSection';
 import {
     settingsDescClass,
     settingsDescStyle,
@@ -302,6 +303,17 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                             </button>
                                         ))}
                                     </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className={`${settingsTitleClass}`} style={settingsTitleStyle}>
+                                        {t('options.reduceMotionSection') || 'Reduce motion'}
+                                    </div>
+                                    <MotionReductionSettingsSection
+                                        settingsCardClass={settingsCardClass}
+                                        toggleOffBackgroundClass={toggleOffBackgroundClass}
+                                        theme={theme}
+                                    />
                                 </div>
 
                                 <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>

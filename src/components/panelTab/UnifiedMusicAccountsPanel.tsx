@@ -7,7 +7,8 @@ import {
     DEFAULT_UNIFIED_ACCOUNT_PROVIDER_ID,
     UNIFIED_ACCOUNT_PROVIDERS,
 } from '../../utils/musicAccounts/unifiedMusicAccountProviders';
-import { hasNeteaseSession, hasQQMusicSession, hasQishuiSession, hasKugouSession } from '../../utils/onlineLibraryAccess';
+import { hasNeteaseSession, hasQishuiSession, hasKugouSession } from '../../utils/onlineLibraryAccess';
+import { useQQMusicLogin } from '../../hooks/useQQMusicLogin';
 import NeteaseAccountCard from './NeteaseAccountCard';
 import QQMusicAccountCard from './QQMusicAccountCard';
 import QishuiAccountCard from './QishuiAccountCard';
@@ -35,6 +36,7 @@ const UnifiedMusicAccountsPanel: React.FC<UnifiedMusicAccountsPanelProps> = ({
     onOpenQQMusicSettings,
 }) => {
     const { t } = useTranslation();
+    const { sessionBadge: qqSessionBadge } = useQQMusicLogin();
     const [selectedId, setSelectedId] = useState<OnlineMusicProviderId>(DEFAULT_UNIFIED_ACCOUNT_PROVIDER_ID);
     const { playlistProviders, setPlaylistProviderEnabled } = useOnlineLibraryFilterStore(useShallow((s) => ({
         playlistProviders: s.playlistProviders,
@@ -46,7 +48,6 @@ const UnifiedMusicAccountsPanel: React.FC<UnifiedMusicAccountsPanelProps> = ({
         [selectedId],
     );
 
-    const qqReady = hasQQMusicSession();
     const neteaseReady = hasNeteaseSession(user);
     const qishuiReady = hasQishuiSession();
     const kugouReady = hasKugouSession();
@@ -58,9 +59,13 @@ const UnifiedMusicAccountsPanel: React.FC<UnifiedMusicAccountsPanelProps> = ({
                 : (t('account.neteaseAnonymous') || '需要登录');
         }
         if (id === 'qq') {
-            return qqReady
-                ? (t('account.connected') || '已接入')
-                : (t('account.qqMusicAnonymous') || '需要登录');
+            if (qqSessionBadge === 'ready') {
+                return t('account.connected') || '已接入';
+            }
+            if (qqSessionBadge === 'auth_incomplete') {
+                return t('account.qqMusicPlaybackLimited') || '播放授权不完整，建议重新扫码';
+            }
+            return t('account.qqMusicAnonymous') || '需要登录';
         }
         if (id === 'qishui') {
             return qishuiReady

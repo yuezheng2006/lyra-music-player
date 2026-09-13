@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type {
@@ -48,6 +48,8 @@ type FloatingPlayerBackgroundMenuProps = {
     lyricColorSectionLabel: string;
     openSongSettingsLabel: string;
     getPresetLabel: (preset: MineradioVisualPresetId) => string;
+    surfaceClassName: string;
+    surfaceStyle: CSSProperties;
     getVisualizerLabel: (mode: VisualizerMode) => string;
     buildToolButtonClass: (disabled: boolean, active?: boolean) => string;
 };
@@ -81,6 +83,8 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
     getPresetLabel: _getPresetLabel,
     getVisualizerLabel,
     buildToolButtonClass,
+    surfaceClassName,
+    surfaceStyle,
 }) => {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
@@ -160,12 +164,11 @@ const FloatingPlayerBackgroundMenu: React.FC<FloatingPlayerBackgroundMenuProps> 
                     role="menu"
                     data-testid="floating-player-background-menu"
                     data-app-ui-surface="true"
-                    className={`absolute right-0 z-40 w-[min(300px,94vw)] max-h-[min(70vh,520px)] overscroll-contain overflow-y-auto overflow-x-hidden rounded-2xl border p-3 shadow-[0_18px_48px_rgba(0,0,0,0.35)] backdrop-blur-2xl ${
-                        isDaylight
-                            ? 'border-black/10 bg-white/92'
-                            : 'border-white/12 bg-black/82'
-                    }`}
-                    style={{ bottom: `calc(100% + ${FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX}px)` }}
+                    className={`absolute right-0 z-40 w-[min(300px,94vw)] max-h-[min(70vh,520px)] overscroll-contain overflow-y-auto overflow-x-hidden rounded-2xl p-3 ${surfaceClassName}`}
+                    style={{
+                        ...surfaceStyle,
+                        bottom: `calc(100% + ${FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX}px)`,
+                    }}
                 >
                     <div className={sectionLabelClass}>
                         {presetSectionLabel}

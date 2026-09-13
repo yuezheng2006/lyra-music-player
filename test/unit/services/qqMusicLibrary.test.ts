@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
     extractQQPlaylistSongs,
+    isQQPlaylistDetailEmptyShell,
     mapQQPlaylistItem,
     mapQQPlaylistSong,
     qqPlaylistNumericId,
+    QQPlaylistLoadError,
     resolveQQPlaylistId,
     resolveQQPlaylistName,
 } from '@/services/musicProviders/qqMusicLibrary';
+import { resolveQQPlaylistLoadErrorLabel } from '@/utils/account/qqPlaylistLoadErrorMessage';
+import { resolveProviderSessionBadge } from '@/utils/account/providerSessionHealth';
 
 describe('qqMusicLibrary', () => {
     it('maps numeric dissid to negative playlist id', () => {
@@ -120,5 +124,56 @@ describe('qqMusicLibrary', () => {
         })).toEqual([{ songmid: 'c' }]);
 
         expect(extractQQPlaylistSongs({ songlist: [] })).toEqual([]);
+    });
+
+    it('detects Folia-style empty playlist shells without dissname', () => {
+        expect(isQQPlaylistDetailEmptyShell(null)).toBe(true);
+        expect(isQQPlaylistDetailEmptyShell({})).toBe(true);
+        expect(isQQPlaylistDetailEmptyShell({ dissname: '   ' })).toBe(true);
+        expect(isQQPlaylistDetailEmptyShell({ dissname: '滚石40年', songlist: [] })).toBe(false);
+    });
+
+    it('maps QQPlaylistLoadError codes to i18n labels', () => {
+        const t = (key: string) => key;
+        expect(resolveQQPlaylistLoadErrorLabel(
+            new QQPlaylistLoadError('not-public', 'shell'),
+            t,
+        )).toBe('playlist.loadNotPublic');
+        expect(resolveQQPlaylistLoadErrorLabel(
+            new QQPlaylistLoadError('unreadable', 'boom'),
+            t,
+        )).toBe('playlist.loadUnreadable');
+        expect(resolveQQPlaylistLoadErrorLabel(new Error('network down'), t)).toBe('network down');
+    });
+});
+
+describe('resolveProviderSessionBadge', () => {
+    it('flags incomplete playback key while logged in', () => {
+        expect(resolveProviderSessionBadge({
+            isLoggedIn: true,
+            hasSessionMaterial: true,
+            playbackKeyReady: false,
+        })).toBe('auth_incomplete');
+    });
+
+    it('returns ready when logged in with playback key', () => {
+        expect(resolveProviderSessionBadge({
+            isLoggedIn: true,
+            playbackKeyReady: true,
+        })).toBe('ready');
+    });
+
+    it('treats cookie-only sessions as incomplete', () => {
+        expect(resolveProviderSessionBadge({
+            isLoggedIn: false,
+            hasSessionMaterial: true,
+        })).toBe('auth_incomplete');
+    });
+
+    it('returns guest with no session material', () => {
+        expect(resolveProviderSessionBadge({
+            isLoggedIn: false,
+            hasSessionMaterial: false,
+        })).toBe('guest');
     });
 });

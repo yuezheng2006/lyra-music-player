@@ -41,6 +41,7 @@ const QQMusicLoginPanel: React.FC<QQMusicLoginPanelProps> = ({
         isBusy,
         logout,
         openLogin,
+        sessionBadge,
         statusText,
     } = useQQMusicLogin();
     const [cookieDraft, setCookieDraft] = useState(() => getStoredQQMusicCookie());
@@ -90,9 +91,9 @@ const QQMusicLoginPanel: React.FC<QQMusicLoginPanelProps> = ({
     }
 
     if (variant === 'account') {
-        const statusIcon = auth.isLoggedIn
+        const statusIcon = sessionBadge === 'ready'
             ? <CheckCircle2 size={14} className="text-emerald-300" />
-            : auth.hasCookie
+            : sessionBadge === 'auth_incomplete'
                 ? <TriangleAlert size={14} className="text-amber-300" />
                 : <QrCode size={14} className="opacity-70" />;
 
@@ -111,7 +112,7 @@ const QQMusicLoginPanel: React.FC<QQMusicLoginPanelProps> = ({
                             <div className="text-[10px] opacity-55 truncate">{statusText}</div>
                         </div>
                     </div>
-                    {auth.playbackKeyReady && <CheckCircle2 size={15} className="text-emerald-300 shrink-0" />}
+                    {sessionBadge === 'ready' && <CheckCircle2 size={15} className="text-emerald-300 shrink-0" />}
                 </div>
                 <div className="flex items-center gap-2">
                     <button

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import LegacyHome from '../../Home';
 import GridView, { GridViewSourceActions } from '../../GridView';
@@ -26,7 +27,7 @@ import {
 } from './gridViewCollectionAdapters';
 import { GRID_VIEW_ACTIVE_COLLECTION_KEY } from '../../../utils/onlineBrowseOverlays';
 import { resolveShellSurfaceBackgroundStyle } from './homeSurfaceStyles';
-
+import { resolveQQPlaylistLoadErrorLabel } from '../../../utils/account/qqPlaylistLoadErrorMessage';
 export { GRID_VIEW_ACTIVE_COLLECTION_KEY } from '../../../utils/onlineBrowseOverlays';
 
 // src/components/app/home/GridViewOverlayHost.tsx
@@ -129,6 +130,7 @@ const resolveLiveLocalCollection = (
 };
 
 const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, children }) => {
+    const { t } = useTranslation();
     const activeGridViewCollection = useSettingsUiStore(state => state.activeGridViewCollection);
     const setActiveGridViewCollection = useSettingsUiStore(state => state.setActiveGridViewCollection);
     const isDaylight = useSettingsUiStore(state => state.isDaylight);
@@ -143,6 +145,8 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
     const selectedCollection = collectionHistory[collectionHistory.length - 1] || null;
     const [externalTracks, setExternalTracks] = useState<SongResult[] | undefined>(undefined);
     const [externalTracksLoading, setExternalTracksLoading] = useState(false);
+    const [externalLoadError, setExternalLoadError] = useState<string | null>(null);
+    const [externalTracksReloadToken, setExternalTracksReloadToken] = useState(0);
     const [resolvedLocalCollectionCoverUrl, setResolvedLocalCollectionCoverUrl] = useState<string | undefined>(undefined);
     const [navidromePlaylistItems, setNavidromePlaylistItems] = useState<Array<{ id: string | number; name: string; description?: string; }>>([]);
     const localTrackCoverObjectUrlsRef = useRef(new Map<string, LocalTrackCoverObjectUrlEntry>());
@@ -341,6 +345,7 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
         if (!selectedCollection) {
             setExternalTracks(undefined);
             setExternalTracksLoading(false);
+            setExternalLoadError(null);
             setResolvedLocalCollectionCoverUrl(undefined);
             setNavidromePlaylistItems([]);
             clearLocalTrackCoverObjectUrls();
@@ -350,6 +355,7 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
         if (selectedCollection.source === 'netease') {
             setExternalTracks(undefined);
             setExternalTracksLoading(false);
+            setExternalLoadError(null);
             setResolvedLocalCollectionCoverUrl(undefined);
             setNavidromePlaylistItems([]);
             clearLocalTrackCoverObjectUrls();
@@ -373,6 +379,7 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
         }
 
         setNavidromePlaylistItems([]);
+        setExternalLoadError(null);
         setResolvedLocalCollectionCoverUrl(resolveLocalCollectionCoverUrlFromTracks(
             resolvedTracks,
             getOrCreateLocalTrackCoverObjectUrl
@@ -419,6 +426,7 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
         let cancelled = false;
         setExternalTracks([]);
         setExternalTracksLoading(true);
+        setExternalLoadError(null);
         setResolvedLocalCollectionCoverUrl(undefined);
         clearLocalTrackCoverObjectUrls();
 
@@ -426,12 +434,18 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
             .then((tracks) => {
                 if (!cancelled) {
                     setExternalTracks(tracks);
+                    setExternalLoadError(null);
                 }
             })
             .catch((error) => {
                 console.error('[GridViewOverlayHost] Failed to load Navidrome GridView tracks:', error);
                 if (!cancelled) {
                     setExternalTracks([]);
+                    setExternalLoadError(
+                        error instanceof Error && error.message.trim()
+                            ? error.message
+                            : (t('playlist.loadFailed') || 'Failed to load playlist'),
+                    );
                 }
             })
             .finally(() => {
@@ -445,7 +459,9 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
         };
     }, [
         clearLocalTrackCoverObjectUrls,
+        externalTracksReloadToken,
         selectedCollection,
+        t,
     ]);
 
     useEffect(() => {
@@ -456,6 +472,7 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
         let cancelled = false;
         setExternalTracks([]);
         setExternalTracksLoading(true);
+        setExternalLoadError(null);
         setResolvedLocalCollectionCoverUrl(undefined);
         clearLocalTrackCoverObjectUrls();
 
@@ -463,12 +480,14 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
             .then((tracks) => {
                 if (!cancelled) {
                     setExternalTracks(tracks);
+                    setExternalLoadError(null);
                 }
             })
             .catch((error) => {
                 console.error('[GridViewOverlayHost] Failed to load QQ GridView tracks:', error);
                 if (!cancelled) {
                     setExternalTracks([]);
+                    setExternalLoadError(resolveQQPlaylistLoadErrorLabel(error, t));
                 }
             })
             .finally(() => {
@@ -482,9 +501,15 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
         };
     }, [
         clearLocalTrackCoverObjectUrls,
+        externalTracksReloadToken,
         selectedCollection,
         selectedCollectionKey,
+        t,
     ]);
+
+    const retryExternalTracks = useCallback(() => {
+        setExternalTracksReloadToken((token) => token + 1);
+    }, []);
 
     const refreshNavidromePlaylists = useCallback(async () => {
         const config = getNavidromeConfig();
@@ -733,6 +758,8 @@ const GridViewOverlayHost: React.FC<GridViewOverlayHostProps> = ({ legacyProps, 
                             onPlaylistMutated={legacyProps.onRefreshUser}
                             externalTracks={externalTracks}
                             externalTracksLoading={externalTracksLoading}
+                            externalLoadError={externalLoadError}
+                            onExternalRetry={retryExternalTracks}
                             sourceActions={sourceActions}
                             theme={legacyProps.theme}
                             isDaylight={isDaylight}

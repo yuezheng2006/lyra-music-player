@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import QuickEffectPicker from '../QuickEffectPicker';
+import { useReducedMotionFor } from '../../../hooks/useReducedMotionFor';
 
 // src/components/panelTab/controls/ModeStepperRow.tsx
 // 「‹ glyph current-mode ›」: arrows step neighbors, the name opens the full list.
@@ -38,7 +39,7 @@ const ModeStepperRow = <Value extends string>({
 }: ModeStepperRowProps<Value>) => {
     const hoverBg = isDaylight ? 'hover:bg-black/[0.06]' : 'hover:bg-white/[0.08]';
     const canStep = options.length > 1;
-    const prefersReducedMotion = useReducedMotion();
+    const prefersReducedMotion = useReducedMotionFor('uiMicroMotion');
     const [stepDirection, setStepDirection] = useState<-1 | 0 | 1>(0);
     const enterOffset = prefersReducedMotion ? 0 : stepDirection * STEP_ENTER_OFFSET_PX;
 

@@ -9,6 +9,7 @@ import { useMagneticPullStore } from '../../stores/useMagneticPullStore';
 import { useMoodEngineStore } from '../../stores/useMoodEngineStore';
 import { getEmotionDisplayName } from '../../types/moodEngine';
 import { getAtmospherePresentationBeatPulse } from '../../utils/atmosphere/atmospherePresentationBus';
+import { readReducedMotion } from '../../stores/useMotionSettingsStore';
 import './EmotionSelector.css';
 
 interface EmotionButtonProps {
@@ -135,7 +136,7 @@ export const EmotionButton: React.FC<EmotionButtonProps> = ({
       return;
     }
 
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reducedMotion = readReducedMotion('uiMicroMotion');
     if (reducedMotion) {
       host.style.removeProperty('--emotion-beat');
       host.classList.remove('emotion-button--beat');

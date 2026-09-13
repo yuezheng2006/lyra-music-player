@@ -1,20 +1,17 @@
 import { useEffect, type RefObject } from 'react';
 import { buildMonetDriftTrack } from '../components/visualizer/backgrounds/monetBackgroundDrift';
+import { useReducedMotionFor } from './useReducedMotionFor';
 
 // src/hooks/useMonetBackgroundDrift.ts
 // Plays the Monet drift track on the compositor via Web Animations API.
-
-const prefersReducedMotion = () => (
-    typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-);
 
 export const useMonetBackgroundDrift = (
     ref: RefObject<HTMLDivElement | null>,
     enabled: boolean,
     strength: number,
 ) => {
+    const reduceBackgroundMotion = useReducedMotionFor('monetBackground');
+
     useEffect(() => {
         const element = ref.current;
         if (!element || !enabled || strength <= 0 || typeof element.animate !== 'function') {
@@ -24,7 +21,7 @@ export const useMonetBackgroundDrift = (
         let animation: Animation | null = null;
         const start = () => {
             animation?.cancel();
-            animation = prefersReducedMotion()
+            animation = reduceBackgroundMotion
                 ? null
                 : (() => {
                     const track = buildMonetDriftTrack(strength);
@@ -37,13 +34,8 @@ export const useMonetBackgroundDrift = (
         };
 
         start();
-        const motionQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-            ? window.matchMedia('(prefers-reduced-motion: reduce)')
-            : null;
-        motionQuery?.addEventListener('change', start);
         return () => {
-            motionQuery?.removeEventListener('change', start);
             animation?.cancel();
         };
-    }, [enabled, ref, strength]);
+    }, [enabled, reduceBackgroundMotion, ref, strength]);
 };
