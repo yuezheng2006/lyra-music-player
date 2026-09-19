@@ -259,6 +259,8 @@ describe('command palette registry', () => {
         expect(getCommandPaletteMatches('xinxiang')[0].command.id).toBe('visualizer-cadenza');
         expect(getCommandPaletteMatches('野火').some(match => match.command.id === 'visualizer-dazibao')).toBe(false);
         expect(getCommandPaletteMatches('自动续播')[0].command.id).toBe('toggle-auto-play-on-launch');
+        expect(getCommandPaletteMatches('隐藏指针').some(match => match.command.id === 'toggle-auto-hide-cursor-with-player-chrome')).toBe(true);
+        expect(getCommandPaletteMatches('自动隐藏控制栏').some(match => match.command.id === 'toggle-auto-hide-player-chrome')).toBe(true);
         expect(getCommandPaletteMatches('时计')[0].command.id).toBe('visualizer-pendolo');
         expect(getCommandPaletteMatches('slptmr')[0].command.id).toBe('sleep-timer');
     });

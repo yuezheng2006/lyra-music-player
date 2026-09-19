@@ -48,6 +48,16 @@ describe('lyricOffsetStore', () => {
     it('prefers the stable LocalSong UUID over the session-generated SongResult id', () => {
         expect(buildLyricOffsetSongKey({ id: -1710000000001, localData: { id: 'uuid-a' } }))
             .toBe('localfile:uuid-a');
+        expect(buildLyricOffsetSongKey({
+            id: -1,
+            name: 'Midnight Train',
+            localData: { id: 'uuid-a', filePath: 'Offset Fixture/A.wav' },
+        })).toBe('localfile:uuid-a:Offset Fixture/A.wav');
+        expect(buildLyricOffsetSongKey({
+            id: -1,
+            name: 'Morning Rain',
+            localData: { id: 'uuid-a', fileName: 'Morning Rain.wav' },
+        })).toBe('localfile:uuid-a:Morning Rain.wav');
     });
 
     it('round-trips a calibrated offset per song', () => {

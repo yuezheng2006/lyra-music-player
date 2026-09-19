@@ -58,6 +58,7 @@ const createStore = (): AppearanceImportApplyStore & { calls: Record<string, unk
         handleSetStageTrackPillMode: track('stageTrackPillMode', () => {}),
         handleSetStageTrackPillTimeoutSec: track('stageTrackPillTimeoutSec', () => {}),
         handleToggleStageTrackPillOnHome: track('stageTrackPillOnHome', () => {}),
+        handleToggleAutoHideCursorWithPlayerChrome: track('autoHideCursorWithPlayerChrome', () => {}),
     };
 };
 

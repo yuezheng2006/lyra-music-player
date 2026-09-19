@@ -180,6 +180,7 @@ async function installBaseState(
     neteaseMode?: MockNeteaseMode;
     navidromeEnabled?: boolean;
     localImportFixture?: typeof localImportFixture;
+    homeViewTab?: 'charts' | 'playlist';
   } = {},
 ) {
   await page.addInitScript((payload: {
@@ -189,6 +190,7 @@ async function installBaseState(
     navidromeEnabled: boolean;
     navidromeConfig: typeof navidromeFixtures.config;
     localImportFixture?: typeof localImportFixture;
+    homeViewTab: 'charts' | 'playlist';
   }) => {
     const createMatchMediaResult = (query: string) => ({
       matches: query.includes('light'),
@@ -220,7 +222,7 @@ async function installBaseState(
     localStorage.setItem('default_theme_daylight', 'true');
     localStorage.setItem('static_mode', 'true');
     localStorage.setItem('last_app_view', 'home');
-    localStorage.setItem('last_home_view_tab', 'charts');
+    localStorage.setItem('last_home_view_tab', payload.homeViewTab);
     // Avoid first-run / version overlays intercepting screenshot clicks.
     localStorage.setItem('lyra_onboarding_completed', 'true');
     localStorage.setItem('folia_last_seen_guide_version', payload.appVersion);
@@ -379,6 +381,7 @@ async function installBaseState(
     navidromeEnabled: options.navidromeEnabled ?? false,
     navidromeConfig: navidromeFixtures.config,
     localImportFixture: options.localImportFixture,
+    homeViewTab: options.homeViewTab ?? 'charts',
   });
 }
 
@@ -575,25 +578,24 @@ async function openApp(page: Page) {
 
 test.describe('frontend screenshot coverage', () => {
   test('captures the Netease playlist home view', async ({ page }) => {
-    await installBaseState(page, { neteaseMode: 'logged-in' });
+    await installBaseState(page, { neteaseMode: 'logged-in', homeViewTab: 'playlist' });
     await mockNeteaseApi(page, 'logged-in');
 
     await openApp(page);
 
-    // 首页改版后不再有 Daily Mix 卡片；以登录态歌单区作为就绪锚点。
-    await expect(page.getByText('My playlists').first()).toBeVisible();
+    // 登录态歌单首页：侧栏 + 个人歌单格（云盘 / Daily Mix / Late Night Drive）。
     await expect(page.getByText('Discover').first()).toBeVisible();
     await expect(page.getByText('Yours').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Playlists' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Created playlists' })).toBeVisible();
+    await expect(page.locator('[data-app-ui-surface="home-playlists"]')).toBeVisible();
+    await expect(page.getByText('Daily Mix').first()).toBeVisible();
+    await expect(page.getByText('Late Night Drive').first()).toBeVisible();
     const surfaces = await page.locator('[data-app-ui-surface]').evaluateAll(
       nodes => nodes.map(node => node.getAttribute('data-app-ui-surface')),
     );
-    const heroIndex = surfaces.indexOf('home-discovery-hero');
-    const chartIndex = surfaces.indexOf('home-chart-preview');
-    const deskIndex = surfaces.indexOf('home-listening-desk');
-    expect(heroIndex).toBeGreaterThanOrEqual(0);
-    expect(chartIndex).toBeGreaterThan(heroIndex);
-    expect(deskIndex).toBe(-1);
+    expect(surfaces).toContain('home-playlists');
+    expect(surfaces.indexOf('home-listening-desk')).toBe(-1);
     await expect(page).toHaveScreenshot('netease-home.png', {
       animations: 'disabled',
       scale: 'css',

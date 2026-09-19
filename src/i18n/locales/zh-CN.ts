@@ -219,6 +219,8 @@ export default {
       "settings-reduce-motion": { "title": "降低动态效果", "description": "打开实验室里的显式动效降级控制" },
       "toggle-follow-system-reduced-motion": { "title": "切换跟随系统动画", "description": "让系统动画设置重新决定全部动效" },
       "toggle-auto-play-on-launch": { "title": "切换启动自动续播", "description": "启动时恢复上一首并自动播放（默认关）" },
+      "toggle-auto-hide-player-chrome": { "title": "切换自动隐藏控制栏", "description": "空闲后隐藏播放页底栏，或重新显示" },
+      "toggle-auto-hide-cursor-with-player-chrome": { "title": "切换隐藏鼠标指针", "description": "控制栏隐藏时，在歌词舞台上隐藏鼠标指针" },
       "settings-track-atmosphere-light": { "title": "曲级氛围灯光", "description": "打开曲级氛围灯光配方目录" },
       "settings-visualizer": { "title": "可视化设置", "description": "打开歌词动画实验台" },
       "settings-theme-park": { "title": "配色", "description": "打开主题编辑器" },
@@ -312,6 +314,8 @@ export default {
     "stageTrackPillNow": "正在播放",
     "stageTrackPillOpenPlayer": "打开播放页",
     "stageTrackPillOpenSongCard": "展开歌曲卡片",
+    "enterFullscreen": "进入全屏",
+    "exitFullscreen": "退出全屏",
     "unknownArtist": "未知艺术家",
     "loopingOn": "循环开启",
     "loopOff": "循环关闭",
@@ -791,7 +795,8 @@ export default {
   },
   "settings": {
     "lyricMatchPriority": "歌词匹配优先级",
-    "lyricMatchPriorityDesc": "在多个歌词源都存在高置信度匹配时，优先选择该歌词源的结果。"
+    "lyricMatchPriorityDesc": "在多个歌词源都存在高置信度匹配时，优先选择该歌词源的结果。",
+    "lyricMatchPriorityAuto": "跟随当前平台"
   },
   "options": {
     "cacheDetails": "缓存详情",
@@ -923,6 +928,7 @@ export default {
     "lyricsResolveApiKey": "API 密钥",
     "lyricMatchPriority": "歌词匹配优先级",
     "lyricMatchPriorityDesc": "在多个歌词源都存在匹配度满足要求的歌词时，优先选择该歌词源的结果。",
+    "lyricMatchPriorityAuto": "跟随当前平台",
     "labHidePlayerUi": "隐藏播放页 UI",
     "labHidePlayerUiDesc": "仅对播放页生效。可分别隐藏翻译字幕和右侧按钮；隐藏右侧按钮后仍可使用 P 键打开或关闭右侧面板。底栏请用「自动隐藏控制栏」或 H 键。",
     "hidePlayerTranslationSubtitle": "隐藏底部字幕层",
@@ -934,6 +940,8 @@ export default {
     "enablePlayerPageNativeBlurDesc": "仅在非透明模式下生效。将播放页的背景替换为系统原生毛玻璃效果（仅桌面端）。系统原生效果会消耗更多性能并可能在移动窗口时产生卡顿。",
     "autoHidePlayerChrome": "自动隐藏控制栏",
     "autoHidePlayerChromeDesc": "开启后，鼠标空闲约 10 秒会自动隐藏播放页底栏与右侧面板按钮。也可按 H 键切换。",
+    "autoHideCursorWithPlayerChrome": "控制栏隐藏时隐藏指针",
+    "autoHideCursorWithPlayerChromeDesc": "播放页控制栏隐藏后，歌词舞台上的鼠标指针一并隐藏。弹窗和浮动控件不受影响。",
     "stageTrackPill": "歌曲信息卡片",
     "stageTrackPillDesc": "歌词页左下角的正在播放卡片：显示一段时间后自动隐藏，或保持常驻/隐藏。",
     "stageTrackPillMode_auto": "限时显示",

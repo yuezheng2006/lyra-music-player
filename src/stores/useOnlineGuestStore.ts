@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { useSearchNavigationStore } from './useSearchNavigationStore';
 
 // src/stores/useOnlineGuestStore.ts
 // Tracks whether a QQ-only guest has entered the online library surface.
@@ -25,7 +24,7 @@ export const useOnlineGuestStore = create<OnlineGuestState>((set) => ({
         if (typeof sessionStorage !== 'undefined') {
             sessionStorage.setItem(ONLINE_GUEST_ENTERED_KEY, '1');
         }
-        useSearchNavigationStore.getState().setHomeViewTab('charts');
+        // Guest playlist → charts is resolveHomeViewTabForSession. Do not stomp a persisted tab on login.
         set({ entered: true });
     },
     reset: () => {

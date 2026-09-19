@@ -67,15 +67,13 @@ test.describe('lyric timeline offset', () => {
         const localTab = page.getByRole('button', { name: /^(本地|歌词|Local|Lyrics)$/ });
 
         // Don't assume which track play-all landed on — read it from the dock title.
-        const dockTitle = await page.getByTestId('floating-player-dock')
-            .getByText(/Midnight Train|Morning Rain/)
-            .first()
-            .textContent();
+        const dockTitle = await page.getByTestId('floating-player-dock-title').textContent();
         const calibratedSong = dockTitle?.includes('Morning Rain') ? 'Morning Rain' : 'Midnight Train';
         const otherSong = calibratedSong === 'Morning Rain' ? 'Midnight Train' : 'Morning Rain';
 
         await queueTab.click();
         await page.getByRole('listitem').filter({ hasText: otherSong }).first().click();
+        await expect(page.getByTestId('floating-player-dock-title')).toHaveText(otherSong, { timeout: 10_000 });
         await localTab.click();
         await expect(offsetInput).toHaveValue('0', { timeout: 10_000 });
 

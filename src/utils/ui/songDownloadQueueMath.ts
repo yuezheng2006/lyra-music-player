@@ -83,7 +83,22 @@ export function planSongDownloadEnqueue<T extends { id?: string | number | null;
   return { accepted, skippedDuplicate, skippedUnsupported };
 }
 
-/** Apply one finished item to progress counters. */
+/** HOV-shaped local client: two concurrent session downloads. */
+export const SONG_DOWNLOAD_QUEUE_CONCURRENCY = 2;
+
+/** One retry after a failed session download. */
+export const SONG_DOWNLOAD_MAX_ATTEMPTS = 2;
+
+/** Spawn at most `concurrency` workers, and never more than remaining items. */
+export const resolveSongDownloadWorkerCount = (
+  queueLength: number,
+  concurrency = SONG_DOWNLOAD_QUEUE_CONCURRENCY,
+): number => Math.min(Math.max(0, concurrency), Math.max(0, queueLength));
+
+/** Items waiting plus in-flight session downloads. */
+export const songDownloadPendingCount = (queueLength: number, inFlight: number): number =>
+  Math.max(0, queueLength) + Math.max(0, inFlight);
+
 export function applySongDownloadQueueItemResult(
   progress: SongDownloadQueueProgress,
   ok: boolean,

@@ -1,4 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+    isMacNavigatorPlatform,
+    shouldUseNativeFullscreenTrafficLight,
+} from '../utils/window/macNativeFullscreenTrafficLight';
 
 // src/components/WindowControls.tsx
 // Left-side macOS-style traffic lights for frameless Electron chrome.
@@ -13,8 +18,11 @@ export default function WindowControls({
     isDaylight?: boolean;
     isMainWindowClickThroughEnabled?: boolean;
 }) {
+    const { t } = useTranslation();
     const [isMaximized, setIsMaximized] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const electron = (window as any).electron;
+    const useNativeFullscreen = shouldUseNativeFullscreenTrafficLight(isMacNavigatorPlatform());
 
     useEffect(() => {
         if (!electron) return;
@@ -23,6 +31,27 @@ export default function WindowControls({
         window.addEventListener('resize', checkMaximize);
         return () => window.removeEventListener('resize', checkMaximize);
     }, [electron]);
+
+    useEffect(() => {
+        if (!electron || !useNativeFullscreen) return;
+        let cancelled = false;
+        const syncFullscreen = async () => {
+            try {
+                const next = Boolean(await electron.isWindowFullscreen?.());
+                if (!cancelled) setIsFullscreen(next);
+            } catch {
+                if (!cancelled) setIsFullscreen(false);
+            }
+        };
+        void syncFullscreen();
+        const unsubscribe = electron.onWindowFullscreenChanged?.((state: { isFullscreen?: boolean }) => {
+            setIsFullscreen(Boolean(state?.isFullscreen));
+        });
+        return () => {
+            cancelled = true;
+            unsubscribe?.();
+        };
+    }, [electron, useNativeFullscreen]);
 
     if (!electron) return null;
 
@@ -72,16 +101,29 @@ export default function WindowControls({
             <button
                 type="button"
                 className={`${lightClass} bg-[#28c840]`}
-                title={isMaximized ? '还原' : '最大化'}
-                aria-label={isMaximized ? '还原' : '最大化'}
+                title={useNativeFullscreen
+                    ? (isFullscreen ? t('ui.exitFullscreen', '退出全屏') : t('ui.enterFullscreen', '进入全屏'))
+                    : (isMaximized ? '还原' : '最大化')}
+                aria-label={useNativeFullscreen
+                    ? (isFullscreen ? t('ui.exitFullscreen', '退出全屏') : t('ui.enterFullscreen', '进入全屏'))
+                    : (isMaximized ? '还原' : '最大化')}
                 tabIndex={visible ? 0 : -1}
                 onClick={async () => {
+                    if (useNativeFullscreen && electron.toggleFullscreenWindow) {
+                        await electron.toggleFullscreenWindow();
+                        try {
+                            setIsFullscreen(Boolean(await electron.isWindowFullscreen?.()));
+                        } catch {
+                            // native fullscreen events will catch up
+                        }
+                        return;
+                    }
                     await electron.toggleMaximizeWindow();
                     setIsMaximized(await electron.isWindowMaximized());
                 }}
             >
                 <span className="pointer-events-none text-[7px] font-bold leading-none text-black/55 opacity-0 group-hover:opacity-100">
-                    {isMaximized ? '⧉' : '+'}
+                    {(useNativeFullscreen ? isFullscreen : isMaximized) ? '⧉' : '+'}
                 </span>
             </button>
         </div>

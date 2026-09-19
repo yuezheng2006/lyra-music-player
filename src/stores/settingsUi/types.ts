@@ -45,6 +45,7 @@ import type { LocalBeatAnalysisMode } from '../../utils/atmosphere/localBeatMapC
 import type { LocalBeatAnalysisPromptPolicy } from '../../utils/atmosphere/localBeatAnalysisPolicy';
 import type { GridViewCollectionDescriptor } from '../../components/app/home/gridViewCollectionAdapters';
 import type { LyricStaffAbsorbMode, LyricStaffPolicy } from '../../utils/lyrics/staffCreditsPolicy';
+import type { LyricMatchPriority } from '../../utils/lyrics/lyricMatchPreferredSource';
 
 // src/stores/settingsUi/types.ts
 // Settings UI store public types.
@@ -68,7 +69,7 @@ export type SettingsUiState = {
     disableHomeDynamicBackground: boolean;
     enableAlternativeLyricSources: boolean;
     autoUseBestLyric: boolean;
-    preferredAlternativeLyricSource: LyricProviderSource;
+    preferredAlternativeLyricSource: LyricMatchPriority;
     /** Private lyrics resolve service base URL (empty = disabled / use env). */
     lyricsResolveBaseUrl: string;
     /** Private lyrics resolve service API key. */
@@ -87,6 +88,7 @@ export type SettingsUiState = {
     transparentPlayerBackground: boolean;
     enablePlayerPageNativeBlur: boolean;
     autoHidePlayerChrome: boolean;
+    autoHideCursorWithPlayerChrome: boolean;
     /** default player chrome vs speaker-stage immersion (glass + MoodLyric). */
     playbackPresentation: PlaybackPresentation;
     disableVisualizerVignette: boolean;
@@ -226,7 +228,7 @@ export type SettingsUiState = {
     handleToggleDisableHomeDynamicBackground: (disable: boolean) => void;
     handleToggleAlternativeLyricSources: (enable: boolean) => void;
     handleToggleAutoUseBestLyric: (enable: boolean) => void;
-    handleSetPreferredAlternativeLyricSource: (source: LyricProviderSource) => void;
+    handleSetPreferredAlternativeLyricSource: (source: LyricMatchPriority) => void;
     handleSetLyricsResolveBaseUrl: (url: string) => void;
     handleSetLyricsResolveApiKey: (apiKey: string) => void;
     handleToggleHidePlayerTranslationSubtitle: (enable: boolean) => void;
@@ -242,6 +244,7 @@ export type SettingsUiState = {
     handleToggleHidePlayerRightPanelButton: (enable: boolean) => void;
     handleToggleTransparentPlayerBackground: (enable: boolean) => void;
     handleToggleAutoHidePlayerChrome: (enable: boolean) => void;
+    handleToggleAutoHideCursorWithPlayerChrome: (enable: boolean) => void;
     handleSetPlaybackPresentation: (presentation: PlaybackPresentation) => void;
     handleToggleSpeakerStage: (enable?: boolean) => void;
     handleToggleDisableVisualizerVignette: (disable: boolean) => void;

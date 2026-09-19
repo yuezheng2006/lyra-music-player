@@ -40,6 +40,18 @@ declare global {
     error?: string | null;
   }
 
+  interface ElectronDownloadSidecarFilePayload {
+    audioPath: string;
+    kind: 'lyric' | 'translation';
+    text: string;
+  }
+
+  interface ElectronDownloadSidecarFileResult {
+    ok: boolean;
+    path?: string;
+    error?: string | null;
+  }
+
   interface ElectronAudioCacheEntry {
     found: boolean;
     data?: Uint8Array | ArrayBuffer | null;
@@ -536,6 +548,7 @@ declare global {
       resetDownloadDirectory: () => Promise<ElectronDownloadDirectoryResult>;
       openDownloadDirectory: () => Promise<ElectronOpenDownloadDirectoryResult>;
       downloadSongFile: (payload: ElectronDownloadSongFilePayload) => Promise<ElectronDownloadSongFileResult>;
+      writeDownloadSidecarFile: (payload: ElectronDownloadSidecarFilePayload) => Promise<ElectronDownloadSidecarFileResult>;
       getUpdateStatus: () => Promise<ElectronUpdateStatus>;
       checkForUpdates: () => Promise<ElectronUpdateStatus>;
       markUpdateSeen: (version?: string | null) => Promise<ElectronUpdateStatus>;

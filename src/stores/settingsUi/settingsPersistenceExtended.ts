@@ -10,7 +10,6 @@ import {
     type LatentBackgroundDisplayMode,
     type LatentBackgroundTuning,
     type NomandBackgroundTuning,
-    type LyricProviderSource,
     type LyricWordMode,
     type MonetBackgroundTuning,
     type MonetTuning,
@@ -30,6 +29,7 @@ import {
     type LyricStaffAbsorbMode,
     type LyricStaffPolicy,
 } from '../../utils/lyrics/staffCreditsPolicy';
+import { isLyricMatchPriority, type LyricMatchPriority } from '../../utils/lyrics/lyricMatchPreferredSource';
 import { resolveStoredInteractive3dSceneTuning } from '../../components/visualizer/geometric/interactive3dSceneRegistry';
 import {
     DEFAULT_LYRIC_WORD_MODE,
@@ -577,10 +577,16 @@ export const readStoredHomeLayoutStyle = (): 'carousel' | 'grid' => {
     return saved === 'carousel' ? 'carousel' : 'grid';
 };
 
-export const readStoredPreferredAlternativeLyricSource = (): LyricProviderSource => {
-    if (typeof window === 'undefined') return 'netease';
+export const readStoredPreferredAlternativeLyricSource = (): LyricMatchPriority => {
+    if (typeof window === 'undefined') return 'auto';
     const saved = localStorage.getItem('preferred_alternative_lyric_source');
-    return saved === 'qq' || saved === 'kugou' || saved === 'amll' ? saved : 'netease';
+    if (saved === 'netease' || saved === 'qq' || saved === 'kugou' || saved === 'amll') {
+        return saved;
+    }
+    if (isLyricMatchPriority(saved)) {
+        return saved;
+    }
+    return 'auto';
 };
 
 /**

@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electron', {
     resetDownloadDirectory: () => ipcRenderer.invoke('reset-download-directory'),
     openDownloadDirectory: () => ipcRenderer.invoke('open-download-directory'),
     downloadSongFile: (payload) => ipcRenderer.invoke('download-song-file', payload),
+    writeDownloadSidecarFile: (payload) => ipcRenderer.invoke('write-download-sidecar-file', payload),
     getUpdateStatus: () => ipcRenderer.invoke('updates-get-status'),
     checkForUpdates: () => ipcRenderer.invoke('updates-check'),
     markUpdateSeen: (version) => ipcRenderer.invoke('updates-mark-seen', version),

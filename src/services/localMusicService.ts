@@ -6,6 +6,7 @@ import { parseEmbeddedMetadataAsync, type EmbeddedMetadataResult } from '../util
 import { processNeteaseLyrics } from '../utils/lyrics/neteaseProcessing';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import { resolveBestLyric } from '../utils/lyrics/resolveBestLyric';
+import { resolveLyricMatchPreferredSourceForSong } from '../utils/lyrics/lyricMatchPreferredSource';
 import { normalizeLyricMatchText } from '../utils/lyrics/matchScore';
 import { isBlob } from '../utils/blobGuards';
 import { resolveExplicitFileTimedLyricFormat, type ExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
@@ -1360,7 +1361,7 @@ export async function matchLyrics(song: LocalSong): Promise<LyricData | null> {
             const cleanTitle = song.title || song.fileName.replace(/\.(mp3|flac|m4a|wav|ogg|opus|aac)$/i, '');
             const bestMatch = await resolveBestLyric(cleanTitle, song.artist || '', song.duration, {
                 album: song.album,
-                preferredSource: settings.preferredAlternativeLyricSource,
+                preferredSource: resolveLyricMatchPreferredSourceForSong(settings.preferredAlternativeLyricSource),
             });
             if (bestMatch && 'lyrics' in bestMatch) {
                 if (bestMatch.source === 'netease' || (bestMatch.source === 'amll' && bestMatch.matchedLyricsProviderPlatform === 'ncm')) {

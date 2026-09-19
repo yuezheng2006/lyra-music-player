@@ -312,7 +312,7 @@ test.describe('player controls panel', () => {
 
     await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_background_mode'))).toBe('common');
     await page.getByTestId('controls-background-mode-next').click();
-    await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_background_mode'))).toBe('monet');
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_background_mode'))).toBe('nomand');
     await page.getByTestId('controls-background-mode-prev').click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem('visualizer_background_mode'))).toBe('common');
   });

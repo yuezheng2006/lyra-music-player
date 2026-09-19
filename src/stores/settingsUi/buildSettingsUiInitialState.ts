@@ -118,6 +118,7 @@ export const buildSettingsUiInitialState = (set: SetState) => ({
     transparentPlayerBackground: getStoredBoolean('transparent_player_background', false),
     enablePlayerPageNativeBlur: getStoredBoolean('enable_player_page_native_blur', false),
     autoHidePlayerChrome: getStoredBoolean('auto_hide_player_chrome', false),
+    autoHideCursorWithPlayerChrome: getStoredBoolean('auto_hide_cursor_with_player_chrome', true),
     playbackPresentation: parsePlaybackPresentation(
         typeof localStorage !== 'undefined' ? localStorage.getItem(PLAYBACK_PRESENTATION_STORAGE_KEY) : null,
     ),

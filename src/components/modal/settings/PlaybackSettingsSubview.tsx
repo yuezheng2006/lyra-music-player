@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow';
 import type { QueueAddBehavior, Theme } from '../../../types';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import { CustomSelect } from '../../shared/CustomSelect';
-import { LYRIC_MATCH_SOURCES } from '../../../utils/lyrics/lyricMatchSources';
+import { LYRIC_MATCH_PRIORITY_OPTIONS } from '../../../utils/lyrics/lyricMatchPreferredSource';
 import { getLyricProviderPreferenceLabel } from '../../../utils/lyrics/lyricSourceLabels';
 import SettingsAdvancedSection from './SettingsAdvancedSection';
 import SleepTimerSettingsSection from './SleepTimerSettingsSection';
@@ -420,20 +420,22 @@ const PlaybackSettingsSubview: React.FC<PlaybackSettingsSubviewProps> = ({
                                         {t('settings.lyricMatchPriorityDesc')}
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-                                    {LYRIC_MATCH_SOURCES.map((source) => {
-                                        const option = { value: source, label: getLyricProviderPreferenceLabel(source) };
-                                        const selected = preferredAlternativeLyricSource === option.value;
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                                    {LYRIC_MATCH_PRIORITY_OPTIONS.map((source) => {
+                                        const label = source === 'auto'
+                                            ? t('settings.lyricMatchPriorityAuto')
+                                            : getLyricProviderPreferenceLabel(source);
+                                        const selected = preferredAlternativeLyricSource === source;
                                         return (
                                             <button
-                                                key={option.value}
+                                                key={source}
                                                 type="button"
-                                                onClick={() => onPreferredAlternativeLyricSourceChange(option.value)}
+                                                onClick={() => onPreferredAlternativeLyricSourceChange(source)}
                                                 className="rounded-xl border px-3 py-2 text-center transition-colors"
                                                 style={getAccentOptionStyle(selected)}
                                             >
                                                 <div className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-                                                    {option.label}
+                                                    {label}
                                                 </div>
                                             </button>
                                         );

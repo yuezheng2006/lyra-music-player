@@ -10,8 +10,9 @@ type StoredOffsetEntry = [songId: string, offsetMs: number];
 export const buildLyricOffsetSongKey = (
     song: {
         id: number | string;
+        name?: string;
         musicProvider?: string;
-        localData?: { id: string };
+        localData?: { id: string; filePath?: string; fileName?: string };
     } | null | undefined,
 ): string | null => {
     if (!song) {
@@ -19,11 +20,26 @@ export const buildLyricOffsetSongKey = (
     }
     // Local playback SongResult ids are generated per session; the LocalSong UUID
     // is the only identity that is stable across song switches and restarts.
+    // Path/name disambiguates two imports that somehow share a UUID.
     if (song.localData?.id) {
-        return `localfile:${song.localData.id}`;
+        const localIdentity = [
+            song.localData.filePath,
+            song.localData.fileName,
+            song.name,
+        ].map(value => value?.trim()).find(Boolean) || '';
+        return localIdentity
+            ? `localfile:${song.localData.id}:${localIdentity}`
+            : `localfile:${song.localData.id}`;
+    }
+    if (song.localData?.filePath) {
+        return `localfile:${song.localData.filePath}`;
     }
     return `${song.musicProvider ?? 'local'}:${song.id}`;
 };
+
+export const readLyricTimelineOffsetMsForSong = (
+    song: Parameters<typeof buildLyricOffsetSongKey>[0],
+): number => readLyricTimelineOffsetMs(buildLyricOffsetSongKey(song));
 
 const parseEntries = (value: string | null): StoredOffsetEntry[] => {
     if (!value) {

@@ -20,6 +20,7 @@ import { processNeteaseLyrics } from '../utils/lyrics/neteaseProcessing';
 import { applyUploadedLocalLyrics } from '../utils/lyrics/localLyricsUpload';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import { resolveBestLyric } from '../utils/lyrics/resolveBestLyric';
+import { resolveLyricMatchPreferredSourceForSong } from '../utils/lyrics/lyricMatchPreferredSource';
 import { loadYtmSongLyrics } from '../utils/lyrics/loadYtmSongLyrics';
 import { resolveExplicitFileTimedLyricFormat } from '../utils/lyrics/formatDetection';
 import { getOnlineSongCacheKey, isCloudSong, neteaseApi } from '../services/netease';
@@ -918,7 +919,7 @@ export function useLibraryPlaybackController({
                         if (settings.enableAlternativeLyricSources && settings.autoUseBestLyric) {
                             const bestMatch = await resolveBestLyric(navidromeSong.name, artistName, navidromeSong.duration || navidromeSong.dt || 0, {
                                 album: albumName,
-                                preferredSource: settings.preferredAlternativeLyricSource,
+                                preferredSource: resolveLyricMatchPreferredSourceForSong(settings.preferredAlternativeLyricSource, navidromeSong),
                             });
                             if (bestMatch?.isPureMusic) {
                                 isAutoMatched = true;
@@ -1537,7 +1538,7 @@ export function useLibraryPlaybackController({
                 const title = localData.title || localData.fileName.replace(/\.(mp3|flac|m4a|wav|ogg|opus|aac)$/i, '');
                 const bestMatch = await resolveBestLyric(title, localData.artist || '', localData.duration, {
                     album: localData.album,
-                    preferredSource: settings.preferredAlternativeLyricSource,
+                    preferredSource: resolveLyricMatchPreferredSourceForSong(settings.preferredAlternativeLyricSource, currentSong),
                 });
 
                 if (!bestMatch) {
@@ -1583,7 +1584,7 @@ export function useLibraryPlaybackController({
                 const albumName = navidromeSong.album?.name || navidromeSong.al?.name || '';
                 const bestMatch = await resolveBestLyric(navidromeSong.name, artistName, navidromeSong.duration || navidromeSong.dt || 0, {
                     album: albumName,
-                    preferredSource: settings.preferredAlternativeLyricSource,
+                    preferredSource: resolveLyricMatchPreferredSourceForSong(settings.preferredAlternativeLyricSource, navidromeSong),
                 });
 
                 if (!bestMatch) {
@@ -1631,7 +1632,7 @@ export function useLibraryPlaybackController({
             const albumName = currentSong.album?.name || currentSong.al?.name || '';
             const bestMatch = await resolveBestLyric(currentSong.name, artistName, currentSong.duration || currentSong.dt || 0, {
                 album: albumName,
-                preferredSource: settings.preferredAlternativeLyricSource,
+                preferredSource: resolveLyricMatchPreferredSourceForSong(settings.preferredAlternativeLyricSource, currentSong),
             });
 
             if (!bestMatch) {

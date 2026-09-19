@@ -65,6 +65,14 @@ body {
   overflow: hidden;
 }
 
+/* Lyric-stage idle cursor. Keep this unlayered: Tailwind v4 utilities live in
+   @layer utilities, and an unlayered descendant rule beats those classes even
+   when they have higher specificity (disabled:cursor-not-allowed). */
+.cursor-auto-hidden,
+.cursor-auto-hidden * {
+  cursor: none;
+}
+
 :root {
   --scrollbar-track: #18181b;
   --scrollbar-thumb: #3f3f46;

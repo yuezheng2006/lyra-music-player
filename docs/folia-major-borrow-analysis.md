@@ -1,14 +1,14 @@
 # Folia Major → Lyra 可迁移分析
 
-> 日期：2026-09-06（增量核查；上次 2026-08-30 / 2026-08-29 / 2026-08-24；原稿 2026-07-28）  
-> 参考仓：folia-major **v0.7.3** + origin/main `08fc072f`（相对 v0.7.1：歌词过滤出实验室 / staff credits / 全局 Cmd+K；壁纸与 Tempera 不做）  
+> 日期：2026-09-19（增量核查；上次 2026-09-13 / 2026-09-06 / 2026-08-30 / 2026-08-29 / 2026-08-24；原稿 2026-07-28）  
+> 参考仓：folia-major **v0.7.7** / origin/main `52081f79`（相对 v0.7.3：reduce-motion 控制面、QQ 空壳、酷狗 playInfo；本批从 open PR 吸收指针隐藏与歌词 auto）  
 > 产品仓：happy-player / Lyra / **1.0.4**  
 > 许可：两边均为 **AGPL-3.0**，可在保持 AGPL 的前提下直接 cherry-pick / 适配移植  
-> 三仓合阅：`docs/research/2026-08-24-kumone-mineradio-folia-borrow.md`；**2026-08-29 上游增量**：`docs/research/2026-08-29-folia-kumone-upstream.md`；**2026-08-30 v0.7.1**：`docs/research/2026-08-30-folia-v0.7.1-upstream.md`；**2026-09-06 v0.7.3**：`docs/research/2026-09-06-folia-v0.7.3-upstream.md`  
+> 三仓合阅：`docs/research/2026-08-24-kumone-mineradio-folia-borrow.md`；**2026-09-13 v0.7.7**：`docs/research/2026-09-13-folia-v0.7.7-upstream.md`；**2026-09-19 open PR**：`docs/research/2026-09-19-folia-upstream.md`  
 >  
-> **2026-09-06 对照结论**  
-> - Folia **v0.7.3** 已发布（main 再超前 macOS 壁纸 #337–#340）。本轮落地：**歌词过滤迁到播放设置 + 开头制作人员智能处理（含吸收相邻行）**；**命令面板 Cmd/Ctrl+K 全 app 唤起**（播放页 Cmd+S 保留）。  
-> - 明确不做：automix/stem/onnx、Forge mod loader、Windows/Linux/macOS 壁纸、Tempera/Pixi/Sonnet、god-store 整包拆分、ts-code-map。
+> **2026-09-19 对照结论**  
+> - Folia **v0.7.7** 已发布，main 未再前进。本轮从 open PR 落地：**#378 控制栏隐藏时藏歌词舞台指针**（外观短码 `ahc`）；**#389 Mac 绿灯原生全屏 + 歌词匹配跟随当前平台**。  
+> - 明确不做：automix/stem/onnx、Forge、壁纸（含 #388）、Tempera/Pixi/Sonnet、collection morph #386、Apple Music/Spotify。
 
 ## 1. 关系与版本差
 

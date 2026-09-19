@@ -13,6 +13,7 @@ vi.mock('@/services/musicProviders/registry', () => ({
   getProviderSongCacheKey: () => 'audio_qishui_1',
   getMusicProviderForSong: () => ({
     getAudioUrl: async () => ({ kind: 'ok', audioUrl: 'https://example.com/a.mp3' }),
+    getLyrics: async () => null,
   }),
 }));
 

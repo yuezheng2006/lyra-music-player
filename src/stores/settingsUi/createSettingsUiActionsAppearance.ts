@@ -48,7 +48,7 @@ import { buildStoredMonetBackgroundImage, clearMonetBackgroundImage, isSupported
 import { buildStoredMonetPortraitImage, clearMonetPortraitImage, isSupportedMonetPortraitFile, saveMonetPortraitImage } from '../../services/monetPortraitImage';
 import { setGlobalVisualizerFrameRate, VISUALIZER_FRAME_RATE_STORAGE_KEY } from '../../utils/frameRateLimiter';
 import { sanitizeUrlBackgroundItem, sanitizeUrlBackgroundList } from '../../utils/urlBackground';
-import { getLyricProviderPreferenceLabel } from '../../utils/lyrics/lyricSourceLabels';
+import { getLyricMatchPriorityLabel } from '../../utils/lyrics/lyricSourceLabels';
 import i18n, { applyAppLanguagePreference } from '../../i18n/config';
 import type { LocalBeatAnalysisPromptPolicy } from '../../utils/atmosphere/localBeatAnalysisPolicy';
 import { scheduleInteractive3dParticleYieldResume } from '../../utils/visualizer/yieldInteractive3dParticlesForModeSwitch';
@@ -144,6 +144,10 @@ export const createSettingsUiActionsAppearance = (set: SetState, get: GetState) 
     handleToggleAutoHidePlayerChrome: (enabled: boolean) => {
         localStorage.setItem('auto_hide_player_chrome', enabled ? 'true' : 'false');
         set({ autoHidePlayerChrome: enabled });
+    },
+    handleToggleAutoHideCursorWithPlayerChrome: (enabled: boolean) => {
+        localStorage.setItem('auto_hide_cursor_with_player_chrome', enabled ? 'true' : 'false');
+        set({ autoHideCursorWithPlayerChrome: enabled });
     },
     handleSetPlaybackPresentation: (presentation) => {
         const next = presentation === 'speaker' ? 'speaker' : 'default';
@@ -259,7 +263,7 @@ export const createSettingsUiActionsAppearance = (set: SetState, get: GetState) 
         set({ preferredAlternativeLyricSource: source });
         notify(get, {
             type: 'info',
-            text: `优先匹配歌词源已切换为${getLyricProviderPreferenceLabel(source)}`,
+            text: `优先匹配歌词源已切换为${getLyricMatchPriorityLabel(source)}`,
         });
     },
     handleSetLyricsResolveBaseUrl: (url) => {

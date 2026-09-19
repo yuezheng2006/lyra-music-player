@@ -1109,6 +1109,39 @@ async function downloadSongFileToDirectory(payload = {}) {
   };
 }
 
+function isPathInsideDownloadRoot(absolutePath) {
+  const root = path.resolve(getConfiguredDownloadDirectory());
+  const resolved = path.resolve(absolutePath);
+  const rootWithSep = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
+  return resolved === root || resolved.startsWith(rootWithSep);
+}
+
+/** Write .lrc / .t.lrc next to a downloaded audio file (HOV-style sidecar). */
+async function writeDownloadSidecarFile(payload = {}) {
+  const audioPath = String(payload.audioPath || '').trim();
+  const text = typeof payload.text === 'string' ? payload.text : '';
+  const kind = payload.kind === 'translation' ? 'translation' : 'lyric';
+
+  if (!audioPath || !text.trim()) {
+    return { ok: false, error: 'missing-sidecar-payload' };
+  }
+
+  const resolvedAudio = path.resolve(audioPath);
+  if (!isPathInsideDownloadRoot(resolvedAudio)) {
+    return { ok: false, error: 'sidecar-path-escapes-download-root' };
+  }
+
+  const parsed = path.parse(resolvedAudio);
+  const sidecarName = kind === 'translation' ? `${parsed.name}.t.lrc` : `${parsed.name}.lrc`;
+  const sidecarPath = path.join(parsed.dir, sidecarName);
+  if (!isPathInsideDownloadRoot(sidecarPath)) {
+    return { ok: false, error: 'sidecar-path-escapes-download-root' };
+  }
+
+  await fs.promises.writeFile(sidecarPath, text, 'utf8');
+  return { ok: true, path: sidecarPath };
+}
+
 function getAudioCacheDirectory() {
   return path.join(getConfiguredCacheDirectory(), 'audio');
 }
@@ -3993,6 +4026,18 @@ ipcMain.handle('download-song-file', async (_event, payload) => {
     return {
       ok: false,
       error: error instanceof Error ? error.message : 'download-failed',
+    };
+  }
+});
+
+ipcMain.handle('write-download-sidecar-file', async (_event, payload) => {
+  try {
+    return await writeDownloadSidecarFile(payload || {});
+  } catch (error) {
+    console.error('[Download] Failed to write sidecar file', error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'sidecar-write-failed',
     };
   }
 });

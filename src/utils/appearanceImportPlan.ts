@@ -95,6 +95,7 @@ const FIELD_GROUPS: Record<string, ImportGroup> = {
     stageTrackPillMode: 'visualizer',
     stageTrackPillTimeoutSec: 'visualizer',
     stageTrackPillOnHome: 'visualizer',
+    autoHideCursorWithPlayerChrome: 'visualizer',
 
     songThemeAutoSwitchEnabled: 'songTheme',
     songThemeAutoGenerateEnabled: 'songTheme',

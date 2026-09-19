@@ -11,6 +11,7 @@ import { parseLyricsAsync } from '../utils/lyrics/workerClient';
 import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState } from '../utils/onlineLyricsState';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import { resolveBestLyric } from '../utils/lyrics/resolveBestLyric';
+import { resolveLyricMatchPreferredSourceForSong } from '../utils/lyrics/lyricMatchPreferredSource';
 import { getMusicProviderForSong, getProviderSongCacheKey, isNeteaseOnlineSong } from './musicProviders/registry';
 import { shouldResolveCompanionVideoForSong } from '../utils/playback/playbackLoadPriorityMath';
 import { isYtmPlaybackSong } from '../utils/appPlaybackGuards';
@@ -216,7 +217,7 @@ export async function loadOnlineSongLyrics(
         const shouldAutoMatch = settings.enableAlternativeLyricSources &&
                                 settings.autoUseBestLyric &&
                                 (!effectiveLyrics || !effectiveLyrics.isWordByWord ||
-                                 (!onlineLyricsState?.hasOnlineOverride && settings.preferredAlternativeLyricSource !== 'netease'));
+                                 (!onlineLyricsState?.hasOnlineOverride && resolveLyricMatchPreferredSourceForSong(settings.preferredAlternativeLyricSource, song) !== 'netease'));
 
         if (!shouldAutoMatch) {
             const effectiveText = effectiveLyrics?.lines.map(line => line.fullText).join('\n') ?? '';
@@ -300,7 +301,7 @@ export async function loadOnlineSongLyrics(
     const shouldAutoMatch = settings.enableAlternativeLyricSources &&
                             settings.autoUseBestLyric &&
                             (!resolvedLyrics || !resolvedLyrics.isWordByWord ||
-                             (!onlineLyricsState?.hasOnlineOverride && settings.preferredAlternativeLyricSource !== 'netease'));
+                             (!onlineLyricsState?.hasOnlineOverride && resolveLyricMatchPreferredSourceForSong(settings.preferredAlternativeLyricSource, song) !== 'netease'));
 
     if (shouldAutoMatch) {
         try {
@@ -308,7 +309,7 @@ export async function loadOnlineSongLyrics(
             const artistName = song.artists?.map(a => a.name).join(', ') || '';
             const bestMatch = await resolveBestLyric(song.name, artistName, song.duration || song.dt || 0, {
                 album: song.album?.name || song.al?.name,
-                preferredSource: settings.preferredAlternativeLyricSource,
+                preferredSource: resolveLyricMatchPreferredSourceForSong(settings.preferredAlternativeLyricSource, song),
                 neteaseCandidate: {
                     id: song.id,
                     lyrics: parsedLyrics,

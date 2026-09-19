@@ -219,6 +219,8 @@ export default {
       "settings-reduce-motion": { "title": "Reduce motion", "description": "Open explicit reduce-motion controls in Lab" },
       "toggle-follow-system-reduced-motion": { "title": "Toggle follow system reduced motion", "description": "Let the OS animation setting reduce motion everywhere again" },
       "toggle-auto-play-on-launch": { "title": "Toggle autoplay on launch", "description": "Resume the last song automatically when the app starts (off by default)" },
+      "toggle-auto-hide-player-chrome": { "title": "Toggle auto-hide player controls", "description": "Hide the docked player bar after idle, or reveal it again" },
+      "toggle-auto-hide-cursor-with-player-chrome": { "title": "Toggle hide cursor with player controls", "description": "Hide the mouse pointer on the lyric stage when controls auto-hide" },
       "settings-track-atmosphere-light": { "title": "Track atmosphere lighting", "description": "Open curated per-track atmosphere and light plan catalog" },
       "settings-visualizer": { "title": "Visualizer settings", "description": "Open lyrics animation workbench" },
       "settings-theme-park": { "title": "Color", "description": "Open theme editor" },
@@ -312,6 +314,8 @@ export default {
     "stageTrackPillNow": "Now playing",
     "stageTrackPillOpenPlayer": "Open the player",
     "stageTrackPillOpenSongCard": "Open the song card",
+    "enterFullscreen": "Enter fullscreen",
+    "exitFullscreen": "Exit fullscreen",
     "unknownArtist": "Unknown artist",
     "loopingOn": "Looping On",
     "loopOff": "Loop Off",
@@ -791,7 +795,8 @@ export default {
   },
   "settings": {
     "lyricMatchPriority": "Lyric match priority",
-    "lyricMatchPriorityDesc": "When multiple lyric sources have high-confidence matches, prefer this source first."
+    "lyricMatchPriorityDesc": "When multiple lyric sources have high-confidence matches, prefer this source first.",
+    "lyricMatchPriorityAuto": "Follow current platform"
   },
   "options": {
     "cacheDetails": "Cache Details",
@@ -923,6 +928,7 @@ export default {
     "lyricsResolveApiKey": "API Key",
     "lyricMatchPriority": "Lyric match priority",
     "lyricMatchPriorityDesc": "When multiple lyric sources have high-confidence matches, prefer this source first.",
+    "lyricMatchPriorityAuto": "Follow current platform",
     "labHidePlayerUi": "Hide Player UI",
     "labHidePlayerUiDesc": "Only applies on the player page. You can hide the translation subtitle and right-side button separately. After hiding the right-side button, you can still use P to open or close the right panel. Use Auto-hide player controls or H for the docked bar.",
     "hidePlayerTranslationSubtitle": "Hide bottom subtitle overlay",
@@ -934,6 +940,8 @@ export default {
     "enablePlayerPageNativeBlurDesc": "Applies only to the player page and normal mode. Replaces the background of the player page with system native blur effect (desktop only). The native system effect consumes more performance and may cause lag when moving the window.",
     "autoHidePlayerChrome": "Auto-hide player controls",
     "autoHidePlayerChromeDesc": "When enabled, the docked player bar and right-side panel button auto-hide after about 10 seconds of idle. You can also press H.",
+    "autoHideCursorWithPlayerChrome": "Hide cursor with controls",
+    "autoHideCursorWithPlayerChromeDesc": "When player controls hide, also hide the pointer on the lyric stage. Dialogs and floating controls stay unaffected.",
     "stageTrackPill": "Now playing card",
     "stageTrackPillDesc": "The bottom-left now playing card on the lyrics page: auto-hide after a while, or keep it always visible / hidden.",
     "stageTrackPillMode_auto": "Timed",

@@ -414,7 +414,11 @@ const DockedBar: React.FC<DockedBarProps> = ({
                         </div>
                     )}
                     <div className="min-w-0 max-w-[120px] sm:max-w-[180px] md:max-w-[220px]">
-                        <div className="truncate text-[13px] font-bold leading-snug tracking-tight" style={{ color: titleColor }}>
+                        <div
+                            className="truncate text-[13px] font-bold leading-snug tracking-tight"
+                            style={{ color: titleColor }}
+                            data-testid="floating-player-dock-title"
+                        >
                             {currentSong?.name || noTrackText}
                         </div>
                         {artistLabel ? (

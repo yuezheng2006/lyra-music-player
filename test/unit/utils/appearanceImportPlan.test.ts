@@ -376,4 +376,15 @@ describe('buildImportPlan', () => {
         expect(p.changes.find(c => c.key === 'stageTrackPillMode')?.group).toBe('visualizer');
         expect(p.changes.find(c => c.key === 'stageTrackPillOnHome')?.to).toBe(true);
     });
+
+    it('plans cursor auto-hide under visualizer', () => {
+        const p = plan({
+            autoHideCursorWithPlayerChrome: false,
+        }, {
+            autoHideCursorWithPlayerChrome: true,
+        }, unpinned);
+        expect(keys(p)).toContain('autoHideCursorWithPlayerChrome');
+        expect(p.changes.find(c => c.key === 'autoHideCursorWithPlayerChrome')?.group).toBe('visualizer');
+        expect(p.changes.find(c => c.key === 'autoHideCursorWithPlayerChrome')?.to).toBe(false);
+    });
 });

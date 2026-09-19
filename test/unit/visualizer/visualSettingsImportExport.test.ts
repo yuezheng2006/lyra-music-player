@@ -118,6 +118,7 @@ describe('Visual Settings Import and Export', () => {
         stageTrackPillMode: 'always',
         stageTrackPillTimeoutSec: 20,
         stageTrackPillOnHome: true,
+        autoHideCursorWithPlayerChrome: false,
     };
 
     it('correctly compresses a full config to a base64 theme code starting with auralis-theme://', () => {
@@ -145,6 +146,7 @@ describe('Visual Settings Import and Export', () => {
         expect(decoded.stageTrackPillMode).toBe('always');
         expect(decoded.stageTrackPillTimeoutSec).toBe(20);
         expect(decoded.stageTrackPillOnHome).toBe(true);
+        expect(decoded.autoHideCursorWithPlayerChrome).toBe(false);
 
         // Verify custom properties alignment
         expect(decoded.theme?.light.wordColors).toEqual([{ word: 'love', color: '#ff0000' }]);
@@ -172,6 +174,7 @@ describe('Visual Settings Import and Export', () => {
         expect(decoded.stageTrackPillMode).toBe('always');
         expect(decoded.stageTrackPillTimeoutSec).toBe(20);
         expect(decoded.stageTrackPillOnHome).toBe(true);
+        expect(decoded.autoHideCursorWithPlayerChrome).toBe(false);
     });
 
     it('gracefully throws error on invalid configuration input strings', () => {

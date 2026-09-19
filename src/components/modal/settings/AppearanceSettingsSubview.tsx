@@ -25,6 +25,7 @@ import {
 import SettingsAdvancedSection from './SettingsAdvancedSection';
 import ImportConfirmDialog from './ImportConfirmDialog';
 import StageTrackPillSettings from './StageTrackPillSettings';
+import { PlayerChromeHideSettings } from './PlayerChromeHideSettings';
 import {
     settingsDescClass,
     settingsDescStyle,
@@ -236,6 +237,8 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
         handleSetStageTrackPillMode: state.handleSetStageTrackPillMode,
         handleSetStageTrackPillTimeoutSec: state.handleSetStageTrackPillTimeoutSec,
         handleToggleStageTrackPillOnHome: state.handleToggleStageTrackPillOnHome,
+        autoHideCursorWithPlayerChrome: state.autoHideCursorWithPlayerChrome,
+        handleToggleAutoHideCursorWithPlayerChrome: state.handleToggleAutoHideCursorWithPlayerChrome,
     })));
 
     const getAccentOptionStyle = (selected: boolean) => (
@@ -310,6 +313,7 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
             stageTrackPillMode: store.stageTrackPillMode,
             stageTrackPillTimeoutSec: store.stageTrackPillTimeoutSec,
             stageTrackPillOnHome: store.stageTrackPillOnHome,
+            autoHideCursorWithPlayerChrome: store.autoHideCursorWithPlayerChrome,
         };
     };
 
@@ -552,23 +556,15 @@ const AppearanceSettingsSubview: React.FC<AppearanceSettingsSubviewProps> = ({
                             <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${transparentPlayerBackground ? 'translate-x-6' : 'translate-x-0'}`} />
                         </button>
                     </div>
-                    <div className={`p-3 rounded-xl border flex items-center justify-between gap-4 ${settingsCardClass}`}>
-                        <div className="space-y-1">
-                            <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
-                                {t('options.autoHidePlayerChrome') || '自动隐藏控制栏'}
-                            </div>
-                            <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
-                                {t('options.autoHidePlayerChromeDesc') || '开启后，鼠标空闲约 10 秒会自动隐藏播放页底栏与右侧面板按钮。也可按 H 键切换。'}
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => onToggleAutoHidePlayerChrome(!autoHidePlayerChrome)}
-                            className={`w-12 h-6 rounded-full p-1 transition-colors shrink-0 ${!autoHidePlayerChrome ? toggleOffBackgroundClass : ''}`}
-                            style={{ backgroundColor: autoHidePlayerChrome ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
-                        >
-                            <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${autoHidePlayerChrome ? 'translate-x-6' : 'translate-x-0'}`} />
-                        </button>
-                    </div>
+                    <PlayerChromeHideSettings
+                        theme={theme}
+                        settingsCardClass={settingsCardClass}
+                        toggleOffBackgroundClass={toggleOffBackgroundClass}
+                        autoHidePlayerChrome={autoHidePlayerChrome}
+                        autoHideCursorWithPlayerChrome={store.autoHideCursorWithPlayerChrome}
+                        onToggleAutoHidePlayerChrome={onToggleAutoHidePlayerChrome}
+                        onToggleAutoHideCursorWithPlayerChrome={store.handleToggleAutoHideCursorWithPlayerChrome}
+                    />
                     <StageTrackPillSettings
                         theme={theme}
                         settingsCardClass={settingsCardClass}

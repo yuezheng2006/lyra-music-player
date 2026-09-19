@@ -35,6 +35,7 @@ import { useDailyRecommendStore } from '@/stores/useDailyRecommendStore';
 import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
 import type { AppSidebarActive } from '@/components/app/chrome/AppSidebar';
 import { useCoverShellTheme } from '@/hooks/useCoverShellTheme';
+import { shouldHidePlayerCursor } from '@/utils/ui/playerCursorAutoHide';
 import { useBootSplashLifecycle } from '@/hooks/useBootSplashLifecycle';
 import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 import { PerformanceHud } from '@/components/performance/PerformanceHud';
@@ -60,6 +61,7 @@ export function AppRootView({ controller }: AppRootViewProps) {
     const isWhatsNewOpen = useSettingsUiStore(state => state.isWhatsNewOpen);
     const setIsOnboardingOpen = useSettingsUiStore(state => state.setIsOnboardingOpen);
     const setIsWhatsNewOpen = useSettingsUiStore(state => state.setIsWhatsNewOpen);
+    const autoHideCursorWithPlayerChrome = useSettingsUiStore(state => state.autoHideCursorWithPlayerChrome);
     const completeOnboarding = useSettingsUiStore(state => state.completeOnboarding);
     const markWhatsNewSeen = useSettingsUiStore(state => state.markWhatsNewSeen);
     const [bootShellReady, setBootShellReady] = useState(false);
@@ -441,7 +443,11 @@ export function AppRootView({ controller }: AppRootViewProps) {
                     videoSrc={videoSrc || ''}
                     visible={videoStageActive}
                 />
-                <div className="relative z-10 h-full w-full">
+                <div className={`relative z-10 h-full w-full${shouldHidePlayerCursor({
+                    isPlayerView,
+                    isPlayerChromeHidden,
+                    autoHideCursorWithPlayerChrome,
+                }) ? ' cursor-auto-hidden' : ''}`}>
                 {!isObsBrowserSourceRendering && (
                     <VisualizerRenderer
                         mode={visualizerMode}

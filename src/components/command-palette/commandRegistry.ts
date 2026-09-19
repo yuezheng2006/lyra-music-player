@@ -25,6 +25,7 @@ import { NETEASE_API_COMMANDS } from './neteaseApiCommands';
 import { QUEUE_COMMANDS } from './queueCommands';
 import { SLEEP_TIMER_COMMANDS } from './sleepTimerCommands';
 import { AUTO_PLAY_ON_LAUNCH_COMMANDS } from './autoPlayOnLaunchCommands';
+import { PLAYER_CHROME_COMMANDS } from './playerChromeCommands';
 import { ADD_TO_PLAYLIST_COMMANDS } from './addToPlaylistCommands';
 import { VISUALIZER_MODE_COMMANDS } from './visualizerCommands';
 import { HOME_TAB_COMMANDS } from './homeTabCommands';
@@ -239,6 +240,7 @@ export const COMMAND_PALETTE_COMMANDS: CommandPaletteCommand[] = [
     ...QUEUE_COMMANDS,
     ...SLEEP_TIMER_COMMANDS,
     ...AUTO_PLAY_ON_LAUNCH_COMMANDS,
+    ...PLAYER_CHROME_COMMANDS,
     ...ADD_TO_PLAYLIST_COMMANDS,
 
     createSettingsCommand('settings-help', 'Open Help', 'Open help and shortcuts', ['help', '帮助', 'bangzhu', 'bz'], 'help'),

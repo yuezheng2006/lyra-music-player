@@ -23,6 +23,7 @@ export const selectSettingsUiSnapshot = (state: SettingsUiState) => ({
     hidePlayerRightPanelButton: state.hidePlayerRightPanelButton,
     transparentPlayerBackground: state.transparentPlayerBackground,
     autoHidePlayerChrome: state.autoHidePlayerChrome,
+    autoHideCursorWithPlayerChrome: state.autoHideCursorWithPlayerChrome,
     playbackPresentation: state.playbackPresentation,
     disableVisualizerVignette: state.disableVisualizerVignette,
     enableSmartAtmosphere: state.enableSmartAtmosphere,

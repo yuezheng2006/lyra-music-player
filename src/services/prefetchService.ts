@@ -18,6 +18,7 @@ import { parseLyricsAsync } from '../utils/lyrics/workerClient';
 import { isPureMusicLyricText } from '../utils/lyrics/pureMusic';
 import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 import { resolveBestLyric } from '../utils/lyrics/resolveBestLyric';
+import { resolveLyricMatchPreferredSourceForSong } from '../utils/lyrics/lyricMatchPreferredSource';
 import { loadOnlineLyricsState, resolveOnlineLyrics, saveOnlineLyricsState } from '../utils/onlineLyricsState';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isYtmPlaybackSong } from '../utils/appPlaybackGuards';
 import { toSafePlaybackUrl } from '../utils/appPlaybackHelpers';
@@ -309,7 +310,7 @@ const prefetchSongLyrics = async (
         const hasWordByWord = resolvedLyrics?.isWordByWord === true;
         const enableAlternative = settings.enableAlternativeLyricSources;
         const autoUseBest = settings.autoUseBestLyric;
-        const preferredSource = settings.preferredAlternativeLyricSource;
+        const preferredSource = resolveLyricMatchPreferredSourceForSong(settings.preferredAlternativeLyricSource, song);
         const isBaseNetease = !onlineLyricsState?.hasOnlineOverride;
         const shouldAutoMatch = enableAlternative && autoUseBest
             && (!hasWordByWord || (isBaseNetease && preferredSource !== 'netease'));
@@ -321,7 +322,7 @@ const prefetchSongLyrics = async (
                     || '';
                 const bestMatch = await resolveBestLyric(song.name, artistName, song.duration || song.dt || 0, {
                     album: song.album?.name || song.al?.name,
-                    preferredSource: settings.preferredAlternativeLyricSource,
+                    preferredSource,
                     neteaseCandidate: {
                         id: song.id,
                         lyrics: processed.lyrics,

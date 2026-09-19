@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useMotionValue } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { resolveStartupOverlay } from '@/utils/startupOverlayGate';
@@ -30,7 +30,7 @@ import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
 import { useSettingsUiStore } from '@/stores/useSettingsUiStore';
 import { useShallow } from 'zustand/react/shallow';
 import { isLocalPlaybackSong } from '@/utils/appPlaybackGuards';
-import { buildLyricOffsetSongKey, persistLyricTimelineOffsetMs, readLyricTimelineOffsetMs } from '@/utils/playback/lyricOffsetStore';
+import { buildLyricOffsetSongKey, persistLyricTimelineOffsetMs, readLyricTimelineOffsetMsForSong } from '@/utils/playback/lyricOffsetStore';
 import { useAppAudioOutput } from '@/hooks/useAppAudioOutput';
 
 
@@ -234,9 +234,7 @@ export function useAppControllerCore() {
     const shouldAutoPlay = useRef(false);
     const currentSongRef = useRef<number | null>(null);
     const currentSongFullRef = useRef<SongResult | null>(null);
-    useEffect(() => {
-        currentSongFullRef.current = currentSong;
-    }, [currentSong]);
+    currentSongFullRef.current = currentSong;
     const playbackRequestIdRef = useRef(0);
     const playbackAutoSkipCountRef = useRef(0);
     const pendingUnavailableSkipTimerRef = useRef<number | null>(null);
@@ -428,8 +426,8 @@ export function useAppControllerCore() {
 
     // Restore the calibrated per-song offset on song change instead of resetting to 0.
     const lyricOffsetSongKey = buildLyricOffsetSongKey(currentSong);
-    useEffect(() => {
-        setLyricTimelineOffsetMsState(readLyricTimelineOffsetMs(lyricOffsetSongKey));
+    useLayoutEffect(() => {
+        setLyricTimelineOffsetMsState(readLyricTimelineOffsetMsForSong(currentSong));
     }, [lyricOffsetSongKey]);
 
     const setLyricTimelineOffsetMs = useCallback((offsetMs: number) => {

@@ -1,4 +1,5 @@
 import type { AmllDbPlatform, LyricProviderSource } from '../../types';
+import type { LyricMatchPriority } from './lyricMatchPreferredSource';
 
 // src/utils/lyrics/lyricSourceLabels.ts
 
@@ -26,4 +27,8 @@ export const getLyricProviderLabel = (
 
 export const getLyricProviderPreferenceLabel = (source: LyricProviderSource): string => (
     source === 'amll' ? 'AMLLDB' : getBaseLyricProviderLabel(source)
+);
+
+export const getLyricMatchPriorityLabel = (source: LyricMatchPriority): string => (
+    source === 'auto' ? '跟随当前平台' : getLyricProviderPreferenceLabel(source)
 );

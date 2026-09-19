@@ -15,11 +15,14 @@ import {
   createEmptySongDownloadQueueProgress,
   downloadRootFolderNameFromPath,
   planSongDownloadEnqueue,
+  resolveSongDownloadWorkerCount,
+  songDownloadPendingCount,
+  SONG_DOWNLOAD_MAX_ATTEMPTS,
   type SongDownloadQueueProgress,
 } from '../utils/ui/songDownloadQueueMath';
 
 // src/services/songDownloadQueue.ts
-// Serial download queue for saving playable online songs to the user download folder.
+// Concurrent download queue (2 workers) for saving playable online songs to the user download folder.
 
 export type SongDownloadQueueListener = (progress: SongDownloadQueueProgress) => void;
 
@@ -93,6 +96,18 @@ export async function maybeResyncImportedDownloadFolder(): Promise<'synced' | 'n
   return 'synced';
 }
 
+async function downloadSongWithRetry(
+  song: QueueItem['song'],
+  audioQuality: string,
+  reveal: boolean,
+): Promise<boolean> {
+  for (let attempt = 1; attempt <= SONG_DOWNLOAD_MAX_ATTEMPTS; attempt += 1) {
+    const result = await downloadSongToUserDirectory(song, audioQuality, { reveal });
+    if (result.ok) return true;
+  }
+  return false;
+}
+
 async function drainQueue(options: EnqueueOptions): Promise<void> {
   if (draining) return;
   draining = true;
@@ -100,67 +115,92 @@ async function drainQueue(options: EnqueueOptions): Promise<void> {
   const batchSizeAtStart = queue.length;
   const revealEach = batchSizeAtStart <= 1;
   let successCount = 0;
+  let inFlight = 0;
+  let becameIdle = false;
 
   setProgress({
     ...progress,
     running: true,
     total: progress.done + progress.failed + queue.length,
-    pending: queue.length,
+    pending: songDownloadPendingCount(queue.length, inFlight),
   });
 
-  while (queue.length > 0) {
-    const item = queue.shift()!;
-    queuedKeys.delete(item.dedupeKey);
-    setProgress({
-      ...progress,
-      currentTitle: item.song.name || null,
-      pending: queue.length,
-      running: true,
-    });
-    options.onProgress?.(progress);
+  const runWorker = async () => {
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (!item) return;
+      queuedKeys.delete(item.dedupeKey);
+      inFlight += 1;
+      setProgress({
+        ...progress,
+        currentTitle: item.song.name || null,
+        pending: songDownloadPendingCount(queue.length, inFlight),
+        running: true,
+      });
+      options.onProgress?.(progress);
 
-    const result = await downloadSongToUserDirectory(item.song, options.audioQuality, {
-      reveal: revealEach,
-    });
-    const ok = result.ok === true;
-    if (ok) successCount += 1;
-    setProgress(applySongDownloadQueueItemResult({
-      ...progress,
-      currentTitle: item.song.name || null,
-      running: true,
-      pending: queue.length,
-    }, ok));
-    options.onProgress?.(progress);
-  }
-
-  if (!revealEach && successCount > 0 && window.electron?.openDownloadDirectory) {
-    try {
-      await window.electron.openDownloadDirectory();
-    } catch {
-      // ignore reveal failures
+      const ok = await downloadSongWithRetry(item.song, options.audioQuality, revealEach);
+      if (ok) successCount += 1;
+      inFlight -= 1;
+      const counted = applySongDownloadQueueItemResult({
+        ...progress,
+        currentTitle: item.song.name || null,
+        running: true,
+      }, ok);
+      setProgress({
+        ...counted,
+        currentTitle: item.song.name || null,
+        pending: songDownloadPendingCount(queue.length, inFlight),
+        running: true,
+      });
+      options.onProgress?.(progress);
     }
-  }
+  };
 
-  const shouldResync = options.autoResyncDownloadFolder !== false && successCount > 0;
-  if (shouldResync) {
-    try {
-      await maybeResyncImportedDownloadFolder();
-    } catch {
-      // resync is best-effort
+  try {
+    while (queue.length > 0) {
+      const workerCount = resolveSongDownloadWorkerCount(queue.length);
+      if (workerCount <= 0) break;
+      await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
     }
+
+    if (!revealEach && successCount > 0 && window.electron?.openDownloadDirectory) {
+      try {
+        await window.electron.openDownloadDirectory();
+      } catch {
+        // ignore reveal failures
+      }
+    }
+
+    const shouldResync = options.autoResyncDownloadFolder !== false && successCount > 0;
+    if (shouldResync) {
+      try {
+        await maybeResyncImportedDownloadFolder();
+      } catch {
+        // resync is best-effort
+      }
+    }
+
+    becameIdle = queue.length === 0;
+  } finally {
+    if (becameIdle) {
+      setProgress({
+        ...progress,
+        currentTitle: null,
+        running: false,
+        pending: 0,
+      });
+      options.onProgress?.(progress);
+    }
+    draining = false;
   }
 
-  setProgress({
-    ...progress,
-    currentTitle: null,
-    running: false,
-    pending: 0,
-  });
-  options.onProgress?.(progress);
-  draining = false;
+  if (queue.length > 0) {
+    void drainQueue(options);
+  }
 }
 
-/** Enqueue one or more songs; starts serial drain if idle. */
+/** Enqueue one or more songs; starts concurrent drain if idle. */
 export async function enqueueSongsForDownload(
   songs: SongResult | SongResult[] | null | undefined,
   options: EnqueueOptions,

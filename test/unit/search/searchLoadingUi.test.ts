@@ -42,7 +42,8 @@ describe('search loading UI', () => {
         expect(loadingSource).not.toContain('animate-pulse');
         expect(cssSource).toContain('@keyframes search-progress-indeterminate');
         expect(cssSource).toContain('@keyframes search-skeleton-shimmer');
-        expect(cssSource).toContain('prefers-reduced-motion');
+        expect(cssSource).toContain(":root[data-reduce-motion~='transitionOverlay'] .search-progress-indeterminate");
+        expect(cssSource).toContain(":root[data-reduce-motion~='transitionOverlay'] .search-skeleton-shimmer");
     });
 
     it('completes search input interaction states for focus, clear, and Esc', () => {

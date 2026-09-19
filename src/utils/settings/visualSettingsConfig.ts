@@ -274,6 +274,7 @@ export const compressConfig = (config: any): string => {
     if (config.stageTrackPillMode) minified.stp = config.stageTrackPillMode;
     if (config.stageTrackPillTimeoutSec !== undefined) minified.stpt = config.stageTrackPillTimeoutSec;
     if (config.stageTrackPillOnHome !== undefined) minified.stph = config.stageTrackPillOnHome;
+    if (config.autoHideCursorWithPlayerChrome !== undefined) minified.ahc = config.autoHideCursorWithPlayerChrome;
 
     const jsonStr = JSON.stringify(minified);
     const bytes = new TextEncoder().encode(jsonStr);
@@ -302,7 +303,7 @@ export const decompressConfig = (str: string): any => {
         throw new Error('Invalid format');
     }
 
-    const isMinified = parsed.t !== undefined || parsed.vm !== undefined || parsed.lwm !== undefined || parsed.ct !== undefined || parsed.cat !== undefined || parsed.hpts !== undefined || parsed.sst !== undefined || parsed.esa !== undefined || parsed.e3ib !== undefined || parsed.pm !== undefined || parsed.ave !== undefined || parsed.mpe !== undefined || parsed.ese !== undefined || parsed.ebe !== undefined || parsed.stp !== undefined || parsed.stpt !== undefined || parsed.stph !== undefined;
+    const isMinified = parsed.t !== undefined || parsed.vm !== undefined || parsed.lwm !== undefined || parsed.ct !== undefined || parsed.cat !== undefined || parsed.hpts !== undefined || parsed.sst !== undefined || parsed.esa !== undefined || parsed.e3ib !== undefined || parsed.pm !== undefined || parsed.ave !== undefined || parsed.mpe !== undefined || parsed.ese !== undefined || parsed.ebe !== undefined || parsed.stp !== undefined || parsed.stpt !== undefined || parsed.stph !== undefined || parsed.ahc !== undefined;
     if (isMinified) {
         const decompressed: any = {};
         if (parsed.t) {
@@ -362,6 +363,7 @@ export const decompressConfig = (str: string): any => {
         if (parsed.stp) decompressed.stageTrackPillMode = parsed.stp;
         if (parsed.stpt !== undefined) decompressed.stageTrackPillTimeoutSec = parsed.stpt;
         if (parsed.stph !== undefined) decompressed.stageTrackPillOnHome = parsed.stph;
+        if (parsed.ahc !== undefined) decompressed.autoHideCursorWithPlayerChrome = parsed.ahc;
 
         return decompressed;
     } else {
@@ -378,6 +380,7 @@ export const decompressConfig = (str: string): any => {
             'enableSmartAtmosphere', 'enable3dInteractiveBackground', 'performanceMode', 'ambientVisualEnabled',
             'magneticPullEnabled', 'emotionScrambleEnabled', 'emotionBeatPulseEnabled',
             'stageTrackPillMode', 'stageTrackPillTimeoutSec', 'stageTrackPillOnHome',
+            'autoHideCursorWithPlayerChrome',
         ];
         const hasValidKey = validKeys.some(k => parsed[k] !== undefined);
         if (!hasValidKey) {

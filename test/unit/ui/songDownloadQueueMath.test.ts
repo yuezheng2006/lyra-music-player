@@ -5,6 +5,10 @@ import {
   createEmptySongDownloadQueueProgress,
   downloadRootFolderNameFromPath,
   planSongDownloadEnqueue,
+  resolveSongDownloadWorkerCount,
+  songDownloadPendingCount,
+  SONG_DOWNLOAD_MAX_ATTEMPTS,
+  SONG_DOWNLOAD_QUEUE_CONCURRENCY,
 } from '@/utils/ui/songDownloadQueueMath';
 
 // test/unit/ui/songDownloadQueueMath.test.ts
@@ -48,5 +52,14 @@ describe('songDownloadQueueMath', () => {
     expect(afterOk).toMatchObject({ done: 1, failed: 0, pending: 2 });
     const afterFail = applySongDownloadQueueItemResult(afterOk, false);
     expect(afterFail).toMatchObject({ done: 1, failed: 1, pending: 1 });
+  });
+
+  it('keeps HOV-shaped local concurrency and retry constants', () => {
+    expect(SONG_DOWNLOAD_QUEUE_CONCURRENCY).toBe(2);
+    expect(SONG_DOWNLOAD_MAX_ATTEMPTS).toBe(2);
+    expect(resolveSongDownloadWorkerCount(5)).toBe(2);
+    expect(resolveSongDownloadWorkerCount(1)).toBe(1);
+    expect(resolveSongDownloadWorkerCount(0)).toBe(0);
+    expect(songDownloadPendingCount(3, 2)).toBe(5);
   });
 });

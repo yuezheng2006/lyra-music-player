@@ -64,6 +64,7 @@ export type AppearanceImportApplyStore = {
     handleSetStageTrackPillMode: (mode: string) => void;
     handleSetStageTrackPillTimeoutSec: (timeoutSec: number) => void;
     handleToggleStageTrackPillOnHome: (enabled: boolean) => void;
+    handleToggleAutoHideCursorWithPlayerChrome: (enabled: boolean) => void;
 };
 
 export type AppearanceImportApplyDeps = {
@@ -256,5 +257,8 @@ export function applyImportedAppearanceConfig({
     }
     if (has('stageTrackPillOnHome')) {
         store.handleToggleStageTrackPillOnHome(Boolean(config.stageTrackPillOnHome));
+    }
+    if (has('autoHideCursorWithPlayerChrome')) {
+        store.handleToggleAutoHideCursorWithPlayerChrome(Boolean(config.autoHideCursorWithPlayerChrome));
     }
 }
