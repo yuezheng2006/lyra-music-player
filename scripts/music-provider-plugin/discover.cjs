@@ -107,7 +107,7 @@ const createProviderRegistry = (options) => {
         capabilities: id === 'qq' || id === 'qishui' || id === 'bilibili'
           ? ['search', 'audio', 'lyrics']
           : ['search', 'audio'],
-        auth: id === 'qq' ? 'cookie-header' : 'none',
+        auth: id === 'qq' || id === 'qishui' ? 'cookie-header' : 'none',
         source: 'builtin',
         adapterPath,
         ui: { label: LEGACY_LABELS[id] || id },

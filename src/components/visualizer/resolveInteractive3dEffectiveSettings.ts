@@ -10,12 +10,14 @@ import {
     type Interactive3dSceneEffectId,
 } from './geometric/interactive3dSceneRegistry';
 import { normalizeInteractive3dVisualPreset } from './geometric/mineradioVisualPresets';
-import { shouldShowCoverParticleWebGL } from './geometric/webgl/CoverParticleWebGLStage';
+import { shouldShowCoverParticleWebGL } from './geometric/webgl/coverParticleWebGLGateMath';
 
 // src/components/visualizer/resolveInteractive3dEffectiveSettings.ts
-// Resolves which player-panel settings actually affect the interactive3d WebGL path.
+// Resolves which player-panel settings actually affect the interactive3d cover stage.
 
 export type Interactive3dBackgroundRenderer =
+    | 'cover-atmosphere'
+    | 'dom-cover'
     | 'webgl-cover'
     | 'static-placeholder'
     | 'none';
@@ -41,34 +43,36 @@ export interface Interactive3dEffectiveSettingsInput {
 export interface Interactive3dEffectiveSettings {
     resolvedBackgroundMode: VisualizerBackgroundMode;
     renderer: Interactive3dBackgroundRenderer;
+    /** True when a WebGL canvas background stage is live. */
     webglActive: boolean;
     visualPreset: MineradioVisualPresetId | null;
     /** Scene-layer toggles that are persisted but not rendered on the current path. */
     inactiveSceneEffectIds: Interactive3dSceneEffectId[];
-    /** Tuning keys that currently influence WebGL cover runtime. */
+    /** Tuning keys that currently influence the live cover runtime. */
     activeWebglTuningKeys: Array<keyof Interactive3dSceneTuning>;
     smartAtmosphereAffectsRhythm: boolean;
     fumeDrawsOwnBackground: boolean;
     conflicts: Interactive3dSettingsConflict[];
 }
 
-const WEBGL_TUNING_KEYS: Array<keyof Interactive3dSceneTuning> = [
+const COVER_ATMOSPHERE_TUNING_KEYS: Array<keyof Interactive3dSceneTuning> = [
     'visualPreset',
     'enableCoverParticles',
     'rhythmIntensity',
-    'bloomStrength',
     'atmosphereSensitivity',
-    'cameraPunchStrength',
-    'enableBassRipples',
     'qualityTier',
-    'cameraControl',
 ];
 
-const CANVAS_SCENE_EFFECT_IDS = INTERACTIVE3D_SCENE_EFFECTS
-    .filter(effect => effect.renderLayer === 'canvas' && effect.id !== 'cover-particles')
-    .map(effect => effect.id);
+const LEGACY_WEBGL_TUNING_KEYS: Array<keyof Interactive3dSceneTuning> = [
+    ...COVER_ATMOSPHERE_TUNING_KEYS,
+    'cinemaShake',
+    'cameraPunchStrength',
+    'cameraControl',
+    'bloomStrength',
+    'enableBassRipples',
+];
 
-/** GeometricLayer currently renders WebGL cover particles only (canvas stack is unused). */
+/** interactive3d uses a soft cover-atmosphere stage by default; canvas stack stays unused. */
 export const isInteractive3dWebGLOnlyPath = (
     input: Pick<Interactive3dEffectiveSettingsInput, 'visualizerBackgroundMode' | 'visualizerMode'>,
 ): boolean => resolveVisualizerBackgroundMode(
@@ -86,11 +90,12 @@ export const resolveInteractive3dBackgroundRenderer = (
 
     if (resolvedBackgroundMode !== 'interactive3d') return 'none';
     if (input.staticMode || input.disableGeometricBackground) return 'none';
+    if (input.interactive3dSceneTuning?.enableCoverParticles === false) return 'none';
     if (input.paused) return 'static-placeholder';
 
     return shouldShowCoverParticleWebGL(input.interactive3dSceneTuning)
         ? 'webgl-cover'
-        : 'none';
+        : 'cover-atmosphere';
 };
 
 /** Returns scene-layer toggles that should be hidden or marked inactive in settings UI. */
@@ -99,10 +104,18 @@ export const resolveInactiveInteractive3dSceneEffects = (
 ): Interactive3dSceneEffectId[] => {
     if (!isInteractive3dWebGLOnlyPath(input)) return [];
 
-    const inactive = [...CANVAS_SCENE_EFFECT_IDS, 'dom-shapes' as Interactive3dSceneEffectId];
-    const preset = normalizeInteractive3dVisualPreset(input.interactive3dSceneTuning?.visualPreset);
-    if (preset !== 'emily') {
-        inactive.push('bass-ripple');
+    const inactive = INTERACTIVE3D_SCENE_EFFECTS
+        .filter(effect => effect.implementationKind === 'canvas-dead')
+        .map(effect => effect.id);
+    const legacyWebgl = shouldShowCoverParticleWebGL(input.interactive3dSceneTuning);
+    // Bass / bloom stay legacy CoverParticle-only; hide on the default cover-atmosphere path.
+    if (!legacyWebgl) {
+        inactive.push('bass-ripple', 'bloom-particles');
+    } else {
+        const preset = normalizeInteractive3dVisualPreset(input.interactive3dSceneTuning?.visualPreset);
+        if (preset !== 'emily') {
+            inactive.push('bass-ripple');
+        }
     }
     return inactive;
 };
@@ -129,7 +142,7 @@ export const resolveInteractive3dSettingsConflicts = (
         conflicts.push({
             id: 'cover-particles-disabled',
             severity: 'warning',
-            messageFallback: '已关闭封面 WebGL 粒子，3D 交互背景将为空。',
+            messageFallback: '已关闭封面舞台，3D 交互背景将为空。',
         });
     }
 
@@ -141,13 +154,7 @@ export const resolveInteractive3dSettingsConflicts = (
         });
     }
 
-    if (isInteractive3dWebGLOnlyPath(input)) {
-        conflicts.push({
-            id: 'canvas-layers-unused',
-            severity: 'info',
-            messageFallback: '当前 3D 交互仅使用 WebGL 视觉风格；高级面板里的 canvas 分层开关不会生效。',
-        });
-
+    if (isInteractive3dWebGLOnlyPath(input) && shouldShowCoverParticleWebGL(input.interactive3dSceneTuning)) {
         const preset = normalizeInteractive3dVisualPreset(input.interactive3dSceneTuning?.visualPreset);
         if (preset !== 'emily' && input.interactive3dSceneTuning?.enableBassRipples) {
             conflicts.push({
@@ -162,7 +169,7 @@ export const resolveInteractive3dSettingsConflicts = (
         conflicts.push({
             id: 'monet-lyrics-with-3d-bg',
             severity: 'info',
-            messageFallback: '动画模式为莫奈时，歌词走莫奈样式，背景仍由 3D 交互 WebGL 负责。',
+            messageFallback: '动画模式为莫奈时，歌词走莫奈样式，背景仍由 3D 交互封面舞台负责。',
         });
     }
 
@@ -185,8 +192,9 @@ export const resolveInteractive3dEffectiveSettings = (
         input.visualizerMode,
     );
     const renderer = resolveInteractive3dBackgroundRenderer(input);
+    const coverStageActive = renderer === 'cover-atmosphere' || renderer === 'webgl-cover' || renderer === 'dom-cover';
     const webglActive = renderer === 'webgl-cover';
-    const inactiveSceneEffectIds = webglActive
+    const inactiveSceneEffectIds = coverStageActive
         ? resolveInactiveInteractive3dSceneEffects(input)
         : [];
 
@@ -194,15 +202,20 @@ export const resolveInteractive3dEffectiveSettings = (
         resolvedBackgroundMode,
         renderer,
         webglActive,
-        visualPreset: webglActive
+        visualPreset: coverStageActive
             ? normalizeInteractive3dVisualPreset(input.interactive3dSceneTuning?.visualPreset)
             : null,
         inactiveSceneEffectIds,
-        activeWebglTuningKeys: webglActive ? WEBGL_TUNING_KEYS : [],
+        activeWebglTuningKeys: renderer === 'webgl-cover'
+            ? LEGACY_WEBGL_TUNING_KEYS
+            : renderer === 'cover-atmosphere'
+                ? COVER_ATMOSPHERE_TUNING_KEYS
+                : [],
         smartAtmosphereAffectsRhythm: Boolean(
             input.enableSmartAtmosphere
             && !input.staticMode
-            && resolvedBackgroundMode === 'interactive3d',
+            && resolvedBackgroundMode === 'interactive3d'
+            && coverStageActive,
         ),
         fumeDrawsOwnBackground: resolvedBackgroundMode !== 'interactive3d',
         conflicts: resolveInteractive3dSettingsConflicts(input),

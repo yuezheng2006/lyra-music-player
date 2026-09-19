@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SongResult } from '../types';
 import { getSongUnavailableTagText, isSongMarkedUnavailable } from '../services/netease';
@@ -22,6 +22,9 @@ type FloatingPlayerQueueMenuProps = {
     disabled?: boolean;
     triggerClassName: string;
     queueLabel: string;
+    /** Dense fill from dock glass — no second live backdrop-filter. */
+    surfaceClassName: string;
+    surfaceStyle: CSSProperties;
 };
 
 const FloatingPlayerQueueMenu: React.FC<FloatingPlayerQueueMenuProps> = ({
@@ -34,6 +37,8 @@ const FloatingPlayerQueueMenu: React.FC<FloatingPlayerQueueMenuProps> = ({
     disabled = false,
     triggerClassName,
     queueLabel,
+    surfaceClassName,
+    surfaceStyle,
 }) => {
     const { t } = useTranslation();
     const rootRef = useRef<HTMLDivElement>(null);
@@ -96,11 +101,10 @@ const FloatingPlayerQueueMenu: React.FC<FloatingPlayerQueueMenuProps> = ({
             {open ? (
                 <div
                     role="menu"
-                    className="absolute right-0 z-30 w-[min(320px,72vw)] overflow-hidden rounded-[14px] border p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.38)] backdrop-blur-xl text-[color:var(--shell-text)] transition-colors duration-300"
+                    className={`absolute right-0 z-30 w-[min(320px,72vw)] text-[color:var(--shell-text)] transition-colors duration-300 ${surfaceClassName}`}
                     style={{
+                        ...surfaceStyle,
                         bottom: `calc(100% + ${FLOATING_PLAYER_DOCK_POPOVER_OFFSET_PX}px)`,
-                        backgroundColor: 'var(--shell-popover)',
-                        borderColor: 'var(--shell-border)',
                     }}
                     data-testid="floating-player-queue-menu"
                 >

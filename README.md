@@ -4,7 +4,7 @@
 
 <div align="center">
 
-# Lyra（音波）
+# Lyra Desktop（音波）
 
 Sound, Stage, Sense // 声随境转
 
@@ -28,7 +28,7 @@ Sound, Stage, Sense // 声随境转
 
 听歌不再只是听歌——多平台曲库汇进同一座 3D 歌词舞台，像在看文字 PV。
 
-Lyra（音波）是面向桌面端的沉浸式歌词音乐播放器。当前可连接网易云、QQ 音乐、Coco 聚合搜索、Navidrome 等来源，在同一套全屏歌词 / 3D 舞台中播放。
+Lyra Desktop（音波）是面向桌面端的沉浸式歌词音乐播放器。当前可连接网易云、QQ 音乐、Coco 聚合搜索、Navidrome 等来源，在同一套全屏歌词 / 3D 舞台中播放。
 
 推荐直接使用 Electron 桌面版（Windows / macOS）。
 

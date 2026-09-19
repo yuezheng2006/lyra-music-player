@@ -6,6 +6,7 @@ import {
   stepMagneticPull,
   type MagneticPullPoint,
 } from '../utils/ui/magneticPullMath';
+import { useReducedMotionFor } from './useReducedMotionFor';
 
 // src/hooks/useMagneticPull.ts
 // Soft magnetic chip pull via refs + rAF (no per-frame React state).
@@ -18,7 +19,7 @@ type UseMagneticPullOptions = {
 
 /**
  * Apply soft magnetic translate3d to target while pointer is over host.
- * Stops the rAF loop when idle; respects prefers-reduced-motion.
+ * Stops the rAF loop when idle; respects the uiMicroMotion reduce-motion surface.
  */
 export function useMagneticPull(
   hostRef: RefObject<HTMLElement | null>,
@@ -29,6 +30,7 @@ export function useMagneticPull(
   const goalRef = useRef<MagneticPullPoint>({ x: 0, y: 0 });
   const rafRef = useRef(0);
   const activeRef = useRef(false);
+  const reducedMotion = useReducedMotionFor('uiMicroMotion');
 
   useEffect(() => {
     const host = hostRef.current;
@@ -38,9 +40,6 @@ export function useMagneticPull(
       return;
     }
 
-    const reducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reducedMotion) {
       target.style.transform = '';
       return;
@@ -112,5 +111,5 @@ export function useMagneticPull(
       pullRef.current = { x: 0, y: 0 };
       target.style.transform = '';
     };
-  }, [enabled, hostRef, maxPull, strength, targetRef]);
+  }, [enabled, hostRef, maxPull, reducedMotion, strength, targetRef]);
 }

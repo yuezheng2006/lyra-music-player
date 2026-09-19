@@ -110,7 +110,7 @@ export class CharacterRuntime {
     });
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.qualityTier === 'lite' ? 1 : 2));
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     const root = new THREE.Group();
     scene.add(root);

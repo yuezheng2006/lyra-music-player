@@ -29,11 +29,13 @@ describe('shortcutCatalog', () => {
         const exitFullscreen = findShortcutById('exit-fullscreen');
         const cheatSheet = findShortcutById('open-shortcuts-cheatsheet');
         const commandPalette = findShortcutById('open-command-palette');
+        const commandPalettePlayer = findShortcutById('open-command-palette-player');
         const rightPanel = findShortcutById('toggle-right-panel');
 
         expect(fullscreen?.keys).toEqual([mod, 'F']);
         expect(chromeHide?.keys).toEqual([mod, 'H']);
-        expect(commandPalette?.keys).toEqual([mod, 'S']);
+        expect(commandPalette?.keys).toEqual([mod, 'K']);
+        expect(commandPalettePlayer?.keys).toEqual([mod, 'S']);
         expect(rightPanel?.keys).toEqual([mod, 'P']);
         expect(exitFullscreen?.keys).toEqual(['Esc']);
         expect(cheatSheet?.keys).toEqual([mod, '/']);

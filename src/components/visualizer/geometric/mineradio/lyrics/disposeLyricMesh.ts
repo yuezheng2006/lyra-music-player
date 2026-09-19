@@ -12,11 +12,16 @@ export const disposeLyricMesh = (mesh: THREE.Object3D | null | undefined) => {
         if (!material) return;
         const materials = Array.isArray(material) ? material : [material];
         materials.forEach((entry) => {
-            if ('map' in entry && entry.map) entry.map.dispose();
-            if ('uniforms' in entry && entry.uniforms?.uMap?.value instanceof THREE.Texture) {
-                entry.uniforms.uMap.value.dispose();
+            const mat = entry as THREE.Material & {
+                map?: THREE.Texture | null;
+                uniforms?: { uMap?: { value?: unknown } };
+            };
+            if (mat.map) mat.map.dispose();
+            const uMap = mat.uniforms?.uMap?.value;
+            if (uMap instanceof THREE.Texture) {
+                uMap.dispose();
             }
-            entry.dispose();
+            mat.dispose();
         });
         maybeMesh.geometry?.dispose();
     });

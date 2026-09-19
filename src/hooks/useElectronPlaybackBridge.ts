@@ -15,6 +15,7 @@ import {
 } from '../utils/playbackSyncBridge';
 import { resolveStagePlayerPositionSec } from '../utils/stagePlayerSnapshot';
 import { isDiscordPresenceUiEnabled } from '../utils/featureFlags';
+import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 
 // Bridges Electron-specific shell features without coupling to UI components.
 const DISCORD_PRESENCE_SNAPSHOT_INTERVAL_MS = 1000;
@@ -108,6 +109,7 @@ export const useElectronPlaybackBridge = ({
     isLiked,
     onLike,
 }: UseElectronPlaybackBridgeOptions) => {
+    const globalLyricTimelineOffsetMs = useSettingsUiStore(state => state.globalLyricTimelineOffsetMs);
     const [playbackSyncBridgeStatus, setPlaybackSyncBridgeStatus] = useState<ElectronPlaybackSyncBridgeStatus>(() => emptyPlaybackSyncBridgeStatus());
     const stageSnapshotCacheRef = useRef<{
         playQueue: SongResult[];
@@ -183,7 +185,7 @@ export const useElectronPlaybackBridge = ({
             exportState,
             isDaylight,
             isLiked,
-            lyricOffsetMs: lyricTimelineOffsetMs,
+            lyricOffsetMs: (lyricTimelineOffsetMs ?? 0) + globalLyricTimelineOffsetMs,
             mainWindowWidth: window.innerWidth,
             mainWindowHeight: window.innerHeight,
         });
@@ -374,7 +376,7 @@ export const useElectronPlaybackBridge = ({
             window.removeEventListener('resize', handleResize);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [cachedCoverUrl, coverUrl, currentSong, duration, effectiveLoopMode, exportState, isDaylight, isFmMode, isNowPlayingStageActive, isPlayerChromeHidden, lyrics, lyricTimelineOffsetMs, mainWindowClickThroughEnabled, playbackSyncBridgeStatus, playQueue, playerState, showTransparentWindowBorder, transparentPlayerBackground, isLiked]);
+    }, [cachedCoverUrl, coverUrl, currentSong, duration, effectiveLoopMode, exportState, isDaylight, isFmMode, isNowPlayingStageActive, isPlayerChromeHidden, lyrics, lyricTimelineOffsetMs, globalLyricTimelineOffsetMs, mainWindowClickThroughEnabled, playbackSyncBridgeStatus, playQueue, playerState, showTransparentWindowBorder, transparentPlayerBackground, isLiked]);
 
     useEffect(() => {
         if (

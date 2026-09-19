@@ -17,8 +17,14 @@ import {
     NavidromeViewSelection,
 } from '../../types/navidrome';
 import { navidromeApi, getNavidromeConfig } from '../../services/navidromeService';
+import { loadNavidromeAlbumListSongs } from '../../services/navidromeAlbumListSongs';
 import { Theme } from '../../types';
 import { createCoverPlaceholder, pickRandomSongCoverUrl } from '../../utils/coverPlaceholders';
+import {
+    buildNavidromeVirtualPlaylistCards,
+    getNavidromeVirtualCollectionCopy,
+    NAVIDROME_VIRTUAL_PLAYLIST_ID,
+} from './navidromeVirtualPlaylists';
 
 interface NavidromeMusicViewProps {
     onPlaySong: (song: NavidromeSong, queue?: NavidromeSong[]) => void;
@@ -40,6 +46,8 @@ type NaviSelection =
     | { type: 'playlist'; playlist: SubsonicPlaylist; songs: SubsonicSong[]; }
     | { type: 'random'; songs: SubsonicSong[]; }
     | { type: 'favorites'; songs: SubsonicSong[]; }
+    | { type: 'recentlyAdded'; songs: SubsonicSong[]; }
+    | { type: 'recentlyPlayed'; songs: SubsonicSong[]; }
     | { type: 'artist'; artist: SubsonicArtist; };
 
 const NavidromeMusicView: React.FC<NavidromeMusicViewProps> = ({
@@ -198,28 +206,12 @@ const NavidromeMusicView: React.FC<NavidromeMusicViewProps> = ({
             return [];
         }
 
-        const getCoverUrl = (coverArtId: string, size?: number) => navidromeApi.getCoverArtUrl(config, coverArtId, size);
-        const randomCoverUrl = pickRandomSongCoverUrl(randomSongs, getCoverUrl, 600, 3)
-            || createCoverPlaceholder(t('navidrome.random') || '随机音乐', 'playlist');
-        const favoriteCoverUrl = pickRandomSongCoverUrl(favoriteSongs, getCoverUrl, 600, 3)
-            || createCoverPlaceholder(t('navidrome.favorites') || '收藏', 'playlist');
-
-        const virtualItems = [
-            {
-                id: '__navi_random__',
-                name: t('navidrome.random') || '随机音乐',
-                coverUrl: randomCoverUrl,
-                trackCount: randomSongs.length,
-                description: t('navidrome.randomDesc') || '即时随机播放列表',
-            },
-            {
-                id: '__navi_favorites__',
-                name: t('navidrome.favorites') || '收藏',
-                coverUrl: favoriteCoverUrl,
-                trackCount: favoriteSongs.length,
-                description: t('navidrome.favoritesDesc') || '已标星歌曲',
-            },
-        ];
+        const virtualItems = buildNavidromeVirtualPlaylistCards({
+            t,
+            config,
+            randomSongs,
+            favoriteSongs,
+        });
 
         const playlistCards = playlists.map(playlist => ({
             id: playlist.id,
@@ -258,17 +250,29 @@ const NavidromeMusicView: React.FC<NavidromeMusicViewProps> = ({
             return;
         }
 
-        if (item.id === '__navi_random__') {
+        if (item.id === NAVIDROME_VIRTUAL_PLAYLIST_ID.random) {
             const songs = randomSongs.length > 0 ? randomSongs : await navidromeApi.getRandomSongs(config, 100);
             setRandomSongs(songs);
             setSelectedItem({ type: 'random', songs });
             return;
         }
 
-        if (item.id === '__navi_favorites__') {
+        if (item.id === NAVIDROME_VIRTUAL_PLAYLIST_ID.favorites) {
             const songs = favoriteSongs.length > 0 ? favoriteSongs : await navidromeApi.getStarred2(config);
             setFavoriteSongs(songs);
             setSelectedItem({ type: 'favorites', songs });
+            return;
+        }
+
+        if (item.id === NAVIDROME_VIRTUAL_PLAYLIST_ID.recentlyAdded) {
+            const songs = await loadNavidromeAlbumListSongs(config, 'newest');
+            setSelectedItem({ type: 'recentlyAdded', songs });
+            return;
+        }
+
+        if (item.id === NAVIDROME_VIRTUAL_PLAYLIST_ID.recentlyPlayed) {
+            const songs = await loadNavidromeAlbumListSongs(config, 'recent');
+            setSelectedItem({ type: 'recentlyPlayed', songs });
             return;
         }
 
@@ -425,43 +429,32 @@ const NavidromeMusicView: React.FC<NavidromeMusicViewProps> = ({
             );
         }
 
+        const virtualKind = selectedItem.type === 'playlist' ? null : selectedItem.type;
+        const virtualCopy = virtualKind ? getNavidromeVirtualCollectionCopy(virtualKind, t) : null;
+        const songCoverUrl = pickRandomSongCoverUrl(
+            selectedItem.songs,
+            (coverArtId, size) => navidromeApi.getCoverArtUrl(config, coverArtId, size),
+            600,
+            3,
+        );
+
         return (
             <NavidromeCollectionView
-                title={selectedItem.type === 'playlist'
-                    ? selectedItem.playlist.name
-                    : selectedItem.type === 'favorites'
-                        ? (t('navidrome.favorites') || '收藏')
-                        : (t('navidrome.random') || '随机音乐')}
+                title={selectedItem.type === 'playlist' ? selectedItem.playlist.name : virtualCopy?.title || ''}
                 subtitle={selectedItem.type === 'playlist'
                     ? (selectedItem.playlist.owner || t('home.playlists'))
-                    : selectedItem.type === 'favorites'
-                        ? (t('navidrome.favoritesDesc') || '已标星歌曲')
-                        : (t('navidrome.randomDesc') || '即时随机播放列表')}
+                    : (virtualCopy?.subtitle || '')}
                 coverUrl={selectedItem.type === 'playlist'
                     ? (selectedItem.playlist.coverArt
                         ? navidromeApi.getCoverArtUrl(config, selectedItem.playlist.coverArt, 600)
                         : createCoverPlaceholder(selectedItem.playlist.name, 'playlist'))
-                    : selectedItem.type === 'favorites'
-                        ? (pickRandomSongCoverUrl(
-                            selectedItem.songs,
-                            (coverArtId, size) => navidromeApi.getCoverArtUrl(config, coverArtId, size),
-                            600,
-                            3
-                        ) || createCoverPlaceholder(t('navidrome.favorites') || '收藏', 'playlist'))
-                        : (pickRandomSongCoverUrl(
-                            selectedItem.songs,
-                            (coverArtId, size) => navidromeApi.getCoverArtUrl(config, coverArtId, size),
-                            600,
-                            3
-                        ) || createCoverPlaceholder(t('navidrome.random') || '随机音乐', 'playlist'))}
+                    : (songCoverUrl || createCoverPlaceholder(virtualCopy?.title || '', 'playlist'))}
                 placeholderVariant="playlist"
                 songs={selectedItem.songs}
                 config={config}
                 collection={selectedItem.type === 'playlist'
                     ? { kind: 'playlist', playlist: selectedItem.playlist, editable: true }
-                    : selectedItem.type === 'favorites'
-                        ? { kind: 'favorites' }
-                        : { kind: 'random' }}
+                    : { kind: selectedItem.type }}
                 onBack={() => setSelectedItem(null)}
                 onPlaySong={onPlaySong}
                 onAddAllToQueue={onAddSongsToQueue}

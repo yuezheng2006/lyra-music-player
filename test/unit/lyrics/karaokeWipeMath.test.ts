@@ -63,6 +63,25 @@ describe('karaokeWipeMath', () => {
         expect(fill).toBeCloseTo(30, 5);
     });
 
+    it('applies renderLeadSec so the wipe leads the sampled clock', () => {
+        const withoutLead = resolveKaraokeWipeFillWidth({
+            time: 0.98,
+            startTime: 1,
+            endTime: 3,
+            graphemeOffsets: offsets,
+        });
+        const withLead = resolveKaraokeWipeFillWidth({
+            time: 0.98,
+            startTime: 1,
+            endTime: 3,
+            graphemeOffsets: offsets,
+            renderLeadSec: 0.033,
+        });
+
+        expect(withoutLead).toBe(0);
+        expect(withLead).toBeGreaterThan(0);
+    });
+
     it('builds a hard-edge LTR mask string', () => {
         const mask = buildKaraokeWipeMaskImage(40, 48);
         expect(mask).toContain('linear-gradient(90deg');

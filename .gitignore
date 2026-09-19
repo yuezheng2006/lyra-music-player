@@ -77,3 +77,9 @@ docs/MENU_INTEGRATION_COMPLETE.md
 docs/HOW_TO_ENABLE.md
 HOW_TO_ENABLE.md
 .scratch/
+docs/play-history-*.md
+test-play-history.js
+temp/
+tmp-boot-capture/
+.claude/
+.hallmark/

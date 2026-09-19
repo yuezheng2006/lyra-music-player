@@ -6,6 +6,8 @@ import App from './App';
 import RemoteControlApp from './components/remote/RemoteControlApp';
 import ObsBrowserSourceApp from './components/obs/ObsBrowserSourceApp';
 import { armBootSplashTimeout, dismissBootSplash, setBootSplashStatus } from './utils/bootSplash';
+// Side-effect: sync <html data-reduce-motion> for every mount root (App / remote / OBS).
+import './stores/useMotionSettingsStore';
 
 // src/bootstrap.tsx
 // Mounts the React app after index.tsx installs runtime-level browser shims.

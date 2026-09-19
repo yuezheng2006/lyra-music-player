@@ -1,4 +1,5 @@
 import type { OnlineMusicProviderId, SearchSourceId } from '../../types';
+import { stripShortcutDisplayLabel } from '../onlineSearchShortcuts';
 
 // src/utils/search/recentSearchHistory.ts
 
@@ -16,6 +17,22 @@ const STORAGE_KEY = 'lyra_recent_search_history_v1';
 const STORAGE_VERSION = 1;
 const MAX_ENTRIES_PER_CHANNEL = 8;
 const HTTP_URL_RE = /^https?:\/\//i;
+
+/** Collapse cat:/song: prefixes so the same visible chip is not stored twice. */
+const recentSearchIdentity = (entry: RecentSearchEntry): string =>
+    stripShortcutDisplayLabel(entry.displayQuery || entry.query).trim().toLowerCase();
+
+const collapseRecentSearchEntries = (entries: RecentSearchEntry[]): RecentSearchEntry[] => {
+    const seen = new Set<string>();
+    const collapsed: RecentSearchEntry[] = [];
+    for (const entry of entries) {
+        const identity = recentSearchIdentity(entry);
+        if (!identity || seen.has(identity)) continue;
+        seen.add(identity);
+        collapsed.push(entry);
+    }
+    return collapsed;
+};
 
 const getDefaultStorage = (): RecentSearchStorage | undefined => {
     if (typeof window === 'undefined') return undefined;
@@ -52,7 +69,8 @@ const parseChannels = (value: unknown): RecentSearchHistory | null => {
             if (!entry) return null;
             entries.push(entry);
         }
-        if (entries.length > 0) parsed[channelKey] = entries;
+        const uniqueEntries = collapseRecentSearchEntries(entries);
+        if (uniqueEntries.length > 0) parsed[channelKey] = uniqueEntries;
     }
     return parsed;
 };
@@ -102,9 +120,10 @@ export const addRecentSearch = (
 ): RecentSearchHistory => {
     const normalized = normalizeEntry(entry);
     if (!channelKey || !normalized) return history;
+    const identity = recentSearchIdentity(normalized);
     const entries = [
         normalized,
-        ...(history[channelKey] || []).filter(item => item.query !== normalized.query),
+        ...(history[channelKey] || []).filter(item => recentSearchIdentity(item) !== identity),
     ].slice(0, MAX_ENTRIES_PER_CHANNEL);
     return {
         ...history,

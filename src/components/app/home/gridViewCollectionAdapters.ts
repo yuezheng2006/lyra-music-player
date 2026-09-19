@@ -1,6 +1,7 @@
 import type React from 'react';
 import { LocalLibraryGroup, LocalSong, NeteasePlaylist, SongResult } from '../../../types';
 import { navidromeApi, getNavidromeConfig } from '../../../services/navidromeService';
+import { loadNavidromeAlbumListSongs } from '../../../services/navidromeAlbumListSongs';
 import { fetchQQPlaylistTracks } from '../../../services/musicProviders/qqMusicLibrary';
 import { buildLocalQueue, buildNavidromeQueue } from '../../../services/playbackAdapters';
 import { SubsonicSong } from '../../../types/navidrome';
@@ -10,7 +11,7 @@ import { isBlob } from '../../../utils/blobGuards';
 // Converts home-surface collections into small GridView descriptors and resolves non-Netease tracks outside GridView.
 
 export type GridViewCollectionSource = 'netease' | 'qq' | 'local' | 'navidrome';
-export type NavidromeGridViewCollectionType = 'album' | 'playlist' | 'artist' | 'random' | 'favorites';
+export type NavidromeGridViewCollectionType = 'album' | 'playlist' | 'artist' | 'random' | 'favorites' | 'recentlyAdded' | 'recentlyPlayed';
 
 export interface BaseGridViewCollectionDescriptor {
     source: GridViewCollectionSource;
@@ -247,6 +248,10 @@ export const resolveNavidromeGridViewTracks = async (
         subsonicSongs = await navidromeApi.getRandomSongs(config, 100);
     } else if (descriptor.type === 'favorites') {
         subsonicSongs = await navidromeApi.getStarred2(config);
+    } else if (descriptor.type === 'recentlyAdded') {
+        subsonicSongs = await loadNavidromeAlbumListSongs(config, 'newest');
+    } else if (descriptor.type === 'recentlyPlayed') {
+        subsonicSongs = await loadNavidromeAlbumListSongs(config, 'recent');
     }
 
     const navidromeSongs = subsonicSongs.map(song => navidromeApi.toNavidromeSong(config, song));

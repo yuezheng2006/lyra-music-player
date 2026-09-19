@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     fetchAggregatedDailyRecommend,
     interleaveDailyRecommendSongs,
+    listTodayPicksProviders,
 } from '@/services/dailyRecommendService';
 import {
     dedupeSongsByTitle,
@@ -11,10 +12,25 @@ import type { SongResult } from '@/types';
 
 // test/unit/services/dailyRecommendService.test.ts
 
+vi.mock('@/services/dailyChartPicks', async () => {
+    const actual = await vi.importActual<typeof import('@/services/dailyChartPicks')>(
+        '@/services/dailyChartPicks',
+    );
+    return {
+        ...actual,
+        fetchHotChartSeeds: vi.fn(),
+        fetchChartMatchedPicks: vi.fn(),
+    };
+});
+
 vi.mock('@/services/neteasePodcast', () => ({
     fetchDailyRecommendSongs: vi.fn(),
 }));
 
+import {
+    fetchChartMatchedPicks,
+    fetchHotChartSeeds,
+} from '@/services/dailyChartPicks';
 import { fetchDailyRecommendSongs } from '@/services/neteasePodcast';
 
 const song = (
@@ -28,7 +44,7 @@ const song = (
     providerSongId: String(id),
     artists: [{ id: 0, name: 'A' }],
     album: { id: 0, name: 'Alb' },
-    duration: 1000,
+    duration: 180_000,
 });
 
 describe('dailyRecommendService', () => {
@@ -71,32 +87,82 @@ describe('dailyRecommendService', () => {
         ]).map(item => item.name)).toEqual(['only']);
     });
 
+    it('lists enabled peer providers and excludes netease and bilibili clips', () => {
+        expect(listTodayPicksProviders({
+            netease: true,
+            qq: true,
+            qishui: false,
+            coco: true,
+            kugou: false,
+            bilibili: true,
+            kuwo: false,
+        })).toEqual(['qq', 'coco']);
+    });
+
+    it('drops 30-second clip titles from the interleaved mix', () => {
+        expect(interleaveDailyRecommendSongs([
+            {
+                provider: 'coco',
+                kind: 'picks',
+                songs: [
+                    song('coco', 1, '海屿你 (30秒鼓手版片段)'),
+                    song('coco', 2, '晴天'),
+                ],
+            },
+        ]).map(item => item.name)).toEqual(['晴天']);
+    });
+
     describe('fetchAggregatedDailyRecommend', () => {
         beforeEach(() => {
             vi.mocked(fetchDailyRecommendSongs).mockReset();
+            vi.mocked(fetchHotChartSeeds).mockReset();
+            vi.mocked(fetchChartMatchedPicks).mockReset();
+            vi.mocked(fetchHotChartSeeds).mockResolvedValue([
+                { name: '晴天', artist: '周杰伦' },
+            ]);
         });
 
-        it('still fetches Netease when home library filter disables netease', async () => {
-            vi.mocked(fetchDailyRecommendSongs).mockResolvedValue({
-                songs: [song('netease', 42, '推荐歌')],
-                code: 200,
-                needLogin: false,
+        it('fetches chart picks from enabled peer providers and skips netease personalized', async () => {
+            vi.mocked(fetchChartMatchedPicks).mockImplementation(async (provider) => {
+                if (provider === 'qq') return [song('qq', 1, '晴天')];
+                if (provider === 'coco') return [song('coco', 2, '夜曲')];
+                return [];
             });
 
             const result = await fetchAggregatedDailyRecommend({
-                netease: false,
+                netease: true,
+                qq: true,
+                qishui: false,
+                coco: true,
+                kugou: false,
+                bilibili: false,
+                kuwo: false,
+            });
+
+            expect(fetchDailyRecommendSongs).not.toHaveBeenCalled();
+            expect(fetchHotChartSeeds).toHaveBeenCalled();
+            expect(result.needLoginNetease).toBe(false);
+            expect(result.sources.map(s => s.provider).sort()).toEqual(['coco', 'qq']);
+            expect(result.songs.map(s => s.name).sort()).toEqual(['夜曲', '晴天']);
+        });
+
+        it('returns empty when no peer provider is enabled', async () => {
+            const result = await fetchAggregatedDailyRecommend({
+                netease: true,
                 qq: false,
-                qishui: true,
+                qishui: false,
                 coco: false,
                 kugou: false,
                 bilibili: false,
                 kuwo: false,
             });
 
-            expect(fetchDailyRecommendSongs).toHaveBeenCalledTimes(1);
-            expect(result.songs.map(item => item.name)).toEqual(['推荐歌']);
-            expect(result.sources).toHaveLength(1);
-            expect(result.sources[0]?.provider).toBe('netease');
+            expect(result.songs).toEqual([]);
+            expect(result.sources).toEqual([]);
+            expect(result.needLoginNetease).toBe(false);
+            expect(fetchDailyRecommendSongs).not.toHaveBeenCalled();
+            expect(fetchHotChartSeeds).not.toHaveBeenCalled();
+            expect(fetchChartMatchedPicks).not.toHaveBeenCalled();
         });
     });
 });

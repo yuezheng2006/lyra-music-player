@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
     armAutoPlayIntent,
+    armLaunchAutoPlay,
     hasPlayableHtmlMediaSource,
     isTransientAutoplayFailure,
     shouldPreserveAutoPlayOnPause,
@@ -36,11 +37,17 @@ describe('shouldPreserveAutoPlayOnPause', () => {
     });
 });
 
-describe('armAutoPlayIntent', () => {
-    it('sets the autoplay ref before async work', () => {
+describe('armLaunchAutoPlay', () => {
+    it('arms before restore when the lab switch is on', () => {
         const shouldAutoPlayRef = { current: false };
-        armAutoPlayIntent(shouldAutoPlayRef);
+        armLaunchAutoPlay(shouldAutoPlayRef, true);
         expect(shouldAutoPlayRef.current).toBe(true);
+    });
+
+    it('leaves autoplay disarmed when the lab switch is off', () => {
+        const shouldAutoPlayRef = { current: false };
+        armLaunchAutoPlay(shouldAutoPlayRef, false);
+        expect(shouldAutoPlayRef.current).toBe(false);
     });
 });
 

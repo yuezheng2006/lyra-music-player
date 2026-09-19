@@ -66,6 +66,8 @@ export const useMineradioPlaybackRuntime = ({
     const immersiveLyricsRef = useRef(immersiveLyrics);
     const lyricColumnEndRatioRef = useRef(lyricColumnEndRatio);
     const playingRef = useRef(playing);
+    const sceneTuningRef = useRef(sceneTuning);
+    const qualityProfileRef = useRef(qualityProfile);
     audioBandsRef.current = audioBands;
     pausedRef.current = paused;
     themeRef.current = theme;
@@ -74,6 +76,8 @@ export const useMineradioPlaybackRuntime = ({
     immersiveLyricsRef.current = immersiveLyrics;
     lyricColumnEndRatioRef.current = lyricColumnEndRatio;
     playingRef.current = playing;
+    sceneTuningRef.current = sceneTuning;
+    qualityProfileRef.current = qualityProfile;
 
     useLayoutEffect(() => {
         const container = containerRef.current;
@@ -132,21 +136,24 @@ export const useMineradioPlaybackRuntime = ({
             coverRuntimeRef.current?.dispose();
             coverRuntimeRef.current = null;
         };
-    // Intentionally omit coverUrl: remounting WebGL on track change flashes the load mist.
-    // Cover updates go through the configure() effect below.
-    // Use quality tier (not object identity) — sceneTuning recreates qualityProfile often.
+    // Intentionally omit coverUrl / visualPreset: remount flashes mist and kills GPU
+    // on 封面↔滚筒↔星河. Cover + preset updates go through configure() below.
     }, [
         enabled,
         qualityProfile.tier,
         qualityProfile.devicePixelRatioCap,
-        sceneTuning?.visualPreset,
-        sceneTuning?.enableCoverParticles,
         containerRef,
         smartAtmosphereEnabled,
     ]);
 
+    // Primitive deps only: sceneTuning/qualityProfile object identity changes every render and
+    // was re-entering configure() → main-thread GPU work on every React commit.
     useEffect(() => {
-        coverRuntimeRef.current?.configure(coverUrl ?? null, sceneTuning, qualityProfile);
+        coverRuntimeRef.current?.configure(
+            coverUrl ?? null,
+            sceneTuningRef.current,
+            qualityProfileRef.current,
+        );
     }, [
         coverUrl,
         qualityProfile.tier,
@@ -156,8 +163,10 @@ export const useMineradioPlaybackRuntime = ({
         sceneTuning?.rhythmIntensity,
         sceneTuning?.bloomStrength,
         sceneTuning?.enableBassRipples,
-        sceneTuning,
-        qualityProfile,
+        sceneTuning?.enableBloomParticles,
+        sceneTuning?.atmosphereSensitivity,
+        sceneTuning?.cameraPunchStrength,
+        sceneTuning?.cinemaShake,
     ]);
 
     useEffect(() => {

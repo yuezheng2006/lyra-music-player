@@ -66,6 +66,29 @@ describe('parserCore', () => {
         expectNonDecreasingWordTimes(lyrics.lines[1].words);
     });
 
+    it('applies the global LRC [offset:] tag (positive shifts lyrics earlier)', () => {
+        const base = parseLRC('[00:10.00]Hello\n[00:20.00]World');
+        const shifted = parseLRC('[offset:+500]\n[00:10.00]Hello\n[00:20.00]World');
+
+        const baseLine = base.lines.find(line => line.fullText === 'Hello');
+        const shiftedLine = shifted.lines.find(line => line.fullText === 'Hello');
+        expect(baseLine).toBeDefined();
+        expect(shiftedLine).toBeDefined();
+        expect(shiftedLine!.startTime).toBeCloseTo(baseLine!.startTime - 0.5, 5);
+    });
+
+    it('applies the [offset:] tag to enhanced LRC line and word timing', () => {
+        const lyrics = parseEnhancedLRC(
+            '[offset:-250]\n[00:10.000]<00:10.000>你<00:10.300>好<00:10.600>'
+        );
+
+        const line = lyrics.lines.find(candidate => candidate.fullText === '你好');
+        expect(line).toBeDefined();
+        expect(line!.startTime).toBeCloseTo(10.25, 5);
+        expect(line!.words[0].startTime).toBeCloseTo(10.25, 5);
+        expect(line!.words[1].startTime).toBeCloseTo(10.55, 5);
+    });
+
     it('parses enhanced LRC metadata and precise word timing', () => {
         const lyrics = parseEnhancedLRC(
             '[ti:Song]\n[ar:Artist]\n[00:00.000]<00:00.000>你<00:00.300>好<00:00.600>!<00:00.900>',

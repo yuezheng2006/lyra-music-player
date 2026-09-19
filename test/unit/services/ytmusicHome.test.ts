@@ -12,8 +12,13 @@ describe('ytmusic home chips and mapping', () => {
     });
 
     it('exposes empty peek caches before any fetch', async () => {
-        const { peekYtmusicHomeShelvesCache, peekYtmusicPlaylistCache } = await import('@/services/ytmusicService');
+        const {
+            peekYtmusicHomeShelvesCache,
+            peekYtmusicHomeSectionsCache,
+            peekYtmusicPlaylistCache,
+        } = await import('@/services/ytmusicService');
         expect(peekYtmusicHomeShelvesCache()).toBeNull();
+        expect(peekYtmusicHomeSectionsCache()).toBeNull();
         expect(peekYtmusicPlaylistCache('x')).toBeNull();
     });
 

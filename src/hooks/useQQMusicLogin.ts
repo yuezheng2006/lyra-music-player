@@ -6,6 +6,7 @@ import {
     QQ_MUSIC_AUTH_CHANGED_EVENT,
     setStoredQQMusicCookie,
 } from '../services/musicProviders/qqMusicAuth';
+import { resolveProviderSessionBadge } from '../utils/account/providerSessionHealth';
 
 // src/hooks/useQQMusicLogin.ts
 // Shared QQ Music scan login, logout, and auth state for settings, account, and guest entry points.
@@ -51,10 +52,16 @@ export const useQQMusicLogin = () => {
         }
     }, [flowStatus, t]);
 
-    const statusText = auth.isLoggedIn
+    const sessionBadge = useMemo(() => resolveProviderSessionBadge({
+        isLoggedIn: auth.isLoggedIn,
+        hasSessionMaterial: auth.hasCookie,
+        playbackKeyReady: auth.playbackKeyReady,
+    }), [auth.hasCookie, auth.isLoggedIn, auth.playbackKeyReady]);
+
+    const statusText = sessionBadge === 'ready'
         ? (t('account.qqMusicLoginReady', { uin: auth.uin }) || `Logged in · ${auth.uin}`)
-        : auth.hasCookie
-            ? (t('account.qqMusicIncomplete') || 'Cookie missing playback token')
+        : sessionBadge === 'auth_incomplete'
+            ? (t('account.qqMusicPlaybackLimited') || t('account.qqMusicIncomplete') || 'Playback auth incomplete — refresh login')
             : (t('account.qqMusicAnonymous') || 'Login required');
 
     const openLogin = useCallback(async (): Promise<boolean> => {
@@ -81,7 +88,6 @@ export const useQQMusicLogin = () => {
     }, [canOpenOfficialLogin, refreshAuth]);
 
     const logout = useCallback(() => {
-        void window.electron?.clearQQMusicLogin?.();
         clearStoredQQMusicCookie();
         setFlowStatus('idle');
         refreshAuth();
@@ -96,6 +102,7 @@ export const useQQMusicLogin = () => {
         logout,
         openLogin,
         refreshAuth,
+        sessionBadge,
         statusText,
     };
 };

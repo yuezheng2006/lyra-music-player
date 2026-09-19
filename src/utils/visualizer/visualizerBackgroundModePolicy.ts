@@ -1,4 +1,5 @@
 import type { VisualizerBackgroundMode, VisualizerMode } from '../../types';
+import { migrateVisualizerBackgroundMode } from './retiredVisualizerBackgroundModes';
 
 // src/utils/visualizer/visualizerBackgroundModePolicy.ts
 // Background-mode policy only. Playback clocks live in mediaClockIsolationMath.
@@ -11,9 +12,11 @@ export const resolveGpuCrashVisualizerFallback = (
     if (
         current === 'interactive3d'
         || current === 'latent'
+        || current === 'nomand'
         || current === 'monet'
         || current === 'url'
         || current === 'sora'
+        || current === 'turntable'
     ) {
         return 'common';
     }
@@ -21,7 +24,7 @@ export const resolveGpuCrashVisualizerFallback = (
 };
 
 /**
- * Boot clamp: prior GPU deaths → common; Retina needs explicit 3D opt-in.
+ * Boot clamp: retired 3D and GPU-unstable sessions land on common.
  */
 export const resolveElectronSafeVisualizerBackgroundMode = (input: {
     mode: VisualizerBackgroundMode;
@@ -30,26 +33,25 @@ export const resolveElectronSafeVisualizerBackgroundMode = (input: {
     gpuUnstable: boolean;
     interactive3dOptIn: boolean;
 }): VisualizerBackgroundMode => {
-    if (!input.isElectron) return input.mode;
-    if (input.gpuUnstable && input.mode !== 'common') return 'common';
-    if (input.mode !== 'interactive3d') return input.mode;
-    if (input.devicePixelRatio >= 2 && !input.interactive3dOptIn) return 'common';
-    return input.mode;
+    const mode = migrateVisualizerBackgroundMode(input.mode) ?? 'common';
+    void input.devicePixelRatio;
+    void input.interactive3dOptIn;
+    if (!input.isElectron) return mode;
+    if (input.gpuUnstable && mode !== 'common') return 'common';
+    return mode;
 };
 
 /**
- * User selection: interactive3d is the first-class retry entry under gpuUnstable.
- * Other heavy modes stay shielded.
+ * User selection: retired interactive3d maps to common. Other heavy modes stay
+ * shielded while GPU is marked unstable.
  */
 export const resolveUserSelectedVisualizerBackgroundMode = (input: {
     requested: VisualizerBackgroundMode;
     isElectron: boolean;
     gpuUnstable: boolean;
 }): VisualizerBackgroundMode => {
-    if (!input.isElectron || !input.gpuUnstable) return input.requested;
-    if (input.requested === 'common' || input.requested === 'interactive3d') {
-        return input.requested;
-    }
+    const requested = migrateVisualizerBackgroundMode(input.requested) ?? 'common';
+    if (!input.isElectron || !input.gpuUnstable) return requested;
     return 'common';
 };
 

@@ -36,7 +36,20 @@ describe('neteaseProcessing', () => {
         expect(payload.mainLrc).toBe('[00:00.00]主歌');
         expect(payload.yrcLrc).toBe('[0,100](0,100,0)主歌');
         expect(payload.transLrc).toBe('[00:00.00]verse');
+        expect(payload.romaLrc).toBeNull();
         expect(payload.isPureMusic).toBe(false);
+    });
+
+    it('prefers yromalrc when YRC is the primary lyric', () => {
+        const payload = extractNeteaseLyricPayload({
+            type: 'netease',
+            lrc: { lyric: '[00:00.00]主歌' },
+            yrc: { lyric: '[0,100](0,100,0)主歌' },
+            romalrc: { lyric: '[00:00.00]line roma' },
+            yromalrc: { lyric: '[00:00.00]yrc roma' },
+        });
+
+        expect(payload.romaLrc).toBe('[00:00.00]yrc roma');
     });
 
     it('uses YRC first and returns chorus-decorated final lyrics', async () => {
@@ -61,7 +74,8 @@ describe('neteaseProcessing', () => {
             'yrc',
             '[0,100](0,100,0)副歌',
             '[00:00.00]chorus',
-            { includeInterludes: true }
+            { includeInterludes: true },
+            '',
         );
         expect(result.isPureMusic).toBe(false);
         expect(result.lyrics?.lines[0].isChorus).toBe(true);

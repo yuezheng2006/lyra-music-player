@@ -21,7 +21,7 @@ const memoryStorage = (): Storage => {
 };
 
 describe('visualizerBackgroundModeHandlers', () => {
-    it('clears GPU lockout when selecting interactive3d', () => {
+    it('maps retired interactive3d to common without clearing GPU lockout', () => {
         const storage = memoryStorage();
         storage.setItem(GPU_UNSTABLE_STORAGE_KEY, '1');
         const result = applyVisualizerBackgroundModeSelection({
@@ -29,12 +29,14 @@ describe('visualizerBackgroundModeHandlers', () => {
             isElectron: true,
             storage,
         });
-        expect(result.resolvedMode).toBe('interactive3d');
-        expect(storage.getItem(GPU_UNSTABLE_STORAGE_KEY)).toBe('0');
-        expect(storage.getItem(INTERACTIVE3D_OPT_IN_STORAGE_KEY)).toBe('1');
+        expect(result.resolvedMode).toBe('common');
+        expect(result.enable3dInteractiveBackground).toBe(false);
+        expect(storage.getItem(GPU_UNSTABLE_STORAGE_KEY)).toBe('1');
+        expect(storage.getItem('visualizer_background_mode')).toBe('common');
+        expect(storage.getItem(INTERACTIVE3D_OPT_IN_STORAGE_KEY)).toBeNull();
     });
 
-    it('blocks latent under gpuUnstable but keeps 3D retryable via demote+opt-in', () => {
+    it('blocks latent under gpuUnstable', () => {
         const storage = memoryStorage();
         storage.setItem(GPU_UNSTABLE_STORAGE_KEY, '1');
         expect(applyVisualizerBackgroundModeSelection({
@@ -43,8 +45,8 @@ describe('visualizerBackgroundModeHandlers', () => {
             storage,
         }).resolvedMode).toBe('common');
 
-        const demoted = applyGpuCrashVisualDemote({ keep3dOptIn: true, storage });
+        const demoted = applyGpuCrashVisualDemote({ keep3dOptIn: false, storage });
         expect(demoted.visualizerBackgroundMode).toBe('common');
-        expect(storage.getItem(INTERACTIVE3D_OPT_IN_STORAGE_KEY)).toBe('1');
+        expect(storage.getItem(INTERACTIVE3D_OPT_IN_STORAGE_KEY)).toBeNull();
     });
 });

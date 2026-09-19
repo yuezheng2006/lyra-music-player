@@ -121,7 +121,7 @@ describe('loadOnlineSongAudioSource video companion', () => {
         expect(result).toEqual({
             kind: 'ok',
             audioSrc: 'https://cdn.example/audio.m4s',
-            videoSrc: 'https://cdn.example/video.m4s',
+            videoSrc: 'http://cdn.example/video.m4s',
         });
         expect(getAudioUrl).toHaveBeenCalledTimes(1);
     });
@@ -192,6 +192,44 @@ describe('loadOnlineSongAudioSource video companion', () => {
         if (result.kind !== 'ok') return;
         expect(result.audioSrc.startsWith('blob:')).toBe(true);
         expect(result.videoSrc).toBeUndefined();
+        expect(getAudioUrl).not.toHaveBeenCalled();
+    });
+});
+
+describe('loadOnlineSongAudioSource rss enclosure', () => {
+    beforeEach(() => {
+        getCachedAudioBlob.mockReset();
+        getCachedAudioBlob.mockResolvedValue(null);
+        getAudioUrl.mockReset();
+    });
+
+    it('plays the song.audioUrl without cache, prefetch, or provider lookup', async () => {
+        getCachedAudioBlob.mockResolvedValue(new Blob(['audio'], { type: 'audio/mpeg' }));
+        const podcast = {
+            id: -42,
+            name: 'Episode',
+            musicProvider: 'rss' as const,
+            contentType: 'podcast' as const,
+            audioUrl: 'https://media.xyzcdn.net/ep.m4a',
+        };
+
+        const result = await loadOnlineSongAudioSource(podcast as any, 'exhigh', {
+            songKey: 'audio_rss_-42',
+            songId: -42,
+            audioUrl: 'https://stale.example/wrong.mp3',
+            audioUrlFetchedAt: Date.now(),
+            audioUrlQuality: 'exhigh',
+            videoUrl: 'https://cdn.example/video.m4s',
+            lyrics: null,
+            lyricRaw: null,
+            coverUrl: null,
+        });
+
+        expect(result).toEqual({
+            kind: 'ok',
+            audioSrc: 'https://media.xyzcdn.net/ep.m4a',
+        });
+        expect(getCachedAudioBlob).not.toHaveBeenCalled();
         expect(getAudioUrl).not.toHaveBeenCalled();
     });
 });

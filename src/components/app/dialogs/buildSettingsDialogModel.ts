@@ -11,6 +11,8 @@ import type { useThemeController } from '../../../hooks/useThemeController';
 import { type SettingsModalState, useSettingsUiStore } from '../../../stores/useSettingsUiStore';
 import type { ObsBrowserSourceStatus } from '../../../types/obsBrowserSource';
 import type { DesktopLyricsStatus } from '../../../types/desktopLyrics';
+import type { LyricFilterDraft } from '../../modal/LyricFilterSettingsModal';
+import type { TrackAtmosphereSongMeta } from '../../../types/trackAtmosphereLightPlan';
 
 // src/components/app/dialogs/buildSettingsDialogModel.ts
 
@@ -25,8 +27,9 @@ type BuildSettingsDialogModelParams = {
     onToggleNavidrome?: (enabled: boolean) => void;
     currentSongTitle?: string | null;
     currentCoverUrl?: string | null;
+    trackAtmosphereSongMeta?: TrackAtmosphereSongMeta | null;
     loadLyricFilterPreview: () => Promise<LyricData | null>;
-    onSaveLyricFilterPattern: (pattern: string) => Promise<void> | void;
+    onSaveLyricFilterPattern: (draft: LyricFilterDraft) => Promise<void> | void;
     stageStatus?: StageStatus | null;
     stageSource?: StageSource | null;
     activePlaybackContext: 'main' | 'stage';
@@ -54,6 +57,7 @@ export const buildSettingsDialogModel = ({
     onToggleNavidrome,
     currentSongTitle,
     currentCoverUrl,
+    trackAtmosphereSongMeta = null,
     loadLyricFilterPreview,
     onSaveLyricFilterPattern,
     stageStatus,
@@ -94,6 +98,7 @@ export const buildSettingsDialogModel = ({
         onToggleNavidrome,
         currentSongTitle,
         currentCoverUrl,
+        trackAtmosphereSongMeta,
         loadLyricFilterPreview,
         onSaveLyricFilterPattern,
         stageStatus,

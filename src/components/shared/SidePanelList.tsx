@@ -4,6 +4,7 @@ import { X, Play, Plus } from 'lucide-react';
 import { List as VirtualList } from 'react-window';
 import { useTranslation } from 'react-i18next';
 import LazyCoverImage from './LazyCoverImage';
+import { useReducedMotionFor } from '../../hooks/useReducedMotionFor';
 
 export interface SidePanelListProps<T> {
     isOpen: boolean;
@@ -34,6 +35,7 @@ export function SidePanelList<T>({
     const [listHeight, setListHeight] = useState(400);
     const listContainerRef = useRef<HTMLDivElement>(null);
     const virtualListRef = useRef<any>(null);
+    const reduceListScroll = useReducedMotionFor('settingsScroll');
 
     const rowProps = React.useMemo(() => ({ items, renderItem }), [items, renderItem]);
 
@@ -62,28 +64,29 @@ export function SidePanelList<T>({
                 const timer = setTimeout(() => {
                     const list = virtualListRef.current;
                     if (!list) return;
-    
+                    const scrollBehavior = reduceListScroll ? 'auto' : 'smooth';
+
                     // If opening panel for the first time
                     if (isInitialOpen) {
                         // Start from nearby (e.g. 8 items above) to create a short smooth scroll effect
                         const jumpIndex = Math.max(0, focusedIndex - 8);
                         list.scrollToRow({ index: jumpIndex, align: 'start', behavior: 'auto' });
-                        
+
                         setTimeout(() => {
-                            list.scrollToRow({ index: focusedIndex, align: 'center', behavior: 'smooth' });
+                            list.scrollToRow({ index: focusedIndex, align: 'center', behavior: scrollBehavior });
                         }, 50);
                     } else {
                         // If already open, just smoothly scroll to the target directly
-                        list.scrollToRow({ index: focusedIndex, align: 'center', behavior: 'smooth' });
+                        list.scrollToRow({ index: focusedIndex, align: 'center', behavior: scrollBehavior });
                     }
-                    
+
                     lastScrollTargetRef.current = focusedIndex;
                 }, delay);
                 return () => clearTimeout(timer);
             } else if (!isOpen) {
                 lastScrollTargetRef.current = null;
             }
-    }, [isOpen, focusedIndex]);
+    }, [isOpen, focusedIndex, reduceListScroll]);
 
     return (
         <AnimatePresence>

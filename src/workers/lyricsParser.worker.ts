@@ -2,14 +2,14 @@
  * Lyrics Parser Web Worker
  *
  * Message API:
- * Request: { type: 'parse', format: 'lrc' | 'enhanced-lrc' | 'yrc' | 'qrc' | 'krc' | 'vtt' | 'ttml', content: string, translation?: string, requestId?: string }
+ * Request: { type: 'parse', format: 'lrc' | 'enhanced-lrc' | 'yrc' | 'qrc' | 'krc' | 'awlrc' | 'vtt' | 'ttml', content: string, translation?: string, requestId?: string }
  * Response: { type: 'result', data: LyricData, requestId?: string } | { type: 'error', message: string, requestId?: string }
  */
 
 import { parseLyricsByFormat, type LyricParseFormat } from '../utils/lyrics/parserCore';
 
 export const normalizeWorkerFormat = (format: string): LyricParseFormat => {
-    if (format === 'yrc' || format === 'qrc' || format === 'krc' || format === 'enhanced-lrc' || format === 'vtt' || format === 'ttml') {
+    if (format === 'yrc' || format === 'qrc' || format === 'krc' || format === 'awlrc' || format === 'enhanced-lrc' || format === 'vtt' || format === 'ttml') {
         return format;
     }
 
@@ -18,7 +18,7 @@ export const normalizeWorkerFormat = (format: string): LyricParseFormat => {
 
 if (typeof self !== 'undefined') {
     self.onmessage = (e: MessageEvent) => {
-        const { type, format, content, translation, options, requestId } = e.data;
+        const { type, format, content, translation, romanization, options, requestId } = e.data;
 
         if (type !== 'parse') {
             self.postMessage({ type: 'error', message: 'Unknown message type', requestId });
@@ -26,7 +26,7 @@ if (typeof self !== 'undefined') {
         }
 
         try {
-            const result = parseLyricsByFormat(normalizeWorkerFormat(format), content, translation || '', options);
+            const result = parseLyricsByFormat(normalizeWorkerFormat(format), content, translation || '', options, romanization || '');
             self.postMessage({ type: 'result', data: result, requestId });
         } catch (err) {
             self.postMessage({ type: 'error', message: String(err), requestId });

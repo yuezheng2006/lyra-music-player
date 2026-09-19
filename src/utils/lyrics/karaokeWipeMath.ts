@@ -3,6 +3,13 @@ import type { GraphemeTiming } from './graphemeTiming';
 // src/utils/lyrics/karaokeWipeMath.ts
 // Pure karaoke wipe progress: fill width + hard-edge LTR mask for traditional KTV fill.
 
+/**
+ * Lead applied to the wipe clock to offset render latency:
+ * rAF-sampled audio time is ~half a frame stale and the styled result paints
+ * one frame later, so without a lead the wipe trails the heard audio by ~2 frames.
+ */
+export const KARAOKE_WIPE_RENDER_LEAD_SEC = 0.033;
+
 export type ResolveKaraokeWipeFillWidthInput = {
     time: number;
     startTime: number;
@@ -11,17 +18,21 @@ export type ResolveKaraokeWipeFillWidthInput = {
     graphemeTimings?: readonly GraphemeTiming[];
     /** When false, wipe stays at 0 (inactive / waiting line). */
     active?: boolean;
+    /** Seconds added to `time` to compensate sampling + paint latency. */
+    renderLeadSec?: number;
 };
 
 /** Cumulative fill width in px for the sung edge at `time`. */
 export const resolveKaraokeWipeFillWidth = ({
-    time,
+    time: rawTime,
     startTime,
     endTime,
     graphemeOffsets,
     graphemeTimings = [],
     active = true,
+    renderLeadSec = 0,
 }: ResolveKaraokeWipeFillWidthInput): number => {
+    const time = rawTime + renderLeadSec;
     const fullWidth = graphemeOffsets[graphemeOffsets.length - 1] ?? 0;
     if (!active || time <= startTime) return 0;
     if (time >= endTime) return fullWidth;

@@ -9,10 +9,12 @@ import { resolveLyricPlaybackTimes } from './syncLyricPlaybackClock';
 export const resolveMediaClocksFromAudioElement = (input: {
     audioCurrentTimeSec: number;
     lyricTimelineOffsetMs?: number;
+    globalLyricTimelineOffsetMs?: number;
 }): { currentTimeSec: number; lyricTimeSec: number } => (
     resolveLyricPlaybackTimes({
         audioCurrentTimeSec: input.audioCurrentTimeSec,
         lyricTimelineOffsetMs: input.lyricTimelineOffsetMs ?? 0,
+        globalLyricTimelineOffsetMs: input.globalLyricTimelineOffsetMs ?? 0,
     })
 );
 
@@ -24,6 +26,18 @@ export const resolveProgressFillPercent = (
     durationSec > 0
         ? Math.min(100, Math.max(0, (currentTimeSec / durationSec) * 100))
         : 0
+);
+
+/**
+ * While the next track URL is still resolving, keep the dock scrubber at 0% —
+ * the previous HTMLAudioElement may still be emitting timeupdates.
+ */
+export const resolveProgressFillPercentForUi = (
+    currentTimeSec: number,
+    durationSec: number,
+    isAudioSourceLoading = false,
+): number => (
+    isAudioSourceLoading ? 0 : resolveProgressFillPercent(currentTimeSec, durationSec)
 );
 
 /**

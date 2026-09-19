@@ -5,7 +5,11 @@ import type { NowPlayingConnectionStatus, StageSource, StageStatus, Theme } from
 import type { NavidromeServerProfile } from '../../../types/navidrome';
 import type { ObsBrowserSourceStatus } from '../../../types/obsBrowserSource';
 import QQMusicLoginPanel from '../../shared/QQMusicLoginPanel';
+import QishuiLoginPanel from '../../shared/QishuiLoginPanel';
+import KugouLoginPanel from '../../shared/KugouLoginPanel';
 import MusicProviderOpenModeSection from './MusicProviderOpenModeSection';
+import ObsCustomCssCopyButton from './ObsCustomCssCopyButton';
+import NowPlayingPairingCard from './NowPlayingPairingCard';
 import SettingsAdvancedSection from './SettingsAdvancedSection';
 import {
     settingsDescClass,
@@ -90,13 +94,6 @@ const maskStageToken = (token: string | null | undefined) => {
     return `${token.slice(0, 6)}...${token.slice(-4)}`;
 };
 
-const getNowPlayingStatusLabel = (status: NowPlayingConnectionStatus) => {
-    if (status === 'connected') return '已连接';
-    if (status === 'connecting') return '连接中';
-    if (status === 'error') return '连接失败';
-    return '未启用';
-};
-
 const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
     chrome,
     discord,
@@ -154,7 +151,6 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
     } = discord ?? { enabled: false, onToggle: async () => undefined, status: null };
     const { t } = useTranslation();
     const [obsAddressCopied, setObsAddressCopied] = useState(false);
-    const nowPlayingStatusLabel = getNowPlayingStatusLabel(nowPlayingConnectionStatus);
     const showDiscordPresence = isDiscordPresenceUiEnabled() && Boolean(discord);
     const discordPresenceStatusLabel = (() => {
         if (!discordPresenceStatus?.enabled) return t('options.discordPresenceDisabled') || 'Disabled';
@@ -296,7 +292,11 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
                                                 >
                                                     {t('options.regenerateObsBrowserSourceToken') || 'Regenerate Token'}
                                                 </button>
+                                                <ObsCustomCssCopyButton copyText={onCopyText} />
                                             </div>
+                                            <p className={settingsFootnoteClass} style={settingsFootnoteStyle}>
+                                                {t('options.obsBrowserSourceUrlParams') || 'URL params: mode=still&fontScale=1.2&offsetMs=200&transparent=1&hideBg=1'}
+                                            </p>
                                         </div>
                                     </div>
                                 )}
@@ -356,17 +356,10 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
                                         </div>
 
                                         {stageSource === 'now-playing' ? (
-                                            <div className={`rounded-xl border p-3 space-y-2 ${settingsCardClass}`}>
-                                                <div className={`uppercase tracking-[0.16em] ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
-                                                    Now Playing
-                                                </div>
-                                                <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                                                    连接状态：{nowPlayingStatusLabel}
-                                                </div>
-                                                <div className={settingsDescClass} style={settingsDescStyle}>
-                                                    固定连接 `ws://localhost:9863/api/ws/lyric`，请先在本机启动 now-playing 服务。
-                                                </div>
-                                            </div>
+                                            <NowPlayingPairingCard
+                                                connectionStatus={nowPlayingConnectionStatus}
+                                                settingsCardClass={settingsCardClass}
+                                            />
                                         ) : (
                                             <>
                                                 <div className={`rounded-xl border p-3 space-y-3 ${settingsCardClass}`}>
@@ -452,7 +445,7 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
                                             启用 Now Playing
                                         </div>
                                         <div className={`${settingsDescClass} max-w-[320px]`} style={settingsDescStyle}>
-                                            开启后首页显示舞台入口，并通过本机 localhost 连接 now-playing 服务。
+                                            {t('options.nowPlayingEnableHint')}
                                         </div>
                                     </div>
                                     <button
@@ -464,14 +457,10 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
                                     </button>
                                 </div>
                                 {enableNowPlayingStage && (
-                                    <div className={`rounded-xl border p-3 space-y-2 ${settingsCardClass}`}>
-                                        <div className={`uppercase tracking-[0.16em] ${settingsFootnoteClass}`} style={settingsFootnoteStyle}>
-                                            Now Playing
-                                        </div>
-                                        <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                                            连接状态：{nowPlayingStatusLabel}
-                                        </div>
-                                    </div>
+                                    <NowPlayingPairingCard
+                                        connectionStatus={nowPlayingConnectionStatus}
+                                        settingsCardClass={settingsCardClass}
+                                    />
                                 )}
                             </div>
                         </section>
@@ -484,6 +473,34 @@ const IntegrationSettingsSubview: React.FC<IntegrationSettingsSubviewProps> = ({
                     <KeyRound size={14} /> {t('options.qqMusicAccount') || 'QQ Music Account'}
                 </h3>
                 <QQMusicLoginPanel
+                    variant="settings"
+                    cardClass={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}
+                    successBgColor={successBgColor}
+                    successTextColor={successTextColor}
+                    errorBgColor={errorBgColor}
+                    errorTextColor={errorTextColor}
+                />
+            </section>
+
+            <section>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                    <KeyRound size={14} /> {t('options.qishuiAccount') || 'Qishui Music Account'}
+                </h3>
+                <QishuiLoginPanel
+                    variant="settings"
+                    cardClass={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}
+                    successBgColor={successBgColor}
+                    successTextColor={successTextColor}
+                    errorBgColor={errorBgColor}
+                    errorTextColor={errorTextColor}
+                />
+            </section>
+
+            <section>
+                <h3 className={settingsSectionTitleClass} style={settingsSectionTitleStyle}>
+                    <KeyRound size={14} /> {t('options.kugouAccount') || 'Kugou Music Account'}
+                </h3>
+                <KugouLoginPanel
                     variant="settings"
                     cardClass={`p-4 rounded-xl border space-y-4 ${settingsCardClass}`}
                     successBgColor={successBgColor}

@@ -9,11 +9,57 @@ const DEFAULT_QQ_MUSIC_COOKIE = 'tmeLoginType=-1;';
 const DEFAULT_QQ_MUSIC_UIN = '0';
 const DEFAULT_QQ_MUSIC_GUID = '10000';
 
+let memoryCookie: string | null = null;
+
 const canUseLocalStorage = () => typeof localStorage !== 'undefined';
 
+const hasElectronQQAuthPersist = () => (
+    typeof window !== 'undefined'
+    && typeof window.electron?.saveQQMusicAuthSession === 'function'
+);
+
 const notifyQQMusicAuthChanged = () => {
-    if (typeof window === 'undefined') return;
-    window.dispatchEvent(new CustomEvent(QQ_MUSIC_AUTH_CHANGED_EVENT));
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+    try {
+        window.dispatchEvent(new CustomEvent(QQ_MUSIC_AUTH_CHANGED_EVENT));
+    } catch {
+        // Node tests stub `window` without CustomEvent.
+    }
+};
+
+const readLocalStorageCookie = (): string => {
+    if (!canUseLocalStorage()) return '';
+    try {
+        return localStorage.getItem(QQ_MUSIC_COOKIE_STORAGE_KEY)?.trim() || '';
+    } catch {
+        return '';
+    }
+};
+
+const writeLocalStorageCookie = (cookie: string) => {
+    if (!canUseLocalStorage()) return;
+    try {
+        if (!cookie) {
+            localStorage.removeItem(QQ_MUSIC_COOKIE_STORAGE_KEY);
+            return;
+        }
+        localStorage.setItem(QQ_MUSIC_COOKIE_STORAGE_KEY, cookie);
+    } catch {
+        // Ignore quota / private-mode failures.
+    }
+};
+
+const removeLocalStorageCookie = () => {
+    writeLocalStorageCookie('');
+};
+
+const persistElectronQQAuthSession = (cookie: string) => {
+    void window.electron!.saveQQMusicAuthSession(cookie).catch(() => {});
+};
+
+/** Resets in-memory cookie cache between unit tests. */
+export const resetQQMusicAuthCookieMemory = () => {
+    memoryCookie = null;
 };
 
 export const parseQQMusicCookie = (cookie: string | null | undefined): Record<string, string> => {
@@ -78,29 +124,33 @@ export const normalizeQQMusicCookieInput = (cookie: string): string => {
 };
 
 export const getStoredQQMusicCookie = (): string => {
-    if (!canUseLocalStorage()) return '';
-    try {
-        return localStorage.getItem(QQ_MUSIC_COOKIE_STORAGE_KEY)?.trim() || '';
-    } catch {
-        return '';
-    }
+    if (memoryCookie !== null) return memoryCookie;
+    return readLocalStorageCookie();
 };
 
 export const setStoredQQMusicCookie = (cookie: string) => {
-    if (!canUseLocalStorage()) return;
     const normalizedCookie = normalizeQQMusicCookieInput(cookie);
     if (!normalizedCookie) {
-        localStorage.removeItem(QQ_MUSIC_COOKIE_STORAGE_KEY);
+        clearStoredQQMusicCookie();
+        return;
+    }
+    memoryCookie = normalizedCookie;
+    if (hasElectronQQAuthPersist()) {
+        removeLocalStorageCookie();
+        persistElectronQQAuthSession(normalizedCookie);
         notifyQQMusicAuthChanged();
         return;
     }
-    localStorage.setItem(QQ_MUSIC_COOKIE_STORAGE_KEY, normalizedCookie);
+    writeLocalStorageCookie(normalizedCookie);
     notifyQQMusicAuthChanged();
 };
 
 export const clearStoredQQMusicCookie = () => {
-    if (!canUseLocalStorage()) return;
-    localStorage.removeItem(QQ_MUSIC_COOKIE_STORAGE_KEY);
+    memoryCookie = '';
+    removeLocalStorageCookie();
+    if (typeof window !== 'undefined' && typeof window.electron?.clearQQMusicLogin === 'function') {
+        void window.electron.clearQQMusicLogin();
+    }
     notifyQQMusicAuthChanged();
 };
 
@@ -147,7 +197,22 @@ export const getQQMusicAuth = (): QQMusicAuth => {
     };
 };
 
-// Hydrates renderer QQ auth from Electron's persisted login partition on startup.
+/** Payload sent to the music-provider sidecar for QQ audio/search. */
+export const getQQMusicSidecarAuthPayload = () => {
+    const auth = getQQMusicAuth();
+    return {
+        cookieHeader: auth.cookieHeader,
+        guid: auth.guid,
+        // Stream minting requires qm_keyst / qqmusic_key, not a bare web skey.
+        isLoggedIn: auth.isLoggedIn && auth.playbackKeyReady,
+        musicKey: auth.musicKey,
+        playbackKey: auth.playbackKey,
+        playbackKeyReady: auth.playbackKeyReady,
+        uin: auth.uin,
+    };
+};
+
+// Hydrates renderer QQ auth from Electron partition / encrypted session, then migrates leftover localStorage.
 export const syncQQMusicAuthFromElectron = async (): Promise<QQMusicAuth> => {
     if (typeof window === 'undefined' || typeof window.electron?.getQQMusicLoginCookie !== 'function') {
         return getQQMusicAuth();
@@ -156,13 +221,16 @@ export const syncQQMusicAuthFromElectron = async (): Promise<QQMusicAuth> => {
     try {
         const result = await window.electron.getQQMusicLoginCookie();
         if (result.ok && result.cookie?.trim()) {
-            const normalizedCookie = normalizeQQMusicCookieInput(result.cookie);
-            if (normalizedCookie && normalizedCookie !== getStoredQQMusicCookie()) {
-                setStoredQQMusicCookie(normalizedCookie);
-            }
+            setStoredQQMusicCookie(result.cookie);
+            return getQQMusicAuth();
         }
     } catch {
-        // Keep localStorage auth if Electron partition sync fails.
+        // Fall through to leftover localStorage migration.
+    }
+
+    const leftover = readLocalStorageCookie();
+    if (leftover && hasElectronQQAuthPersist()) {
+        setStoredQQMusicCookie(leftover);
     }
 
     return getQQMusicAuth();

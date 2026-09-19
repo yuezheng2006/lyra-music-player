@@ -1,7 +1,8 @@
 // scripts/music-provider-adapters/qishui-provider-adapter.mjs
 // Keyword search + audition playback for Qishui (Soda), following musicdl's LunaPC path.
-// Cookie / track_v2 / play_auth decrypt are intentionally out of scope for this first cut.
+// Optional official web cookie is attached to Luna / share-page requests; play_auth decrypt stays out of scope.
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { fetchWithProxyFallback } from './fetchWithProxyFallback.mjs';
 
 const DEVICE_ID = process.env.MUSIC_PROVIDER_QISHUI_DEVICE_ID || '3753066532709850';
@@ -10,6 +11,15 @@ const LUNA_UA = 'LunaPC/3.5.1(408871041)';
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 const QISHUI_SHARE_URL_RE = /^https?:\/\/qishui\.douyin\.com\/s\/[A-Za-z0-9]+/i;
 const BUGPK_API = process.env.MUSIC_PROVIDER_QISHUI_API_BASE || 'https://api.bugpk.com/api/qsmusic';
+
+const qishuiAuthStore = new AsyncLocalStorage();
+
+const withQishuiAuth = (qishuiAuth, task) => qishuiAuthStore.run(qishuiAuth || {}, task);
+
+const cookieHeaderFromAuth = () => {
+  const cookie = String(qishuiAuthStore.getStore()?.cookieHeader || '').trim();
+  return cookie ? { Cookie: cookie } : {};
+};
 
 const buildLunaQuery = (extra = {}) => {
   const params = new URLSearchParams({
@@ -120,23 +130,28 @@ const extractPlaylistTracks = (payload) => {
 };
 
 /**
- * Detect Qishui search intent: `cat:分类` searches playlists; default is track search.
+ * Detect Qishui search intent: `cat:` playlists, `song:` tracks, bare keywords auto-route.
  */
 export const parseQishuiSearchIntent = (rawQuery) => {
   const trimmed = String(rawQuery || '').trim();
   if (!trimmed) return { mode: 'track', query: '' };
 
-  const categoryMatch = /^(?:cat:|分类:)\s*(.+)$/i.exec(trimmed);
+  const categoryMatch = /^(?:cat:|分类:)\s*(.*)$/i.exec(trimmed);
   if (categoryMatch) {
     return { mode: 'category', query: categoryMatch[1].trim() };
   }
 
-  const songMatch = /^(?:song:|歌曲:)\s*(.+)$/i.exec(trimmed);
+  const songMatch = /^(?:song:|歌曲:)\s*(.*)$/i.exec(trimmed);
   if (songMatch) {
     return { mode: 'track', query: songMatch[1].trim() };
   }
 
-  return { mode: 'track', query: trimmed };
+  // Official track search returns 0 hits for AI* tags; playlist search is the real category path.
+  if (/^ai/i.test(trimmed)) {
+    return { mode: 'category', query: trimmed };
+  }
+
+  return { mode: 'auto', query: trimmed };
 };
 
 const normalizeSearchName = (value) => String(value || '').trim().toLowerCase();
@@ -197,7 +212,7 @@ const extractSearchArtists = (payload) => {
     .filter(Boolean);
 };
 
-const searchExactArtist = async (query) => {
+const fetchSearchArtists = async (query) => {
   const params = buildLunaQuery({
     q: query,
     cursor: '0',
@@ -214,10 +229,22 @@ const searchExactArtist = async (query) => {
       'Content-Type': 'application/json; charset=utf-8',
     },
   );
+  return extractSearchArtists(payload);
+};
+
+const searchExactArtist = async (query) => {
   const needle = normalizeSearchName(query);
-  return extractSearchArtists(payload).find(
+  return (await fetchSearchArtists(query)).find(
     (artist) => normalizeSearchName(artist.name) === needle,
   ) || null;
+};
+
+/** True when Luna ranks this name as the primary artist, not a song-title alias. */
+const searchPrimaryExactArtist = async (query) => {
+  const artists = await fetchSearchArtists(query);
+  const top = artists[0];
+  if (!top || normalizeSearchName(top.name) !== normalizeSearchName(query)) return null;
+  return top;
 };
 
 const fetchPlaylistTrackPage = async (playlistId, cursor, pageSize) => {
@@ -273,16 +300,55 @@ const collectFilteredPlaylistTracks = async (playlist, { artistName, limit, offs
   };
 };
 
+const DEFAULT_FETCH_TIMEOUT_MS = Number(process.env.MUSIC_PROVIDER_QISHUI_FETCH_TIMEOUT_MS || 8000);
+
+/** Abort slow Luna / share-page hops so search UI can fail fast. */
+const fetchWithTimeout = async (url, init = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS) => {
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  if (init.signal) {
+    if (init.signal.aborted) {
+      throw new Error('Qishui request aborted');
+    }
+    init.signal.addEventListener('abort', onAbort, { once: true });
+  }
+  const timer = setTimeout(() => controller.abort(), Math.max(500, timeoutMs));
+  try {
+    return await fetchWithProxyFallback(url, {
+      ...init,
+      headers: {
+        ...cookieHeaderFromAuth(),
+        ...(init.headers || {}),
+      },
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`Qishui request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    init.signal?.removeEventListener('abort', onAbort);
+  }
+};
+
 const fetchJson = async (url, headers = {}) => {
-  const response = await fetchWithProxyFallback(url, { headers });
+  const response = await fetchWithTimeout(url, { headers });
   if (!response.ok) {
     throw new Error(`Qishui request failed: ${response.status}`);
   }
-  return response.json();
+  const text = await response.text();
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
 };
 
 const fetchText = async (url, headers = {}) => {
-  const response = await fetchWithProxyFallback(url, { headers });
+  const response = await fetchWithTimeout(url, { headers });
   if (!response.ok) {
     throw new Error(`Qishui request failed: ${response.status}`);
   }
@@ -366,7 +432,7 @@ const searchOfficialTracks = async (query, limit = 30, offset = 0) => {
     search_scene: '',
   });
   const payload = await fetchJson(
-    `https://api.qishui.com/luna/pc/search/track?${params.toString()}`,
+    `https://api.qishui.com/luna/search/track?${params.toString()}`,
     {
       'User-Agent': LUNA_UA,
       'Content-Type': 'application/json; charset=utf-8',
@@ -426,6 +492,20 @@ const searchOfficialPlaylists = async (query, limit = 30, offset = 0) => {
   };
 };
 
+/** Bare keywords: primary artist → playlist; otherwise tracks, then single-token playlists. */
+const searchAuto = async (query, limit = 30, offset = 0) => {
+  const artist = await searchPrimaryExactArtist(query);
+  if (artist) {
+    return searchOfficialPlaylists(query, limit, offset);
+  }
+
+  const tracks = await searchOfficialTracks(query, limit, offset);
+  if (tracks.songs.length > 0 || /\s/.test(query)) {
+    return tracks;
+  }
+  return searchOfficialPlaylists(query, limit, offset);
+};
+
 const resolveTrackId = (payload) => {
   const fromSong = payload?.song?.providerSongId || payload?.song?.id || payload?.id;
   const value = String(fromSong || '').trim();
@@ -436,7 +516,8 @@ const resolveTrackId = (payload) => {
   return value;
 };
 
-export async function search({ query, limit = 30, offset = 0 }) {
+export async function search({ query, limit = 30, offset = 0, qishuiAuth } = {}) {
+  return withQishuiAuth(qishuiAuth, async () => {
   const trimmed = String(query || '').trim();
   if (!trimmed) {
     return { songs: [], total: 0, hasMore: false };
@@ -451,12 +532,23 @@ export async function search({ query, limit = 30, offset = 0 }) {
 
   const intent = parseQishuiSearchIntent(trimmed);
   if (intent.mode === 'category') {
+    if (!intent.query) {
+      return { songs: [], total: 0, hasMore: false, searchMode: 'category' };
+    }
     return searchOfficialPlaylists(intent.query, limit, offset);
   }
+  if (!intent.query) {
+    return { songs: [], total: 0, hasMore: false, searchMode: 'track' };
+  }
+  if (intent.mode === 'auto') {
+    return searchAuto(intent.query, limit, offset);
+  }
   return searchOfficialTracks(intent.query, limit, offset);
+  });
 }
 
-export async function audio({ id, song }) {
+export async function audio({ id, song, qishuiAuth } = {}) {
+  return withQishuiAuth(qishuiAuth, async () => {
   const shareId = String(song?.providerSongId || id || '').trim();
   if (isQishuiShareUrl(shareId)) {
     const parsed = await parseShareShortLinkViaBugpk(shareId);
@@ -470,9 +562,11 @@ export async function audio({ id, song }) {
 
   const page = await parseShareTrackPage(trackId);
   return { audioUrl: page.audioUrl || null };
+  });
 }
 
-export async function lyrics({ id, song }) {
+export async function lyrics({ id, song, qishuiAuth } = {}) {
+  return withQishuiAuth(qishuiAuth, async () => {
   const shareId = String(song?.providerSongId || id || '').trim();
   if (isQishuiShareUrl(shareId)) {
     const parsed = await parseShareShortLinkViaBugpk(shareId);
@@ -488,6 +582,7 @@ export async function lyrics({ id, song }) {
   return page.lyricsText
     ? { lyricsText: page.lyricsText }
     : { lyrics: null };
+  });
 }
 
 const QISHUI_DAILY_QUERIES = ['消愁', '光年之外', '孤勇者', '错位时空', '演员', '起风了', '晴天'];
@@ -499,8 +594,10 @@ const pickQishuiDailyQuery = () => {
 };
 
 /** Day-seeded keyword picks — Qishui has no personalized daily API yet. */
-export async function recommend({ limit = 12 } = {}) {
-  const query = pickQishuiDailyQuery();
-  const result = await search({ query, limit, offset: 0 });
-  return { ...result, kind: 'picks', query };
+export async function recommend({ limit = 12, qishuiAuth } = {}) {
+  return withQishuiAuth(qishuiAuth, async () => {
+    const query = pickQishuiDailyQuery();
+    const result = await search({ query, limit, offset: 0, qishuiAuth });
+    return { ...result, kind: 'picks', query };
+  });
 }

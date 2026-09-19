@@ -1,16 +1,18 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, ChevronLeft, ChevronRight, Cpu, GamepadDirectional, Magnet, Monitor, PlayCircle, RotateCcw, Settings2 } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Cpu, GamepadDirectional, Lightbulb, Magnet, Monitor, PlayCircle, RotateCcw, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import type { Theme, VisualizerFrameRate } from '../../../types';
 import type { PerformanceMode } from '../../../types/performance';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+import { useSettingsChromeDaylight } from '../../../hooks/useSettingsChromeDaylight';
 import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
 import { useAmbientVisualStore } from '../../../stores/useAmbientVisualStore';
 import { useCharacterStore } from '../../../stores/useCharacterStore';
 import { useMagneticPullStore } from '../../../stores/useMagneticPullStore';
 import { VISUALIZER_FRAME_RATE_OPTIONS } from '../../../utils/frameRateLimiter';
+import MotionReductionSettingsSection from './MotionReductionSettingsSection';
 import {
     settingsDescClass,
     settingsDescStyle,
@@ -26,7 +28,7 @@ import {
 type LabSettingsModalProps = {
     isOpen: boolean;
     onClose: () => void;
-    onOpenLyricFilterSettings: () => void;
+    onOpenTrackAtmosphereLightPlanSettings?: () => void;
     theme?: Theme;
 };
 
@@ -44,7 +46,7 @@ const PERFORMANCE_MODE_OPTIONS: PerformanceMode[] = ['auto', 'high', 'balanced',
 const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
     isOpen,
     onClose,
-    onOpenLyricFilterSettings,
+    onOpenTrackAtmosphereLightPlanSettings,
     theme,
 }) => {
     const { t } = useTranslation();
@@ -61,11 +63,11 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
     const setEmotionScrambleEnabled = useMagneticPullStore((s) => s.setScrambleEnabled);
     const emotionBeatPulseEnabled = useMagneticPullStore((s) => s.beatPulseEnabled);
     const setEmotionBeatPulseEnabled = useMagneticPullStore((s) => s.setBeatPulseEnabled);
+    const isDaylight = useSettingsChromeDaylight();
     const {
         disableHomeDynamicBackground,
         hidePlayerRightPanelButton,
         hidePlayerTranslationSubtitle,
-        isDaylight,
         showOpenPanelCloseButton,
         staticMode,
         visualizerFrameRate,
@@ -76,15 +78,18 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
         onToggleMinimizeToTray,
         onToggleOpenPanelCloseButton,
         onToggleOpenPlayerOnLaunch,
+        onToggleAutoPlayOnLaunch,
+        autoPlayOnLaunch,
         onToggleStaticMode,
         onVisualizerFrameRateChange,
         enablePlayerPageNativeBlur,
         onTogglePlayerPageNativeBlur,
+        preventDisplaySleepDuringPlayback,
+        onTogglePreventDisplaySleepDuringPlayback,
     } = useSettingsUiStore(useShallow(state => ({
         disableHomeDynamicBackground: state.disableHomeDynamicBackground,
         hidePlayerRightPanelButton: state.hidePlayerRightPanelButton,
         hidePlayerTranslationSubtitle: state.hidePlayerTranslationSubtitle,
-        isDaylight: state.isDaylight,
         showOpenPanelCloseButton: state.showOpenPanelCloseButton,
         staticMode: state.staticMode,
         visualizerFrameRate: state.visualizerFrameRate,
@@ -96,9 +101,13 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
         onToggleMinimizeToTray: state.handleToggleMinimizeToTray,
         onToggleOpenPanelCloseButton: state.handleToggleOpenPanelCloseButton,
         onToggleOpenPlayerOnLaunch: state.handleToggleOpenPlayerOnLaunch,
+        onToggleAutoPlayOnLaunch: state.handleToggleAutoPlayOnLaunch,
+        autoPlayOnLaunch: state.autoPlayOnLaunch,
         onToggleStaticMode: state.handleToggleStaticMode,
         onVisualizerFrameRateChange: state.handleSetVisualizerFrameRate,
         onTogglePlayerPageNativeBlur: state.handleTogglePlayerPageNativeBlur,
+        preventDisplaySleepDuringPlayback: state.preventDisplaySleepDuringPlayback,
+        onTogglePreventDisplaySleepDuringPlayback: state.handleTogglePreventDisplaySleepDuringPlayback,
     })));
     const borderColor = isDaylight ? 'border-zinc-300/70' : 'border-white/10';
     const overlayBackground = isDaylight ? 'rgba(0,0,0,0.32)' : 'rgba(0,0,0,0.5)';
@@ -201,6 +210,7 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                     onToggleMinimizeToTray(false);
                                     onToggleHideTaskbarIcon(false);
                                     onToggleOpenPlayerOnLaunch(false);
+                                    onToggleAutoPlayOnLaunch(false);
                                     onTogglePlayerPageNativeBlur(false);
                                     onVisualizerFrameRateChange('off');
                                     setPerformanceMode('auto');
@@ -229,6 +239,22 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                         </div>
                                     </div>
                                     {renderToggle(staticMode, () => onToggleStaticMode(!staticMode))}
+                                </div>
+
+                                <div className={`p-4 rounded-xl border flex items-center justify-between gap-4 ${settingsCardClass}`} data-testid="lab-auto-play-on-launch">
+                                    <div className="space-y-1">
+                                        <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                            <PlayCircle size={14} />
+                                            {t('options.autoPlayOnLaunch') || '启动自动续播'}
+                                        </div>
+                                        <div className={`${settingsDescClass} max-w-[320px]`} style={settingsDescStyle}>
+                                            {t('options.autoPlayOnLaunchDesc') || '恢复上一首后立刻播放。桌面端一般可直接续播，普通浏览器可能仍要点一次。'}
+                                        </div>
+                                        <div className={`${settingsFootnoteClass} max-w-[320px]`} style={settingsFootnoteStyle}>
+                                            {t('options.autoPlayOnLaunchDescSub') || '默认关闭。不会改变「启动后进入听歌模式」。'}
+                                        </div>
+                                    </div>
+                                    {renderToggle(autoPlayOnLaunch, () => onToggleAutoPlayOnLaunch(!autoPlayOnLaunch))}
                                 </div>
 
                                 <div className={`p-4 rounded-xl border flex items-center justify-between gap-4 ${settingsCardClass}`}>
@@ -277,6 +303,17 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                             </button>
                                         ))}
                                     </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className={`${settingsTitleClass}`} style={settingsTitleStyle}>
+                                        {t('options.reduceMotionSection') || 'Reduce motion'}
+                                    </div>
+                                    <MotionReductionSettingsSection
+                                        settingsCardClass={settingsCardClass}
+                                        toggleOffBackgroundClass={toggleOffBackgroundClass}
+                                        theme={theme}
+                                    />
                                 </div>
 
                                 <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
@@ -343,6 +380,21 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                             </div>
                                         </div>
                                         {renderToggle(emotionBeatPulseEnabled, () => setEmotionBeatPulseEnabled(!emotionBeatPulseEnabled))}
+                                    </div>
+                                </div>
+
+                                <div className={`p-4 rounded-xl border space-y-3 ${settingsCardClass}`}>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="space-y-1">
+                                            <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                                <Monitor size={14} />
+                                                {t('options.preventDisplaySleepDuringPlayback')}
+                                            </div>
+                                            <div className={`${settingsDescClass} max-w-[420px]`} style={settingsDescStyle}>
+                                                {t('options.preventDisplaySleepDuringPlaybackDesc')}
+                                            </div>
+                                        </div>
+                                        {renderToggle(preventDisplaySleepDuringPlayback, () => onTogglePreventDisplaySleepDuringPlayback(!preventDisplaySleepDuringPlayback))}
                                     </div>
                                 </div>
 
@@ -453,23 +505,28 @@ const LabSettingsModal: React.FC<LabSettingsModalProps> = ({
                                     </div>
                                 )}
 
-                                <button
-                                    type="button"
-                                    onClick={onOpenLyricFilterSettings}
-                                    className={`w-full p-4 rounded-xl border transition-colors hover:bg-white/8 text-left ${settingsCardInteractiveClass}`}
-                                >
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div className="space-y-1">
-                                            <div className={settingsTitleClass} style={settingsTitleStyle}>
-                                                歌词过滤正则
+                                {onOpenTrackAtmosphereLightPlanSettings && (
+                                    <button
+                                        type="button"
+                                        onClick={onOpenTrackAtmosphereLightPlanSettings}
+                                        className={`w-full p-4 rounded-xl border transition-colors hover:bg-white/8 text-left ${settingsCardInteractiveClass}`}
+                                        data-testid="lab-open-track-atmosphere-light"
+                                    >
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="space-y-1">
+                                                <div className={`${settingsTitleClass} flex items-center gap-2`} style={settingsTitleStyle}>
+                                                    <Lightbulb size={14} />
+                                                    {t('options.trackAtmosphereLightPlanSettings') || '曲级氛围灯光'}
+                                                </div>
+                                                <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
+                                                    {t('options.trackAtmosphereLightPlanSettingsDesc')
+                                                        || 'Browse bundled recipes, import local overrides, and inspect the plan matched to the current song.'}
+                                                </div>
                                             </div>
-                                            <div className={`${settingsDescClass} max-w-[360px]`} style={settingsDescStyle}>
-                                                为歌词解析后的完整文本列表配置逐行过滤规则。
-                                            </div>
+                                            <ChevronRight size={18} className="shrink-0 opacity-60" style={{ color: 'var(--text-primary)' }} />
                                         </div>
-                                        <ChevronRight size={18} className="shrink-0 opacity-60" style={{ color: 'var(--text-primary)' }} />
-                                    </div>
-                                </button>
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </motion.div>

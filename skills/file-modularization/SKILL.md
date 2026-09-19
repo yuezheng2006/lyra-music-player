@@ -34,14 +34,18 @@ description: Use when adding or refactoring frontend features in this repository
 
 ## File Size Guardrail
 
-以下不是机械死规则，但默认按这个阈值控制：
+### Hard limit
+
+**单文件不得超过 800 行**（含 `src/`、`test/`、脚本与配置型 TS/JS/TSX）。达到或将超过时必须先拆模块，再继续改功能。禁止以“暂时先塞”越过上限。
+
+### Soft targets（在 800 硬上限之内再收紧）
 
 - `App.tsx`、`main.tsx`、页面根组件、全局 provider 装配文件：尽量控制在 180 行内
 - 普通容器组件、页面组件、复杂 hook：尽量控制在 220 行内
 - 展示型组件、工具函数、适配器：尽量控制在 160 行内
 - 单次需求如果需要往一个现有文件追加超过 80 行，先判断是否应该新建模块
 
-如果文件已经明显偏大，不要因为“就近修改方便”继续往里塞；新功能默认拆到相邻新文件。
+如果文件已经明显偏大，不要因为“就近修改方便”继续往里塞；新功能默认拆到相邻新文件。入口文件（如 `useXxxStore.ts`）可只做 barrel / 装配，实现放到同目录子模块。
 
 ## Entry File Rule
 

@@ -30,6 +30,7 @@ type StorageSettingsSectionProps = {
     downloadDirectoryIsDefault: boolean;
     downloadDirectoryStatus: 'idle' | 'choosing' | 'opening' | 'resetting';
     enableMediaCache: boolean;
+    autoResyncDownloadFolder: boolean;
     errorTextColor: string;
     isCleaning: string | null;
     isElectron: boolean;
@@ -41,6 +42,7 @@ type StorageSettingsSectionProps = {
     onOpenDownloadDirectory: () => void;
     onResetDownloadDirectory: () => void;
     onToggleMediaCache: (enabled: boolean) => void;
+    onToggleAutoResyncDownloadFolder: (enabled: boolean) => void;
     settingsCardClass: string;
     settingsIconClass?: string;
     theme?: Theme;
@@ -57,6 +59,7 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
     downloadDirectoryIsDefault,
     downloadDirectoryStatus,
     enableMediaCache,
+    autoResyncDownloadFolder,
     errorTextColor,
     isCleaning,
     isElectron,
@@ -68,6 +71,7 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
     onOpenDownloadDirectory,
     onResetDownloadDirectory,
     onToggleMediaCache,
+    onToggleAutoResyncDownloadFolder,
     settingsCardClass,
     settingsIconClass,
     theme,
@@ -259,6 +263,26 @@ const StorageSettingsSection: React.FC<StorageSettingsSectionProps> = ({
                                     {t('options.resetDownloadDirectory') || 'Use Default Folder'}
                                 </button>
                             )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 pt-1 border-t border-white/5">
+                            <div className="space-y-1 min-w-0">
+                                <div className={settingsTitleClass} style={settingsTitleStyle}>
+                                    {t('options.autoResyncDownloadFolder') || 'Resync local library after download'}
+                                </div>
+                                <div className={`${settingsDescClass} max-w-[280px]`} style={settingsDescStyle}>
+                                    {t('options.autoResyncDownloadFolderDesc') || 'If the download folder was already imported as a local library root, refresh it after saving songs.'}
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => onToggleAutoResyncDownloadFolder(!autoResyncDownloadFolder)}
+                                className={`shrink-0 w-12 h-6 rounded-full p-1 transition-colors ${!autoResyncDownloadFolder ? toggleOffBackgroundClass : ''}`}
+                                style={{ backgroundColor: autoResyncDownloadFolder ? theme?.secondaryColor || 'rgba(114, 119, 134, 1)' : undefined }}
+                                aria-pressed={autoResyncDownloadFolder}
+                            >
+                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${autoResyncDownloadFolder ? 'translate-x-6' : 'translate-x-0'}`} />
+                            </button>
                         </div>
                     </div>
                 </section>

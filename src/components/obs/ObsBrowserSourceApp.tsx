@@ -5,7 +5,11 @@ import VisualizerRenderer from '../visualizer/VisualizerRenderer';
 import { PlayerState } from '../../types';
 import type { ObsBrowserSourceAudio, ObsBrowserSourceClock, ObsBrowserSourceConfig } from '../../types/obsBrowserSource';
 import { findLatestActiveLineIndex } from '../../utils/appPlaybackHelpers';
+import { resolveLyricPresentation } from '../../utils/lyrics/lyricPresentation';
 import { resolveObsBrowserSourceClockTime } from '../../utils/obsBrowserSource';
+import { parseObsOverlayQuery } from '../../utils/obs/parseObsOverlayQuery';
+import { applyObsOverlayPresentation } from '../../utils/obs/applyObsOverlayPresentation';
+import { readObsCustomCssAssets } from '../../utils/obs/obsCustomCssMath';
 
 // src/components/obs/ObsBrowserSourceApp.tsx
 // Read-only OBS browser source renderer driven by Lyra's main playback clock.
@@ -33,6 +37,12 @@ const ObsBrowserSourceApp: React.FC = () => {
     const currentLineIndexRef = useRef(-1);
     const clockRef = useRef<ObsBrowserSourceClock | null>(null);
     const configRef = useRef<ObsBrowserSourceConfig | null>(null);
+    const overlayQuery = useMemo(() => parseObsOverlayQuery(window.location.search), []);
+    const cssAssets = useMemo(() => readObsCustomCssAssets(), []);
+    const presentedConfig = useMemo(
+        () => (config ? applyObsOverlayPresentation(config, overlayQuery, cssAssets) : null),
+        [config, cssAssets, overlayQuery],
+    );
     const currentTime = useMotionValue(0);
     const audioPower = useMotionValue(0);
     const bass = useMotionValue(0);
@@ -58,8 +68,8 @@ const ObsBrowserSourceApp: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        configRef.current = config;
-    }, [config]);
+        configRef.current = presentedConfig;
+    }, [presentedConfig]);
 
     useEffect(() => {
         let isHandlingResize = false;
@@ -143,7 +153,7 @@ const ObsBrowserSourceApp: React.FC = () => {
     useEffect(() => {
         let frameId = 0;
         const tick = () => {
-            const lyricTime = resolveObsBrowserSourceClockTime(clockRef.current);
+            const lyricTime = resolveObsBrowserSourceClockTime(clockRef.current) - overlayQuery.offsetMs / 1000;
             
             currentTime.set(lyricTime);
 
@@ -159,9 +169,9 @@ const ObsBrowserSourceApp: React.FC = () => {
 
         frameId = window.requestAnimationFrame(tick);
         return () => window.cancelAnimationFrame(frameId);
-    }, [currentTime]);
+    }, [currentTime, overlayQuery.offsetMs]);
 
-    if (!config) {
+    if (!presentedConfig) {
         return (
             <div className="h-screen w-screen bg-transparent grid place-items-center text-white/70 text-sm">
                 {connected ? t('obs.waitingForPlayback', 'Waiting for Lyra playback') : t('obs.connecting', 'Connecting to Lyra')}
@@ -176,55 +186,56 @@ const ObsBrowserSourceApp: React.FC = () => {
                 width: obsDimensions.width,
                 height: obsDimensions.height,
                 zoom: obsScale,
-                backgroundColor: config.transparentBackground ? 'transparent' : config.theme.backgroundColor,
-                color: config.theme.primaryColor,
+                backgroundColor: presentedConfig.transparentBackground ? 'transparent' : presentedConfig.theme.backgroundColor,
+                color: presentedConfig.theme.primaryColor,
             }}
         >
             <VisualizerRenderer
-                mode={config.visualizerMode}
+                mode={presentedConfig.visualizerMode}
                 currentTime={currentTime}
                 currentLineIndex={currentLineIndex}
-                lines={config.lyrics?.lines ?? []}
-                theme={config.theme}
-                isDaylight={config.isDaylight}
+                lines={presentedConfig.lyrics?.lines ?? []}
+                lyricPresentation={resolveLyricPresentation(presentedConfig.lyrics, presentedConfig.song)}
+                theme={presentedConfig.theme}
+                isDaylight={presentedConfig.isDaylight}
                 audioPower={audioPower}
                 audioBands={audioBands}
-                songTitle={config.song?.name}
-                songArtist={config.songArtist}
-                songAlbum={config.songAlbum}
-                coverUrl={config.coverUrl}
+                songTitle={presentedConfig.song?.name}
+                songArtist={presentedConfig.songArtist}
+                songAlbum={presentedConfig.songAlbum}
+                coverUrl={presentedConfig.coverUrl}
                 showText={true}
-                useCoverColorBg={config.useCoverColorBg}
-                seed={config.seed}
-                staticMode={config.staticMode}
+                useCoverColorBg={presentedConfig.useCoverColorBg}
+                seed={presentedConfig.seed}
+                staticMode={presentedConfig.staticMode}
                 paused={playbackState !== PlayerState.PLAYING}
-                backgroundOpacity={config.backgroundOpacity}
-                visualizerOpacity={config.visualizerOpacity}
-                transparentBackground={config.transparentBackground}
-                disableGeometricBackground={config.disableGeometricBackground}
-                disableVignette={config.disableVignette}
-                visualizerBackgroundMode={config.visualizerBackgroundMode}
-                lyricsFontScale={config.lyricsFontScale}
-                subtitleOverlayOpacity={config.subtitleOverlayOpacity}
+                backgroundOpacity={presentedConfig.backgroundOpacity}
+                visualizerOpacity={presentedConfig.visualizerOpacity}
+                transparentBackground={presentedConfig.transparentBackground}
+                disableGeometricBackground={presentedConfig.disableGeometricBackground}
+                disableVignette={presentedConfig.disableVignette}
+                visualizerBackgroundMode={presentedConfig.visualizerBackgroundMode}
+                lyricsFontScale={presentedConfig.lyricsFontScale}
+                subtitleOverlayOpacity={presentedConfig.subtitleOverlayOpacity}
                 isPlayerChromeHidden={true}
-                hideTranslationSubtitle={config.hideTranslationSubtitle}
-                showSubtitleTranslation={config.showSubtitleTranslation ?? true}
-                classicTuning={config.classicTuning}
-                cadenzaTuning={config.cadenzaTuning}
-                partitaTuning={config.partitaTuning}
-                fumeTuning={config.fumeTuning}
-                claddaghTuning={config.claddaghTuning}
-                cappellaTuning={config.cappellaTuning}
-                cappellaCustomEmojiImages={config.cappellaCustomEmojiImages}
-                cappellaCustomAvatarImages={config.cappellaCustomAvatarImages}
-                tiltTuning={config.tiltTuning}
-                monetBackgroundTuning={config.monetBackgroundTuning}
-                interactive3dSceneTuning={config.interactive3dSceneTuning}
-                monetTuning={config.monetTuning}
-                monetBackgroundImage={config.monetBackgroundImage}
-                monetPortraitImage={config.monetPortraitImage}
-                urlBackgroundList={config.urlBackgroundList}
-                urlBackgroundSelectedId={config.urlBackgroundSelectedId}
+                hideTranslationSubtitle={presentedConfig.hideTranslationSubtitle}
+                showSubtitleTranslation={presentedConfig.showSubtitleTranslation ?? true}
+                classicTuning={presentedConfig.classicTuning}
+                cadenzaTuning={presentedConfig.cadenzaTuning}
+                partitaTuning={presentedConfig.partitaTuning}
+                fumeTuning={presentedConfig.fumeTuning}
+                claddaghTuning={presentedConfig.claddaghTuning}
+                cappellaTuning={presentedConfig.cappellaTuning}
+                cappellaCustomEmojiImages={presentedConfig.cappellaCustomEmojiImages}
+                cappellaCustomAvatarImages={presentedConfig.cappellaCustomAvatarImages}
+                tiltTuning={presentedConfig.tiltTuning}
+                monetBackgroundTuning={presentedConfig.monetBackgroundTuning}
+                interactive3dSceneTuning={presentedConfig.interactive3dSceneTuning}
+                monetTuning={presentedConfig.monetTuning}
+                monetBackgroundImage={presentedConfig.monetBackgroundImage}
+                monetPortraitImage={presentedConfig.monetPortraitImage}
+                urlBackgroundList={presentedConfig.urlBackgroundList}
+                urlBackgroundSelectedId={presentedConfig.urlBackgroundSelectedId}
             />
         </div>
     );

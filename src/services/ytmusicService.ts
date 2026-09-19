@@ -52,12 +52,14 @@ const LOCAL_YTM_PLAYBACK_RE = /^https?:\/\/127\.0\.0\.1:\d+\/ytm\//i;
 const RENDERER_SHELVES_TTL_MS = 6 * 60 * 60 * 1000;
 const RENDERER_PLAYLIST_TTL_MS = 2 * 60 * 60 * 1000;
 /** Must match electron HOME_CACHE_EPOCH — drop foreign-region session shelves. */
-const RENDERER_SHELVES_EPOCH = 'cn-seeds-v1';
+const RENDERER_SHELVES_EPOCH = 'cn-rails-v1';
 
 type ShelvesCache = { fetchedAt: number; playlists: YtmHomePlaylist[]; epoch: string };
+type HomeSectionsCache = { fetchedAt: number; sections: YtmHomeSection[]; epoch: string };
 type PlaylistCacheEntry = { fetchedAt: number; section: YtmHomeSection };
 
 let shelvesSessionCache: ShelvesCache | null = null;
+let homeSectionsSessionCache: HomeSectionsCache | null = null;
 const playlistSessionCache = new Map<string, PlaylistCacheEntry>();
 
 function isRendererFresh(fetchedAt: number, ttlMs: number, nowMs = Date.now()): boolean {
@@ -69,6 +71,13 @@ export function peekYtmusicHomeShelvesCache(): YtmHomePlaylist[] | null {
     if (shelvesSessionCache.epoch !== RENDERER_SHELVES_EPOCH) return null;
     if (!isRendererFresh(shelvesSessionCache.fetchedAt, RENDERER_SHELVES_TTL_MS)) return null;
     return shelvesSessionCache.playlists;
+}
+
+export function peekYtmusicHomeSectionsCache(): YtmHomeSection[] | null {
+    if (!homeSectionsSessionCache) return null;
+    if (homeSectionsSessionCache.epoch !== RENDERER_SHELVES_EPOCH) return null;
+    if (!isRendererFresh(homeSectionsSessionCache.fetchedAt, RENDERER_SHELVES_TTL_MS)) return null;
+    return homeSectionsSessionCache.sections;
 }
 
 export function peekYtmusicPlaylistCache(playlistId: string): YtmHomeSection | null {
@@ -112,9 +121,22 @@ export async function searchYtmusicTracks(query: string, limit = 20): Promise<Yt
 
     const result = await runYtmusicIpc<{ tracks?: YtmSearchTrack[] }>(
         'ytmusicSearch',
-        () => bridge.ytmusicSearch!({ query, limit }),
+        () => bridge.ytmusicSearch!({ query, limit, type: 'song' }),
     );
     return Array.isArray(result.tracks) ? result.tracks : [];
+}
+
+export async function searchYtmusicPlaylists(query: string, limit = 20): Promise<YtmHomePlaylist[]> {
+    const bridge = getElectronBridge();
+    if (!bridge?.ytmusicSearch) {
+        throw new Error('YouTube Music is only available in the desktop app');
+    }
+
+    const result = await runYtmusicIpc<{ playlists?: YtmHomePlaylist[] }>(
+        'ytmusicSearch',
+        () => bridge.ytmusicSearch!({ query, limit, type: 'playlist' }),
+    );
+    return Array.isArray(result.playlists) ? result.playlists : [];
 }
 
 /** Load public home playlist cards (titles + covers; tracks load on open). */
@@ -178,6 +200,11 @@ export async function fetchYtmusicPlaylist(
 
 /** Load empty-state recommendation sections (expanded public home playlists). */
 export async function fetchYtmusicHome(options?: { forceRefresh?: boolean }): Promise<YtmHomeSection[]> {
+    if (!options?.forceRefresh) {
+        const cached = peekYtmusicHomeSectionsCache();
+        if (cached) return cached;
+    }
+
     const bridge = getElectronBridge();
     if (!bridge?.ytmusicGetHome) {
         throw new Error('YouTube Music home is only available in the desktop app');
@@ -187,10 +214,29 @@ export async function fetchYtmusicHome(options?: { forceRefresh?: boolean }): Pr
         'ytmusicGetHome',
         () => bridge.ytmusicGetHome!({ forceRefresh: options?.forceRefresh }),
     );
-    return Array.isArray(result.sections) ? result.sections : [];
+    const sections = Array.isArray(result.sections) ? result.sections : [];
+    homeSectionsSessionCache = {
+        fetchedAt: Date.now(),
+        sections,
+        epoch: RENDERER_SHELVES_EPOCH,
+    };
+    // Keep shelves peek compatible for callers that only need cards.
+    shelvesSessionCache = {
+        fetchedAt: Date.now(),
+        playlists: sections.map((section) => ({
+            title: section.title,
+            playlistId: section.playlistId,
+            coverUrl: section.coverUrl || null,
+        })),
+        epoch: RENDERER_SHELVES_EPOCH,
+    };
+    return sections;
 }
 
-export async function resolveYtmusicStream(videoId: string): Promise<YtmStreamInfo & { playbackUrl: string }> {
+export async function resolveYtmusicStream(
+    videoId: string,
+    options?: { forceRefresh?: boolean },
+): Promise<YtmStreamInfo & { playbackUrl: string }> {
     const bridge = getElectronBridge();
     if (!bridge?.ytmusicResolveStream) {
         throw new Error('YouTube Music is only available in the desktop app');
@@ -198,7 +244,10 @@ export async function resolveYtmusicStream(videoId: string): Promise<YtmStreamIn
 
     const result = await runYtmusicIpc<{ stream?: YtmStreamInfo & { playbackUrl?: string } }>(
         'ytmusicResolveStream',
-        () => bridge.ytmusicResolveStream!({ videoId }),
+        () => bridge.ytmusicResolveStream!({
+            videoId,
+            forceRefresh: options?.forceRefresh === true,
+        }),
     );
     if (!result.stream?.url) {
         throw new Error('Failed to resolve YouTube Music stream');

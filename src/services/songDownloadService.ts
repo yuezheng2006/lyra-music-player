@@ -15,6 +15,7 @@ import {
   getProviderSongCacheKey,
   getSongMusicProviderId,
 } from './musicProviders/registry';
+import { maybeWriteDownloadLyricSidecars } from './songDownloadLyricSidecar';
 
 // src/services/songDownloadService.ts
 // Save a playable online song into the user-visible download directory.
@@ -119,6 +120,8 @@ export async function downloadSongToUserDirectory(
         detail: result?.error || undefined,
       };
     }
+
+    await maybeWriteDownloadLyricSidecars(song, result.path);
 
     return {
       ok: true,

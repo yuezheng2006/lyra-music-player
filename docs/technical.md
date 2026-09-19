@@ -60,8 +60,8 @@ QQ、汽水、酷狗、B 站、酷我通过本地 sidecar 接入。推荐实现�
 当前内置能力：
 
 - QQ 音乐：支持关键词搜索、登录 Cookie 模式下获取播放 URL，以及 QQ 歌词获取。播放 URL 按登录模式处理，必须在“账号面板 -> QQ 音乐 -> 配置”或“选项 -> 集成设置 -> QQ Music Account”填入包含 `qm_keyst` / `qqmusic_key` / `music_key` / `wxskey` 等有效票据的 QQ 音乐 Cookie；请求会自动带上 Cookie、UIN、`authst` 和稳定 GUID。
-- 汽水音乐：支持关键词搜索与试听播放（LunaPC 官方 search + 分享页试听链）；分享短链仍可作为兜底。Cookie / `track_v2` 高音质与 `play_auth` 解密尚未接入。
-- 酷狗音乐：关键词搜索、免费曲试听（VIP 曲常无播放地址）、LRC 歌词。
+- 汽水音乐：支持关键词搜索与试听播放（LunaPC 官方 search + 分享页试听链）；分享短链仍可作为兜底。桌面端可走官方网页扫码，把 Douyin / 汽水会话 Cookie 带到 sidecar；`track_v2` 高音质与 `play_auth` 解密尚未接入，歌单/红心不同步。
+- 酷狗音乐：关键词搜索、免费曲试听；桌面端可扫码登录，用用户自己的 `token` / `userid` 走 tracker 取播（失败回落 playInfo）。不自动签到或领取概念 VIP。LRC 歌词。
 - 哔哩哔哩：视频搜索取音频流试听；无官方歌词；Electron 会为 bilivideo CDN 注入 Referer。
 - 酷我音乐：关键词搜索、免费曲试听（VIP 曲常无播放地址）、LRC 歌词。
 

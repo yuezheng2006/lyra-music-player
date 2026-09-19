@@ -4,6 +4,8 @@ import { neteaseApi } from './netease';
 // src/services/neteasePodcast.ts
 // Netease podcast (djradio/voice) helpers adapted from Mineradio mapPodcast*.
 
+export type PodcastCatalogSource = 'netease' | 'apple';
+
 export type NeteasePodcastRadio = {
     id: number;
     rid: number;
@@ -14,6 +16,8 @@ export type NeteasePodcastRadio = {
     category: string;
     programCount: number;
     subCount: number;
+    feedUrl?: string;
+    catalogSource?: PodcastCatalogSource;
 };
 
 const toHttps = (url?: string | null) => {
@@ -51,6 +55,7 @@ export const mapPodcastRadio = (raw: any): NeteasePodcastRadio | null => {
         category: r.category || r.categoryName || '',
         programCount: Number(r.programCount || r.programNum || r.programCnt || 0),
         subCount: Number(r.subCount || r.subedCount || r.subscriberCount || 0),
+        catalogSource: 'netease',
     };
 };
 

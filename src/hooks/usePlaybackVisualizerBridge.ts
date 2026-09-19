@@ -8,6 +8,7 @@ import {
 } from '../utils/playback/syncLyricPlaybackClock';
 import { PlayerState } from '../types';
 import type { LyricData } from '../types';
+import { useSettingsUiStore } from '../stores/useSettingsUiStore';
 
 // src/hooks/usePlaybackVisualizerBridge.ts
 
@@ -51,6 +52,8 @@ type UsePlaybackVisualizerBridgeParams = {
     syncNowPlayingClock: (progressSec: number, durationSec: number, paused: boolean) => void;
     lyricTimelineOffsetMs: number;
     lyricCurrentTime: MotionValue<number>;
+    /** When true, freeze dock/lyric clocks — previous <audio> may still emit timeupdates. */
+    isAudioSourceLoadingRef?: MutableRefObject<boolean>;
     onAtmosphereTick?: (params: {
         analyser: AnalyserNode;
         audioElement: HTMLAudioElement;
@@ -86,13 +89,19 @@ export function usePlaybackVisualizerBridge({
     syncNowPlayingClock,
     lyricTimelineOffsetMs,
     lyricCurrentTime,
+    isAudioSourceLoadingRef,
     onAtmosphereTick,
 }: UsePlaybackVisualizerBridgeParams) {
+    const globalLyricTimelineOffsetMs = useSettingsUiStore(state => state.globalLyricTimelineOffsetMs);
     const currentLineIndexRef = useRef(-1);
     const lastLoopTimeRef = useRef<number | null>(null);
 
     const updateLoop = useCallback(() => {
         const audioElement = audioRef.current;
+        if (isAudioSourceLoadingRef?.current) {
+            animationFrameRef.current = requestAnimationFrame(updateLoop);
+            return;
+        }
         const isActuallyPlaying = Boolean(audioElement && !audioElement.paused && !audioElement.ended);
         const now = performance.now();
         const dt = lastLoopTimeRef.current == null
@@ -159,6 +168,7 @@ export function usePlaybackVisualizerBridge({
             const { currentTimeSec, lyricTimeSec } = resolveLyricPlaybackTimes({
                 audioCurrentTimeSec: audioElement.currentTime,
                 lyricTimelineOffsetMs,
+                globalLyricTimelineOffsetMs,
             });
             currentTime.set(currentTimeSec);
             lyricCurrentTime.set(lyricTimeSec);
@@ -174,7 +184,7 @@ export function usePlaybackVisualizerBridge({
 
             currentTime.set(nextTime);
 
-            const effectiveLyricTime = nextTime - lyricTimelineOffsetMs / 1000;
+            const effectiveLyricTime = nextTime - (lyricTimelineOffsetMs + globalLyricTimelineOffsetMs) / 1000;
             lyricCurrentTime.set(effectiveLyricTime);
 
             if (lyrics) {
@@ -257,7 +267,9 @@ export function usePlaybackVisualizerBridge({
         syncNowPlayingClock,
         syncStageLyricsClock,
         lyricTimelineOffsetMs,
+        globalLyricTimelineOffsetMs,
         lyricCurrentTime,
+        isAudioSourceLoadingRef,
         onAtmosphereTick,
     ]);
 
@@ -279,12 +291,14 @@ export function usePlaybackVisualizerBridge({
         if (!audioElement) return undefined;
 
         const syncFromAudio = () => {
+            if (isAudioSourceLoadingRef?.current) return;
             if (audioElement.paused || audioElement.ended) return;
             if (activePlaybackContext !== 'main') return;
             if (isNowPlayingStageActive) return;
             const { currentTimeSec, lyricTimeSec } = resolveLyricPlaybackTimes({
                 audioCurrentTimeSec: audioElement.currentTime,
                 lyricTimelineOffsetMs,
+                globalLyricTimelineOffsetMs,
             });
             currentTime.set(currentTimeSec);
             lyricCurrentTime.set(lyricTimeSec);
@@ -308,10 +322,12 @@ export function usePlaybackVisualizerBridge({
         audioSrc,
         audioElementEpoch,
         currentTime,
+        isAudioSourceLoadingRef,
         isNowPlayingStageActive,
         lyrics,
         lyricCurrentTime,
         lyricTimelineOffsetMs,
+        globalLyricTimelineOffsetMs,
         setCurrentLineIndex,
     ]);
 }

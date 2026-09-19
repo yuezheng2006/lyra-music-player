@@ -22,7 +22,7 @@ const GpuBackgroundFallbackNote: React.FC<GpuBackgroundFallbackNoteProps> = ({
     if (!visible) return null;
 
     const text = t('options.visualizerBackgroundGpuFallbackHint')
-        || 'GPU was unstable — temporarily using Common. Tap any 3D preset to retry in safe mode.';
+        || 'GPU was unstable — temporarily using Common.';
 
     if (variant === 'controls') {
         return (

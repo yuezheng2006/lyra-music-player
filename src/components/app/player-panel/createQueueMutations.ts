@@ -14,6 +14,7 @@ type CreateQueueMutationsParams = {
     setStatusMsg: Dispatch<SetStateAction<StatusMessage | null>>;
     t: (key: string) => string;
     queueAddBehavior: QueueAddBehavior;
+    isNowPlayingStageActive: boolean;
 };
 
 // Creates queue mutations that are triggered from app-level panel and home surfaces.
@@ -25,6 +26,7 @@ export const createQueueMutations = ({
     setStatusMsg,
     t,
     queueAddBehavior,
+    isNowPlayingStageActive,
 }: CreateQueueMutationsParams) => {
     const addNavidromeSongsToQueue = (songs: NavidromeSong[]) => {
         if (songs.length === 0) {
@@ -53,7 +55,28 @@ export const createQueueMutations = ({
         }
     };
 
+    const replacePlayQueue = (nextQueue: SongResult[], toastText?: string) => {
+        if (isNowPlayingStageActive) {
+            return false;
+        }
+
+        setPlayQueue(nextQueue);
+        void persistLastPlaybackCache(currentSong, nextQueue);
+
+        if (toastText) {
+            setStatusMsg({
+                type: 'success',
+                text: toastText,
+                nonce: Date.now(),
+                durationMs: 1200,
+            });
+        }
+
+        return true;
+    };
+
     return {
         addNavidromeSongsToQueue,
+        replacePlayQueue,
     };
 };

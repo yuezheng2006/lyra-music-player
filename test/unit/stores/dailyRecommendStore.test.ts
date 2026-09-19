@@ -4,20 +4,47 @@ vi.mock('../../../src/services/dailyRecommendService', () => ({
     fetchAggregatedDailyRecommend: vi.fn(),
 }));
 
-vi.mock('../../../src/stores/useOnlineLibraryFilterStore', () => ({
-    ONLINE_LIBRARY_PROVIDER_IDS: ['netease', 'qq', 'qishui', 'coco', 'kugou', 'kuwo', 'bilibili'],
-    useOnlineLibraryFilterStore: {
-        getState: () => ({
-            playlistProviders: { netease: true },
-        }),
-    },
-}));
+const playlistProvidersState = {
+    playlistProviders: {
+        netease: true,
+        qq: true,
+        qishui: true,
+        coco: true,
+        kugou: false,
+        bilibili: false,
+        kuwo: false,
+    } as Record<string, boolean>,
+};
+
+vi.mock('../../../src/stores/useOnlineLibraryFilterStore', async () => {
+    const actual = await vi.importActual<typeof import('../../../src/stores/useOnlineLibraryFilterStore')>(
+        '../../../src/stores/useOnlineLibraryFilterStore',
+    );
+    return {
+        ...actual,
+        useOnlineLibraryFilterStore: {
+            getState: () => playlistProvidersState,
+        },
+    };
+});
 
 import { fetchAggregatedDailyRecommend } from '../../../src/services/dailyRecommendService';
-import { useDailyRecommendStore } from '../../../src/stores/useDailyRecommendStore';
+import {
+    serializeDailyRecommendProviderKey,
+    useDailyRecommendStore,
+} from '../../../src/stores/useDailyRecommendStore';
 
 describe('useDailyRecommendStore error mapping', () => {
     beforeEach(() => {
+        playlistProvidersState.playlistProviders = {
+            netease: true,
+            qq: true,
+            qishui: true,
+            coco: true,
+            kugou: false,
+            bilibili: false,
+            kuwo: false,
+        };
         useDailyRecommendStore.setState({
             providerKey: '',
             sources: [],
@@ -34,17 +61,42 @@ describe('useDailyRecommendStore error mapping', () => {
         vi.mocked(fetchAggregatedDailyRecommend).mockReset();
     });
 
+    it('changes cache key when peer toggles change', () => {
+        const withQq = serializeDailyRecommendProviderKey({
+            netease: true,
+            qq: true,
+            qishui: false,
+            coco: false,
+            kugou: false,
+            bilibili: false,
+            kuwo: false,
+        });
+        const withCoco = serializeDailyRecommendProviderKey({
+            netease: true,
+            qq: false,
+            qishui: false,
+            coco: true,
+            kugou: false,
+            bilibili: false,
+            kuwo: false,
+        });
+        expect(withQq).toContain('today-picks-v1');
+        expect(withQq).not.toEqual(withCoco);
+        expect(withQq).toContain('qq');
+        expect(withCoco).toContain('coco');
+    });
+
     it('does not treat timeout as empty — stores errorCode and diagnostic', async () => {
         vi.mocked(fetchAggregatedDailyRecommend).mockResolvedValue({
             songs: [],
             needLoginNetease: false,
             sources: [{
-                provider: 'netease',
+                provider: 'qq',
                 songs: [],
-                kind: 'personalized',
+                kind: 'picks',
                 error: 'timeout',
                 errorCode: 'timeout',
-                diagnostic: 'source=netease code=timeout',
+                diagnostic: 'source=qq code=timeout',
             }],
         });
 
@@ -58,23 +110,18 @@ describe('useDailyRecommendStore error mapping', () => {
         expect(state.needsAuth).toBe(false);
     });
 
-    it('maps need-login without promoting fake empty content', async () => {
+    it('never promotes NetEase login auth gate for Today Picks', async () => {
         vi.mocked(fetchAggregatedDailyRecommend).mockResolvedValue({
             songs: [],
-            needLoginNetease: true,
-            sources: [{
-                provider: 'netease',
-                songs: [],
-                kind: 'personalized',
-                error: 'need-login',
-                errorCode: 'need-login',
-            }],
+            needLoginNetease: false,
+            sources: [],
         });
 
         await useDailyRecommendStore.getState().ensureLoaded({ force: true });
         const state = useDailyRecommendStore.getState();
-        expect(state.needsAuth).toBe(true);
-        expect(state.errorCode).toBe('need-login');
+        expect(state.needsAuth).toBe(false);
+        expect(state.errorCode).toBe('empty');
+        expect(state.diagnostic).toContain('no peer sources');
     });
 
     it('attaches diagnostic summary for empty settled results', async () => {
@@ -82,9 +129,9 @@ describe('useDailyRecommendStore error mapping', () => {
             songs: [],
             needLoginNetease: false,
             sources: [{
-                provider: 'netease',
+                provider: 'coco',
                 songs: [],
-                kind: 'personalized',
+                kind: 'picks',
                 errorCode: 'empty',
             }],
         });
@@ -92,7 +139,7 @@ describe('useDailyRecommendStore error mapping', () => {
         await useDailyRecommendStore.getState().ensureLoaded({ force: true });
         const state = useDailyRecommendStore.getState();
         expect(state.error).toBeNull();
-        expect(state.diagnostic).toContain('source=netease');
+        expect(state.diagnostic).toContain('source=coco');
         expect(state.diagnostic).toContain('songs=0');
     });
 
@@ -101,9 +148,9 @@ describe('useDailyRecommendStore error mapping', () => {
             songs: [],
             needLoginNetease: false,
             sources: [{
-                provider: 'netease',
+                provider: 'coco',
                 songs: [],
-                kind: 'personalized',
+                kind: 'picks',
                 errorCode: 'empty',
             }],
         });
@@ -115,23 +162,23 @@ describe('useDailyRecommendStore error mapping', () => {
             songs: [{
                 id: 1,
                 name: '回填',
-                musicProvider: 'netease',
+                musicProvider: 'coco',
                 artists: [],
                 album: { id: 0, name: 'a' },
                 duration: 180000,
             }],
             needLoginNetease: false,
             sources: [{
-                provider: 'netease',
+                provider: 'coco',
                 songs: [{
                     id: 1,
                     name: '回填',
-                    musicProvider: 'netease',
+                    musicProvider: 'coco',
                     artists: [],
                     album: { id: 0, name: 'a' },
                     duration: 180000,
                 }],
-                kind: 'personalized',
+                kind: 'picks',
             }],
         });
 

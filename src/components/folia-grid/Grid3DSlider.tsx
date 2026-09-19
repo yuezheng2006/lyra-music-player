@@ -244,6 +244,15 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
         momentumVelocityRef.current = 0;
     }, []);
 
+    // Clears pending wheel inertia so keyboard/click snap-to-card cannot race a residual RAF.
+    const stopKineticScroll = useCallback(() => {
+        if (wheelIdleTimerRef.current) {
+            clearTimeout(wheelIdleTimerRef.current);
+            wheelIdleTimerRef.current = null;
+        }
+        stopMomentum();
+    }, [stopMomentum]);
+
     const startMomentum = useCallback(() => {
         const container = scrollContainerRef.current;
         if (!container || Math.abs(momentumVelocityRef.current) < 0.5) return;
@@ -295,9 +304,10 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
 
     const scrollToIndex = useCallback((index: number) => {
         if (!isInteractive) return;
+        stopKineticScroll();
         reportFocusedIndex(index);
         centerIndex(index);
-    }, [centerIndex, isInteractive, reportFocusedIndex]);
+    }, [centerIndex, isInteractive, reportFocusedIndex, stopKineticScroll]);
 
     useEffect(() => {
         if (items.length === 0) return;
@@ -466,10 +476,9 @@ export const Grid3DSlider: React.FC<Grid3DSliderProps> = ({
         return () => {
             if (slidingTimeoutRef.current) clearTimeout(slidingTimeoutRef.current);
             if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current);
-            if (wheelIdleTimerRef.current) clearTimeout(wheelIdleTimerRef.current);
-            stopMomentum();
+            stopKineticScroll();
         };
-    }, [stopMomentum]);
+    }, [stopKineticScroll]);
 
     return (
         <div ref={containerRef} className="w-full flex-1 flex flex-col justify-center relative min-h-0 select-none">

@@ -2,6 +2,7 @@ import {
     clampGeometricTierToCeiling,
     resolveElectronQualityCeiling,
 } from '../../../utils/performance/electronInteractive3dGuardMath';
+import { readReducedMotion } from '../../../stores/useMotionSettingsStore';
 
 // src/components/visualizer/geometric/geometricQuality.ts
 // Adaptive quality tiers for the interactive geometric background runtime.
@@ -54,7 +55,7 @@ const TIER_PROFILES: Record<GeometricQualityTier, Omit<GeometricQualityProfile, 
         enableBeatBursts: false,
         enableDomShapes: false,
         shapeCount: 0,
-        frameSkip: 6,
+        frameSkip: 8,
     },
 };
 
@@ -70,7 +71,7 @@ const readHardwareConcurrency = () => {
 
 const prefersReducedMotion = () => {
     if (typeof window === 'undefined') return false;
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    return readReducedMotion('visualizerStage');
 };
 
 const readIsElectronRenderer = () => {

@@ -9,6 +9,7 @@ import { getSongUnavailableTagText, isSongMarkedUnavailable } from '../../servic
 import QueueEmptyState from './QueueEmptyState';
 import { createCoverUrlResolver } from '../app/playback/createCoverUrlResolver';
 import LazyCoverImage from '../shared/LazyCoverImage';
+import { buildQueueListRows, getQueueRowHeight } from '../../utils/queue/queueSectionMath';
 
 interface QueueTabProps {
     playQueue: SongResult[];
@@ -36,7 +37,10 @@ const QueueTab: React.FC<QueueTabProps> = ({
     isDaylight = false,
 }) => {
     const { t } = useTranslation();
-    const ITEM_HEIGHT = 50;
+    const rows = React.useMemo(
+        () => buildQueueListRows(playQueue, currentSong?.id),
+        [playQueue, currentSong?.id],
+    );
     // Adjust container height calculation if needed, or rely on flex
     // previously CONTAINER_HEIGHT = 200 was passed to List. 
     // We should make List take available space.
@@ -71,7 +75,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
     // Auto-scroll to current song
     React.useEffect(() => {
         if (shouldScrollToCurrent && currentSong && listRef.current) {
-            const currentIndex = playQueue.findIndex(s => s.id === currentSong.id);
+            const currentIndex = rows.findIndex(row => row.kind === 'song' && row.song.id === currentSong.id);
             if (currentIndex >= 0) {
                 const isInitialMount = isInitialMountRef.current;
                 const songChanged = lastScrolledIndexRef.current !== currentIndex && lastScrolledIndexRef.current !== -1;
@@ -92,7 +96,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
                 }, delay);
             }
         }
-    }, [shouldScrollToCurrent, currentSong?.id, playQueue, listRef]);
+    }, [shouldScrollToCurrent, currentSong?.id, rows, listRef]);
 
     const handleSavePlaylist = async () => {
         if (!onSaveCurrentQueueAsPlaylist) {
@@ -107,7 +111,20 @@ const QueueTab: React.FC<QueueTabProps> = ({
         style: React.CSSProperties;
         ariaAttributes: { "aria-posinset": number; "aria-setsize": number; role: "listitem"; };
     }) => {
-        const song = playQueue[index];
+        const row = rows[index];
+        if (!row) return null;
+        if (row.kind === 'header') {
+            return (
+                <div
+                    style={style}
+                    {...ariaAttributes}
+                    className={`flex items-end px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${isDaylight ? 'text-zinc-500' : 'text-white/45'}`}
+                >
+                    {t(row.titleKey)}
+                </div>
+            );
+        }
+        const song = row.song;
         const isActive = (pendingSongId ?? currentSong?.id) === song.id;
         const isUnavailable = isSongMarkedUnavailable(song);
         const unavailableTagText = getSongUnavailableTagText(song, t('status.songUnavailableTag'));
@@ -151,7 +168,7 @@ const QueueTab: React.FC<QueueTabProps> = ({
                 </div>
             </div>
         );
-    }, [playQueue, currentSong, onPlaySong, isDaylight, pendingSongId, t]);
+    }, [rows, playQueue, currentSong, onPlaySong, isDaylight, pendingSongId, t]);
 
     if (playQueue.length === 0) {
         return (
@@ -200,8 +217,8 @@ const QueueTab: React.FC<QueueTabProps> = ({
                 >
                     <List
                         listRef={listRef}
-                        rowCount={playQueue.length}
-                        rowHeight={ITEM_HEIGHT}
+                        rowCount={rows.length}
+                        rowHeight={index => getQueueRowHeight(rows[index])}
                         rowComponent={RowComponent}
                         rowProps={{}}
                         overscanCount={5}

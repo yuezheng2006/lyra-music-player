@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import { buildScrambleFrame, scrambleRevealedCount } from '../utils/ui/scrambleTextMath';
+import { useReducedMotionFor } from './useReducedMotionFor';
 
 // src/hooks/useScrambleText.ts
 // DOM-driven scramble reveal (no per-frame React state).
@@ -29,14 +30,11 @@ export function useScrambleText({
 }: UseScrambleTextOptions) {
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  const reducedMotion = useReducedMotionFor('uiMicroMotion');
 
   useEffect(() => {
     const target = targetRef.current;
     if (!target) return;
-
-    const reducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     if (!enabled || reducedMotion || !text) {
       target.textContent = text;
@@ -60,5 +58,5 @@ export function useScrambleText({
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [durationMs, enabled, playKey, targetRef, text]);
+  }, [durationMs, enabled, playKey, reducedMotion, targetRef, text]);
 }

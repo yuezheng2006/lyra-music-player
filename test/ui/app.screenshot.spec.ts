@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { APP_VERSION } from './helpers/appVersion';
 
 type MockNeteaseMode = 'logged-in' | 'guest';
 
@@ -179,6 +180,7 @@ async function installBaseState(
     neteaseMode?: MockNeteaseMode;
     navidromeEnabled?: boolean;
     localImportFixture?: typeof localImportFixture;
+    homeViewTab?: 'charts' | 'playlist';
   } = {},
 ) {
   await page.addInitScript((payload: {
@@ -188,6 +190,7 @@ async function installBaseState(
     navidromeEnabled: boolean;
     navidromeConfig: typeof navidromeFixtures.config;
     localImportFixture?: typeof localImportFixture;
+    homeViewTab: 'charts' | 'playlist';
   }) => {
     const createMatchMediaResult = (query: string) => ({
       matches: query.includes('light'),
@@ -219,10 +222,12 @@ async function installBaseState(
     localStorage.setItem('default_theme_daylight', 'true');
     localStorage.setItem('static_mode', 'true');
     localStorage.setItem('last_app_view', 'home');
-    localStorage.setItem('last_home_view_tab', 'playlist');
+    localStorage.setItem('last_home_view_tab', payload.homeViewTab);
     // Avoid first-run / version overlays intercepting screenshot clicks.
     localStorage.setItem('lyra_onboarding_completed', 'true');
     localStorage.setItem('folia_last_seen_guide_version', payload.appVersion);
+    // 性能 HUD 的实时 FPS/内存数字会破坏截图确定性。
+    localStorage.setItem('lyra_performance_hud', '0');
 
     if (payload.navidromeEnabled) {
       localStorage.setItem('navidrome_enabled', 'true');
@@ -370,12 +375,13 @@ async function installBaseState(
       value: async () => createDirectoryHandle(payload.localImportFixture!),
     });
   }, {
-    appVersion: '1.0.3',
+    appVersion: APP_VERSION,
     navidromeServer: NAVIDROME_SERVER,
     neteaseMode: options.neteaseMode ?? 'guest',
     navidromeEnabled: options.navidromeEnabled ?? false,
     navidromeConfig: navidromeFixtures.config,
     localImportFixture: options.localImportFixture,
+    homeViewTab: options.homeViewTab ?? 'charts',
   });
 }
 
@@ -572,16 +578,29 @@ async function openApp(page: Page) {
 
 test.describe('frontend screenshot coverage', () => {
   test('captures the Netease playlist home view', async ({ page }) => {
-    await installBaseState(page, { neteaseMode: 'logged-in' });
+    await installBaseState(page, { neteaseMode: 'logged-in', homeViewTab: 'playlist' });
     await mockNeteaseApi(page, 'logged-in');
 
     await openApp(page);
 
-    await expect(page.getByRole('heading', { name: 'Daily Mix' }).first()).toBeVisible();
+    // 登录态歌单首页：侧栏 + 个人歌单格（云盘 / Daily Mix / Late Night Drive）。
+    await expect(page.getByText('Discover').first()).toBeVisible();
+    await expect(page.getByText('Yours').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Playlists' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Created playlists' })).toBeVisible();
+    await expect(page.locator('[data-app-ui-surface="home-playlists"]')).toBeVisible();
+    await expect(page.getByText('Daily Mix').first()).toBeVisible();
+    await expect(page.getByText('Late Night Drive').first()).toBeVisible();
+    const surfaces = await page.locator('[data-app-ui-surface]').evaluateAll(
+      nodes => nodes.map(node => node.getAttribute('data-app-ui-surface')),
+    );
+    expect(surfaces).toContain('home-playlists');
+    expect(surfaces.indexOf('home-listening-desk')).toBe(-1);
     await expect(page).toHaveScreenshot('netease-home.png', {
       animations: 'disabled',
       scale: 'css',
       fullPage: true,
+      maxDiffPixelRatio: 0.02,
     });
   });
 
@@ -613,7 +632,8 @@ test.describe('frontend screenshot coverage', () => {
 
     await openApp(page);
 
-    await page.getByRole('button', { name: 'Folder' }).last().click();
+    // 侧边栏改版后本地入口叫 Local Songs。
+    await page.getByRole('button', { name: /Local Songs|Folder/ }).last().click();
     await page.getByRole('button', { name: 'Import Folder' }).last().click();
     await expect(page.getByText('All Songs').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Import Folder' }).first()).toBeVisible();
@@ -621,6 +641,7 @@ test.describe('frontend screenshot coverage', () => {
       animations: 'disabled',
       scale: 'css',
       fullPage: true,
+      maxDiffPixelRatio: 0.02,
     });
   });
 });

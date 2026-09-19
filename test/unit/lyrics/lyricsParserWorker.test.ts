@@ -9,6 +9,10 @@ describe('lyricsParser.worker', () => {
         expect(normalizeWorkerFormat('krc')).toBe('krc');
     });
 
+    it('preserves awlrc format requests instead of falling back to LRC', () => {
+        expect(normalizeWorkerFormat('awlrc')).toBe('awlrc');
+    });
+
     it('falls back unknown formats to LRC', () => {
         expect(normalizeWorkerFormat('unknown')).toBe('lrc');
     });

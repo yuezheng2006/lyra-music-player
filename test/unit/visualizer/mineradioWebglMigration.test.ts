@@ -6,17 +6,17 @@ import {
 } from '@/components/visualizer/geometric/webgl/mineradioPresetMap';
 
 describe('Mineradio WebGL migration', () => {
-    it('maps visual presets to shader uPreset indices', () => {
+    it('maps visual presets to shader uPreset indices (atmosphere = emily/0)', () => {
         expect(resolveWebGLPresetIndex('emily')).toBe(0);
         expect(resolveWebGLPresetIndex('starfield')).toBe(0);
-        expect(resolveWebGLPresetIndex('nebula')).toBe(11);
+        expect(resolveWebGLPresetIndex('nebula')).toBe(0);
         expect(resolveWebGLPresetIndex('quantumCube')).toBe(0);
         expect(resolveWebGLPresetIndex('aurora')).toBe(0);
-        expect(resolveWebGLPresetIndex('mineradioTunnel')).toBe(7);
-        expect(resolveWebGLPresetIndex('mineradioOrbit')).toBe(8);
+        expect(resolveWebGLPresetIndex('mineradioTunnel')).toBe(0);
+        expect(resolveWebGLPresetIndex('mineradioOrbit')).toBe(0);
         expect(resolveWebGLPresetIndex('mineradioVoid')).toBe(0);
         expect(resolveWebGLPresetIndex('mineradioVinyl')).toBe(0);
-        expect(resolveWebGLPresetIndex('mineradioGalaxy')).toBe(11);
+        expect(resolveWebGLPresetIndex('mineradioGalaxy')).toBe(0);
     });
 
     it('enables cover WebGL when particles are enabled', () => {

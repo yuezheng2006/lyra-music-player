@@ -7,6 +7,7 @@ import {
 import { getSongMusicProviderId } from '../../../services/musicProviders/registry';
 import type { SongResult } from '../../../types';
 import { isLocalPlaybackSong, isNavidromePlaybackSong, isStagePlaybackSong } from '../../../utils/appPlaybackGuards';
+import { isRssPodcastPlaybackSong } from '../../../utils/playback/rssPodcastPlayback';
 import { normalizePlaybackVideoSrc } from '../../../utils/playback/resolveVideoPlaybackStage';
 import { startTelemetrySpan, trackTelemetry } from '../../../utils/telemetry/trackTelemetry';
 
@@ -76,7 +77,13 @@ export const createOnlineRecoveryController = ({
     onlineAudioUrlRefreshBufferMs,
 }: RecoveryControllerParams) => {
     const shouldRefreshCurrentOnlineAudioSource = () => {
-        if (!currentSong || isLocalPlaybackSong(currentSong) || isNavidromePlaybackSong(currentSong) || isStagePlaybackSong(currentSong)) {
+        if (
+            !currentSong
+            || isLocalPlaybackSong(currentSong)
+            || isNavidromePlaybackSong(currentSong)
+            || isStagePlaybackSong(currentSong)
+            || isRssPodcastPlaybackSong(currentSong)
+        ) {
             return false;
         }
 

@@ -14,6 +14,7 @@ import { Theme } from '../../types';
 import PlaylistSelectionDialog from '../shared/PlaylistSelectionDialog';
 import TextInputDialog from '../shared/TextInputDialog';
 import LazyCoverImage from '../shared/LazyCoverImage';
+import { APP_OVERLAY_MOBILE_PLAYER_CLEARANCE_CLASS } from '../app/home/homeSurfaceStyles';
 
 interface NavidromeCollectionViewProps {
     title: string;
@@ -250,7 +251,7 @@ const NavidromeCollectionView: React.FC<NavidromeCollectionViewProps> = ({
                     </div>
 
                     <div className="flex-1 md:h-full md:overflow-y-auto custom-scrollbar">
-                        <div className="p-4 md:p-8 pb-32 md:pb-8">
+                        <div className={`p-4 md:p-8 ${APP_OVERLAY_MOBILE_PLAYER_CLEARANCE_CLASS}`}>
                             <div className="hidden md:flex sticky top-0 bg-transparent backdrop-blur-md z-10 border-b border-white/5 pb-2 mb-2 text-xs font-medium uppercase tracking-wide opacity-30" style={{ color: 'var(--text-secondary)' }}>
                                 <div className="w-10 text-center">#</div>
                                 <div className="flex-1 pl-4">{t('playlist.headerTitle')}</div>

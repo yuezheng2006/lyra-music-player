@@ -16,6 +16,9 @@ export function isCriticalTelemetryEvent(event: TelemetryEvent): boolean {
         || event.name === 'audio.waiting'
         || event.name === 'audio.stalled'
         || event.name === 'audio.rebuffered'
+        || event.name === 'reactbits.stall'
+        || event.name === 'reactbits.init_error'
+        || event.name === 'reactbits.context_lost'
     );
 }
 

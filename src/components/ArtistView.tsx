@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { formatSongName } from '../utils/songNameFormatter';
 import { APP_CONTENT_TOP_PADDING_CLASS } from './app/home/homeSurfaceStyles';
+import PlayerClearanceSpacer from './app/home/PlayerClearanceSpacer';
 import LazyCoverImage from './shared/LazyCoverImage';
 
 interface ArtistViewProps {
@@ -258,7 +259,7 @@ const ArtistView: React.FC<ArtistViewProps> = ({ artistId, onBack, onPlaySong, o
                         </div>
 
                         {/* Pagination / Load More could go here if implemented in future */}
-                        <div className="h-20"></div> {/* Spacer */}
+                        <PlayerClearanceSpacer />
                     </div>
                 )}
             </div>

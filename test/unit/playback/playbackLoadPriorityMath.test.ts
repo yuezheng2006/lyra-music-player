@@ -14,6 +14,14 @@ describe('playbackLoadPriorityMath', () => {
         expect(shouldResolveCompanionVideoForSong({ musicProvider: 'bilibili' })).toBe(true);
     });
 
+    it('skips companion video resolve for RSS podcast enclosures', () => {
+        expect(shouldResolveCompanionVideoForSong({
+            musicProvider: 'rss',
+            contentType: 'podcast',
+            audioUrl: 'https://cdn.example/ep.mp3',
+        })).toBe(false);
+    });
+
     it('pauses visualizer while player is open without audioSrc', () => {
         expect(resolveShouldPauseVisualizerBackground({
             currentView: 'player',

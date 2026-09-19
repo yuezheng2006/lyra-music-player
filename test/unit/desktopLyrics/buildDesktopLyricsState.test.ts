@@ -53,6 +53,28 @@ describe('buildDesktopLyricsState', () => {
         });
     });
 
+    it('delays lyric progress on positive offset, matching the main clock polarity', () => {
+        const build = (lyricOffsetMs: number) => buildDesktopLyricsState({
+            lyrics,
+            currentLineIndex: 0,
+            currentTimeSec: 12,
+            lyricOffsetMs,
+            durationSec: 180,
+            playerState: PlayerState.PLAYING,
+            theme,
+            lyricsFontScale: 1,
+            lyricsCustomFontFamily: null,
+            fallbackTitle: 'Fallback',
+        });
+
+        const base = build(0);
+        const delayed = build(1000);
+
+        // lyricTime = currentTime − offset, so +1s offset moves progress back by 1s/span.
+        expect(delayed.progress).toBeLessThan(base.progress);
+        expect(delayed.progress).toBeCloseTo(base.progress - 1 / delayed.progressSpan, 5);
+    });
+
     it('falls back to the song title when no active lyric line exists', () => {
         const payload = buildDesktopLyricsState({
             lyrics,

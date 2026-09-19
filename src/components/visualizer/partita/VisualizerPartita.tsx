@@ -7,7 +7,6 @@ import { buildWordGraphemeTimings } from '../../../utils/lyrics/graphemeTiming';
 import { getLineRenderEndTime, getLineRenderHints } from '../../../utils/lyrics/renderHints';
 import { shouldPreheatLine, useVisualizerRuntime, type VisualizerPreheatWindow } from '../runtime';
 import { type VisualizerSharedProps } from '../definition';
-import VisualizerShell from '../VisualizerShell';
 import VisualizerSubtitleOverlay from '../VisualizerSubtitleOverlay';
 import { resolveLyricActiveWordColor, resolveLyricInkFills } from '../lyricInk';
 import { colorWithAlpha } from '../colorMix';
@@ -1130,12 +1129,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
     const lyricInk = useMemo(() => resolveLyricInkFills(theme), [theme]);
 
     return (
-        <VisualizerShell
-            theme={theme}
-            audioPower={audioPower}
-            audioBands={audioBands}
-            sharedProps={props}
-        >
+        <>
             <div
                 className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
                 style={{ paddingTop: lyricVertical.opticalTopBiasPx }}
@@ -1237,7 +1231,7 @@ const VisualizerPartita: React.FC<VisualizerPartitaProps> = (props) => {
                 hideTranslationSubtitle={hideTranslationSubtitle}
                 showSubtitleTranslation={showSubtitleTranslation}
             />
-        </VisualizerShell>
+        </>
     );
 };
 

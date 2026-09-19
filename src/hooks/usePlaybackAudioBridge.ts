@@ -7,6 +7,7 @@ import { hasCachedAudio, saveAudioBlob } from '../services/audioCache';
 import { getProviderSongCacheKey } from '../services/musicProviders/registry';
 import { saveToCache } from '../services/db';
 import { hasPlayableHtmlMediaSource, isTransientAutoplayFailure } from '../utils/audioAutoPlayGuard';
+import { isRssPodcastPlaybackSong, shouldSkipFullTrackAudioCache, shouldUseAnonymousHtmlAudioCors } from '../utils/playback/rssPodcastPlayback';
 import { trackTelemetry } from '../utils/telemetry/trackTelemetry';
 import { isOnlinePlaybackRecoveryExhausted } from '../components/app/playback/createOnlineRecoveryController';
 
@@ -81,6 +82,17 @@ export function usePlaybackAudioBridge({
         }
         if (sourceRef.current) return;
 
+        // Browser RSS enclosures usually lack CORS. MediaElementSource would
+        // output silence (or fail the load if crossOrigin is set). Electron
+        // rewrites ACAO for podcast CDNs, so bind the analyser there.
+        const canBindMediaElementSource = shouldUseAnonymousHtmlAudioCors(currentSong, {
+            isElectronRenderer: typeof window !== 'undefined' && Boolean(window.electron),
+        });
+        if (isRssPodcastPlaybackSong(currentSong) && !canBindMediaElementSource) {
+            syncOutputGain(getTargetPlaybackVolume(), 0);
+            return;
+        }
+
         try {
             const AudioContextClass = window.AudioContext || (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
             const ctx = audioContextRef.current ?? new AudioContextClass();
@@ -107,10 +119,11 @@ export function usePlaybackAudioBridge({
         } catch (error) {
             console.error('Audio Context Setup Failed:', error);
         }
-    }, [audioContextRef, audioRef, analyserRef, gainNodeRef, getTargetPlaybackVolume, sourceRef, syncOutputGain]);
+    }, [audioContextRef, audioRef, analyserRef, gainNodeRef, getTargetPlaybackVolume, sourceRef, syncOutputGain, currentSong]);
 
     const cacheSongAssets = useCallback(async () => {
         if (!currentSong || !audioSrc || audioSrc.startsWith('blob:')) return;
+        if (shouldSkipFullTrackAudioCache(currentSong)) return;
 
         const existing = await hasCachedAudio(getProviderSongCacheKey('audio', currentSong));
         if (existing || !enableMediaCache) return;

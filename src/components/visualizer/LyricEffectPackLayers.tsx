@@ -1,10 +1,16 @@
 import React from 'react';
 import type { ResolvedLyricEffectPack } from '../../utils/lyricEffectPacks';
 import type { LyricWordStatus } from '../../utils/lyrics/lyricWordStatusMath';
-import { colorWithAlpha } from './colorMix';
+import { colorWithAlpha, mixColors } from './colorMix';
 
 // src/components/visualizer/LyricEffectPackLayers.tsx
 // Shared DOM garnish for yehuo echo / neon glow / glitch RGB twins (beat via CSS vars).
+
+/** Glitch RGB twins stay anchored to the lyric body hue (never hard-coded cyan/pink). */
+const resolveGlitchTwinColors = (glowColor: string): { warm: string; cool: string } => ({
+    warm: mixColors(glowColor, '#ff3b5c', 0.35, 0.32),
+    cool: mixColors(glowColor, '#3bd6ff', 0.35, 0.32),
+});
 
 type LyricEffectPackLayersProps = {
     glyph: React.ReactNode;
@@ -28,6 +34,7 @@ const LyricEffectPackLayers: React.FC<LyricEffectPackLayersProps> = ({
     const glitchActive = effectPack.glitch && status === 'active';
     const glowBeatActive = effectPack.glowBoost > 0 && status === 'active';
     const echoActive = effectPack.echo && status !== 'active';
+    const glitchTwins = glitchActive ? resolveGlitchTwinColors(glowColor) : null;
 
     if (!echoActive && !glowBeatActive && !glitchActive) {
         return null;
@@ -65,14 +72,14 @@ const LyricEffectPackLayers: React.FC<LyricEffectPackLayersProps> = ({
                     {glyph}
                 </span>
             ) : null}
-            {glitchActive ? (
+            {glitchTwins ? (
                 <>
                     <span
                         aria-hidden
                         className="absolute inset-0 select-none pointer-events-none mix-blend-screen"
                         style={{
                             ...typeStyle,
-                            color: colorWithAlpha('#ff3b5c', 0.28),
+                            color: glitchTwins.warm,
                             opacity: 'calc(0.55 * var(--lyric-pack-glitch-mul, 1))',
                             transform: `translate(calc(${-effectPack.glitchOffsetPx}px * var(--lyric-pack-glitch-mul, 1)), 0)`,
                         } as React.CSSProperties}
@@ -84,7 +91,7 @@ const LyricEffectPackLayers: React.FC<LyricEffectPackLayersProps> = ({
                         className="absolute inset-0 select-none pointer-events-none mix-blend-screen"
                         style={{
                             ...typeStyle,
-                            color: colorWithAlpha('#3bd6ff', 0.28),
+                            color: glitchTwins.cool,
                             opacity: 'calc(0.55 * var(--lyric-pack-glitch-mul, 1))',
                             transform: `translate(calc(${effectPack.glitchOffsetPx}px * var(--lyric-pack-glitch-mul, 1)), 0)`,
                         } as React.CSSProperties}

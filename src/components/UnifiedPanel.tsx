@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, Settings2, X, Disc, SlidersHorizontal, ListMusic, User as UserIcon, Home as HomeIcon, FileAudio, FileText, Radio, Cloud, Star, Command, ChevronLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { SongResult, Theme, PlayerState, ReplayGainMode, LocalPlaylist, NeteasePlaylist, ThemeMode, VisualizerMode, type Interactive3dSceneTuning, type VisualizerBackgroundMode } from '../types';
+import { SongResult, Theme, PlayerState, ReplayGainMode, ThemeMode, VisualizerMode, type Interactive3dSceneTuning, type VisualizerBackgroundMode } from '../types';
 import CoverTab from './panelTab/CoverTab';
 import ControlsTab from './panelTab/ControlsTab';
 import QueueTab from './panelTab/QueueTab';
@@ -11,8 +11,7 @@ import LocalTab from './panelTab/LocalTab';
 import FmTab from './panelTab/FmTab';
 import NaviTab from './panelTab/NaviTab';
 import OnlineLyricsTab from './panelTab/OnlineLyricsTab';
-import PlaylistSelectionDialog from './shared/PlaylistSelectionDialog';
-import TextInputDialog from './shared/TextInputDialog';
+import { openAddToPlaylist, useAddToPlaylistStore } from '../stores/useAddToPlaylistStore';
 import type { OnlineLyricsState } from '../types';
 import type { ThemeSourceModel } from '../hooks/themeControllerState';
 import type { LyricColorPresetId } from '../utils/theme/lyricColorPresets';
@@ -122,14 +121,7 @@ type UnifiedPanelAccountProps = {
 };
 
 type UnifiedPanelLibraryProps = {
-    localPlaylists: LocalPlaylist[];
-    neteasePlaylists: NeteasePlaylist[];
     onSaveCurrentQueueAsPlaylist: (name: string) => Promise<void>;
-    onAddCurrentSongToLocalPlaylist: (playlistId: string) => Promise<void>;
-    onCreateCurrentLocalPlaylist: (name: string) => Promise<void>;
-    onAddCurrentSongToNeteasePlaylist: (playlistId: number) => Promise<void>;
-    onAddCurrentSongToNavidromePlaylist: (playlistId: string) => Promise<void>;
-    onCreateCurrentNavidromePlaylist: (name: string) => Promise<void>;
     onOpenCurrentLocalAlbum: () => void;
     onOpenCurrentLocalArtist: () => void;
     onOpenCurrentNavidromeAlbum: () => void;
@@ -227,14 +219,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     } = playback;
     const { playQueue, onPlaySong, onAddSongs, queueScrollRef, onShuffle } = queue;
     const {
-        localPlaylists,
-        neteasePlaylists,
         onSaveCurrentQueueAsPlaylist,
-        onAddCurrentSongToLocalPlaylist,
-        onCreateCurrentLocalPlaylist,
-        onAddCurrentSongToNeteasePlaylist,
-        onAddCurrentSongToNavidromePlaylist,
-        onCreateCurrentNavidromePlaylist,
         onOpenCurrentLocalAlbum,
         onOpenCurrentLocalArtist,
         onOpenCurrentNavidromeAlbum,
@@ -257,10 +242,8 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     } = account;
     const coverAreaRef = React.useRef<HTMLDivElement>(null);
     const [isCoverActionsVisible, setIsCoverActionsVisible] = React.useState(false);
-    const [isPlaylistPickerOpen, setIsPlaylistPickerOpen] = React.useState(false);
-    const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = React.useState(false);
-    const [navidromePlaylists, setNavidromePlaylists] = React.useState<Array<{ id: string; name: string; description?: string; }>>([]);
     const [showGuideLine, setShowGuideLine] = React.useState(false);
+    const canAddCurrentSongToPlaylist = useAddToPlaylistStore(state => state.availability.canAdd);
     const [isDragging, setIsDragging] = React.useState(false);
 
     const isStage = isStageContext || Boolean(currentSong && (currentSong as any).isStage === true);
@@ -268,73 +251,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     const isYtm = currentSong && (currentSong as any).isYtm === true;
     const isLocal = currentSong && !isNavidrome && !isYtm && (((currentSong as any).isLocal === true) || Boolean((currentSong as any).localData));
     const isNetease = Boolean(currentSong && !isLocal && !isNavidrome && !isYtm && !isStage);
-    const canCreateLocalPlaylist = isLocal;
-    const canCreateNavidromePlaylist = isNavidrome;
-    const canAddCurrentSongToPlaylist =
-        (isLocal && (localPlaylists.length > 0 || canCreateLocalPlaylist))
-        || (isNetease && neteasePlaylists.length > 0)
-        || (isNavidrome && (navidromePlaylists.length > 0 || canCreateNavidromePlaylist));
     const supportsHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-    const refreshNavidromePlaylists = React.useCallback(async () => {
-        const { getNavidromeConfig, navidromeApi } = await import('../services/navidromeService');
-        const config = getNavidromeConfig();
-        if (!config) {
-            setNavidromePlaylists([]);
-            return;
-        }
-
-        const playlists = await navidromeApi.getPlaylists(config);
-        setNavidromePlaylists(playlists.map((playlist) => ({
-            id: playlist.id,
-            name: playlist.name,
-            description: `${playlist.songCount} ${t('playlist.tracks')}`,
-        })));
-    }, [t]);
-
-    const availablePlaylists = React.useMemo(() => {
-        if (isLocal) {
-            return localPlaylists.map((playlist) => ({
-                id: playlist.id,
-                name: playlist.name,
-                description: `${playlist.songIds.length} ${t('playlist.tracks')}`,
-            }));
-        }
-
-        if (isNetease) {
-            return neteasePlaylists.map((playlist) => ({
-                id: playlist.id,
-                name: playlist.name,
-                description: `${playlist.trackCount || 0} ${t('playlist.tracks')}`,
-            }));
-        }
-
-        if (isNavidrome) {
-            return navidromePlaylists;
-        }
-
-        return [];
-    }, [isLocal, isNetease, isNavidrome, localPlaylists, navidromePlaylists, neteasePlaylists, t]);
-
-    React.useEffect(() => {
-        let cancelled = false;
-
-        const loadNavidromePlaylists = async () => {
-            if (!isNavidrome) {
-                setNavidromePlaylists([]);
-                return;
-            }
-
-            if (!cancelled) {
-                await refreshNavidromePlaylists();
-            }
-        };
-
-        void loadNavidromePlaylists();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [currentSong?.id, isNavidrome, refreshNavidromePlaylists]);
 
     const tabs = [
         { id: 'cover' as PanelTab, label: t('panel.cover'), icon: Disc },
@@ -623,20 +540,12 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
     React.useEffect(() => {
         if (!isOpen) {
             setIsCoverActionsVisible(false);
-            setIsPlaylistPickerOpen(false);
-            setIsCreatePlaylistOpen(false);
         }
     }, [isOpen]);
 
     React.useEffect(() => {
         setIsCoverActionsVisible(false);
     }, [currentTab, currentSong?.id]);
-
-    React.useEffect(() => {
-        if (!canAddCurrentSongToPlaylist) {
-            setIsPlaylistPickerOpen(false);
-        }
-    }, [canAddCurrentSongToPlaylist]);
 
     React.useEffect(() => {
         if (supportsHover || !isCoverActionsVisible) {
@@ -762,7 +671,7 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                                                 onClick={(event) => {
                                                     event.stopPropagation();
                                                     setIsCoverActionsVisible(false);
-                                                    setIsPlaylistPickerOpen(true);
+                                                    openAddToPlaylist();
                                                 }}
                                                 className={coverActionButtonClass}
                                                 title={t('localMusic.addToPlaylist') || '添加到歌单'}
@@ -958,64 +867,6 @@ const UnifiedPanel: React.FC<UnifiedPanelProps> = ({
                         </motion.div>
                     )}
                 </AnimatePresence>
-            </div>
-
-            <div className="pointer-events-auto">
-                <PlaylistSelectionDialog
-                    isOpen={isPlaylistPickerOpen}
-                    onClose={() => setIsPlaylistPickerOpen(false)}
-                    isDaylight={isDaylight}
-                    title={t('localMusic.addToPlaylist') || '添加到歌单'}
-                    description={t('home.playlists') || 'Playlists'}
-                    playlists={availablePlaylists}
-                    onSelect={async (playlistId) => {
-                        try {
-                            if (isLocal) {
-                                await onAddCurrentSongToLocalPlaylist(String(playlistId));
-                            } else if (isNetease) {
-                                await onAddCurrentSongToNeteasePlaylist(Number(playlistId));
-                            } else if (isNavidrome) {
-                                await onAddCurrentSongToNavidromePlaylist(String(playlistId));
-                                await refreshNavidromePlaylists();
-                            } else {
-                                return;
-                            }
-                            setIsPlaylistPickerOpen(false);
-                        } catch (error) {
-                            console.error('Failed to add current song to playlist', error);
-                        }
-                    }}
-                    onCreate={(isLocal || isNavidrome) ? () => {
-                        setIsPlaylistPickerOpen(false);
-                        setIsCreatePlaylistOpen(true);
-                    } : undefined}
-                    createLabel={t(isNavidrome ? 'navidrome.createPlaylist' : 'localMusic.createPlaylist') || '新建歌单'}
-                />
-
-                <TextInputDialog
-                    isOpen={isCreatePlaylistOpen}
-                    onClose={() => setIsCreatePlaylistOpen(false)}
-                    isDaylight={isDaylight}
-                    title={t(isNavidrome ? 'navidrome.createPlaylist' : 'localMusic.createPlaylist') || '新建歌单'}
-                    description={t('localMusic.enterPlaylistName') || '输入歌单名称'}
-                    placeholder={t('localMusic.enterPlaylistName') || '输入歌单名称'}
-                    confirmLabel={t('options.save') || '保存'}
-                    onConfirm={async (name) => {
-                        try {
-                            if (isLocal) {
-                                await onCreateCurrentLocalPlaylist(name);
-                            } else if (isNavidrome) {
-                                await onCreateCurrentNavidromePlaylist(name);
-                                await refreshNavidromePlaylists();
-                            } else {
-                                return;
-                            }
-                            setIsCreatePlaylistOpen(false);
-                        } catch (error) {
-                            console.error('Failed to create playlist for current song', error);
-                        }
-                    }}
-                />
             </div>
 
             {/* Toggle Button */}

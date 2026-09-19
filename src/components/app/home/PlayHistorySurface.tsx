@@ -6,9 +6,9 @@ import {
   getPlayHistory,
   getPlayHistoryStats,
   clearPlayHistory,
-  stripExpiringYoutubeStream,
   type PlayHistoryEntry
 } from '../../../services/playHistoryService';
+import { songFromPlayHistoryEntry } from '../../../utils/home/recentListenMath';
 import {
   resolveBrowseListRowClass,
   resolveHomeContentBottomPaddingClass,
@@ -93,23 +93,7 @@ export const PlayHistorySurface: React.FC<PlayHistorySurfaceProps> = ({
 
   const handlePlaySong = (entry: PlayHistoryEntry) => {
     if (!onPlaySong) return;
-    // 优先用存储的完整歌曲快照播放
-    const snapshot = entry.songSnapshot as any;
-    if (snapshot) {
-      // 强制剥除 YouTube 缓存的 streamUrl（动态端口会失效），按 videoId 重新解析
-      onPlaySong(stripExpiringYoutubeStream(snapshot));
-      return;
-    }
-    // 兼容旧记录（无快照）：用基础字段构造，仅在线歌曲可能成功
-    onPlaySong({
-      id: entry.songId,
-      name: entry.songName,
-      artists: entry.artist.split(', ').map((name, index) => ({ id: index, name })),
-      ar: entry.artist.split(', ').map((name, index) => ({ id: index, name })),
-      album: entry.album ? { id: 0, name: entry.album, picUrl: entry.coverUrl } : undefined,
-      al: entry.album ? { id: 0, name: entry.album, picUrl: entry.coverUrl } : undefined,
-      musicProvider: entry.source === 'local' ? undefined : entry.source,
-    });
+    onPlaySong(songFromPlayHistoryEntry(entry));
   };
 
   const formatDate = (dateStr: string) => {

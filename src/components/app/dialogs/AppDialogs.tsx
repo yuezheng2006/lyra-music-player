@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import LyricMatchModal from '../../modal/LyricMatchModal';
 import NaviLyricMatchModal from '../../modal/NaviLyricMatchModal';
 import OnlineLyricMatchModal from '../../modal/OnlineLyricMatchModal';
+import LocalBeatAnalysisModal from '../../modal/LocalBeatAnalysisModal';
 import UnavailableReplacementDialog from '../../modal/UnavailableReplacementDialog';
 import SettingsModal from '../../modal/SettingsModal';
 import type { AppDialogsModel } from './buildAppDialogsModel';
@@ -58,6 +59,7 @@ const AppDialogs: React.FC<AppDialogsProps> = ({ model }) => {
             {lyricMatchDialog && <LyricMatchModal {...lyricMatchDialog} />}
             {naviLyricMatchDialog && <NaviLyricMatchModal {...naviLyricMatchDialog} />}
             {onlineLyricMatchDialog && <OnlineLyricMatchModal {...onlineLyricMatchDialog} />}
+            <LocalBeatAnalysisModal />
             {unavailableReplacementDialog && <UnavailableReplacementDialog {...unavailableReplacementDialog} />}
             <AnimatePresence>
                 {settingsDialog && <SettingsModal {...settingsDialog} />}

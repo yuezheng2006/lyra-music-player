@@ -2,28 +2,27 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useMotionValue } from 'framer-motion';
 import { resolveInteractive3dQualityProfile } from './interactive3dSceneRegistry';
 import { resolveGeometricQualityProfile } from './geometricQuality';
-import MineradioPlaybackStage from './mineradio/MineradioPlaybackStage';
+import CoverParticleStage from './webgl/CoverParticleStage';
+import CoverAtmosphereStage from './cover-atmosphere/CoverAtmosphereStage';
 import {
     DEFAULT_LYRIC_COLUMN_END_RATIO,
     measureLyricColumnEndRatio,
     resolveInteractive3dStageContainmentStyle,
     shouldContainInteractive3dStageForMode,
 } from './resolveInteractive3dStageContainment';
-import AmbientVisualOverlay from './AmbientVisualOverlay';
-import CharacterStageOverlay from './CharacterStageOverlay';
-import StaticGeometricScene from './StaticGeometricScene';
 import type { GeometricBackgroundProps } from './types';
 import { useGeometricPointer } from './useGeometricPointer';
 import { useInteractiveCameraControl } from './useInteractiveCameraControl';
 import VignetteOverlay from './VignetteOverlay';
 import { usePerformanceMonitorStore } from '../../../stores/usePerformanceMonitorStore';
-import { shouldShowCoverParticleWebGL } from './webgl/CoverParticleWebGLStage';
+import { shouldShowCoverParticleWebGL } from './webgl/coverParticleWebGLGateMath';
 
 // src/components/visualizer/geometric/GeometricLayer.tsx
-// Mineradio unified WebGL playback background (ambient + cover particles + stage lyrics + character).
+// Interactive3d stage: soft cover atmosphere by default; legacy CoverParticle via force flag.
 
 const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
     theme,
+    audioPower,
     audioBands,
     beatPulse,
     atmosphereEnergy,
@@ -32,6 +31,7 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
     seed,
     disableVignette = false,
     paused = false,
+    particlesYielded = false,
     staticMode = false,
     coverUrl,
     currentTime,
@@ -43,6 +43,7 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
 }) => {
     const { pointerX, pointerY } = useGeometricPointer();
     const fallbackMotion = useMotionValue(0);
+    const fallbackAtmosphereEnergy = useMotionValue(0.42);
     const stageRef = useRef<HTMLDivElement>(null);
     const interactionRef = useRef<HTMLDivElement>(null);
     const [lyricColumnEndRatio, setLyricColumnEndRatio] = useState<number | undefined>(undefined);
@@ -66,8 +67,10 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
         [performanceTier, sceneTuning],
     );
     const needsContainment = shouldContainInteractive3dStageForMode(visualizerMode);
-    // Electron disables cover WebGL; keep a static stage so the player is not blank.
-    const coverWebGLActive = shouldShowCoverParticleWebGL(sceneTuning);
+    const coverStageEnabled = sceneTuning?.enableCoverParticles !== false;
+    // Legacy CoverParticle WebGL only when force flag is set.
+    const legacyCoverWebGLActive = coverStageEnabled && shouldShowCoverParticleWebGL(sceneTuning);
+    const coverAtmosphereActive = coverStageEnabled && !legacyCoverWebGLActive;
 
     useEffect(() => {
         if (!needsContainment) {
@@ -100,8 +103,13 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
             observedColumns.add(lyricColumnEl);
         };
 
+        let measureRaf = 0;
         const sync = () => {
-            observeColumn(apply());
+            if (measureRaf) return;
+            measureRaf = requestAnimationFrame(() => {
+                measureRaf = 0;
+                observeColumn(apply());
+            });
         };
 
         resizeObserver = typeof ResizeObserver !== 'undefined'
@@ -119,6 +127,7 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
         document.addEventListener('fullscreenchange', sync);
 
         return () => {
+            if (measureRaf) cancelAnimationFrame(measureRaf);
             resizeObserver?.disconnect();
             mutationObserver?.disconnect();
             window.removeEventListener('resize', sync);
@@ -147,9 +156,8 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                     aria-hidden
                 />
             )}
-            {/* Keep WebGL mounted while paused — remounting on every pause burns GPU and blanks the stage. */}
-            {coverWebGLActive ? (
-                <MineradioPlaybackStage
+            {legacyCoverWebGLActive ? (
+                <CoverParticleStage
                     theme={theme}
                     coverUrl={coverUrl}
                     sceneTuning={sceneTuning}
@@ -170,34 +178,20 @@ const GeometricLayer: React.FC<GeometricBackgroundProps> = ({
                             : undefined
                     }
                     playing={playing}
-                    paused={paused}
+                    paused={paused || particlesYielded}
                     cameraControlState={cameraControlState}
                 />
-            ) : (
-                <StaticGeometricScene
+            ) : null}
+            {coverAtmosphereActive ? (
+                <CoverAtmosphereStage
                     theme={theme}
-                    shapes={[]}
-                    particles={[]}
-                    hideShapes
-                    disableVignette={disableVignette}
+                    sceneTuning={sceneTuning}
+                    coverUrl={coverUrl}
+                    atmosphereEnergy={atmosphereEnergy ?? fallbackAtmosphereEnergy}
+                    audioPower={audioPower}
+                    yielded={particlesYielded}
+                    playing={playing}
                 />
-            )}
-            {/* Skip extra WebGL layers when cover WebGL is gated (Electron GPU lockout). */}
-            {coverWebGLActive ? (
-                <>
-                    {/* Above cover particles, below character — otherwise Emily/dense particles hide ambient. */}
-                    <AmbientVisualOverlay
-                        staticMode={staticMode}
-                        currentTime={currentTime}
-                    />
-                    <CharacterStageOverlay
-                        // Player stage with lyrics/immersive — not on home shell (boot-safe).
-                        visible={immersiveLyrics || showLyrics}
-                        immersive={immersiveLyrics}
-                        paused={!playing}
-                        currentTime={currentTime}
-                    />
-                </>
             ) : null}
             <VignetteOverlay disabled={disableVignette} immersive={immersiveLyrics} />
         </div>

@@ -1,32 +1,39 @@
 import React from 'react';
-import { CheckCircle2, Loader2, QrCode, X } from 'lucide-react';
+import { CheckCircle2, FolderSync, Loader2, QrCode, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNeteaseQrLogin } from '../../hooks/useNeteaseQrLogin';
 import { useQQMusicLogin } from '../../hooks/useQQMusicLogin';
+import { useQishuiLogin } from '../../hooks/useQishuiLogin';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
-import { hasNeteaseSession, hasQQMusicSession } from '../../utils/onlineLibraryAccess';
+import { hasNeteaseSession, hasQQMusicSession, hasQishuiSession } from '../../utils/onlineLibraryAccess';
+import { OnlineProviderMark } from './OnlineProviderMark';
 
 // src/components/shared/OnlineMusicGuestConnect.tsx
-// Inline provider cards for Netease and QQ Music login.
+// Inline provider cards for Netease, QQ Music, and Qishui login.
 
 type OnlineMusicGuestConnectProps = {
     onRefreshUser: () => void;
     user: { userId?: number } | null;
+    /** Gate fills the legacy home. Invite sits under the listening desk. */
+    variant?: 'gate' | 'invite';
 };
 
-const actionButtonClass = 'px-5 py-2.5 bg-white text-black rounded-full font-bold text-xs shadow-sm hover:scale-105 hover:shadow-md transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-sm';
+const actionButtonClass = 'px-4 py-1.5 bg-white text-black rounded-full font-bold text-[11px] shadow-sm hover:scale-105 hover:shadow-md transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-sm';
 
 const OnlineMusicGuestConnect: React.FC<OnlineMusicGuestConnectProps> = ({
     onRefreshUser,
     user,
+    variant = 'gate',
 }) => {
     const { t } = useTranslation();
     const isDaylight = useSettingsUiStore(state => state.isDaylight);
     const netease = useNeteaseQrLogin(onRefreshUser);
     const qq = useQQMusicLogin();
+    const qishui = useQishuiLogin();
     const qqReady = hasQQMusicSession();
     const neteaseReady = hasNeteaseSession(user);
+    const qishuiReady = hasQishuiSession();
 
     const cardClass = isDaylight
         ? 'bg-white/82 border-black/10 shadow-[0_10px_40px_rgba(15,23,42,0.08)]'
@@ -47,33 +54,51 @@ const OnlineMusicGuestConnect: React.FC<OnlineMusicGuestConnectProps> = ({
         : 'bg-emerald-400/18 text-emerald-100 border-emerald-300/35';
     const connectedTextClass = isDaylight ? 'text-emerald-700' : 'text-emerald-100';
 
-    const guestTitle = neteaseReady || qqReady
-        ? t('home.guestTitleReady')
-        : t('home.guestTitle');
-    const guestPrompt = neteaseReady && qqReady
-        ? t('home.guestPromptBothReady')
-        : qqReady
-            ? t('home.guestPromptQQReady')
-            : t('home.guestPrompt');
+    const isInvite = variant === 'invite';
+    const guestTitle = isInvite
+        ? t('home.libraryInviteTitle')
+        : neteaseReady || qqReady || qishuiReady
+            ? t('home.guestTitleReady')
+            : t('home.guestTitle');
+    const guestPrompt = isInvite
+        ? t('home.libraryInviteBody')
+        : neteaseReady && qqReady
+            ? t('home.guestPromptBothReady')
+            : qqReady
+                ? t('home.guestPromptQQReady')
+                : t('home.guestPrompt');
 
     return (
-        <div className="flex flex-1 w-full flex-col items-center justify-center space-y-5 px-4">
-            <div className="text-center space-y-2 max-w-md">
-                <h2 className={`text-2xl font-bold ${titleClass}`}>{guestTitle}</h2>
-                <p className={`text-sm leading-6 whitespace-pre-line ${promptClass}`}>{guestPrompt}</p>
+        <div className={isInvite
+            ? `w-full rounded-2xl border px-3 py-2.5 md:px-4 ${cardClass}`
+            : 'flex flex-1 w-full flex-col items-center justify-center space-y-5 px-4'
+        }>
+            <div className={isInvite ? 'mb-2 min-w-0' : 'text-center space-y-2 max-w-md'}>
+                <h2 className={`flex items-center gap-2 ${isInvite ? 'text-sm font-semibold' : 'text-2xl font-bold justify-center'} ${titleClass}`}>
+                    {isInvite ? <FolderSync size={16} className="shrink-0 opacity-70" aria-hidden="true" /> : null}
+                    {guestTitle}
+                </h2>
+                <p className={`${isInvite ? 'mt-0.5 truncate text-[11px] leading-4' : 'text-sm leading-6 whitespace-pre-line'} ${promptClass}`}>
+                    {guestPrompt}
+                </p>
             </div>
 
             <div
-                className="w-full max-w-sm space-y-3 relative z-20 pointer-events-auto"
+                className={`${isInvite ? 'grid w-full grid-cols-1 gap-2 sm:grid-cols-2' : 'w-full max-w-sm space-y-3'} relative z-20 pointer-events-auto`}
                 style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
             >
                 <div
-                    className={`rounded-2xl border backdrop-blur-xl overflow-hidden transition-all ${neteaseCardClass} ${netease.active ? activeRingClass : ''}`}
+                    className={`rounded-2xl border backdrop-blur-xl overflow-hidden transition-all ${neteaseCardClass} ${netease.active ? activeRingClass : ''} ${isInvite && netease.active ? 'sm:col-span-2' : ''}`}
                 >
-                    <div className="p-4 flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                            <div className={`text-sm font-bold ${labelClass}`}>{t('home.neteaseProvider')}</div>
-                            <div className={`text-[11px] mt-0.5 ${hintClass}`}>{t('home.neteaseProviderHint')}</div>
+                    <div className={`${isInvite ? 'p-2.5' : 'p-4'} flex items-center justify-between gap-3`}>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <OnlineProviderMark provider="netease" size={isInvite ? 'md' : 'lg'} />
+                            <div className="min-w-0">
+                                <div className={`text-sm font-bold ${labelClass}`}>{t('home.neteaseProvider')}</div>
+                                {isInvite ? null : (
+                                    <div className={`text-[11px] mt-0.5 ${hintClass}`}>{t('home.neteaseProviderHint')}</div>
+                                )}
+                            </div>
                         </div>
                         {!netease.active && (
                             <button type="button" onClick={() => void netease.start()} className={actionButtonClass}>
@@ -125,6 +150,7 @@ const OnlineMusicGuestConnect: React.FC<OnlineMusicGuestConnectProps> = ({
                 {qqReady ? (
                     <div className={`rounded-xl border backdrop-blur-xl px-3 py-2.5 flex items-center justify-between gap-3 ${isDaylight ? 'bg-emerald-500/8 border-emerald-500/20' : 'bg-emerald-400/10 border-emerald-300/25'}`}>
                         <div className={`flex items-center gap-2 text-xs font-medium min-w-0 ${connectedTextClass}`}>
+                            <OnlineProviderMark provider="qq" size="sm" />
                             <CheckCircle2 size={14} className="shrink-0" />
                             <span className="truncate">{t('home.qqMusicProvider')}</span>
                             <span className="opacity-60">·</span>
@@ -141,16 +167,21 @@ const OnlineMusicGuestConnect: React.FC<OnlineMusicGuestConnectProps> = ({
                         )}
                     </div>
                 ) : (
-                    <div className={`rounded-2xl border backdrop-blur-xl p-4 transition-opacity ${cardClass} ${netease.active ? 'opacity-55 pointer-events-none' : ''}`}>
-                        <div className="flex items-center justify-between gap-4">
-                            <div className="min-w-0">
-                                <div className={`text-sm font-bold ${labelClass}`}>{t('home.qqMusicProvider')}</div>
-                                <div className={`text-[11px] mt-0.5 ${hintClass}`}>{t('home.qqMusicProviderHint')}</div>
-                                {qq.flowMessage && (
-                                    <div className={`text-[11px] mt-1 ${qq.flowStatus === 'failed' || qq.flowStatus === 'cancelled' ? 'text-red-400' : connectedTextClass}`}>
-                                        {qq.flowMessage}
-                                    </div>
-                                )}
+                    <div className={`rounded-2xl border backdrop-blur-xl ${isInvite ? 'p-2.5' : 'p-4'} transition-opacity ${cardClass} ${netease.active ? 'opacity-55 pointer-events-none' : ''}`}>
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <OnlineProviderMark provider="qq" size={isInvite ? 'md' : 'lg'} />
+                                <div className="min-w-0">
+                                    <div className={`text-sm font-bold ${labelClass}`}>{t('home.qqMusicProvider')}</div>
+                                    {isInvite ? null : (
+                                        <div className={`text-[11px] mt-0.5 ${hintClass}`}>{t('home.qqMusicProviderHint')}</div>
+                                    )}
+                                    {qq.flowMessage && (
+                                        <div className={`text-[11px] mt-1 ${qq.flowStatus === 'failed' || qq.flowStatus === 'cancelled' ? 'text-red-400' : connectedTextClass}`}>
+                                            {qq.flowMessage}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             <button
                                 type="button"
@@ -160,6 +191,47 @@ const OnlineMusicGuestConnect: React.FC<OnlineMusicGuestConnectProps> = ({
                             >
                                 {qq.isBusy ? <Loader2 size={14} className="animate-spin" /> : <QrCode size={14} />}
                                 {t('home.qqMusicScanLogin')}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {qishuiReady ? (
+                    <div className={`rounded-xl border backdrop-blur-xl px-3 py-2.5 flex items-center justify-between gap-3 ${isDaylight ? 'bg-emerald-500/8 border-emerald-500/20' : 'bg-emerald-400/10 border-emerald-300/25'}`}>
+                        <div className={`flex items-center gap-2 text-xs font-medium min-w-0 ${connectedTextClass}`}>
+                            <OnlineProviderMark provider="qishui" size="sm" />
+                            <CheckCircle2 size={14} className="shrink-0" />
+                            <span className="truncate">{t('home.qishuiProvider')}</span>
+                            <span className="opacity-60">·</span>
+                            <span className="shrink-0">{t('home.qishuiConnected')}</span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className={`rounded-2xl border backdrop-blur-xl ${isInvite ? 'p-2.5' : 'p-4'} transition-opacity ${cardClass} ${netease.active ? 'opacity-55 pointer-events-none' : ''}`}>
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <OnlineProviderMark provider="qishui" size={isInvite ? 'md' : 'lg'} />
+                                <div className="min-w-0">
+                                    <div className={`text-sm font-bold ${labelClass}`}>{t('home.qishuiProvider')}</div>
+                                    {isInvite ? null : (
+                                        <div className={`text-[11px] mt-0.5 ${hintClass}`}>{t('home.qishuiLoginHint')}</div>
+                                    )}
+                                    {qishui.flowMessage && (
+                                        <div className={`text-[11px] mt-1 ${qishui.flowStatus === 'failed' || qishui.flowStatus === 'cancelled' ? 'text-red-400' : connectedTextClass}`}>
+                                            {qishui.flowMessage}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => void qishui.openLogin()}
+                                disabled={qishui.isBusy}
+                                title={!qishui.canOpenOfficialLogin ? t('options.qishuiOfficialLoginDesktopOnly') : undefined}
+                                className={`${actionButtonClass} flex items-center gap-1.5`}
+                            >
+                                {qishui.isBusy ? <Loader2 size={14} className="animate-spin" /> : <QrCode size={14} />}
+                                {t('home.qishuiScanLogin')}
                             </button>
                         </div>
                     </div>

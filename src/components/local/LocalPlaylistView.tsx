@@ -6,6 +6,8 @@ import { motion } from 'framer-motion';
 import DeleteFolderConfirmModal from '../modal/DeleteFolderConfirmModal';
 import { removeSongsFromLocalPlaylist } from '../../services/localPlaylistService';
 import LazyCoverImage from '../shared/LazyCoverImage';
+import { APP_OVERLAY_MOBILE_SCROLL_CLEARANCE_CLASS } from '../app/home/homeSurfaceStyles';
+import { formatLocalAlbumTrackLabel } from '../../utils/localSongSorting';
 
 interface LocalPlaylistViewProps {
     title: string;
@@ -59,7 +61,7 @@ const LocalPlaylistRow = React.memo(({ song, index, songs, onPlaySong, onAddToQu
             className="group flex h-[68px] items-center py-3 px-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors"
         >
             <div className="w-8 md:w-10 text-center text-sm font-medium opacity-30 group-hover:opacity-100" style={{ color: 'var(--text-secondary)' }}>
-                {index + 1}
+                {formatLocalAlbumTrackLabel(song) ?? index + 1}
             </div>
 
             <div className="flex-1 min-w-0 pl-3 md:pl-4">
@@ -417,7 +419,7 @@ const LocalPlaylistView: React.FC<LocalPlaylistViewProps> = ({ title, coverUrl, 
 
                         <div
                             ref={trackListRef}
-                            className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pb-28 md:pb-0"
+                            className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar ${APP_OVERLAY_MOBILE_SCROLL_CLEARANCE_CLASS}`}
                             onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
                         >
                             <div style={{ height: `${totalHeight}px`, position: 'relative' }}>

@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Check, Loader2, Plus, QrCode, X } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { AnimatePresence, motion } from 'framer-motion';
 import { useSettingsUiStore } from '../../stores/useSettingsUiStore';
 import {
     useOnlineLibraryFilterStore,
@@ -9,39 +8,30 @@ import {
     type OnlineLibraryProviderId,
 } from '../../stores/useOnlineLibraryFilterStore';
 import { useMusicProviderCatalogStore } from '../../stores/useMusicProviderCatalogStore';
-import { useNeteaseQrLogin } from '../../hooks/useNeteaseQrLogin';
-import { useQQMusicLogin } from '../../hooks/useQQMusicLogin';
 import { resolveProviderDisplayLabel } from '../../utils/musicProviders/providerManifestMath';
+import {
+    visibleListeningDeskProviderIds,
+    visiblePersonalLibraryProviderIds,
+} from '../../utils/ui/homeProviderFilterMath';
+import { OnlineProviderMark } from './OnlineProviderMark';
 
 // src/components/shared/OnlineProviderFilterBar.tsx
-// Peer library sources: Netease / QQ / Qishui / Coco / Kugou / Bilibili.
+// Toggle which catalogs feed the listening desk / search. Login lives in the library invite.
 
 type OnlineProviderFilterBarProps = {
     neteaseConnected: boolean;
     qqConnected: boolean;
-    onRefreshUser: () => void;
+    onRefreshUser?: () => void;
+    /** Flush chips sit inside the source-search card; toolbar is the standalone home row. */
+    layout?: 'toolbar' | 'flush';
 };
 
-type ConnectTarget = 'netease' | 'qq' | null;
-
-const peerPillClass = (
-    enabled: boolean,
-    isDaylight: boolean,
-    connected: boolean,
-) => {
-    if (!connected) {
-        return isDaylight
-            ? 'border border-dashed border-black/20 text-black/55 hover:text-black/80 hover:border-black/35 bg-white/30'
-            : 'border border-dashed border-white/35 text-white/82 hover:text-white hover:border-white/55 bg-white/[0.08]';
-    }
-
+const peerPillClass = (enabled: boolean, isDaylight: boolean) => {
     if (enabled) {
         return isDaylight
             ? 'bg-white text-black shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/10'
             : 'bg-white text-zinc-950 shadow-sm ring-1 ring-white/40';
     }
-
-    // Unselected still keeps a solid hit target so clicks are not "text-only".
     return isDaylight
         ? 'bg-black/[0.04] text-black/55 hover:text-black/85 hover:bg-black/[0.08]'
         : 'bg-white/[0.08] text-white/78 hover:text-white hover:bg-white/14';
@@ -61,7 +51,7 @@ const modulePillClass = (active: boolean, isDaylight: boolean) => {
 const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
     neteaseConnected,
     qqConnected,
-    onRefreshUser,
+    layout = 'toolbar',
 }) => {
     const { t } = useTranslation();
     const isDaylight = useSettingsUiStore(state => state.isDaylight);
@@ -71,18 +61,9 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
         knownProviderIds,
         togglePlaylistProvider,
         setModuleFilter,
-        setPlaylistProviderEnabled,
         setSearchProvider,
     } = useOnlineLibraryFilterStore();
-    const catalogProviders = useMusicProviderCatalogStore((state) => state.providers);
-    const [connectTarget, setConnectTarget] = useState<ConnectTarget>(null);
-    const netease = useNeteaseQrLogin(() => {
-        setPlaylistProviderEnabled('netease', true);
-        setSearchProvider('netease');
-        setConnectTarget(null);
-        onRefreshUser();
-    });
-    const qq = useQQMusicLogin();
+    const catalogProviders = useMusicProviderCatalogStore(state => state.providers);
 
     const builtInLabels: Partial<Record<string, string>> = {
         netease: t('home.neteaseProvider'),
@@ -94,14 +75,6 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
         kuwo: t('home.kuwoProvider'),
     };
 
-    const providerHints: Partial<Record<string, string>> = {
-        qishui: t('home.qishuiProviderHint'),
-        coco: t('home.cocoProviderHint'),
-        kugou: t('home.kugouProviderHint'),
-        bilibili: t('home.bilibiliProviderHint'),
-        kuwo: t('home.kuwoProviderHint'),
-    };
-
     const resolveLabel = (id: OnlineLibraryProviderId) =>
         resolveProviderDisplayLabel(id, catalogProviders, builtInLabels);
 
@@ -111,20 +84,9 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
         return true;
     };
 
-    const modulePills: Array<{ id: OnlineLibraryModuleFilter; label: string }> = [
-        { id: 'all', label: t('home.moduleAll') },
-        { id: 'created', label: t('home.moduleCreated') },
-        { id: 'liked', label: t('home.moduleLiked') },
-    ];
-
-    // Coco / Qishui have no personal library, so created/liked modules are meaningless when they are the only sources.
-    const showModuleFilter = useMemo(() => {
-        const enabledConnected = knownProviderIds.filter((id) => {
-            if (!playlistProviders[id]) return false;
-            return isConnected(id);
-        });
-        return enabledConnected.some(id => id === 'netease' || id === 'qq');
-    }, [knownProviderIds, playlistProviders, neteaseConnected, qqConnected]);
+    const deskIds = visibleListeningDeskProviderIds(knownProviderIds, isConnected);
+    const libraryIds = visiblePersonalLibraryProviderIds(knownProviderIds, isConnected);
+    const showModuleFilter = libraryIds.some(id => playlistProviders[id]);
 
     useEffect(() => {
         if (!showModuleFilter && moduleFilter !== 'all') {
@@ -132,79 +94,76 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
         }
     }, [moduleFilter, setModuleFilter, showModuleFilter]);
 
-    const shellClass = isDaylight ? 'bg-black/5' : 'bg-white/[0.08]';
-    const panelClass = isDaylight
-        ? 'bg-white/90 border-black/10 text-black'
-        : 'bg-black/70 border-white/15 text-white';
-    const mutedClass = isDaylight ? 'text-black/55' : 'text-white/72';
+    const modulePills: Array<{ id: OnlineLibraryModuleFilter; label: string }> = [
+        { id: 'all', label: t('home.moduleAll') },
+        { id: 'created', label: t('home.moduleCreated') },
+        { id: 'liked', label: t('home.moduleLiked') },
+    ];
+
     const labelClass = isDaylight ? 'text-black/45' : 'text-white/58';
-    const actionButtonClass = 'px-4 py-2 bg-white text-black rounded-full font-bold text-xs shadow-sm hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100';
+    const hintClass = isDaylight ? 'text-black/38' : 'text-white/42';
+    const shellClass = isDaylight ? 'bg-black/5' : 'bg-white/[0.08]';
 
-    const handleProviderClick = (id: OnlineLibraryProviderId) => {
-        const connected = isConnected(id);
-        if (!connected) {
-            if (id === 'netease') {
-                setConnectTarget('netease');
-                void netease.start();
-            } else if (id === 'qq') {
-                setConnectTarget('qq');
-            }
-            return;
-        }
-
-        // One click = toggle source visibility. Enabling also becomes the search channel.
-        // Previous two-step "focus then toggle" looked like a dead click.
+    const handleToggle = (id: OnlineLibraryProviderId) => {
         togglePlaylistProvider(id);
+        if (!playlistProviders[id]) {
+            setSearchProvider(id);
+        }
     };
 
-    const closeConnect = () => {
-        netease.cancel();
-        setConnectTarget(null);
-    };
+    const renderPills = (ids: readonly OnlineLibraryProviderId[]) => ids.map(id => {
+        const enabled = Boolean(playlistProviders[id]);
+        return (
+            <button
+                key={id}
+                type="button"
+                onPointerDown={event => event.stopPropagation()}
+                onClick={event => {
+                    event.stopPropagation();
+                    handleToggle(id);
+                }}
+                className={`inline-flex shrink-0 items-center justify-center gap-1.5 min-h-7 px-2.5 py-1 rounded-full text-[12px] font-medium cursor-pointer select-none touch-manipulation active:scale-[0.97] transition-all ${peerPillClass(enabled, isDaylight)}`}
+                aria-pressed={enabled}
+                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            >
+                {enabled ? <Check size={14} strokeWidth={2.5} className="opacity-80 shrink-0" /> : null}
+                <OnlineProviderMark provider={id} size="sm" />
+                <span>{resolveLabel(id)}</span>
+            </button>
+        );
+    });
 
     return (
         <div
-            className="w-full max-w-6xl mx-auto px-4 md:px-6 space-y-2 pointer-events-auto"
+            className={layout === 'flush'
+                ? 'w-full space-y-2 pointer-events-auto'
+                : 'w-full max-w-6xl mx-auto px-4 md:px-6 space-y-2 pointer-events-auto'}
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
-            <div className="flex flex-wrap items-center gap-2">
-                <span className={`text-[11px] font-semibold uppercase tracking-wide shrink-0 ${labelClass}`}>
-                    {t('home.providerFilter')}
-                </span>
-                {knownProviderIds.map(id => {
-                    const connected = isConnected(id);
-                    const enabled = connected && playlistProviders[id];
-                    return (
-                        <button
-                            key={id}
-                            type="button"
-                            onPointerDown={(event) => {
-                                // Avoid Electron drag-region swallowing the first click.
-                                event.stopPropagation();
-                            }}
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                handleProviderClick(id);
-                            }}
-                            className={`inline-flex items-center justify-center gap-1.5 min-h-8 px-3 py-1.5 rounded-full text-[13px] font-medium cursor-pointer select-none touch-manipulation active:scale-[0.97] transition-all ${peerPillClass(enabled, isDaylight, connected)}`}
-                            title={providerHints[id] || (connected ? undefined : t('home.connectProvider'))}
-                            aria-pressed={enabled}
-                            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-                        >
-                            {!connected && <Plus size={14} className="opacity-70 shrink-0" />}
-                            {connected && enabled && (
-                                <Check size={14} strokeWidth={2.5} className="opacity-80 shrink-0" />
-                            )}
-                            <span>{resolveLabel(id)}</span>
-                            {!connected && (
-                                <span className="opacity-70">{t('home.connectShort')}</span>
-                            )}
-                        </button>
-                    );
-                })}
+            <div className={`flex items-center gap-x-1.5 ${layout === 'flush' ? 'flex-nowrap overflow-x-auto' : 'flex-wrap gap-y-1.5'}`}>
+                {layout === 'toolbar' ? (
+                    <span className={`text-[11px] font-semibold tracking-wide shrink-0 ${labelClass}`}>
+                        {t('home.providerFilter')}
+                    </span>
+                ) : null}
+                {renderPills(deskIds)}
+                {layout === 'toolbar' ? (
+                    <span className={`basis-full text-[11px] leading-4 ${hintClass}`}>
+                        {t('home.providerFilterHint')}
+                    </span>
+                ) : null}
             </div>
 
-            {showModuleFilter && (
+            {libraryIds.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className={`text-[11px] font-semibold tracking-wide shrink-0 ${labelClass}`}>
+                        {t('home.libraryFilter')}
+                    </span>
+                    {renderPills(libraryIds)}
+                </div>
+            ) : null}
+
+            {showModuleFilter ? (
                 <div className={`inline-flex flex-wrap items-center gap-0.5 rounded-full p-1 ${shellClass}`}>
                     {modulePills.map(item => {
                         const active = moduleFilter === item.id;
@@ -212,8 +171,8 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
                             <button
                                 key={item.id}
                                 type="button"
-                                onPointerDown={(event) => event.stopPropagation()}
-                                onClick={(event) => {
+                                onPointerDown={event => event.stopPropagation()}
+                                onClick={event => {
                                     event.stopPropagation();
                                     setModuleFilter(item.id);
                                 }}
@@ -225,82 +184,7 @@ const OnlineProviderFilterBar: React.FC<OnlineProviderFilterBarProps> = ({
                         );
                     })}
                 </div>
-            )}
-
-            <AnimatePresence>
-                {connectTarget && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        className={`rounded-2xl border backdrop-blur-xl p-4 ${panelClass}`}
-                        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-                    >
-                        <div className="flex items-center justify-between gap-3 mb-3">
-                            <div>
-                                <div className="text-sm font-bold">
-                                    {connectTarget === 'netease'
-                                        ? t('home.neteaseProvider')
-                                        : t('home.qqMusicProvider')}
-                                </div>
-                                <div className={`text-[11px] mt-0.5 ${mutedClass}`}>
-                                    {connectTarget === 'netease'
-                                        ? t('home.neteaseProviderHint')
-                                        : t('home.qqMusicProviderHint')}
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={closeConnect}
-                                className={`p-1.5 rounded-full ${mutedClass}`}
-                                aria-label={t('status.cancel')}
-                            >
-                                <X size={14} />
-                            </button>
-                        </div>
-
-                        {connectTarget === 'netease' ? (
-                            <div className="text-center space-y-3">
-                                <div className="inline-block bg-white p-2.5 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)]">
-                                    {netease.qrCodeImg ? (
-                                        <img src={netease.qrCodeImg} alt="Netease QR" className="w-36 h-36" />
-                                    ) : (
-                                        <div className="w-36 h-36 flex items-center justify-center bg-gray-50 rounded-lg">
-                                            <Loader2 className="animate-spin text-gray-400" size={22} />
-                                        </div>
-                                    )}
-                                </div>
-                                <p className={`text-xs font-medium ${netease.isSuccess ? 'text-emerald-500' : mutedClass}`}>
-                                    {netease.status || t('home.loadingQr')}
-                                </p>
-                                <p className={`text-[11px] ${mutedClass}`}>{t('home.loginNote')}</p>
-                            </div>
-                        ) : (
-                            <div className="flex items-center justify-between gap-3">
-                                <div className={`text-xs ${mutedClass}`}>
-                                    {qq.flowMessage || t('home.qqMusicProviderHint')}
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={async () => {
-                                        const ok = await qq.openLogin();
-                                        if (ok) {
-                                            setPlaylistProviderEnabled('qq', true);
-                                            setSearchProvider('qq');
-                                            setConnectTarget(null);
-                                        }
-                                    }}
-                                    disabled={qq.isBusy || !qq.canOpenOfficialLogin}
-                                    className={`${actionButtonClass} flex items-center gap-1.5`}
-                                >
-                                    {qq.isBusy ? <Loader2 size={14} className="animate-spin" /> : <QrCode size={14} />}
-                                    {t('home.qqMusicScanLogin')}
-                                </button>
-                            </div>
-                        )}
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            ) : null}
         </div>
     );
 };

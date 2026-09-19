@@ -52,6 +52,44 @@ describe('recentSearchHistory', () => {
         ]);
     });
 
+    it('collapses prefixed and bare queries that share a display label', () => {
+        let history: RecentSearchHistory = {};
+        history = addRecentSearch(history, 'qishui', {
+            query: 'cat:AI周杰伦',
+            displayQuery: 'AI周杰伦',
+            searchedAt: 1,
+        });
+        history = addRecentSearch(history, 'qishui', {
+            query: 'AI周杰伦',
+            displayQuery: 'AI周杰伦',
+            searchedAt: 2,
+        });
+
+        expect(history.qishui).toEqual([
+            { query: 'AI周杰伦', displayQuery: 'AI周杰伦', searchedAt: 2 },
+        ]);
+    });
+
+    it('collapses duplicate display labels when reading stored history', () => {
+        const storage = createStorage(JSON.stringify({
+            version: 1,
+            channels: {
+                qishui: [
+                    { query: '周杰伦', displayQuery: '周杰伦', searchedAt: 3 },
+                    { query: 'AI周杰伦', displayQuery: 'AI周杰伦', searchedAt: 2 },
+                    { query: 'cat:AI周杰伦', displayQuery: 'AI周杰伦', searchedAt: 1 },
+                ],
+            },
+        }));
+
+        expect(readRecentSearchHistory(storage)).toEqual({
+            qishui: [
+                { query: '周杰伦', displayQuery: '周杰伦', searchedAt: 3 },
+                { query: 'AI周杰伦', displayQuery: 'AI周杰伦', searchedAt: 2 },
+            ],
+        });
+    });
+
     it('keeps only eight entries per channel', () => {
         let history: RecentSearchHistory = {};
         for (let index = 0; index < 10; index += 1) {

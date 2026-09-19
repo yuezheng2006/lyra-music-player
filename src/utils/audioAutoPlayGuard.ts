@@ -22,6 +22,16 @@ export function armAutoPlayIntent(shouldAutoPlayRef: MutableRefObject<boolean>):
     shouldAutoPlayRef.current = true;
 }
 
+/** Session restore must arm this before fetching the restored source, or the play bridge misses it. */
+export function armLaunchAutoPlay(
+    shouldAutoPlayRef: MutableRefObject<boolean>,
+    autoPlayOnLaunch: boolean,
+): void {
+    if (autoPlayOnLaunch) {
+        shouldAutoPlayRef.current = true;
+    }
+}
+
 type UnlockAutoplayOptions = {
     audioRef: RefObject<HTMLAudioElement | null> | MutableRefObject<HTMLAudioElement | null>;
     audioContextRef?: MutableRefObject<AudioContext | null>;

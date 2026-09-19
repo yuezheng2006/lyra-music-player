@@ -13,9 +13,21 @@ import {
 import {
     normalizeInteractive3dVisualPreset,
 } from './mineradioVisualPresets';
+import { INTERACTIVE3D_VISUAL_PRESET_REGISTRY } from './webgl/presets';
 
 // src/components/visualizer/geometric/interactive3dSceneRegistry.ts
 // Registry mapping 3D scene effect components to settings keys and UI test ids.
+
+export type Interactive3dEffectImplementationKind =
+    | 'cover-atmosphere-runtime'
+    | 'r3f-runtime'
+    | 'dom-runtime'
+    | 'webgl-runtime'
+    | 'webgl-effect'
+    | 'overlay'
+    | 'canvas-dead';
+
+export { INTERACTIVE3D_VISUAL_PRESET_REGISTRY };
 
 export type Interactive3dSceneEffectId =
     | 'background-wash'
@@ -63,13 +75,14 @@ export interface Interactive3dSceneEffectDefinition {
     descriptionFallback: string;
     tuningKey: Interactive3dSceneBooleanKey;
     testId: string;
-    renderLayer: 'canvas' | 'dom';
+    renderLayer: 'canvas' | 'dom' | 'webgl' | 'overlay';
+    implementationKind: Interactive3dEffectImplementationKind;
 }
 
 export const INTERACTIVE3D_SCENE_EFFECTS: Interactive3dSceneEffectDefinition[] = [
     {
         id: 'background-wash',
-        componentName: 'BackgroundWashLayer',
+        componentName: 'BackgroundWashLayer (archived)',
         labelKey: 'options.interactive3dEffectBackgroundWash',
         labelFallback: '背景渐变',
         descriptionKey: 'options.interactive3dEffectBackgroundWashDesc',
@@ -77,10 +90,11 @@ export const INTERACTIVE3D_SCENE_EFFECTS: Interactive3dSceneEffectDefinition[] =
         tuningKey: 'enableBackgroundWash',
         testId: 'interactive3d-effect-background-wash',
         renderLayer: 'canvas',
+        implementationKind: 'canvas-dead',
     },
     {
         id: 'orbit-field',
-        componentName: 'OrbitFieldLayer',
+        componentName: 'OrbitFieldLayer (archived)',
         labelKey: 'options.interactive3dEffectOrbitField',
         labelFallback: '轨道粒子',
         descriptionKey: 'options.interactive3dEffectOrbitFieldDesc',
@@ -88,21 +102,23 @@ export const INTERACTIVE3D_SCENE_EFFECTS: Interactive3dSceneEffectDefinition[] =
         tuningKey: 'enableOrbitField',
         testId: 'interactive3d-effect-orbit-field',
         renderLayer: 'canvas',
+        implementationKind: 'canvas-dead',
     },
     {
         id: 'bass-ripple',
-        componentName: 'BassRippleLayer',
+        componentName: 'bassRippleWebGL',
         labelKey: 'options.interactive3dEffectBassRipples',
         labelFallback: '低频涟漪',
         descriptionKey: 'options.interactive3dEffectBassRipplesDesc',
         descriptionFallback: '低音驱动的环形扩散。',
         tuningKey: 'enableBassRipples',
         testId: 'interactive3d-effect-bass-ripples',
-        renderLayer: 'canvas',
+        renderLayer: 'webgl',
+        implementationKind: 'webgl-effect',
     },
     {
         id: 'beat-burst',
-        componentName: 'BeatBurstLayer',
+        componentName: 'BeatBurstLayer (archived)',
         labelKey: 'options.interactive3dEffectBeatBursts',
         labelFallback: '节拍粒子',
         descriptionKey: 'options.interactive3dEffectBeatBurstsDesc',
@@ -110,21 +126,23 @@ export const INTERACTIVE3D_SCENE_EFFECTS: Interactive3dSceneEffectDefinition[] =
         tuningKey: 'enableBeatBursts',
         testId: 'interactive3d-effect-beat-bursts',
         renderLayer: 'canvas',
+        implementationKind: 'canvas-dead',
     },
     {
         id: 'bloom-particles',
-        componentName: 'BloomParticleLayer',
+        componentName: 'bloomWebGL',
         labelKey: 'options.interactive3dEffectBloomParticles',
         labelFallback: 'Bloom 粒子',
         descriptionKey: 'options.interactive3dEffectBloomParticlesDesc',
         descriptionFallback: '柔光粒子层，增强封面丝绸感。',
         tuningKey: 'enableBloomParticles',
         testId: 'interactive3d-effect-bloom-particles',
-        renderLayer: 'canvas',
+        renderLayer: 'webgl',
+        implementationKind: 'webgl-effect',
     },
     {
         id: 'floating-particles',
-        componentName: 'FloatingParticleLayer',
+        componentName: 'FloatingParticleLayer (archived)',
         labelKey: 'options.interactive3dEffectFloatingParticles',
         labelFallback: '浮空粒子',
         descriptionKey: 'options.interactive3dEffectFloatingParticlesDesc',
@@ -132,21 +150,23 @@ export const INTERACTIVE3D_SCENE_EFFECTS: Interactive3dSceneEffectDefinition[] =
         tuningKey: 'enableFloatingParticles',
         testId: 'interactive3d-effect-floating-particles',
         renderLayer: 'canvas',
+        implementationKind: 'canvas-dead',
     },
     {
         id: 'cover-particles',
-        componentName: 'CoverParticleWebGLStage',
+        componentName: 'CoverAtmosphereStage',
         labelKey: 'options.interactive3dEffectCoverParticles',
-        labelFallback: '封面 WebGL 粒子',
+        labelFallback: '封面氛围',
         descriptionKey: 'options.interactive3dEffectCoverParticlesDesc',
-        descriptionFallback: '封面点云、滚筒、星球、星河和声场粒子，作为 3D 场景主背景。',
+        descriptionFallback: '彩色模糊专辑封面 + 主题晕染，轻能量呼吸，适合唱歌氛围。',
         tuningKey: 'enableCoverParticles',
         testId: 'interactive3d-effect-cover-particles',
-        renderLayer: 'canvas',
+        renderLayer: 'overlay',
+        implementationKind: 'cover-atmosphere-runtime',
     },
     {
         id: 'lyric-focus-aura',
-        componentName: 'LyricFocusAuraLayer',
+        componentName: 'LyricFocusAuraLayer (archived)',
         labelKey: 'options.interactive3dEffectLyricFocusAura',
         labelFallback: '歌词焦点光晕',
         descriptionKey: 'options.interactive3dEffectLyricFocusAuraDesc',
@@ -154,10 +174,11 @@ export const INTERACTIVE3D_SCENE_EFFECTS: Interactive3dSceneEffectDefinition[] =
         tuningKey: 'enableLyricFocusAura',
         testId: 'interactive3d-effect-lyric-focus-aura',
         renderLayer: 'canvas',
+        implementationKind: 'canvas-dead',
     },
     {
         id: 'dom-shapes',
-        componentName: 'GeometricShapeLayer',
+        componentName: 'GeometricShapeLayer (archived)',
         labelKey: 'options.interactive3dEffectDomShapes',
         labelFallback: '3D 几何体',
         descriptionKey: 'options.interactive3dEffectDomShapesDesc',
@@ -165,6 +186,7 @@ export const INTERACTIVE3D_SCENE_EFFECTS: Interactive3dSceneEffectDefinition[] =
         tuningKey: 'enableDomShapes',
         testId: 'interactive3d-effect-dom-shapes',
         renderLayer: 'dom',
+        implementationKind: 'canvas-dead',
     },
 ];
 

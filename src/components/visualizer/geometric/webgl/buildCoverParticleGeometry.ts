@@ -18,8 +18,8 @@ export const coverParticleGridForResolution = (resolution: number): number => {
 };
 
 /**
- * Quality grids — Electron auto-ceiling is `balanced`, so that tier must stay
- * cheap with frameSkip≥2 (159²@60fps pegged the GPU helper at 100%).
+ * Quality grids — Electron auto-ceiling is `lite`, so that tier must stay
+ * sparse (159²@60fps pegged the GPU helper at 100%).
  */
 export const coverParticleGridForQualityTier = (tier: GeometricQualityTier): number => {
     switch (tier) {
@@ -27,12 +27,13 @@ export const coverParticleGridForQualityTier = (tier: GeometricQualityTier): num
             // Mineradio max curve — Electron never auto-picks high.
             return coverParticleGridForResolution(1.55);
         case 'balanced':
-            // ~119²: readable cover without Retina Electron GPU thrash.
-            return coverParticleGridForResolution(1.0);
+            // ~101²: browser mid-tier; Electron is capped to lite.
+            return coverParticleGridForResolution(0.85);
         case 'lite':
-            return coverParticleGridForResolution(0.75);
+            // ~65²: Electron / reduced-motion floor.
+            return coverParticleGridForResolution(0.55);
         default:
-            return coverParticleGridForResolution(1.0);
+            return coverParticleGridForResolution(0.85);
     }
 };
 

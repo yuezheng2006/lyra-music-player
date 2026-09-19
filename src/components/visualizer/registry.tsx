@@ -1,5 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { type VisualizerMode } from '../../types';
+import {
+    BUILTIN_VISUALIZER_MODES,
+    DEFAULT_VISUALIZER_MODE,
+    isBuiltinVisualizerMode,
+} from '../../types/visualizerModes';
 import {
     type VisualizerEntryModule,
     type VisualizerRegistryEntry,
@@ -40,10 +45,19 @@ const resolveLoaderPath = (mode: VisualizerMode): string | null => {
 export const VISUALIZER_REGISTRY: VisualizerRegistryMeta[] = [...VISUALIZER_REGISTRY_META]
     .sort((left, right) => left.order - right.order || left.mode.localeCompare(right.mode));
 
-export const DEFAULT_VISUALIZER_MODE: VisualizerMode = 'classic';
+export { DEFAULT_VISUALIZER_MODE };
 
 export const hasVisualizerMode = (mode: string | null | undefined): mode is VisualizerMode =>
-    Boolean(mode && VISUALIZER_REGISTRY_BY_MODE[mode as VisualizerMode]);
+    isBuiltinVisualizerMode(mode);
+
+const registryModes = new Set(VISUALIZER_REGISTRY_META.map(entry => entry.mode));
+const missingFromRegistry = BUILTIN_VISUALIZER_MODES.filter(mode => !registryModes.has(mode));
+const extraInRegistry = VISUALIZER_REGISTRY_META.filter(entry => !isBuiltinVisualizerMode(entry.mode));
+if (missingFromRegistry.length > 0 || extraInRegistry.length > 0) {
+    throw new Error(
+        `[VisualizerRegistry] Builtin mode list drifted (missing=${missingFromRegistry.join(',') || 'none'} extra=${extraInRegistry.map(entry => entry.mode).join(',') || 'none'})`,
+    );
+}
 
 export const getVisualizerRegistryEntry = (mode: VisualizerMode): VisualizerRegistryMeta =>
     VISUALIZER_REGISTRY_BY_MODE[mode] ?? VISUALIZER_REGISTRY_BY_MODE[DEFAULT_VISUALIZER_MODE]!;
@@ -80,30 +94,48 @@ export async function loadVisualizerRegistryEntry(mode: VisualizerMode): Promise
     return promise;
 }
 
+/** Prefetch lyric-mode entry modules so mode switches do not flash a null slot. */
+export function prefetchVisualizerRegistryEntries(modes?: VisualizerMode[]): void {
+    const targets = modes?.length
+        ? modes
+        : VISUALIZER_REGISTRY.map(entry => entry.mode);
+    for (const mode of targets) {
+        void loadVisualizerRegistryEntry(mode).catch(error => {
+            console.error('[VisualizerRegistry] Prefetch failed', mode, error);
+        });
+    }
+}
+
 /** React helper that resolves a full visualizer entry once the lazy module is ready. */
 export function useVisualizerRegistryEntry(mode: VisualizerMode): VisualizerRegistryEntry | null {
-    const [entry, setEntry] = useState<VisualizerRegistryEntry | null>(
-        () => entryCache.get(hasVisualizerMode(mode) ? mode : DEFAULT_VISUALIZER_MODE) ?? null,
+    const resolvedMode = hasVisualizerMode(mode) ? mode : DEFAULT_VISUALIZER_MODE;
+    // Prefer sync cache hits so mode switches do not wait a paint on useEffect.
+    const cachedEntry = entryCache.get(resolvedMode) ?? null;
+    const [asyncEntry, setAsyncEntry] = useState<VisualizerRegistryEntry | null>(
+        () => cachedEntry,
     );
+    const retainedEntryRef = useRef<VisualizerRegistryEntry | null>(cachedEntry ?? asyncEntry);
 
     useEffect(() => {
         let cancelled = false;
-        const resolvedMode = hasVisualizerMode(mode) ? mode : DEFAULT_VISUALIZER_MODE;
-        const cached = entryCache.get(resolvedMode);
+        const nextMode = hasVisualizerMode(mode) ? mode : DEFAULT_VISUALIZER_MODE;
+        const cached = entryCache.get(nextMode);
         if (cached) {
-            setEntry(cached);
+            retainedEntryRef.current = cached;
+            setAsyncEntry(cached);
             return undefined;
         }
 
-        setEntry(null);
-        void loadVisualizerRegistryEntry(resolvedMode)
+        // Keep the previous lyric module mounted until the next entry resolves (no null flash).
+        void loadVisualizerRegistryEntry(nextMode)
             .then(next => {
                 if (!cancelled) {
-                    setEntry(next);
+                    retainedEntryRef.current = next;
+                    setAsyncEntry(next);
                 }
             })
             .catch(error => {
-                console.error('[VisualizerRegistry] Failed to load entry', resolvedMode, error);
+                console.error('[VisualizerRegistry] Failed to load entry', nextMode, error);
             });
 
         return () => {
@@ -111,7 +143,11 @@ export function useVisualizerRegistryEntry(mode: VisualizerMode): VisualizerRegi
         };
     }, [mode]);
 
-    return entry;
+    if (cachedEntry) {
+        retainedEntryRef.current = cachedEntry;
+        return cachedEntry;
+    }
+    return asyncEntry ?? retainedEntryRef.current;
 }
 
 export const getVisualizerModeLabel = (mode: VisualizerMode, t: (key: string) => string) => {

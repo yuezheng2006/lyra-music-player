@@ -1,5 +1,6 @@
 import type { LyricData } from '../../../types';
 import { LyricParserFactory } from '../LyricParserFactory';
+import { cleanArtistForLrclib, cleanTitleForLrclib } from '../cleanTitleForLrclib';
 
 // src/utils/lyrics/providers/lrclibLyricProvider.ts
 // Public LRCLib API for timed lyrics (good coverage for overseas catalog).
@@ -79,8 +80,8 @@ export async function fetchLrclibLyrics(params: {
     album?: string | null;
     durationMs?: number | null;
 }): Promise<{ lyrics: LyricData; instrumental?: boolean } | null> {
-    const title = params.title.trim();
-    const artist = params.artist.trim();
+    const artist = cleanArtistForLrclib(params.artist.trim());
+    const title = cleanTitleForLrclib(params.title.trim(), artist);
     if (!title || !artist) return null;
 
     const durationSec = params.durationMs != null && params.durationMs > 0

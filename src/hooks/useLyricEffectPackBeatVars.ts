@@ -12,6 +12,7 @@ import {
   resolveLyricEffectBeatModulation,
   writeLyricEffectBeatCssVars,
 } from '../utils/lyricEffectBeatModulation';
+import { useReducedMotionFor } from './useReducedMotionFor';
 
 // src/hooks/useLyricEffectPackBeatVars.ts
 // Drive pack CSS vars from atmosphere beat (RAF / refs only — no React setState per frame).
@@ -36,6 +37,8 @@ export function useLyricEffectPackBeatVars({
   beatPulse,
   isChorus = false,
 }: UseLyricEffectPackBeatVarsArgs): void {
+  const reducedMotion = useReducedMotionFor('transitionOverlay');
+
   useEffect(() => {
     const host = hostRef.current;
     if (!host || packId === 'none') {
@@ -43,8 +46,6 @@ export function useLyricEffectPackBeatVars({
       return undefined;
     }
 
-    const reducedMotion = typeof window !== 'undefined'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reducedMotion) {
       clearLyricEffectBeatCssVars(host);
       return undefined;
@@ -114,5 +115,5 @@ export function useLyricEffectPackBeatVars({
       if (pollTimer) window.clearInterval(pollTimer);
       clearLyricEffectBeatCssVars(host);
     };
-  }, [beatPulse, hostRef, intensity, isChorus, packId]);
+  }, [beatPulse, hostRef, intensity, isChorus, packId, reducedMotion]);
 }

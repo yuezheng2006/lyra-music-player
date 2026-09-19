@@ -177,7 +177,14 @@ export const useObsBrowserSourcePublisher = ({
         activePlaybackContext,
         stageSource,
         hasTrack: Boolean(currentSong || lyrics),
-        song: currentSong ? { id: currentSong.id, name: currentSong.name } : null,
+        song: currentSong
+            ? {
+                id: currentSong.id,
+                name: currentSong.name,
+                contentType: currentSong.contentType,
+                musicProvider: currentSong.musicProvider,
+            }
+            : null,
         songArtist: getSongArtist(currentSong),
         songAlbum: getSongAlbum(currentSong),
         coverUrl,

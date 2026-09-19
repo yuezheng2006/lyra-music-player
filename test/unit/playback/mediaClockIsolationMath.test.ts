@@ -3,6 +3,7 @@ import {
     GPU_RECOVERY_MAY_TOUCH_PLAYBACK,
     resolveMediaClocksFromAudioElement,
     resolveProgressFillPercent,
+    resolveProgressFillPercentForUi,
 } from '@/utils/playback/mediaClockIsolationMath';
 
 // Guarantees dock/lyric clocks stay independent of visualizer RAF / WebGL.
@@ -24,6 +25,11 @@ describe('mediaClockIsolationMath', () => {
         expect(resolveProgressFillPercent(62, 222)).toBeCloseTo(27.927, 2);
         expect(resolveProgressFillPercent(0, 222)).toBe(0);
         expect(resolveProgressFillPercent(300, 222)).toBe(100);
+    });
+
+    it('freezes progress fill at 0% while the next audio source is loading', () => {
+        expect(resolveProgressFillPercentForUi(62, 222, true)).toBe(0);
+        expect(resolveProgressFillPercentForUi(62, 222, false)).toBeCloseTo(27.927, 2);
     });
 
     it('forbids GPU recovery from mutating playback', () => {

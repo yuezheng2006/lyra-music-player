@@ -71,8 +71,11 @@ export const useNeteaseQrLogin = (onSuccess: () => void) => {
                     }
                 } catch (error) {
                     console.error(error);
+                    if (typeof document !== 'undefined' && document.hidden) {
+                        return;
+                    }
                     pollFailures += 1;
-                    if (pollFailures >= 3) {
+                    if (pollFailures >= 8) {
                         setStatus(t('home.loginError'));
                         if (qrCheckInterval.current) clearInterval(qrCheckInterval.current);
                     }
@@ -82,6 +85,16 @@ export const useNeteaseQrLogin = (onSuccess: () => void) => {
             setStatus(t('home.loginError'));
         }
     }, [cancel, onSuccess, t]);
+
+    useEffect(() => {
+        const onVisible = () => {
+            if (typeof document !== 'undefined' && !document.hidden && active && qrCodeImg) {
+                setStatus(t('home.scanQr'));
+            }
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, [active, qrCodeImg, t]);
 
     useEffect(() => () => {
         if (qrCheckInterval.current) clearInterval(qrCheckInterval.current);

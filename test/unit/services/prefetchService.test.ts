@@ -28,6 +28,7 @@ vi.mock('@/utils/lyrics/neteaseProcessing', () => ({
         mainLrc: null,
         yrcLrc: null,
         transLrc: null,
+        romaLrc: null,
         isPureMusic: true,
         lyrics: null,
         chorusRanges: [],

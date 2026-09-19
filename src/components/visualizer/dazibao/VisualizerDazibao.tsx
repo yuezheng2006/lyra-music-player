@@ -13,9 +13,9 @@ import { resolveLyricEffectPack } from '../../../utils/lyricEffectPacks';
 import { resolveWaitingWordPresentation } from '../../../utils/lyrics/lyricWordMode';
 import { resolveLyricPhrasePresentation } from '../../../utils/lyrics/lyricPhrasePresentationMath';
 import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+import { resolveLyricAlternateText, resolveSubtitleContentMode } from '../../../utils/lyrics/alternateText';
 import { type VisualizerSharedProps } from '../definition';
 import { useVisualizerRuntime } from '../runtime';
-import VisualizerShell from '../VisualizerShell';
 import {
     resolveLyricContainerFit,
     resolveLyricLineFitScale,
@@ -46,6 +46,7 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
         immersiveLyrics = false,
         hideTranslationSubtitle = false,
         showSubtitleTranslation = true,
+        subtitleContentMode,
         beatPulse,
     } = props;
     const { t } = useTranslation();
@@ -161,19 +162,16 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
     }, [displayWords, fontPreset.fontWeight, fontStack, letterSpacingPx, lyricFit.fontPx, lyricFit.usableWidth, wordGapEm]);
 
     const translationFontPx = Math.max(16, lyricFit.fontPx * 0.28);
-    const showTranslation = Boolean(
-        showSubtitleTranslation
-        && !hideTranslationSubtitle
-        && activeLine?.translation?.trim(),
-    );
+    const subtitleText = hideTranslationSubtitle
+        ? null
+        : resolveLyricAlternateText(
+            activeLine,
+            resolveSubtitleContentMode(subtitleContentMode, showSubtitleTranslation),
+        );
+    const showTranslation = Boolean(subtitleText);
 
     return (
-        <VisualizerShell
-            theme={theme}
-            audioPower={audioPower}
-            audioBands={audioBands}
-            sharedProps={props}
-        >
+        <>
             <div
                 ref={stageRef}
                 className="pointer-events-none absolute inset-0 z-10 flex h-full w-full items-center justify-center overflow-hidden"
@@ -254,7 +252,7 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
                                                 textShadow: `0 8px 24px ${colorWithAlpha('#000000', 0.55)}`,
                                             }}
                                         >
-                                            {activeLine.translation}
+                                            {subtitleText}
                                         </motion.div>
                                     ) : null}
                                 </motion.div>
@@ -278,7 +276,7 @@ const VisualizerDazibao: React.FC<VisualizerDazibaoProps> = (props) => {
                     </div>
                 ) : null}
             </div>
-        </VisualizerShell>
+        </>
     );
 };
 

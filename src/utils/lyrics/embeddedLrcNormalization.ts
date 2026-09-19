@@ -3,6 +3,7 @@ import { splitCombinedTimeline } from './timelineSplitter';
 export interface EmbeddedLrcNormalizationResult {
     mainText: string;
     translationText: string;
+    romanizationText?: string;
 }
 
 export interface EmbeddedUsltLikeTag {
@@ -45,17 +46,14 @@ export function normalizeEmbeddedLrcText(
         return { mainText: '', translationText: '' };
     }
 
-    if (translationContent) {
-        return {
-            mainText: textContent,
-            translationText: translationContent
-        };
-    }
-
-    const { main, trans } = splitCombinedTimeline(textContent);
+    // Body may already be a combined main/translation timeline; always split first.
+    // Prefer a separately timed translation track; fall back to split or plain text tags.
+    const { main, trans, romanization } = splitCombinedTimeline(textContent);
+    const hasTranslationTimestamp = /(?:\[\d+(?::\d+){0,2}[.:]\d+\]|<\d{2}:\d{2}[.:]\d{2,3}>)/.test(translationContent || '');
     return {
         mainText: main,
-        translationText: trans
+        translationText: hasTranslationTimestamp ? translationContent! : trans || translationContent || '',
+        romanizationText: romanization,
     };
 }
 
@@ -72,16 +70,13 @@ export function normalizeEmbeddedUsltTags(
 
     const translationTag = usltTags.find(tag => isTranslationUsltTag(tag));
     if (translationTag) {
-        return {
-            mainText: usltTags.find(tag => tag !== translationTag)?.text || '',
-            translationText: translationTag.text
-        };
+        return normalizeEmbeddedLrcText(
+            usltTags.find(tag => tag !== translationTag)?.text,
+            translationTag.text
+        );
     }
 
-    return {
-        mainText: usltTags[0].text,
-        translationText: usltTags[1].text
-    };
+    return normalizeEmbeddedLrcText(usltTags[0].text, usltTags[1].text);
 }
 
 export function normalizeEmbeddedStructuredLyrics(
@@ -107,6 +102,7 @@ export function normalizeEmbeddedStructuredLyrics(
 
     const mainLines: string[] = [];
     const translationLines: string[] = [];
+    const romanizationLines: string[] = [];
 
     [...groups.entries()]
         .sort((a, b) => a[0] - b[0])
@@ -118,10 +114,14 @@ export function normalizeEmbeddedStructuredLyrics(
             if (values[1]) {
                 translationLines.push(`${prefix}${values[1]}`);
             }
+            if (values[2]) {
+                romanizationLines.push(`${prefix}${values[2]}`);
+            }
         });
 
     return {
         mainText: mainLines.join('\n'),
-        translationText: translationLines.join('\n')
+        translationText: translationLines.join('\n'),
+        romanizationText: romanizationLines.join('\n'),
     };
 }

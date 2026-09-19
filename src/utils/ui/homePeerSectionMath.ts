@@ -1,5 +1,5 @@
 // src/utils/ui/homePeerSectionMath.ts
-// Peer default cards only exist for filter-enabled sources — demote them to shortcuts.
+// Guest discovery is the listening desk. Peer chip rows must not occupy the fold.
 
 /**
  * Peer defaults are injected only for providers already on in「来源」.
@@ -8,11 +8,10 @@
 export const shouldShowHomePeerLegalNotice = (_specialItemCount: number): boolean => false;
 
 /**
- * Peer shortcuts open the same channels as「来源」pills.
- * Keep them only when the fold has no personal playlists / liked rows yet,
- * so logged-in homes are not a second discovery wall.
+ * Per-source shortcut shelves were a directory, not a workbench.
+ * The cover mosaic + personal-library invite replace them.
  */
-export const shouldShowHomePeerShortcuts = (
-    specialItemCount: number,
-    personalItemCount = 0,
-): boolean => specialItemCount > 0 && personalItemCount <= 0;
+export const shouldShowHomePeerLibrary = (
+    _specialItemCount: number,
+    _personalItemCount = 0,
+): boolean => false;

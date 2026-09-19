@@ -78,6 +78,15 @@ describe('lyrics architecture', () => {
         expect(offenders).toEqual([]);
     });
 
+    it('routes factory and format dispatch through pluggable registries', async () => {
+        const factory = await readRepoFile('src/utils/lyrics/LyricParserFactory.ts');
+        const parseFormat = await readRepoFile('src/utils/lyrics/parseLyricFormat.ts');
+        expect(factory).toContain('parseLyricSource');
+        expect(factory).not.toContain('new EmbeddedLyricAdapter');
+        expect(parseFormat).toContain('registerLyricFormatParser');
+        expect(parseFormat).toContain('attachAlignedAlternateTrack');
+    });
+
     it('keeps worker and compatibility wrappers wired to parserCore', async () => {
         const workerContent = await readRepoFile('src/workers/lyricsParser.worker.ts');
         const lrcWrapperContent = await readRepoFile('src/utils/lrcParser.ts');

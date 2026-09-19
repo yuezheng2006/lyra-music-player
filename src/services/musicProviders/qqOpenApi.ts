@@ -79,12 +79,22 @@ const fetchQQOpenPayload = async <T>(params: Record<string, string>): Promise<T>
         ? requestUrl.toString()
         : `/api/lyric-proxy?url=${encodeURIComponent(requestUrl.toString())}`;
 
-    const response = await fetch(url, { credentials: 'omit' });
-    if (!response.ok) {
-        throw new Error(`QQ open API failed: ${response.status}`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    try {
+        const response = await fetch(url, { credentials: 'omit', signal: controller.signal });
+        if (!response.ok) {
+            throw new Error(`QQ open API failed: ${response.status}`);
+        }
+        return await response.json() as Promise<T>;
+    } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+            throw new Error('QQ open API timed out after 2500ms');
+        }
+        throw error;
+    } finally {
+        clearTimeout(timer);
     }
-
-    return response.json() as Promise<T>;
 };
 
 const normalizeQQOpenSearchList = (payload: unknown): QQOpenSearchItem[] => {

@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Theme } from '../../../types';
+import { useSettingsUiStore } from '../../../stores/useSettingsUiStore';
+import DesktopLyricsPlacementSettings from './DesktopLyricsPlacementSettings';
 import SettingsAdvancedSection from './SettingsAdvancedSection';
 import {
     settingsDescClass,
@@ -123,6 +125,8 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
         onToggleDesktopLyrics,
         onToggleDesktopLyricsLock,
     } = preferences;
+    const desktopLyricsYFactor = useSettingsUiStore(state => state.desktopLyricsYFactor);
+    const handleSetDesktopLyricsYFactor = useSettingsUiStore(state => state.handleSetDesktopLyricsYFactor);
     const {
         canDownloadUpdate,
         canEnableAutoUpdate,
@@ -223,6 +227,10 @@ const DesktopSettingsSubview: React.FC<DesktopSettingsSubviewProps> = ({
                         </div>
                         {renderToggle(desktopLyricsEnabled, () => { void onToggleDesktopLyrics(); })}
                     </div>
+                    <DesktopLyricsPlacementSettings
+                        yFactor={desktopLyricsYFactor}
+                        onChange={handleSetDesktopLyricsYFactor}
+                    />
                 </div>
             </section>
 

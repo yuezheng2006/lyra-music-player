@@ -53,6 +53,11 @@ Single-context repo with CONTEXT.md at root and docs/adr/ for ADRs. See `docs/ag
   路径：`skills/settings-feature-integration/SKILL.md`
   用于新增或调整设置项时判断接入位置：视觉相关设置必须进入视觉配置导入导出，功能性设置和可执行动作必须注册到 command palette。
 
+全局硬规则：
+
+- **单文件 ≤ 800 行**（详见 `skills/file-modularization/SKILL.md`）。超限必须先拆再改。
+- **能用成熟开源就绝不自己实现**；仅当开源方案不满足需求时才自研（详见 `skills/reuse-project-utilities/SKILL.md` 的 Open Source First）。顺序：仓库内复用 → 已有依赖 → 成熟开源库 → 才自研。
+
 全局沟通规则：
 
 - 不需要使用skills的时候，不要读取它们。

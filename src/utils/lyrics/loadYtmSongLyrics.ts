@@ -1,5 +1,5 @@
 import type { LyricData, LyricProviderSource } from '../../types';
-import { autoMatchBestLyric } from './autoMatchBestLyric';
+import { resolveBestLyric } from './resolveBestLyric';
 import { fetchLrclibLyrics } from './providers/lrclibLyricProvider';
 
 // src/utils/lyrics/loadYtmSongLyrics.ts
@@ -40,7 +40,7 @@ export async function loadYtmSongLyrics(params: {
 
     const durationMs = params.durationMs != null && params.durationMs > 0 ? params.durationMs : 0;
     try {
-        const matched = await autoMatchBestLyric(
+        const matched = await resolveBestLyric(
             params.title,
             params.artist,
             durationMs,

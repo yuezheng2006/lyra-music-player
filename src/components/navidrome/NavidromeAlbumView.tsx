@@ -8,6 +8,7 @@ import { Theme } from '../../types';
 import PlaylistSelectionDialog from '../shared/PlaylistSelectionDialog';
 import TextInputDialog from '../shared/TextInputDialog';
 import LazyCoverImage from '../shared/LazyCoverImage';
+import { APP_OVERLAY_MOBILE_PLAYER_CLEARANCE_CLASS } from '../app/home/homeSurfaceStyles';
 
 interface NavidromeAlbumViewProps {
     album: SubsonicAlbum;
@@ -210,7 +211,7 @@ const NavidromeAlbumView: React.FC<NavidromeAlbumViewProps> = ({
 
                 {/* Right Panel: Tracks */}
                 <div className="flex-1 md:h-full md:overflow-y-auto custom-scrollbar">
-                    <div className="p-4 md:p-8 pb-32 md:pb-8">
+                    <div className={`p-4 md:p-8 ${APP_OVERLAY_MOBILE_PLAYER_CLEARANCE_CLASS}`}>
                         {/* Desktop Sticky Header */}
                         <div
                             className="hidden md:flex sticky top-0 bg-transparent backdrop-blur-md z-10 border-b border-white/5 pb-2 mb-2 text-xs font-medium uppercase tracking-wide opacity-30"

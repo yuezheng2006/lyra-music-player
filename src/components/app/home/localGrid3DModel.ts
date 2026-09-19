@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next';
 import { LocalLibraryGroup, LocalPlaylist, LocalSong } from '../../../types';
 import { isBlob } from '../../../utils/blobGuards';
 import { createLocalAllSongsCover } from '../../../utils/coverPlaceholders';
+import { sortLocalAlbumSongs } from '../../../utils/localSongSorting';
 
 // src/components/app/home/localGrid3DModel.ts
 // Builds local-library overview groups for the desktop Grid3D surface.
@@ -84,7 +85,7 @@ export const buildLocalGrid3DGroups = (
         return {
             type: 'album' as const,
             name: albumName,
-            songs,
+            songs: sortLocalAlbumSongs(songs),
             coverUrl: getLocalCoverUrl(songs),
             id: `album-${key}`,
             trackCount: songs.length,

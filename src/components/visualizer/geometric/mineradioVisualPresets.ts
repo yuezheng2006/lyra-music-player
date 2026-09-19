@@ -5,13 +5,11 @@ import {
 } from '../../../types';
 
 // src/components/visualizer/geometric/mineradioVisualPresets.ts
-// Interactive 3D visual preset bundles (cover bloom + Mineradio originals).
+// Interactive 3D visual preset bundles — single soft cover atmosphere entry.
 
+/** UI chips / settings deck: one Atmosphere entry (legacy ids normalize to emily). */
 export const INTERACTIVE3D_VISUAL_PRESET_OPTIONS: MineradioVisualPresetId[] = [
     'emily',
-    'mineradioTunnel',
-    'mineradioOrbit',
-    'mineradioGalaxy',
 ];
 
 /** @deprecated use INTERACTIVE3D_VISUAL_PRESET_OPTIONS */
@@ -31,21 +29,24 @@ const LEGACY_VISUAL_PRESET_MAP: Record<string, MineradioVisualPresetId> = {
     blackhole: 'emily',
     aurora: 'emily',
     mineradioVoid: 'emily',
-    nebula: 'mineradioGalaxy',
-    orbit: 'mineradioOrbit',
-    wallpaper: 'mineradioGalaxy',
+    nebula: 'emily',
+    orbit: 'emily',
+    mineradioOrbit: 'emily',
+    wallpaper: 'emily',
     requiem: 'emily',
     custom: 'emily',
+    mineradioTunnel: 'emily',
+    mineradioGalaxy: 'emily',
 };
 
-/** Maps stored or legacy preset ids to the shipped visual styles. */
+/** Maps stored or legacy preset ids to the shipped atmosphere style (emily). */
 export const normalizeInteractive3dVisualPreset = (value: unknown): MineradioVisualPresetId => {
-    if (INTERACTIVE3D_VISUAL_PRESET_OPTIONS.includes(value as MineradioVisualPresetId)) {
-        return value as MineradioVisualPresetId;
-    }
+    if (value === 'emily') return 'emily';
     if (typeof value === 'string' && value in LEGACY_VISUAL_PRESET_MAP) {
         return LEGACY_VISUAL_PRESET_MAP[value];
     }
+    // Former tunnel / galaxy music-particle ids collapse to atmosphere.
+    if (value === 'mineradioTunnel' || value === 'mineradioGalaxy') return 'emily';
     return DEFAULT_INTERACTIVE3D_SCENE_TUNING.visualPreset;
 };
 
@@ -149,15 +150,15 @@ export const INTERACTIVE3D_VISUAL_PRESET_BUNDLES: Record<
         enableFloatingParticles: false,
         enableCoverParticles: true,
     },
-    /** Mineradio 原版星球：球面封面采样和缓慢自转。 */
+    /** @deprecated 星球已下线，归一到封面点云。 */
     mineradioOrbit: {
-        visualPreset: 'mineradioOrbit',
-        rhythmIntensity: 0.98,
-        cinemaShake: 0.42,
-        bloomStrength: 0.92,
+        visualPreset: 'emily',
+        rhythmIntensity: 0.85,
+        cinemaShake: 0.5,
+        bloomStrength: 0.62,
         enableBackgroundWash: true,
-        enableOrbitField: false,
-        enableBassRipples: false,
+        enableOrbitField: true,
+        enableBassRipples: true,
         enableBeatBursts: true,
         enableLyricFocusAura: true,
         enableDomShapes: false,
@@ -240,16 +241,15 @@ export const getMineradioPresetLabelFallback = (preset: MineradioVisualPresetId)
         case 'mineradioVinyl':
         case 'aurora':
         case 'mineradioVoid':
-            return '封面';
-        case 'nebula':
-            return '星云';
-        case 'mineradioTunnel':
-            return '滚筒';
         case 'mineradioOrbit':
-            return '星球';
+            return '氛围';
+        case 'nebula':
+            return '氛围';
+        case 'mineradioTunnel':
+            return '氛围';
         case 'mineradioGalaxy':
-            return '星河';
+            return '氛围';
         default:
-            return '封面';
+            return '氛围';
     }
 };

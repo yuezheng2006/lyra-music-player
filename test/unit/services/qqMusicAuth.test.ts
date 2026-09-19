@@ -9,6 +9,7 @@ import {
     getStoredQQMusicCookie,
     normalizeQQMusicCookieInput,
     parseQQMusicUin,
+    resetQQMusicAuthCookieMemory,
     setStoredQQMusicCookie,
     syncQQMusicAuthFromElectron,
 } from '@/services/musicProviders/qqMusicAuth';
@@ -24,6 +25,7 @@ const createLocalStorageMock = () => {
 
 describe('qqMusicAuth', () => {
     afterEach(() => {
+        resetQQMusicAuthCookieMemory();
         vi.unstubAllGlobals();
     });
 
@@ -86,8 +88,9 @@ describe('qqMusicAuth', () => {
         });
     });
 
-    it('hydrates QQ Music auth from Electron login partition', async () => {
+    it('hydrates QQ Music auth from Electron login partition without writing plaintext cookies', async () => {
         const localStorage = createLocalStorageMock();
+        const saveQQMusicAuthSession = vi.fn(async () => ({ ok: true, encrypted: true }));
         vi.stubGlobal('localStorage', localStorage);
         vi.stubGlobal('window', {
             electron: {
@@ -96,6 +99,7 @@ describe('qqMusicAuth', () => {
                     cookie: 'uin=o123456789; qm_keyst=partition-key',
                     playbackReady: true,
                 })),
+                saveQQMusicAuthSession,
             },
         });
 
@@ -104,5 +108,48 @@ describe('qqMusicAuth', () => {
         expect(auth.isLoggedIn).toBe(true);
         expect(auth.playbackKeyReady).toBe(true);
         expect(getStoredQQMusicCookie()).toBe('uin=123456789; qm_keyst=partition-key');
+        expect(saveQQMusicAuthSession).toHaveBeenCalledWith('uin=123456789; qm_keyst=partition-key');
+        expect(localStorage.setItem).not.toHaveBeenCalledWith(
+            QQ_MUSIC_COOKIE_STORAGE_KEY,
+            expect.anything(),
+        );
+    });
+
+    it('does not write QQ cookies to localStorage when Electron persist is available', () => {
+        const localStorage = createLocalStorageMock();
+        const saveQQMusicAuthSession = vi.fn(async () => ({ ok: true, encrypted: true }));
+        vi.stubGlobal('localStorage', localStorage);
+        vi.stubGlobal('window', {
+            electron: { saveQQMusicAuthSession },
+        });
+
+        setStoredQQMusicCookie('uin=o123; qqmusic_key=abc');
+
+        expect(getStoredQQMusicCookie()).toBe('uin=123; qqmusic_key=abc');
+        expect(saveQQMusicAuthSession).toHaveBeenCalledWith('uin=123; qqmusic_key=abc');
+        expect(localStorage.setItem).not.toHaveBeenCalledWith(
+            QQ_MUSIC_COOKIE_STORAGE_KEY,
+            expect.anything(),
+        );
+    });
+
+    it('migrates leftover localStorage cookies into Electron safeStorage', async () => {
+        const localStorage = createLocalStorageMock();
+        localStorage.setItem(QQ_MUSIC_COOKIE_STORAGE_KEY, 'uin=123456789; qm_keyst=legacy');
+        const saveQQMusicAuthSession = vi.fn(async () => ({ ok: true, encrypted: true }));
+        vi.stubGlobal('localStorage', localStorage);
+        vi.stubGlobal('window', {
+            electron: {
+                getQQMusicLoginCookie: vi.fn(async () => ({ ok: false })),
+                saveQQMusicAuthSession,
+            },
+        });
+
+        const auth = await syncQQMusicAuthFromElectron();
+
+        expect(auth.isLoggedIn).toBe(true);
+        expect(getStoredQQMusicCookie()).toBe('uin=123456789; qm_keyst=legacy');
+        expect(saveQQMusicAuthSession).toHaveBeenCalledWith('uin=123456789; qm_keyst=legacy');
+        expect(localStorage.removeItem).toHaveBeenCalledWith(QQ_MUSIC_COOKIE_STORAGE_KEY);
     });
 });

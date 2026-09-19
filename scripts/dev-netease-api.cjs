@@ -1,5 +1,5 @@
-const { serveNcmApi } = require('@neteasecloudmusicapienhanced/api/server');
 const { initializeNcmApiRuntime } = require('./init-netease-api-runtime.cjs');
+const { serveNcmApi } = require('@neteasecloudmusicapienhanced/api/server');
 
 // scripts/dev-netease-api.cjs
 // Starts the embedded Netease Cloud Music API for local web development.

@@ -7,9 +7,16 @@ import type { StatusMessage } from '../types';
 
 type StatusSetter = Dispatch<SetStateAction<StatusMessage | null>>;
 
+const restartNeteaseApi = async (): Promise<ElectronNeteaseApiStatus | null> => {
+    const restart = window.electron?.restartNeteaseApi;
+    if (!restart) return null;
+    return restart();
+};
+
 // Watches the Electron NetEase API startup state and surfaces backend failures through the app toast.
 export function useElectronNeteaseApiStatus(setStatusMsg: StatusSetter, t: TFunction) {
     const lastReportedFailureAtRef = useRef<number | null>(null);
+    const restartingRef = useRef(false);
 
     useEffect(() => {
         const electronBridge = window.electron;
@@ -20,7 +27,18 @@ export function useElectronNeteaseApiStatus(setStatusMsg: StatusSetter, t: TFunc
         let disposed = false;
 
         const reportStatus = (status: ElectronNeteaseApiStatus) => {
-            if (disposed || status.status !== 'error') {
+            if (disposed) {
+                return;
+            }
+
+            if (status.status === 'running') {
+                if (lastReportedFailureAtRef.current !== null) {
+                    lastReportedFailureAtRef.current = null;
+                }
+                return;
+            }
+
+            if (status.status !== 'error') {
                 return;
             }
 
@@ -34,7 +52,39 @@ export function useElectronNeteaseApiStatus(setStatusMsg: StatusSetter, t: TFunc
                 type: 'error',
                 text: t('status.neteaseApiStartupFailed') || '网易云接口启动失败，部分在线功能不可用',
                 nonce: status.updatedAt,
-                durationMs: 8000,
+                durationMs: 12_000,
+                actionLabel: t('status.neteaseApiRestart') || '重启接口',
+                onAction: () => {
+                    if (restartingRef.current) return;
+                    restartingRef.current = true;
+                    setStatusMsg({
+                        type: 'info',
+                        text: t('status.neteaseApiRestarting') || '正在重启网易云接口…',
+                    });
+                    void restartNeteaseApi()
+                        .then((nextStatus) => {
+                            if (disposed) return;
+                            if (nextStatus?.status === 'running') {
+                                setStatusMsg({
+                                    type: 'success',
+                                    text: t('status.neteaseApiRestarted') || '网易云接口已恢复',
+                                });
+                                return;
+                            }
+                            lastReportedFailureAtRef.current = null;
+                            reportStatus(nextStatus ?? status);
+                        })
+                        .catch((error) => {
+                            console.warn('[Electron] Failed to restart Netease API', error);
+                            if (!disposed) {
+                                lastReportedFailureAtRef.current = null;
+                                reportStatus(status);
+                            }
+                        })
+                        .finally(() => {
+                            restartingRef.current = false;
+                        });
+                },
             });
         };
 

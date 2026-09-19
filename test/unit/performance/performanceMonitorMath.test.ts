@@ -7,6 +7,7 @@ import {
   resolveEffectivePerformanceTier,
   shouldHoldDegrade,
   shouldHoldUpgrade,
+  shouldRunPerformanceFpsSampler,
   stepTierDown,
   stepTierUp,
 } from '@/utils/performance/performanceMonitorMath';
@@ -35,6 +36,13 @@ describe('performanceMonitorMath', () => {
     expect(resolveEffectivePerformanceTier('auto', 'high', 'lite')).toBe('lite');
   });
 
+  it('runs FPS sampler only for HUD or auto tier mode', () => {
+    expect(shouldRunPerformanceFpsSampler({ showHud: false, mode: 'lite' })).toBe(false);
+    expect(shouldRunPerformanceFpsSampler({ showHud: false, mode: 'balanced' })).toBe(false);
+    expect(shouldRunPerformanceFpsSampler({ showHud: true, mode: 'lite' })).toBe(true);
+    expect(shouldRunPerformanceFpsSampler({ showHud: false, mode: 'auto' })).toBe(true);
+  });
+
   it('holds degrade/upgrade against thresholds', () => {
     expect(shouldHoldDegrade(20, 3, 2.5)).toBe(true);
     expect(shouldHoldDegrade(30, 3, 2.5)).toBe(false);
@@ -44,7 +52,8 @@ describe('performanceMonitorMath', () => {
 
   it('parses mode and memory pressure', () => {
     expect(parsePerformanceMode('lite')).toBe('lite');
-    expect(parsePerformanceMode('nope')).toBe('auto');
+    expect(parsePerformanceMode('nope')).toBe('lite');
+    expect(parsePerformanceMode('auto')).toBe('auto');
     expect(isMemoryPressureHigh({ usedMb: 900, limitMb: 1000 })).toBe(true);
     expect(isMemoryPressureHigh({ usedMb: 100, limitMb: 1000 })).toBe(false);
   });

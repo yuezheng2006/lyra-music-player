@@ -7,8 +7,10 @@ import { saveToCache, getFromCache, removeFromCache } from '../services/db';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { formatSongName } from '../utils/songNameFormatter';
-import { APP_CONTENT_TOP_OFFSET_CLASS } from './app/home/homeSurfaceStyles';
+import { APP_CONTENT_TOP_OFFSET_CLASS, APP_OVERLAY_MOBILE_PLAYER_CLEARANCE_CLASS } from './app/home/homeSurfaceStyles';
 import LazyCoverImage from './shared/LazyCoverImage';
+import RemoteLoadState from './shared/RemoteLoadState';
+import { resolveQQPlaylistLoadErrorLabel } from '../utils/account/qqPlaylistLoadErrorMessage';
 
 interface PlaylistViewProps {
   playlist: NeteasePlaylist;
@@ -36,6 +38,7 @@ const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBack, onPlaySon
   const { t } = useTranslation();
   const [tracks, setTracks] = useState<SongResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -74,6 +77,7 @@ const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBack, onPlaySon
   const loadQQTracks = async (reset: boolean) => {
     if (!reset || !playlist.providerPlaylistId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const responseTracks = await fetchQQPlaylistTracks(playlist.providerPlaylistId);
       setTracks(responseTracks);
@@ -85,6 +89,7 @@ const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBack, onPlaySon
       console.error('[Playlist] Failed to load QQ playlist tracks', error);
       setTracks([]);
       setHasMore(false);
+      setLoadError(resolveQQPlaylistLoadErrorLabel(error, t));
     } finally {
       setLoading(false);
     }
@@ -418,13 +423,23 @@ const PlaylistView: React.FC<PlaylistViewProps> = ({ playlist, onBack, onPlaySon
           className="flex-1 md:h-full md:overflow-y-auto custom-scrollbar"
           onScroll={(e) => { if (window.innerWidth >= 768) handleScroll(e); }}
         >
-          <div className="p-4 md:p-8 pb-32 md:pb-8">
+          <div className={`p-4 md:p-8 ${APP_OVERLAY_MOBILE_PLAYER_CLEARANCE_CLASS}`}>
             {/* Desktop Sticky Header */}
             <div className="hidden md:flex sticky top-0 bg-transparent backdrop-blur-md z-10 border-b border-white/5 pb-2 mb-2 text-xs font-medium uppercase tracking-wide opacity-30" style={{ color: 'var(--text-secondary)' }}>
               <div className="w-10 text-center">#</div>
               <div className="flex-1 pl-4">{t('playlist.headerTitle')}</div>
               <div className="w-16 text-right">{t('playlist.headerTime')}</div>
             </div>
+
+            {loadError && tracks.length === 0 && !loading ? (
+              <RemoteLoadState
+                status="error"
+                isDaylight={isDaylight}
+                errorLabel={loadError}
+                onRetry={() => void loadTracks(true)}
+                className="min-h-[220px]"
+              />
+            ) : null}
 
             {tracks.map((track, idx) => {
               const isUnavailable = isSongMarkedUnavailable(track);

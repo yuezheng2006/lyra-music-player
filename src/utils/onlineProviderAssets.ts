@@ -1,7 +1,7 @@
 import type { OnlineMusicProviderId } from '../types';
-import neteaseIconUrl from '../assets/providers/netease-icon.png';
-import qqIconUrl from '../assets/providers/qq-icon.png';
-import qishuiIconUrl from '../assets/providers/qishui-icon.png';
+import neteaseIconUrl from '../assets/providers/netease-icon.png?inline';
+import qqIconUrl from '../assets/providers/qq-icon.svg';
+import qishuiIconUrl from '../assets/providers/qishui-icon.png?inline';
 import cocoIconUrl from '../assets/providers/coco-icon.svg';
 import kugouIconUrl from '../assets/providers/kugou-icon.svg';
 import bilibiliIconUrl from '../assets/providers/bilibili-icon.svg';

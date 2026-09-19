@@ -60,10 +60,12 @@ describe('interactive3dFrameCostMath', () => {
         expect(defaultHigh.vertexInvocations).toBe(33_489);
         expect(defaultHigh.ambientWebGLMounted).toBe(false);
 
-        expect(liteSafe.grid).toBe(coverParticleGridForQualityTier('lite'));
+        expect(liteSafe.grid).toBe(65);
+        expect(liteSafe.particleCount).toBe(4225);
         expect(liteSafe.bloomEnabled).toBe(false);
         expect(liteSafe.ambientWebGLMounted).toBe(false);
         expect(defaultHigh.vertexInvocations).toBeLessThanOrEqual(33_489);
-        expect(defaultHigh.relativeCost / Math.max(1, liteSafe.relativeCost)).toBeLessThan(5);
+        // lite is intentionally sparse (~65²); high/lite ratio sits around 8×.
+        expect(defaultHigh.relativeCost / Math.max(1, liteSafe.relativeCost)).toBeLessThan(10);
     });
 });

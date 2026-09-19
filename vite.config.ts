@@ -6,6 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import { isAllowedLyricProxyHost, isAmllDbHost } from './shared/lyricProxyHosts.mjs';
+import { isAllowedPodcastProxyUrl, PODCAST_PROXY_MAX_BYTES } from './shared/podcastProxyHosts.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -88,7 +89,9 @@ function devLyricProxyPlugin() {
     configureServer(server: ViteDevServer) {
       server.middlewares.use(async (req, res, next) => {
         const requestUrl = new URL(req.url ?? '/', 'http://localhost');
-        if (requestUrl.pathname !== '/api/lyric-proxy') {
+        const isLyricProxy = requestUrl.pathname === '/api/lyric-proxy';
+        const isPodcastProxy = requestUrl.pathname === '/api/podcast-proxy';
+        if (!isLyricProxy && !isPodcastProxy) {
           next();
           return;
         }
@@ -100,6 +103,11 @@ function devLyricProxyPlugin() {
           return;
         }
 
+        if (isPodcastProxy && req.method !== 'GET' && req.method !== 'HEAD') {
+          sendLyricProxyJson(res, 405, { error: 'Method not allowed' });
+          return;
+        }
+
         const targetUrlStr = requestUrl.searchParams.get('url');
         if (!targetUrlStr) {
           sendLyricProxyJson(res, 400, { error: 'Missing url parameter' });
@@ -108,7 +116,7 @@ function devLyricProxyPlugin() {
 
         try {
           const targetUrl = new URL(targetUrlStr);
-          if (!isAllowedLyricProxyHost(targetUrl.hostname)) {
+          if (isPodcastProxy ? !isAllowedPodcastProxyUrl(targetUrlStr) : !isAllowedLyricProxyHost(targetUrl.hostname)) {
             sendLyricProxyJson(res, 403, { error: 'Forbidden: Domain not allowed' });
             return;
           }
@@ -120,6 +128,10 @@ function devLyricProxyPlugin() {
             }
           }
           applyLyricProxyHeaderOverrides(headers, req.headers as Record<string, string | string[] | undefined>);
+          if (isPodcastProxy) {
+            headers.set('User-Agent', 'LyraPodcastCatalog/1.0');
+            headers.set('Accept', 'application/json, application/rss+xml, application/xml, text/xml, */*;q=0.8');
+          }
 
           const hasBody = ['POST', 'PUT', 'PATCH'].includes(req.method ?? '');
           const requestBody = hasBody ? await readDevRequestBody(req) : undefined;
@@ -144,6 +156,10 @@ function devLyricProxyPlugin() {
           }
 
           const buffer = Buffer.from(await response.arrayBuffer());
+          if (isPodcastProxy && buffer.length > PODCAST_PROXY_MAX_BYTES) {
+            sendLyricProxyJson(res, 413, { error: 'Podcast catalog response exceeded size limit' });
+            return;
+          }
           res.end(buffer);
         } catch (error) {
           console.error('Vite lyric proxy request failed:', error);

@@ -3,10 +3,16 @@ import type { OnlineMusicProviderId } from '../types';
 // src/utils/dailyRecommendQueries.ts
 // Day-seeded keyword picks used when a provider has no personalized daily API.
 
-const QUERIES: Record<'qq' | 'qishui' | 'coco', readonly string[]> = {
-    qq: ['晴天', '起风了', '海阔天空', '夜曲', '告白气球', '消愁', '演员', '稻香'],
+const SONG_QUERIES = [
+    '晴天', '起风了', '海阔天空', '夜曲', '告白气球', '消愁', '演员', '稻香',
+] as const;
+
+const QUERIES: Record<'qq' | 'qishui' | 'coco' | 'kugou' | 'kuwo', readonly string[]> = {
+    qq: SONG_QUERIES,
     qishui: ['消愁', '光年之外', '孤勇者', '错位时空', '演员', '起风了', '晴天'],
     coco: ['晴天', '起风了', '海阔天空', '夜曲', '告白气球', '稻香', '演员'],
+    kugou: SONG_QUERIES,
+    kuwo: SONG_QUERIES,
 };
 
 const daySeed = (offset = 0) => {
@@ -30,5 +36,14 @@ export const pickDailyRecommendQuery = (
         const list = QUERIES.coco;
         return list[daySeed(3) % list.length];
     }
-    return '流行';
+    if (provider === 'kugou') {
+        const list = QUERIES.kugou;
+        return list[daySeed(1) % list.length];
+    }
+    if (provider === 'kuwo') {
+        const list = QUERIES.kuwo;
+        return list[daySeed(2) % list.length];
+    }
+    const list = SONG_QUERIES;
+    return list[daySeed() % list.length];
 };

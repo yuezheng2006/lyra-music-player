@@ -56,6 +56,15 @@ export const resolveHomeContentBottomPaddingClass = (hasFloatingPlayer: boolean)
 export const APP_CONTENT_BOTTOM_PADDING_CLASS = resolveHomeContentBottomPaddingClass(true);
 
 /**
+ * Full-bleed overlay track lists on mobile sit under the floating player;
+ * desktop md: dialogs are already above the dock, so keep the compact inset.
+ */
+export const APP_OVERLAY_MOBILE_PLAYER_CLEARANCE_CLASS = 'pb-[calc(var(--app-player-bar-height,90px)+20px)] md:pb-8';
+
+/** Same as overlay clearance, but the desktop pane already has its own padding. */
+export const APP_OVERLAY_MOBILE_SCROLL_CLEARANCE_CLASS = 'pb-[calc(var(--app-player-bar-height,90px)+20px)] md:pb-0';
+
+/**
  * Shared interactive list-row chrome for home/browse song lists:
  * pointer cursor + visible hover/active highlight (daylight + dark).
  */

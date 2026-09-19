@@ -6,6 +6,7 @@ interface UseAppAudioOutputParams {
     audioRef: RefObject<HTMLAudioElement | null>;
     audioContextRef: RefObject<AudioContext | null>;
     gainNodeRef: RefObject<GainNode | null>;
+    sourceRef?: RefObject<MediaElementAudioSourceNode | null>;
     replayGainLinearRef: RefObject<number>;
     volumePreviewFrameRef: RefObject<number | null>;
     pendingVolumePreviewRef: RefObject<number | null>;
@@ -22,6 +23,7 @@ export function useAppAudioOutput({
     audioRef,
     audioContextRef,
     gainNodeRef,
+    sourceRef,
     replayGainLinearRef,
     volumePreviewFrameRef,
     pendingVolumePreviewRef,
@@ -34,10 +36,13 @@ export function useAppAudioOutput({
 }: UseAppAudioOutputParams) {
     const syncOutputGain = useCallback((targetVolume: number, smoothing = 0.015) => {
         const clampedVolume = clampMediaVolume(targetVolume);
+        const audioContext = audioContextRef.current;
+        const gainNode = gainNodeRef.current;
+        const usesMediaGraph = Boolean(sourceRef?.current && gainNode && audioContext);
 
-        if (gainNodeRef.current && audioContextRef.current) {
-            const now = audioContextRef.current.currentTime;
-            const param = gainNodeRef.current.gain;
+        if (usesMediaGraph && audioContext && gainNode) {
+            const now = audioContext.currentTime;
+            const param = gainNode.gain;
             const nextGain = replayGainLinearRef.current * clampedVolume;
             // Cancel in-flight play/pause linear ramps before applying UI volume.
             param.cancelScheduledValues(now);
@@ -59,16 +64,19 @@ export function useAppAudioOutput({
             audioRef.current.volume = clampedVolume;
             audioRef.current.muted = isMuted;
         }
-    }, [audioContextRef, audioRef, gainNodeRef, isMuted, replayGainLinearRef]);
+    }, [audioContextRef, audioRef, gainNodeRef, isMuted, replayGainLinearRef, sourceRef]);
 
     /** Linear gain ramp for short play/pause fades; still multiplies ReplayGain. */
     const rampOutputGain = useCallback((targetVolume: number, durationMs: number) => {
         const clampedVolume = clampMediaVolume(targetVolume);
         const nextGain = replayGainLinearRef.current * clampedVolume;
+        const audioContext = audioContextRef.current;
+        const gainNode = gainNodeRef.current;
+        const usesMediaGraph = Boolean(sourceRef?.current && gainNode && audioContext);
 
-        if (gainNodeRef.current && audioContextRef.current) {
-            const now = audioContextRef.current.currentTime;
-            const param = gainNodeRef.current.gain;
+        if (usesMediaGraph && audioContext && gainNode) {
+            const now = audioContext.currentTime;
+            const param = gainNode.gain;
             const durationSec = Math.max(0, durationMs) / 1000;
             try {
                 param.cancelScheduledValues(now);
@@ -90,7 +98,7 @@ export function useAppAudioOutput({
         }
 
         syncOutputGain(clampedVolume, durationMs > 0 ? 0.015 : 0);
-    }, [audioContextRef, audioRef, gainNodeRef, replayGainLinearRef, syncOutputGain]);
+    }, [audioContextRef, audioRef, gainNodeRef, replayGainLinearRef, sourceRef, syncOutputGain]);
 
     const applyAudioOutputDevice = useCallback(async (
         targetDeviceId: string,

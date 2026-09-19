@@ -16,6 +16,7 @@ import {
     resolveNowPlayingAnchorTime,
     shouldApplyNowPlayingProgressCorrection,
 } from '../utils/nowPlayingClock';
+import { shouldQueryNowPlayingRestProgress } from '../utils/nowPlaying/nowPlayingRestProgressMath';
 import { buildNowPlayingLyricSource } from '../utils/lyrics/nowPlayingSource';
 import {
     LyricData,
@@ -176,6 +177,7 @@ export function useStagePlaybackController({
     const nowPlayingLyricPayloadRef = useRef<NowPlayingLyricPayload | null>(null);
     const nowPlayingProgressMsRef = useRef(0);
     const nowPlayingProgressQualityRef = useRef<'precise' | 'coarse'>('coarse');
+    const lastWsPreciseProgressAtMsRef = useRef(0);
     const nowPlayingPausedRef = useRef(nowPlayingPaused);
     const applyNowPlayingPreciseAnchorRef = useRef<((
         progressMs: number,
@@ -1040,6 +1042,7 @@ export function useStagePlaybackController({
             nowPlayingTrackRef.current = null;
             nowPlayingLyricPayloadRef.current = null;
             nowPlayingPausedRef.current = true;
+            lastWsPreciseProgressAtMsRef.current = 0;
             setNowPlayingConnectionStatus('disabled');
             setNowPlayingTrack(null);
             setNowPlayingLyricPayload(null);
@@ -1084,6 +1087,9 @@ export function useStagePlaybackController({
             onProgress: ({ progressMs, quality }) => {
                 nowPlayingProgressMsRef.current = progressMs;
                 nowPlayingProgressQualityRef.current = quality;
+                if (quality === 'precise') {
+                    lastWsPreciseProgressAtMsRef.current = Date.now();
+                }
 
                 if (quality === 'precise' && stageSource === 'now-playing') {
                     void applyNowPlayingPreciseAnchorRef.current?.(progressMs, nowPlayingPausedRef.current, {
@@ -1253,6 +1259,14 @@ export function useStagePlaybackController({
             return;
         }
 
+        if (!shouldQueryNowPlayingRestProgress({
+            lastPreciseWsAtMs: lastWsPreciseProgressAtMsRef.current,
+            nowMs: Date.now(),
+            reason: nowPlayingPaused ? 'pause-boundary' : 'resume-boundary',
+        })) {
+            return;
+        }
+
         void queryNowPlayingPreciseProgress(nowPlayingPaused, {
             source: nowPlayingPaused ? 'pause-boundary' : 'resume-boundary',
         });
@@ -1270,6 +1284,13 @@ export function useStagePlaybackController({
         }
 
         const intervalId = window.setInterval(() => {
+            if (!shouldQueryNowPlayingRestProgress({
+                lastPreciseWsAtMs: lastWsPreciseProgressAtMsRef.current,
+                nowMs: Date.now(),
+                reason: 'poll',
+            })) {
+                return;
+            }
             void queryNowPlayingPreciseProgress(false, { onlyIfDrifted: true, source: 'poll' });
         }, NOW_PLAYING_PROGRESS_POLL_INTERVAL_MS);
 

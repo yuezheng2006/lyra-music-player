@@ -12,6 +12,8 @@ import { useSearchNavigationStore } from '@/stores/useSearchNavigationStore';
 import { useOnlineLibraryFilterStore } from '@/stores/useOnlineLibraryFilterStore';
 import { useAggregatedOnlinePlaylists } from '@/hooks/useAggregatedOnlinePlaylists';
 import { syncQQMusicAuthFromElectron, getQQMusicAuth } from '@/services/musicProviders/qqMusicAuth';
+import { syncQishuiAuthFromElectron } from '@/services/musicProviders/qishuiMusicAuth';
+import { syncKugouAuthFromElectron } from '@/services/musicProviders/kugouMusicAuth';
 import { hasNeteaseSession, hasQQMusicSession } from '@/utils/onlineLibraryAccess';
 import { useShallow } from 'zustand/react/shallow';
 import type { PlayerState, PlaybackContext, SongResult, LyricData, StatusMessage } from '@/types';
@@ -156,6 +158,8 @@ export function useAppControllerCoreIntegrations(params: AppControllerCoreIntegr
     useEffect(() => {
         if (!isElectronWindow) return;
         void syncQQMusicAuthFromElectron();
+        void syncQishuiAuthFromElectron();
+        void syncKugouAuthFromElectron();
     }, [isElectronWindow]);
 
     const {

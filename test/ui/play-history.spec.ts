@@ -2,7 +2,9 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 // E2E 测试：播放历史功能
-test.describe('播放历史功能 E2E 测试', () => {
+// TODO: 这些用例硬编码 http://localhost:3000（Playwright harness 在 127.0.0.1:4173），
+// 且依赖真实运行的 dev 实例并会删除其 IndexedDB。需要改造成 4173 harness + mock 数据后再启用。
+test.describe.skip('播放历史功能 E2E 测试', () => {
   test.beforeEach(async ({ page }) => {
     // 清除 IndexedDB
     await page.goto('http://localhost:3000');
@@ -333,7 +335,8 @@ test.describe('播放历史功能 E2E 测试', () => {
 });
 
 // 性能测试
-test.describe('播放历史性能测试', () => {
+// TODO: 同上，依赖 localhost:3000 真实实例，待改造后启用。
+test.describe.skip('播放历史性能测试', () => {
   test('处理大量数据时应该保持流畅', async ({ page }) => {
     await page.goto('http://localhost:3000');
     await page.waitForTimeout(2000);

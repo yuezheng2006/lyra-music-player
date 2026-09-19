@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useTransform, MotionValue } from 'framer-motion';
-import type { Theme, AudioBands, Line } from '../../../types';
+import type { Theme, AudioBands, Line, SubtitleContentMode } from '../../../types';
 import type { GraphemeTiming } from '../../../utils/lyrics/graphemeTiming';
 import { getLineRenderEndTime } from '../../../utils/lyrics/renderHints';
 import { colorWithAlpha } from '../colorMix';
@@ -17,6 +17,7 @@ import {
     buildMonetDisplayTokens,
     measureMonetGraphemeOffsets,
     measureMonetLineLayout,
+    resolveMonetSubtitleText,
     type MonetLineStatus,
     type MonetMeasuredLineLayout,
     type MonetVisibleLineEntry,
@@ -60,6 +61,7 @@ interface MonetLyricsRailProps {
     keywordColoringEnabled: boolean;
     emptyText: string;
     showSubtitleTranslation?: boolean;
+    subtitleContentMode?: SubtitleContentMode;
     /** karaoke = KTV dual-color word fill with readable upcoming lines (no Monet blur stack). */
     presentation?: MonetRailPresentation;
     audioPower?: MotionValue<number>;
@@ -171,12 +173,15 @@ const buildMonetLayoutCacheKey = (
     fontStack: string,
     maxWidthPx: number,
     showSubtitleTranslation: boolean,
+    subtitleContentMode?: SubtitleContentMode,
 ) => [
     entry.index,
     entry.line.startTime,
     entry.line.endTime,
     entry.line.fullText,
     entry.line.translation ?? '',
+    entry.line.romanization ?? '',
+    subtitleContentMode ?? '',
     entry.status,
     fontPx,
     translationFontPx,
@@ -193,8 +198,9 @@ const getOrMeasureMonetLineLayout = (
     fontStack: string,
     maxWidthPx: number,
     showSubtitleTranslation: boolean,
+    subtitleContentMode?: SubtitleContentMode,
 ) => {
-    const cacheKey = buildMonetLayoutCacheKey(entry, fontPx, translationFontPx, fontStack, maxWidthPx, showSubtitleTranslation);
+    const cacheKey = buildMonetLayoutCacheKey(entry, fontPx, translationFontPx, fontStack, maxWidthPx, showSubtitleTranslation, subtitleContentMode);
     const cached = cache.get(cacheKey);
     if (cached) {
         return cached;
@@ -208,6 +214,7 @@ const getOrMeasureMonetLineLayout = (
         fontStack,
         maxWidthPx,
         showSubtitleTranslation,
+        subtitleContentMode,
     });
     trimOldestCacheEntry(cache, MONET_LAYOUT_CACHE_LIMIT);
     cache.set(cacheKey, layout);
@@ -257,6 +264,7 @@ const buildPositionedEntries = (
     fontStack: string,
     glowBufferPx: number,
     showSubtitleTranslation: boolean,
+    subtitleContentMode: SubtitleContentMode | undefined,
     layoutCache: MonetLayoutCache,
     presentation: MonetRailPresentation = 'monet',
     immersiveLyrics: boolean = false,
@@ -276,6 +284,7 @@ const buildPositionedEntries = (
             fontStack,
             contentWidthPx - 8,
             showSubtitleTranslation,
+            subtitleContentMode,
         );
 
         return {
@@ -518,6 +527,8 @@ const MonetWordSweep: React.FC<{
                     className="relative"
                     style={{
                         color: resolvedBaseColor,
+                        // Match LyricKaraokeWipe: dim unsung so progressive fill is obvious.
+                        opacity: 0.34,
                     }}
                 >
                     {text}
@@ -556,6 +567,7 @@ const MonetRailLine: React.FC<{
     vGlowBufferPx: number;
     wordColorMatchers: WordColorMatcher[];
     showSubtitleTranslation: boolean;
+    subtitleContentMode?: SubtitleContentMode;
     presentation?: MonetRailPresentation;
     audioPower?: MotionValue<number>;
     onLineSeek?: (line: Line) => void;
@@ -565,7 +577,7 @@ const MonetRailLine: React.FC<{
     immersiveLyrics?: boolean;
     visualEffectConfig?: LyricVisualEffectConfig;
     letterSpacingPx?: number;
-}> = ({ entry, currentTime, theme, lyricFontPx, translationFontPx, fontStack, glowBufferPx, vGlowBufferPx, wordColorMatchers, showSubtitleTranslation, presentation = 'monet', audioPower, onLineSeek, canSeek = false, disableEntryMotion = false, renderStaticPassed = false, immersiveLyrics = false, visualEffectConfig, letterSpacingPx = 0 }) => {
+}> = ({ entry, currentTime, theme, lyricFontPx, translationFontPx, fontStack, glowBufferPx, vGlowBufferPx, wordColorMatchers, showSubtitleTranslation, subtitleContentMode, presentation = 'monet', audioPower, onLineSeek, canSeek = false, disableEntryMotion = false, renderStaticPassed = false, immersiveLyrics = false, visualEffectConfig, letterSpacingPx = 0 }) => {
     const { activeColor, hintColor, titleColor } = resolveLyricStageInkColors(theme);
     const isKaraoke = presentation === 'karaoke';
     // Wipe + body share one hue; progress is opacity reveal, not a second fill color.
@@ -575,6 +587,7 @@ const MonetRailLine: React.FC<{
     const exitOffset = entry.status === 'passed' || entry.offset < 0 ? -38 : 38;
     const textMask = getLineMask(entry.layout.isTextClipped, Math.max(lyricFontPx * 0.55, 12));
     const translationMask = getLineMask(entry.layout.isTranslationClipped, Math.max(translationFontPx * 0.65, 10));
+    const subtitleText = resolveMonetSubtitleText(entry.line, showSubtitleTranslation, subtitleContentMode);
     const suppressMotion = disableEntryMotion || isKaraoke;
     const handleSeek = (event: React.MouseEvent | React.KeyboardEvent) => {
         if (!canSeek) {
@@ -681,7 +694,7 @@ const MonetRailLine: React.FC<{
                     visualEffectConfig={visualEffectConfig}
                 />
             </div>
-            {showSubtitleTranslation && entry.status === 'active' && entry.line.translation ? (
+            {showSubtitleTranslation && entry.status === 'active' && subtitleText ? (
                 <motion.div
                     className="min-w-0 overflow-hidden whitespace-pre-wrap break-words"
                     initial={{ opacity: 0, y: 8 }}
@@ -710,7 +723,7 @@ const MonetRailLine: React.FC<{
                         maskSize: '100% 100%',
                     }}
                 >
-                    {entry.line.translation}
+                    {subtitleText}
                 </motion.div>
             ) : null}
         </motion.div>
@@ -730,6 +743,7 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
     keywordColoringEnabled,
     emptyText,
     showSubtitleTranslation = true,
+    subtitleContentMode: subtitleContentModeProp,
     presentation = 'monet',
     audioPower,
     audioBands,
@@ -750,6 +764,8 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
     const [manualScrollAnchorIndex, setManualScrollAnchorIndex] = useState<number | null>(null);
     const railSize = useMonetRailSize(railRef);
     const isKaraoke = presentation === 'karaoke';
+    const storeSubtitleContentMode = useSettingsUiStore(state => state.subtitleContentMode);
+    const subtitleContentMode = subtitleContentModeProp ?? storeSubtitleContentMode;
     const storeLyricFontPresetId = useSettingsUiStore(state => state.lyricFontPresetId);
     const storeVisualEffectIntensity = useSettingsUiStore(state => state.visualEffectIntensity);
     const lyricFontPresetId = lyricFontPresetIdProp ?? storeLyricFontPresetId;
@@ -803,11 +819,12 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
             resolvedFontStack,
             glowBufferPx,
             showSubtitleTranslation,
+            subtitleContentMode,
             layoutCacheRef.current,
             presentation,
             immersiveLyrics,
         ),
-        [visibleEntries, railSize, theme, lyricFontPx, inactiveFontPx, translationFontPx, resolvedFontStack, glowBufferPx, showSubtitleTranslation, presentation, immersiveLyrics],
+        [visibleEntries, railSize, theme, lyricFontPx, inactiveFontPx, translationFontPx, resolvedFontStack, glowBufferPx, showSubtitleTranslation, subtitleContentMode, presentation, immersiveLyrics],
     );
     const wordColorMatchers = useMemo(
         () => prepareWordColorMatchers(theme.wordColors, keywordColoringEnabled),
@@ -994,6 +1011,7 @@ const MonetLyricsRail: React.FC<MonetLyricsRailProps> = ({
                             vGlowBufferPx={vGlowBufferPx}
                             wordColorMatchers={wordColorMatchers}
                             showSubtitleTranslation={showSubtitleTranslation}
+                            subtitleContentMode={subtitleContentMode}
                             presentation={presentation}
                             audioPower={audioPower}
                             onLineSeek={handleLineSeek}

@@ -6,6 +6,7 @@ import type DevDebugOverlay from '../../DevDebugOverlay';
 import type PlaylistView from '../views/PlaylistView';
 import type AlbumView from '../views/AlbumView';
 import type ArtistView from '../views/ArtistView';
+import type NowPlayingToast from './NowPlayingToast';
 import { PlayerState } from '../../../types';
 import type {
     Interactive3dSceneTuning,
@@ -26,6 +27,7 @@ type DebugOverlayProps = React.ComponentProps<typeof DevDebugOverlay>;
 type PlaylistOverlayProps = React.ComponentProps<typeof PlaylistView>;
 type AlbumOverlayProps = React.ComponentProps<typeof AlbumView>;
 type ArtistOverlayProps = React.ComponentProps<typeof ArtistView>;
+type NowPlayingToastProps = React.ComponentProps<typeof NowPlayingToast>;
 
 export type AppOverlaysModel = {
     searchOverlay?: SearchOverlayProps | null;
@@ -36,6 +38,7 @@ export type AppOverlaysModel = {
     ) | null;
     debugOverlay?: DebugOverlayProps | null;
     floatingControls?: FloatingControlsProps | null;
+    nowPlayingToast?: NowPlayingToastProps | null;
 };
 
 type BuildAppOverlaysModelParams = {
@@ -49,10 +52,11 @@ type BuildAppOverlaysModelParams = {
     closeSearchView: () => void;
     handleSearchOverlaySubmit: (query?: string, options?: { displayQuery?: string }) => Promise<void>;
     handleSearchLoadMore: () => Promise<void>;
-    handleSearchResultPlay: (track: UnifiedSong) => void;
+    handleSearchResultPlay: (track: UnifiedSong, queue?: UnifiedSong[]) => void;
     handleSearchResultArtistSelect: (track: UnifiedSong, artistName: string, artistId?: number) => void;
     handleSearchResultAlbumSelect: (track: UnifiedSong, albumName: string, albumId?: number) => void;
     onDownloadSong?: (song: SongResult) => void | Promise<boolean>;
+    onDownloadSongs?: (songs: SongResult[]) => void | Promise<boolean>;
     canDownloadSong?: (song: SongResult | null | undefined) => boolean;
     downloadSongLabel?: string;
     popOverlay: () => void;
@@ -86,6 +90,7 @@ type BuildAppOverlaysModelParams = {
     playQueueLength: number;
     playQueue: SongResult[];
     audioSrc: string | null;
+    isAudioSourceLoading?: boolean;
     canToggleCurrentPlayback: boolean;
     isNowPlayingControlDisabled: boolean;
     lyrics: LyricData | null;
@@ -151,6 +156,7 @@ type BuildAppOverlaysModelParams = {
     openSongSettingsLabel?: string;
     getBackgroundPresetLabel?: (preset: MineradioVisualPresetId) => string;
     getVisualizerModeLabel?: (mode: VisualizerMode) => string;
+    nowPlayingToast?: NowPlayingToastProps | null;
 };
 
 // Builds the full overlay model, including detail overlays and floating playback controls.
@@ -169,6 +175,7 @@ export const buildAppOverlaysModel = ({
     handleSearchResultArtistSelect,
     handleSearchResultAlbumSelect,
     onDownloadSong,
+    onDownloadSongs,
     canDownloadSong,
     downloadSongLabel = 'Download',
     popOverlay,
@@ -194,6 +201,7 @@ export const buildAppOverlaysModel = ({
     playQueueLength,
     playQueue,
     audioSrc,
+    isAudioSourceLoading = false,
     canToggleCurrentPlayback,
     isNowPlayingControlDisabled,
     lyrics,
@@ -259,6 +267,7 @@ export const buildAppOverlaysModel = ({
     openSongSettingsLabel,
     getBackgroundPresetLabel,
     getVisualizerModeLabel,
+    nowPlayingToast = null,
 }: BuildAppOverlaysModelParams): AppOverlaysModel => ({
     searchOverlay: currentView === 'home'
         ? {
@@ -268,10 +277,15 @@ export const buildAppOverlaysModel = ({
             onSubmitSearch: handleSearchOverlaySubmit,
             onLoadMore: handleSearchLoadMore,
             onPlayTrack: handleSearchResultPlay,
+            onPlayAll: songs => {
+                playOnlineQueueFromStart(songs, { shouldNavigateToPlayer: true });
+            },
             onAddSongToQueue: addNeteaseSongToQueue,
+            onAddAllToQueue: addNeteaseSongsToQueue,
             onSelectArtist: handleSearchResultArtistSelect,
             onSelectAlbum: handleSearchResultAlbumSelect,
             onDownloadSong,
+            onDownloadSongs,
             canDownloadSong,
             downloadSongLabel,
         }
@@ -394,6 +408,7 @@ export const buildAppOverlaysModel = ({
             loopListLabel,
             loopOneLabel,
             playQueue,
+            isAudioSourceLoading,
             onPlayQueueSong: (song, queue) => {
                 return playSong(song, queue, false, { shouldNavigateToPlayer: false });
             },
@@ -445,4 +460,5 @@ export const buildAppOverlaysModel = ({
             downloadSongLabel,
         }
         : null,
+    nowPlayingToast,
 });

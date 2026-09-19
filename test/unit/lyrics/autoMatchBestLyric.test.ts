@@ -87,6 +87,7 @@ describe('autoMatchBestLyric', () => {
             lyrics: { lines: [], isWordByWord: true },
             mainLrc: 'test',
             yrcLrc: 'test',
+            romaLrc: null,
             transLrc: '',
             isPureMusic: false
         });
@@ -112,6 +113,7 @@ describe('autoMatchBestLyric', () => {
             lyrics: { lines: [], isWordByWord: false },
             mainLrc: 'test',
             yrcLrc: null,
+            romaLrc: null,
             transLrc: '',
             isPureMusic: false
         });
@@ -141,6 +143,7 @@ describe('autoMatchBestLyric', () => {
             lyrics: null,
             mainLrc: '[00:00.00]纯音乐，请欣赏',
             yrcLrc: null,
+            romaLrc: null,
             transLrc: '',
             isPureMusic: true,
             chorusRanges: []
@@ -244,6 +247,7 @@ describe('autoMatchBestLyric', () => {
             lyrics: { lines: [], isWordByWord: false },
             mainLrc: 'test',
             yrcLrc: null,
+            romaLrc: null,
             transLrc: '',
             isPureMusic: false,
             chorusRanges: [{ startTime: 34, endTime: 89 }]
@@ -350,6 +354,7 @@ describe('autoMatchBestLyric', () => {
             lyrics: { lines: [], isWordByWord: false },
             mainLrc: 'test',
             yrcLrc: null,
+            romaLrc: null,
             transLrc: '',
             isPureMusic: false
         });
@@ -377,6 +382,7 @@ describe('autoMatchBestLyric', () => {
             lyrics: { lines: [], isWordByWord: false },
             mainLrc: 'test',
             yrcLrc: null,
+            romaLrc: null,
             transLrc: '',
             isPureMusic: false
         });
@@ -411,6 +417,7 @@ describe('autoMatchBestLyric', () => {
             lyrics: { lines: [], isWordByWord: false },
             mainLrc: 'test',
             yrcLrc: null,
+            romaLrc: null,
             transLrc: '',
             isPureMusic: false
         });

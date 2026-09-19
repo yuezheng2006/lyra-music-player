@@ -4,6 +4,8 @@ import { useMoodEngineSongSync } from '@/hooks/atmosphere/useMoodEngineSongSync'
 import { useElectronPlaybackBridge } from '@/hooks/useElectronPlaybackBridge';
 import { useElectronVideoExportController } from '@/hooks/useElectronVideoExportController';
 import { useMediaSessionBridge } from '@/hooks/useMediaSessionBridge';
+import { usePlaybackDisplaySleepBridge } from '@/hooks/usePlaybackDisplaySleepBridge';
+import { useSleepTimer } from '@/hooks/useSleepTimer';
 import { useNavidromeScrobbleReporter } from '@/hooks/useNavidromeScrobbleReporter';
 import { usePlaybackAudioBridge } from '@/hooks/usePlaybackAudioBridge';
 import { usePlaybackInteractionBridge } from '@/hooks/usePlaybackInteractionBridge';
@@ -54,6 +56,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         isFmMode,
         isLocalSongLiked,
         isLyricsLoading,
+        isAudioSourceLoadingRef,
         isMainWindowClickThroughEnabled,
         isNowPlayingControlDisabledRef,
         isNowPlayingStageActive,
@@ -190,6 +193,15 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         taskbarPlayerStateRef.current = playerState;
     }, [playerState]);
 
+    usePlaybackDisplaySleepBridge(playerState);
+
+    useSleepTimer({
+        onExpireFallback: () => {
+            pausePlayback();
+            setStatusMsg({ type: 'info', text: t('status.sleepTimerPlaybackPaused') });
+        },
+    });
+
     useMediaSessionBridge({
         audioRef,
         currentSong,
@@ -290,6 +302,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         isPlaying: playerState === PlayerState.PLAYING,
         audioSrc,
         songKey: atmosphereSongKey,
+        trackTitle: currentSong?.name ?? null,
         audioContextRef,
         durationSec: duration,
         contentType: atmosphereTrackHints.contentType,
@@ -324,6 +337,7 @@ export function useAppControllerPlaybackBridges(core: AppControllerCoreResult & 
         syncNowPlayingClock,
         lyricTimelineOffsetMs,
         lyricCurrentTime,
+        isAudioSourceLoadingRef,
         onAtmosphereTick: atmosphereEngine.tick,
     });
 

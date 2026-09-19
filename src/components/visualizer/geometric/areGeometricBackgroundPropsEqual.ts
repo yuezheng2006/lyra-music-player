@@ -20,6 +20,7 @@ export const areGeometricBackgroundPropsEqual = (
     if (prevProps.hideShapes !== nextProps.hideShapes) return false;
     if (prevProps.disableVignette !== nextProps.disableVignette) return false;
     if (prevProps.paused !== nextProps.paused) return false;
+    if (prevProps.particlesYielded !== nextProps.particlesYielded) return false;
     if (prevProps.staticMode !== nextProps.staticMode) return false;
     if (prevProps.coverUrl !== nextProps.coverUrl) return false;
     if (prevProps.visualizerMode !== nextProps.visualizerMode) return false;

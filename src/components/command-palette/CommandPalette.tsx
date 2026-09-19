@@ -4,6 +4,8 @@ import { Command, CornerDownLeft, Loader2, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Theme } from '../../types';
 import type { CommandPaletteMatch, CommandPaletteCommand } from './types';
+import type { SyntaxSuggestion } from './syntax/types';
+import CommandPaletteSyntaxHints from './CommandPaletteSyntaxHints';
 
 // src/components/command-palette/CommandPalette.tsx
 // Full-screen command input overlay with autocomplete and keyboard execution.
@@ -18,6 +20,8 @@ type CommandPaletteProps = {
     isOpen: boolean;
     matches: CommandPaletteMatch[];
     query: string;
+    syntaxSuggestions: SyntaxSuggestion[];
+    syntaxActiveIndex: number;
     theme: Theme;
     onActiveCommandChange: (command: CommandPaletteCommand | null) => void;
     onActiveIndexChange: (index: number) => void;
@@ -27,6 +31,8 @@ type CommandPaletteProps = {
     onExecuteActive: () => Promise<boolean>;
     onExecuteMatch: (index: number) => Promise<boolean>;
     onQueryChange: (query: string) => void;
+    onAcceptSyntaxSuggestion: (suggestion: SyntaxSuggestion) => void;
+    onSyntaxActiveIndexChange: (index: number) => void;
 };
 
 const groupLabelKey: Record<string, string> = {
@@ -48,6 +54,8 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
     isOpen,
     matches,
     query,
+    syntaxSuggestions,
+    syntaxActiveIndex,
     theme,
     onActiveCommandChange,
     onActiveIndexChange,
@@ -57,6 +65,8 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
     onExecuteActive,
     onExecuteMatch,
     onQueryChange,
+    onAcceptSyntaxSuggestion,
+    onSyntaxActiveIndexChange,
 }) => {
     const { t } = useTranslation();
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -107,25 +117,55 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
 
             if (event.key === 'ArrowDown') {
                 event.preventDefault();
+                if (syntaxSuggestions.length > 0) {
+                    onSyntaxActiveIndexChange(Math.min(syntaxSuggestions.length - 1, syntaxActiveIndex + 1));
+                    return;
+                }
                 onActiveIndexChange(Math.min(matches.length - 1, activeIndex + 1));
                 return;
             }
 
             if (event.key === 'ArrowUp') {
                 event.preventDefault();
+                if (syntaxSuggestions.length > 0) {
+                    onSyntaxActiveIndexChange(Math.max(0, syntaxActiveIndex - 1));
+                    return;
+                }
                 onActiveIndexChange(Math.max(0, activeIndex - 1));
                 return;
             }
 
             if (event.key === 'Enter') {
                 event.preventDefault();
+                if (syntaxSuggestions.length > 0) {
+                    const suggestion = syntaxSuggestions[syntaxActiveIndex];
+                    if (suggestion) onAcceptSyntaxSuggestion(suggestion);
+                    return;
+                }
                 void onExecuteActive();
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [activeIndex, isOpen, matches.length, onActiveIndexChange, onClose, onExecuteActive, query, activeCommand, onActiveCommandChange, onQueryChange, isExecuting, isComposing]);
+    }, [
+        activeIndex,
+        isOpen,
+        matches.length,
+        onActiveIndexChange,
+        onClose,
+        onExecuteActive,
+        query,
+        activeCommand,
+        onActiveCommandChange,
+        onQueryChange,
+        isExecuting,
+        isComposing,
+        syntaxSuggestions,
+        syntaxActiveIndex,
+        onAcceptSyntaxSuggestion,
+        onSyntaxActiveIndexChange,
+    ]);
 
     return (
         <AnimatePresence>
@@ -224,6 +264,15 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                         </div>
 
                         {/* Removed activePreview top panel, it is now shown inline in the list items description */}
+
+                        <CommandPaletteSyntaxHints
+                            suggestions={syntaxSuggestions}
+                            activeIndex={syntaxActiveIndex}
+                            onAccept={onAcceptSyntaxSuggestion}
+                            onHover={onSyntaxActiveIndexChange}
+                            isDaylight={isDaylight}
+                            theme={theme}
+                        />
 
                         <div
                             className="max-h-[50vh] overflow-y-auto p-2"
